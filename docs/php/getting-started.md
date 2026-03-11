@@ -1,0 +1,222 @@
+# Getting Started — PHP
+
+## Requirements
+
+- PHP 8.2 or higher
+- `ext-json` (built-in)
+- `ext-simplexml` (built-in, for XML support)
+
+### Optional Dependencies
+
+```bash
+# For YAML support
+composer require symfony/yaml
+
+# For TOML support
+composer require devium/toml
+```
+
+## Installation
+
+```bash
+composer require safe-access-inline/safe-access-inline
+```
+
+## Basic Usage
+
+### Accessing data with dot notation
+
+```php
+use SafeAccessInline\SafeAccess;
+
+$json = '{"user": {"profile": {"name": "Ana", "age": 30}}}';
+$accessor = SafeAccess::fromJson($json);
+
+// Simple access
+$accessor->get('user.profile.name');     // "Ana"
+$accessor->get('user.profile.age');      // 30
+
+// Safe access — never throws, returns default
+$accessor->get('user.email', 'N/A');     // "N/A"
+$accessor->get('nonexistent.path');      // null (default)
+
+// Check existence
+$accessor->has('user.profile.name');     // true
+$accessor->has('user.email');            // false
+```
+
+### Working with arrays
+
+```php
+$data = [
+    'users' => [
+        ['name' => 'Ana', 'role' => 'admin'],
+        ['name' => 'Bob', 'role' => 'user'],
+        ['name' => 'Carol', 'role' => 'user'],
+    ],
+];
+
+$accessor = SafeAccess::fromArray($data);
+
+// Access by index
+$accessor->get('users.0.name');          // "Ana"
+$accessor->get('users.2.role');          // "user"
+
+// Wildcard — get all matching values
+$accessor->get('users.*.name');          // ["Ana", "Bob", "Carol"]
+$accessor->get('users.*.role');          // ["admin", "user", "user"]
+```
+
+### Immutable modifications
+
+```php
+$accessor = SafeAccess::fromJson('{"name": "Ana", "age": 30}');
+
+// set() returns a NEW instance
+$modified = $accessor->set('email', 'ana@example.com');
+$modified->get('email');                 // "ana@example.com"
+$accessor->get('email');                 // null (original unchanged)
+
+// remove() also returns a new instance
+$cleaned = $accessor->remove('age');
+$cleaned->has('age');                    // false
+$accessor->has('age');                   // true (original unchanged)
+```
+
+### Format auto-detection
+
+```php
+$array = SafeAccess::detect(['key' => 'value']);    // ArrayAccessor
+$json  = SafeAccess::detect('{"key": "value"}');    // JsonAccessor
+$obj   = SafeAccess::detect((object)['a' => 1]);    // ObjectAccessor
+```
+
+### Cross-format transformation
+
+```php
+$accessor = SafeAccess::fromJson('{"name": "Ana", "age": 30}');
+
+$accessor->toArray();    // ['name' => 'Ana', 'age' => 30]
+$accessor->toObject();   // stdClass { name: "Ana", age: 30 }
+$accessor->toXml();      // "<root><name>Ana</name><age>30</age></root>"
+$accessor->toJson();     // '{"name":"Ana","age":30}'
+```
+
+### Working with XML
+
+```php
+$xml = <<<XML
+<?xml version="1.0"?>
+<config>
+    <database>
+        <host>localhost</host>
+        <port>5432</port>
+    </database>
+    <app>
+        <name>MyApp</name>
+    </app>
+</config>
+XML;
+
+$accessor = SafeAccess::fromXml($xml);
+$accessor->get('database.host');         // "localhost"
+$accessor->get('app.name');              // "MyApp"
+```
+
+### Working with INI
+
+```php
+$ini = <<<INI
+app_name = MyApp
+
+[database]
+host = localhost
+port = 3306
+
+[cache]
+driver = redis
+INI;
+
+$accessor = SafeAccess::fromIni($ini);
+$accessor->get('app_name');              // "MyApp"
+$accessor->get('database.host');         // "localhost"
+$accessor->get('cache.driver');          // "redis"
+```
+
+### Working with ENV
+
+```php
+$env = <<<ENV
+APP_NAME=MyApp
+APP_KEY="secret-key"
+DEBUG=true
+# This is a comment
+DB_HOST=localhost
+ENV;
+
+$accessor = SafeAccess::fromEnv($env);
+$accessor->get('APP_NAME');              // "MyApp"
+$accessor->get('APP_KEY');               // "secret-key"
+$accessor->get('DB_HOST');               // "localhost"
+```
+
+### Working with CSV
+
+```php
+$csv = "name,age,city\nAna,30,Porto Alegre\nBob,25,São Paulo";
+
+$accessor = SafeAccess::fromCsv($csv);
+$accessor->get('0.name');                // "Ana"
+$accessor->get('1.city');                // "São Paulo"
+$accessor->get('*.name');                // ["Ana", "Bob"]
+```
+
+### Custom accessors
+
+```php
+use SafeAccessInline\Core\AbstractAccessor;
+
+class MyFormatAccessor extends AbstractAccessor
+{
+    public static function from(mixed $data): static
+    {
+        return new static($data);
+    }
+
+    protected function parse(mixed $raw): array
+    {
+        // Your custom parsing logic
+        return ['parsed' => $raw];
+    }
+}
+
+// Register
+SafeAccess::extend('myformat', MyFormatAccessor::class);
+
+// Use
+$accessor = SafeAccess::custom('myformat', $data);
+$accessor->get('parsed');
+```
+
+## Utility Methods
+
+```php
+$accessor = SafeAccess::fromArray([
+    'name' => 'Ana',
+    'age' => 30,
+    'tags' => ['php', 'laravel'],
+]);
+
+$accessor->type('name');     // "string"
+$accessor->type('age');      // "integer"
+$accessor->type('tags');     // "array"
+$accessor->type('missing');  // null
+
+$accessor->count();          // 3 (root keys)
+$accessor->count('tags');    // 2
+
+$accessor->keys();           // ['name', 'age', 'tags']
+$accessor->keys('tags');     // [0, 1]
+
+$accessor->all();            // full array
+```
