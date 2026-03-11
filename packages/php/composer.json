@@ -1,0 +1,56 @@
+{
+  "name": "safe-access-inline/safe-access-inline",
+  "version": "0.0.0",
+  "description": "Safe nested data access with dot notation — supports Array, Object, JSON, XML, YAML, TOML, INI, CSV, ENV.",
+  "type": "library",
+  "license": "MIT",
+  "keywords": ["safe-access", "dot-notation", "nested-data", "json", "xml", "yaml", "array", "accessor"],
+  "homepage": "https://github.com/felipesauer/safe-access-inline",
+  "authors": [
+    {
+      "name": "Felipe Sauer",
+      "homepage": "https://github.com/felipesauer"
+    }
+  ],
+  "support": {
+    "issues": "https://github.com/felipesauer/safe-access-inline/issues",
+    "source": "https://github.com/felipesauer/safe-access-inline/tree/main/packages/php"
+  },
+  "require": {
+    "php": "^8.2",
+    "ext-json": "*",
+    "ext-simplexml": "*",
+    "ext-libxml": "*"
+  },
+  "require-dev": {
+    "pestphp/pest": "^3.0",
+    "phpstan/phpstan": "^2.0",
+    "friendsofphp/php-cs-fixer": "^3.0"
+  },
+  "suggest": {
+    "symfony/yaml": "Required for YAML support (^7.0)",
+    "ext-yaml": "Alternative for YAML support (native extension)",
+    "devium/toml": "Required for TOML support"
+  },
+  "autoload": {
+    "psr-4": {
+      "SafeAccessInline\\": "src/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "SafeAccessInline\\Tests\\": "tests/"
+    }
+  },
+  "scripts": {
+    "test": "pest",
+    "analyse": "phpstan analyse",
+    "format": "php-cs-fixer fix"
+  },
+  "minimum-stability": "stable",
+  "config": {
+    "allow-plugins": {
+      "pestphp/pest-plugin": true
+    }
+  }
+}
