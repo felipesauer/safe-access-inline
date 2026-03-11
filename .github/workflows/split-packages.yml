@@ -24,6 +24,7 @@ jobs:
           SPLIT_TOKEN: ${{ secrets.SPLIT_TOKEN }}
           TARGET_REPO: ${{ github.repository_owner }}/${{ vars.PHP_REPO_NAME || 'safe-access-inline-php' }}
         run: |
+          git config --unset-all http.https://github.com/.extraheader || true
           SHA=$(git subtree split --prefix=packages/php)
           git remote add split-php "https://x-access-token:${SPLIT_TOKEN}@github.com/${TARGET_REPO}.git" 2>/dev/null || true
           git push split-php "${SHA}:refs/heads/main" --force
@@ -42,6 +43,7 @@ jobs:
           SPLIT_TOKEN: ${{ secrets.SPLIT_TOKEN }}
           TARGET_REPO: ${{ github.repository_owner }}/${{ vars.JS_REPO_NAME || 'safe-access-inline-js' }}
         run: |
+          git config --unset-all http.https://github.com/.extraheader || true
           SHA=$(git subtree split --prefix=packages/js)
           git remote add split-js "https://x-access-token:${SPLIT_TOKEN}@github.com/${TARGET_REPO}.git" 2>/dev/null || true
           git push split-js "${SHA}:refs/heads/main" --force
