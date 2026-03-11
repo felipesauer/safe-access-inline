@@ -1,0 +1,171 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  # ──────────────────────────────────────────────────────────
+  # Step 1: Release Please — creates/updates release PRs
+  # ──────────────────────────────────────────────────────────
+  release-please:
+    name: Release Please
+    runs-on: ubuntu-latest
+    outputs:
+      php_released: ${{ steps.release.outputs['packages/php--release_created'] }}
+      php_tag: ${{ steps.release.outputs['packages/php--tag_name'] }}
+      php_version: ${{ steps.release.outputs['packages/php--version'] }}
+      js_released: ${{ steps.release.outputs['packages/js--release_created'] }}
+      js_tag: ${{ steps.release.outputs['packages/js--tag_name'] }}
+      js_version: ${{ steps.release.outputs['packages/js--version'] }}
+
+    steps:
+      - name: Run Release Please
+        id: release
+        uses: googleapis/release-please-action@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  # ──────────────────────────────────────────────────────────
+  # Step 2: Wait for split to complete
+  #
+  # The split-packages.yml runs on the same push event.
+  # We need the split repos to be up-to-date before tagging.
+  # ──────────────────────────────────────────────────────────
+  wait-for-split:
+    name: Wait for Split
+    needs: [release-please]
+    if: >-
+      needs.release-please.outputs.php_released == 'true' ||
+      needs.release-please.outputs.js_released == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for PHP split to finish
+        uses: lewagon/wait-on-check-action@v1.3.4
+        with:
+          ref: ${{ github.sha }}
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          check-name: 'Split PHP Package'
+          wait-interval: 10
+          allowed-conclusions: success
+
+      - name: Wait for JS split to finish
+        uses: lewagon/wait-on-check-action@v1.3.4
+        with:
+          ref: ${{ github.sha }}
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          check-name: 'Split JS Package'
+          wait-interval: 10
+          allowed-conclusions: success
+
+  # ──────────────────────────────────────────────────────────
+  # Step 3: Sync tag to PHP split repo
+  # ──────────────────────────────────────────────────────────
+  sync-php-tag:
+    name: Sync PHP Tag
+    needs: [release-please, wait-for-split]
+    if: needs.release-please.outputs.php_released == 'true'
+    runs-on: ubuntu-latest
+    env:
+      PHP_REPO: ${{ github.repository_owner }}/${{ vars.PHP_REPO_NAME || 'safe-access-inline-php' }}
+
+    steps:
+      - name: Checkout PHP split repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.PHP_REPO }}
+          token: ${{ secrets.SPLIT_TOKEN }}
+          fetch-depth: 0
+
+      - name: Create and push tag
+        run: |
+          VERSION="${{ needs.release-please.outputs.php_version }}"
+          TAG="v${VERSION}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Remove tag if it already exists (idempotent)
+          git tag -d "${TAG}" 2>/dev/null || true
+          git push origin ":refs/tags/${TAG}" 2>/dev/null || true
+
+          git tag -a "${TAG}" -m "Release ${TAG}"
+          git push origin "${TAG}"
+
+          echo "✅ Tagged ${PHP_REPO} with ${TAG}"
+
+  # ──────────────────────────────────────────────────────────
+  # Step 4: Sync tag to JS split repo
+  # ──────────────────────────────────────────────────────────
+  sync-js-tag:
+    name: Sync JS Tag
+    needs: [release-please, wait-for-split]
+    if: needs.release-please.outputs.js_released == 'true'
+    runs-on: ubuntu-latest
+    env:
+      JS_REPO: ${{ github.repository_owner }}/${{ vars.JS_REPO_NAME || 'safe-access-inline-js' }}
+
+    steps:
+      - name: Checkout JS split repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.JS_REPO }}
+          token: ${{ secrets.SPLIT_TOKEN }}
+          fetch-depth: 0
+
+      - name: Create and push tag
+        run: |
+          VERSION="${{ needs.release-please.outputs.js_version }}"
+          TAG="v${VERSION}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git tag -d "${TAG}" 2>/dev/null || true
+          git push origin ":refs/tags/${TAG}" 2>/dev/null || true
+
+          git tag -a "${TAG}" -m "Release ${TAG}"
+          git push origin "${TAG}"
+
+          echo "✅ Tagged ${JS_REPO} with ${TAG}"
+
+  # ──────────────────────────────────────────────────────────
+  # Step 5: Publish to npm
+  # ──────────────────────────────────────────────────────────
+  publish-npm:
+    name: Publish to npm
+    needs: [release-please, sync-js-tag]
+    if: needs.release-please.outputs.js_released == 'true'
+    runs-on: ubuntu-latest
+    env:
+      JS_REPO: ${{ github.repository_owner }}/${{ vars.JS_REPO_NAME || 'safe-access-inline-js' }}
+
+    steps:
+      - name: Checkout JS split repo (tagged version)
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.JS_REPO }}
+          ref: "v${{ needs.release-please.outputs.js_version }}"
+          token: ${{ secrets.SPLIT_TOKEN }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: npm install --ignore-scripts
+
+      - name: Build
+        run: npm run build
+
+      - name: Publish
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
