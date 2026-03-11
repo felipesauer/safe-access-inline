@@ -1,0 +1,46 @@
+name: JS CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/js/**'
+      - '.github/workflows/js-ci.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'packages/js/**'
+      - '.github/workflows/js-ci.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: ['18', '20', '22']
+
+    defaults:
+      run:
+        working-directory: packages/js
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: 'npm'
+          cache-dependency-path: packages/js/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Run tests
+        run: npm test -- --coverage
+
+      - name: Lint
+        run: npm run lint
