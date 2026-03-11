@@ -1,5 +1,14 @@
 # API Reference — PHP
 
+## Table of Contents
+
+- [SafeAccess Facade](#safeaccess-facade)
+- [Accessor Instance Methods](#accessor-instance-methods)
+- [PluginRegistry](#pluginregistry)
+- [DotNotationParser](#dotnotationparser)
+- [Exceptions](#exceptions)
+- [Interfaces](#interfaces)
+
 ## SafeAccess Facade
 
 **Namespace:** `SafeAccessInline\SafeAccess`
@@ -40,17 +49,24 @@ $accessor = SafeAccess::fromXml('<root><name>Ana</name></root>');
 
 #### `SafeAccess::fromYaml(string $data): YamlAccessor`
 
-Creates an accessor from a YAML string. Requires `symfony/yaml` or `ext-yaml`.
+Creates an accessor from a YAML string. Requires a YAML parser plugin registered via `PluginRegistry`.
 
 ```php
+use SafeAccessInline\Core\PluginRegistry;
+use SafeAccessInline\Plugins\SymfonyYamlParser;
+
+PluginRegistry::registerParser('yaml', new SymfonyYamlParser());
 $accessor = SafeAccess::fromYaml("name: Ana\nage: 30");
 ```
 
 #### `SafeAccess::fromToml(string $data): TomlAccessor`
 
-Creates an accessor from a TOML string. Requires `devium/toml`.
+Creates an accessor from a TOML string. Requires a TOML parser plugin registered via `PluginRegistry`.
 
 ```php
+use SafeAccessInline\Plugins\DeviumTomlParser;
+
+PluginRegistry::registerParser('toml', new DeviumTomlParser());
 $accessor = SafeAccess::fromToml('name = "Ana"');
 ```
 
@@ -221,7 +237,7 @@ Convert data to a stdClass object.
 
 #### `toXml(string $rootElement = 'root'): string`
 
-Convert data to an XML string.
+Convert data to an XML string. Checks `PluginRegistry` for an XML serializer first; falls back to built-in `SimpleXMLElement` implementation.
 
 ```php
 $accessor->toXml();           // <root>...</root>
@@ -230,7 +246,102 @@ $accessor->toXml('config');   // <config>...</config>
 
 #### `toYaml(): string`
 
-Convert data to a YAML string. Requires `symfony/yaml`.
+Convert data to a YAML string. Checks `PluginRegistry` for a YAML serializer first; falls back to `yaml_emit()` if the `ext-yaml` PHP extension is available. Throws `UnsupportedTypeException` if neither is available.
+
+```php
+use SafeAccessInline\Plugins\SymfonyYamlSerializer;
+
+PluginRegistry::registerSerializer('yaml', new SymfonyYamlSerializer());
+$accessor->toYaml();          // "name: Ana\nage: 30\n"
+```
+
+#### `transform(string $format): string`
+
+Serialize data to any format that has a registered serializer plugin. Throws `UnsupportedTypeException` if no serializer is registered for the given format.
+
+```php
+PluginRegistry::registerSerializer('yaml', new SymfonyYamlSerializer());
+$accessor->transform('yaml');  // "name: Ana\nage: 30\n"
+```
+
+---
+
+## PluginRegistry
+
+**Namespace:** `SafeAccessInline\Core\PluginRegistry`
+
+Static registry for parser and serializer plugins. Parsers convert raw strings to arrays; serializers convert arrays to formatted strings.
+
+#### `PluginRegistry::registerParser(string $format, ParserPluginInterface $parser): void`
+
+Register a parser plugin for the given format.
+
+```php
+use SafeAccessInline\Plugins\SymfonyYamlParser;
+PluginRegistry::registerParser('yaml', new SymfonyYamlParser());
+```
+
+#### `PluginRegistry::registerSerializer(string $format, SerializerPluginInterface $serializer): void`
+
+Register a serializer plugin for the given format.
+
+```php
+use SafeAccessInline\Plugins\SymfonyYamlSerializer;
+PluginRegistry::registerSerializer('yaml', new SymfonyYamlSerializer());
+```
+
+#### `PluginRegistry::hasParser(string $format): bool`
+
+Check if a parser is registered for the given format.
+
+#### `PluginRegistry::hasSerializer(string $format): bool`
+
+Check if a serializer is registered for the given format.
+
+#### `PluginRegistry::getParser(string $format): ParserPluginInterface`
+
+Get the registered parser. Throws `UnsupportedTypeException` if not registered.
+
+#### `PluginRegistry::getSerializer(string $format): SerializerPluginInterface`
+
+Get the registered serializer. Throws `UnsupportedTypeException` if not registered.
+
+#### `PluginRegistry::reset(): void`
+
+Clear all registered plugins. Intended for testing — call in `beforeEach` to prevent cross-test pollution.
+
+### Plugin Interfaces
+
+#### `ParserPluginInterface`
+
+**Namespace:** `SafeAccessInline\Contracts\ParserPluginInterface`
+
+```php
+interface ParserPluginInterface
+{
+    /**
+     * @param string $raw
+     * @return array<mixed>
+     * @throws InvalidFormatException
+     */
+    public function parse(string $raw): array;
+}
+```
+
+#### `SerializerPluginInterface`
+
+**Namespace:** `SafeAccessInline\Contracts\SerializerPluginInterface`
+
+```php
+interface SerializerPluginInterface
+{
+    /**
+     * @param array<mixed> $data
+     * @return string
+     */
+    public function serialize(array $data): string;
+}
+```
 
 ---
 
@@ -259,8 +370,8 @@ Returns a new array (does not mutate input).
 | Exception | When |
 |-----------|------|
 | `AccessorException` | Base exception class |
-| `InvalidFormatException` | Invalid input format (e.g., malformed JSON) |
-| `UnsupportedTypeException` | `detect()` cannot determine format |
+| `InvalidFormatException` | Invalid input format (e.g., malformed JSON, missing parser plugin at accessor level) |
+| `UnsupportedTypeException` | `detect()` cannot determine format; `PluginRegistry` has no registered plugin; `toYaml()`/`transform()` has no serializer |
 | `PathNotFoundException` | Reserved (not thrown by `get()`) |
 
 ---
@@ -268,8 +379,10 @@ Returns a new array (does not mutate input).
 ## Interfaces
 
 | Interface | Methods |
-|-----------|---------|
+|-----------|--------|
 | `ReadableInterface` | `get()`, `getMany()`, `all()` |
 | `WritableInterface` | `set()`, `remove()` |
-| `TransformableInterface` | `toArray()`, `toJson()`, `toXml()`, `toYaml()`, `toObject()` |
+| `TransformableInterface` | `toArray()`, `toJson()`, `toXml()`, `toYaml()`, `toObject()`, `transform()` |
 | `AccessorInterface` | Extends `ReadableInterface` + `TransformableInterface`, adds `from()`, `has()`, `type()`, `count()`, `keys()` |
+| `ParserPluginInterface` | `parse()` |
+| `SerializerPluginInterface` | `serialize()` |

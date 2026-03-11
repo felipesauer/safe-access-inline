@@ -1,5 +1,15 @@
 # Getting Started — PHP
 
+## Table of Contents
+
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [Basic Usage](#basic-usage)
+- [Plugin System](#plugin-system)
+- [Working with Formats](#working-with-formats)
+- [Custom Accessors](#custom-accessors)
+- [Utility Methods](#utility-methods)
+
 ## Requirements
 
 - PHP 8.2 or higher
@@ -7,6 +17,8 @@
 - `ext-simplexml` (built-in, for XML support)
 
 ### Optional Dependencies
+
+For YAML and TOML support, install a parser library and register it via the [Plugin System](#plugin-system):
 
 ```bash
 # For YAML support
@@ -101,6 +113,110 @@ $accessor->toObject();   // stdClass { name: "Ana", age: 30 }
 $accessor->toXml();      // "<root><name>Ana</name><age>30</age></root>"
 $accessor->toJson();     // '{"name":"Ana","age":30}'
 ```
+
+## Plugin System
+
+The Plugin System decouples YAML/TOML parsing from external libraries. Instead of hard-coding dependency checks, parsers and serializers are registered at runtime via `PluginRegistry`.
+
+### Registering Plugins
+
+```php
+use SafeAccessInline\Core\PluginRegistry;
+use SafeAccessInline\Plugins\SymfonyYamlParser;
+use SafeAccessInline\Plugins\SymfonyYamlSerializer;
+use SafeAccessInline\Plugins\DeviumTomlParser;
+
+// Register YAML parser and serializer (requires symfony/yaml)
+PluginRegistry::registerParser('yaml', new SymfonyYamlParser());
+PluginRegistry::registerSerializer('yaml', new SymfonyYamlSerializer());
+
+// Register TOML parser (requires devium/toml)
+PluginRegistry::registerParser('toml', new DeviumTomlParser());
+```
+
+> Register plugins early in your application bootstrap (e.g., a service provider, config file, or entry point).
+
+### Using YAML with Plugins
+
+```php
+// After registering SymfonyYamlParser:
+$accessor = SafeAccess::fromYaml("name: Ana\nage: 30");
+$accessor->get('name');           // "Ana"
+$accessor->get('age');            // 30
+
+// After registering SymfonyYamlSerializer:
+$accessor->toYaml();              // "name: Ana\nage: 30\n"
+```
+
+### Using TOML with Plugins
+
+```php
+// After registering DeviumTomlParser:
+$toml = <<<TOML
+title = "My Config"
+
+[database]
+host = "localhost"
+port = 5432
+TOML;
+
+$accessor = SafeAccess::fromToml($toml);
+$accessor->get('title');              // "My Config"
+$accessor->get('database.host');      // "localhost"
+```
+
+### Generic Serialization with `transform()`
+
+The `transform()` method serializes data to any format that has a registered serializer plugin:
+
+```php
+PluginRegistry::registerSerializer('yaml', new SymfonyYamlSerializer());
+
+$accessor = SafeAccess::fromJson('{"name": "Ana"}');
+$accessor->transform('yaml');     // "name: Ana\n"
+```
+
+### Shipped Plugins
+
+| Plugin | Format | Type | Requires |
+|--------|--------|------|----------|
+| `SymfonyYamlParser` | yaml | Parser | `symfony/yaml` |
+| `SymfonyYamlSerializer` | yaml | Serializer | `symfony/yaml` |
+| `NativeYamlParser` | yaml | Parser | `ext-yaml` (PHP extension) |
+| `DeviumTomlParser` | toml | Parser | `devium/toml` |
+
+### Creating Custom Plugins
+
+You can create your own plugins by implementing the plugin interfaces:
+
+```php
+use SafeAccessInline\Contracts\ParserPluginInterface;
+use SafeAccessInline\Contracts\SerializerPluginInterface;
+
+class MyYamlParser implements ParserPluginInterface
+{
+    public function parse(string $raw): array
+    {
+        // Your parsing logic
+        return yaml_parse($raw);
+    }
+}
+
+class MyYamlSerializer implements SerializerPluginInterface
+{
+    public function serialize(array $data): string
+    {
+        // Your serialization logic
+        return yaml_emit($data);
+    }
+}
+
+// Register
+PluginRegistry::registerParser('yaml', new MyYamlParser());
+PluginRegistry::registerSerializer('yaml', new MyYamlSerializer());
+```
+
+## Working with Formats
 
 ### Working with XML
 
