@@ -26,6 +26,6 @@ class DeviumTomlParser implements ParserPluginInterface
             );
         }
 
-        return \Devium\Toml\Toml::decode($raw);
+        return (array) \Devium\Toml\Toml::decode($raw);
     }
 }
