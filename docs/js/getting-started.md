@@ -1,5 +1,18 @@
 # Getting Started — JavaScript / TypeScript
 
+## Table of Contents
+
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [Basic Usage](#basic-usage)
+- [Plugin System](#plugin-system)
+- [Working with Formats](#working-with-formats)
+- [Custom Accessors](#custom-accessors)
+- [ESM and CommonJS](#esm-and-commonjs)
+- [TypeScript Support](#typescript-support)
+
+---
+
 ## Requirements
 
 - Node.js 18 or higher
@@ -8,7 +21,7 @@
 ## Installation
 
 ```bash
-npm install @safe-access-inline/core
+npm install @safe-access-inline/safe-access-inline
 ```
 
 ## Basic Usage
@@ -16,7 +29,7 @@ npm install @safe-access-inline/core
 ### Accessing data with dot notation
 
 ```typescript
-import { SafeAccess } from '@safe-access-inline/core';
+import { SafeAccess } from '@safe-access-inline/safe-access-inline';
 
 const json = '{"user": {"profile": {"name": "Ana", "age": 30}}}';
 const accessor = SafeAccess.fromJson(json);
@@ -89,7 +102,94 @@ accessor.toArray();    // { name: "Ana", age: 30 }
 accessor.toObject();   // deep clone as plain object
 accessor.toJson();     // '{"name":"Ana","age":30}'
 accessor.toJson(true); // pretty-printed JSON
+
+// Serialize to other formats via Plugin System
+accessor.toYaml();             // requires 'yaml' serializer plugin
+accessor.toXml('person');      // requires 'xml' serializer plugin
+accessor.transform('yaml');    // generic — uses PluginRegistry
 ```
+
+> **Note:** `toYaml()`, `toXml()`, and `transform()` require serializer plugins. See [Plugin System](#plugin-system) below.
+
+---
+
+## Plugin System
+
+The Plugin System lets you register custom parser and serializer plugins for any format. This is especially useful for `toYaml()`, `toXml()`, and `transform()`, which delegate serialization to registered plugins.
+
+### Registering Plugins
+
+```typescript
+import { PluginRegistry } from '@safe-access-inline/safe-access-inline';
+import type { ParserPlugin, SerializerPlugin } from '@safe-access-inline/safe-access-inline';
+
+// Example: register a YAML serializer using js-yaml
+import jsYaml from 'js-yaml';
+
+const yamlSerializer: SerializerPlugin = {
+  serialize: (data) => jsYaml.dump(data),
+};
+
+PluginRegistry.registerSerializer('yaml', yamlSerializer);
+```
+
+Once registered, `toYaml()` and `transform('yaml')` work on any accessor:
+
+```typescript
+const accessor = SafeAccess.fromJson('{"name": "Ana", "age": 30}');
+accessor.toYaml();
+// name: Ana
+// age: 30
+```
+
+### Overriding Built-in Parsers
+
+The JS package ships with lightweight built-in parsers for YAML and TOML. You can override them with a plugin if you need more robust parsing:
+
+```typescript
+import jsYaml from 'js-yaml';
+
+const yamlParser: ParserPlugin = {
+  parse: (raw) => jsYaml.load(raw) as Record<string, unknown>,
+};
+
+PluginRegistry.registerParser('yaml', yamlParser);
+
+// fromYaml() now uses your plugin instead of the built-in parser
+const accessor = SafeAccess.fromYaml(yamlContent);
+```
+
+### Using `transform()`
+
+The generic `transform()` method serializes data to any format that has a registered serializer:
+
+```typescript
+PluginRegistry.registerSerializer('csv', {
+  serialize: (data) => {
+    // Your CSV serialization logic
+    return Object.entries(data).map(([k, v]) => `${k},${v}`).join('\n');
+  },
+});
+
+const accessor = SafeAccess.fromJson('{"name": "Ana", "age": 30}');
+accessor.transform('csv');  // "name,Ana\nage,30"
+```
+
+### Resetting Plugins (Testing)
+
+In test suites, call `reset()` to clear all registered plugins between tests:
+
+```typescript
+import { PluginRegistry } from '@safe-access-inline/safe-access-inline';
+
+afterEach(() => {
+  PluginRegistry.reset();
+});
+```
+
+---
+
+## Working with Formats
 
 ### Working with XML
 
@@ -182,7 +282,7 @@ accessor.get('*.name');                // ["Ana", "Bob"]
 ### Custom accessors
 
 ```typescript
-import { AbstractAccessor } from '@safe-access-inline/core';
+import { AbstractAccessor } from '@safe-access-inline/safe-access-inline';
 
 class MyFormatAccessor extends AbstractAccessor {
   static from(data: unknown): MyFormatAccessor {
@@ -216,10 +316,10 @@ The package ships dual ESM/CJS builds:
 
 ```javascript
 // ESM
-import { SafeAccess } from '@safe-access-inline/core';
+import { SafeAccess } from '@safe-access-inline/safe-access-inline';
 
 // CommonJS
-const { SafeAccess } = require('@safe-access-inline/core');
+const { SafeAccess } = require('@safe-access-inline/safe-access-inline');
 ```
 
 ## TypeScript Support
@@ -232,6 +332,7 @@ import {
   AbstractAccessor,
   DotNotationParser,
   TypeDetector,
+  PluginRegistry,
   ArrayAccessor,
   ObjectAccessor,
   JsonAccessor,
@@ -244,5 +345,15 @@ import {
   AccessorError,
   InvalidFormatError,
   PathNotFoundError,
-} from '@safe-access-inline/core';
+  UnsupportedTypeError,
+} from '@safe-access-inline/safe-access-inline';
+
+import type {
+  ParserPlugin,
+  SerializerPlugin,
+  AccessorInterface,
+  ReadableInterface,
+  WritableInterface,
+  TransformableInterface,
+} from '@safe-access-inline/safe-access-inline';
 ```

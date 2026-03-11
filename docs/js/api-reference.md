@@ -1,8 +1,19 @@
 # API Reference — JavaScript / TypeScript
 
+## Table of Contents
+
+- [SafeAccess Facade](#safeaccess-facade)
+- [Accessor Instance Methods](#accessor-instance-methods)
+- [PluginRegistry](#pluginregistry)
+- [DotNotationParser](#dotnotationparser)
+- [Errors](#errors)
+- [TypeScript Types](#typescript-types)
+
+---
+
 ## SafeAccess Facade
 
-**Import:** `import { SafeAccess } from '@safe-access-inline/core'`
+**Import:** `import { SafeAccess } from '@safe-access-inline/safe-access-inline'`
 
 ### Factory Methods
 
@@ -40,7 +51,7 @@ const accessor = SafeAccess.fromXml('<root><name>Ana</name></root>');
 
 #### `SafeAccess.fromYaml(data: string): YamlAccessor`
 
-Creates an accessor from a YAML string. Uses a built-in lightweight parser.
+Creates an accessor from a YAML string. Uses a built-in lightweight parser by default. If a parser plugin is registered via `PluginRegistry`, the plugin takes precedence.
 
 ```typescript
 const accessor = SafeAccess.fromYaml('name: Ana\nage: 30');
@@ -48,7 +59,7 @@ const accessor = SafeAccess.fromYaml('name: Ana\nage: 30');
 
 #### `SafeAccess.fromToml(data: string): TomlAccessor`
 
-Creates an accessor from a TOML string. Uses a built-in lightweight parser.
+Creates an accessor from a TOML string. Uses a built-in lightweight parser by default. If a parser plugin is registered via `PluginRegistry`, the plugin takes precedence.
 
 ```typescript
 const accessor = SafeAccess.fromToml('name = "Ana"');
@@ -223,11 +234,115 @@ accessor.toJson(true);   // pretty-printed with 2-space indent
 
 Returns a deep clone of the data (via `structuredClone`).
 
+#### `toYaml(): string`
+
+Serializes the data to YAML. Requires a `'yaml'` serializer plugin registered via `PluginRegistry`. Throws `UnsupportedTypeError` if no serializer is registered.
+
+```typescript
+import { PluginRegistry } from '@safe-access-inline/safe-access-inline';
+import jsYaml from 'js-yaml';
+
+PluginRegistry.registerSerializer('yaml', { serialize: (data) => jsYaml.dump(data) });
+
+const accessor = SafeAccess.fromJson('{"name": "Ana"}');
+accessor.toYaml(); // "name: Ana\n"
+```
+
+#### `toXml(rootElement?: string): string`
+
+Serializes the data to XML. Requires an `'xml'` serializer plugin registered via `PluginRegistry`. Falls back to `UnsupportedTypeError` if no serializer is registered. The `rootElement` parameter (default: `'root'`) is passed internally but the serializer plugin controls the actual output.
+
+```typescript
+PluginRegistry.registerSerializer('xml', {
+  serialize: (data) => {
+    // Your XML serialization logic
+    return '<root>...</root>';
+  },
+});
+
+accessor.toXml();
+```
+
+#### `transform(format: string): string`
+
+Serializes the data to any format that has a registered serializer plugin. Throws `UnsupportedTypeError` if no serializer is found for the given format.
+
+```typescript
+accessor.transform('yaml');  // uses registered 'yaml' serializer
+accessor.transform('csv');   // uses registered 'csv' serializer
+```
+
+---
+
+## PluginRegistry
+
+**Import:** `import { PluginRegistry } from '@safe-access-inline/safe-access-inline'`
+
+Central registry for parser and serializer plugins. All methods are static.
+
+### Parser Methods
+
+#### `PluginRegistry.registerParser(format: string, parser: ParserPlugin): void`
+
+Registers a parser plugin for the given format. The plugin must implement `{ parse(raw: string): Record<string, unknown> }`.
+
+```typescript
+import type { ParserPlugin } from '@safe-access-inline/safe-access-inline';
+
+const yamlParser: ParserPlugin = {
+  parse: (raw) => jsYaml.load(raw) as Record<string, unknown>,
+};
+
+PluginRegistry.registerParser('yaml', yamlParser);
+```
+
+#### `PluginRegistry.hasParser(format: string): boolean`
+
+Returns `true` if a parser plugin is registered for the format.
+
+#### `PluginRegistry.getParser(format: string): ParserPlugin`
+
+Returns the registered parser plugin. Throws `UnsupportedTypeError` if not found.
+
+### Serializer Methods
+
+#### `PluginRegistry.registerSerializer(format: string, serializer: SerializerPlugin): void`
+
+Registers a serializer plugin for the given format. The plugin must implement `{ serialize(data: Record<string, unknown>): string }`.
+
+```typescript
+import type { SerializerPlugin } from '@safe-access-inline/safe-access-inline';
+
+const yamlSerializer: SerializerPlugin = {
+  serialize: (data) => jsYaml.dump(data),
+};
+
+PluginRegistry.registerSerializer('yaml', yamlSerializer);
+```
+
+#### `PluginRegistry.hasSerializer(format: string): boolean`
+
+Returns `true` if a serializer plugin is registered for the format.
+
+#### `PluginRegistry.getSerializer(format: string): SerializerPlugin`
+
+Returns the registered serializer plugin. Throws `UnsupportedTypeError` if not found.
+
+### Utility Methods
+
+#### `PluginRegistry.reset(): void`
+
+Clears all registered parsers and serializers. Useful in test teardowns.
+
+```typescript
+afterEach(() => PluginRegistry.reset());
+```
+
 ---
 
 ## DotNotationParser
 
-**Import:** `import { DotNotationParser } from '@safe-access-inline/core'`
+**Import:** `import { DotNotationParser } from '@safe-access-inline/safe-access-inline'`
 
 Static utility class. Typically used internally, but available for direct use.
 
@@ -250,8 +365,9 @@ Returns a new object (does not mutate input).
 | Error | When |
 |-------|------|
 | `AccessorError` | Base error class |
-| `InvalidFormatError` | Invalid input format (e.g., malformed JSON, wrong type) |
+| `InvalidFormatError` | Invalid input format (e.g., malformed JSON, missing parser plugin) |
 | `PathNotFoundError` | Reserved (not thrown by `get()`) |
+| `UnsupportedTypeError` | No serializer/parser plugin registered for the requested format |
 
 All errors extend the base `Error` class and `AccessorError`.
 
@@ -273,5 +389,16 @@ interface AccessorInterface {
   toArray(): Record<string, unknown>;
   toJson(pretty?: boolean): string;
   toObject(): Record<string, unknown>;
+  toYaml(): string;
+  toXml(rootElement?: string): string;
+  transform(format: string): string;
+}
+
+interface ParserPlugin {
+  parse(raw: string): Record<string, unknown>;
+}
+
+interface SerializerPlugin {
+  serialize(data: Record<string, unknown>): string;
 }
 ```
