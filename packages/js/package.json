@@ -1,5 +1,5 @@
 {
-  "name": "@safe-access-inline/core",
+  "name": "@safe-access-inline/safe-access-inline",
   "version": "0.0.0",
   "description": "Safe nested data access with dot notation — supports Object, Array, JSON, XML, YAML and more.",
   "type": "module",
