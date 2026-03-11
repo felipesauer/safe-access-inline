@@ -1,0 +1,22 @@
+# PHP
+packages/php/vendor/
+packages/php/composer.lock
+packages/php/.phpunit.cache/
+packages/php/.php-cs-fixer.cache
+packages/php/.phpstan.cache/
+
+# JS/TS
+packages/js/node_modules/
+packages/js/dist/
+packages/js/coverage/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
