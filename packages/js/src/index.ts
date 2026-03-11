@@ -1,0 +1,24 @@
+// Barrel export
+export { SafeAccess } from './safe-access';
+export { AbstractAccessor } from './core/abstract-accessor';
+export type { AccessorInterface } from './contracts/accessor.interface';
+export type { ReadableInterface } from './contracts/readable.interface';
+export type { WritableInterface } from './contracts/writable.interface';
+export type { TransformableInterface } from './contracts/transformable.interface';
+export { DotNotationParser } from './core/dot-notation-parser';
+export { TypeDetector } from './core/type-detector';
+export { ArrayAccessor } from './accessors/array.accessor';
+export { ObjectAccessor } from './accessors/object.accessor';
+export { JsonAccessor } from './accessors/json.accessor';
+export { XmlAccessor } from './accessors/xml.accessor';
+export { YamlAccessor } from './accessors/yaml.accessor';
+export { TomlAccessor } from './accessors/toml.accessor';
+export { IniAccessor } from './accessors/ini.accessor';
+export { CsvAccessor } from './accessors/csv.accessor';
+export { EnvAccessor } from './accessors/env.accessor';
+export { AccessorError } from './exceptions/accessor.error';
+export { InvalidFormatError } from './exceptions/invalid-format.error';
+export { PathNotFoundError } from './exceptions/path-not-found.error';
+export { UnsupportedTypeError } from './exceptions/unsupported-type.error';
+export { PluginRegistry } from './core/plugin-registry';
+export type { ParserPlugin, SerializerPlugin } from './core/plugin-registry';
