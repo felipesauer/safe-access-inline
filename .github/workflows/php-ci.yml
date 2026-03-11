@@ -44,8 +44,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
-          key: php-${{ matrix.php }}-composer-${{ hashFiles('packages/php/composer.lock') }}
-          restore-keys: php-${{ matrix.php }}-composer-
+          key: php-${{ matrix.php }}-${{ matrix.deps }}-composer-${{ hashFiles('packages/php/composer.json') }}
+          restore-keys: php-${{ matrix.php }}-${{ matrix.deps }}-composer-
 
       - name: Install dependencies
         run: composer install --no-interaction --prefer-dist
