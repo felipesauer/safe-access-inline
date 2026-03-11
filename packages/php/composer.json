@@ -1,10 +1,19 @@
 {
   "name": "safe-access-inline/safe-access-inline",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Safe nested data access with dot notation — supports Array, Object, JSON, XML, YAML, TOML, INI, CSV, ENV.",
   "type": "library",
   "license": "MIT",
-  "keywords": ["safe-access", "dot-notation", "nested-data", "json", "xml", "yaml", "array", "accessor"],
+  "keywords": [
+    "safe-access",
+    "dot-notation",
+    "nested-data",
+    "json",
+    "xml",
+    "yaml",
+    "array",
+    "accessor"
+  ],
   "homepage": "https://github.com/felipesauer/safe-access-inline",
   "authors": [
     {
