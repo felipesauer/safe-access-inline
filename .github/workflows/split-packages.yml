@@ -1,0 +1,47 @@
+name: Split Packages
+
+on:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: split-packages
+  cancel-in-progress: false
+
+jobs:
+  split-php:
+    name: Split PHP Package
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout mono-repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Split packages/php
+        uses: claudiodekker/splitsh-action@v1
+        with:
+          source: packages/php
+          target_repo: ${{ github.repository_owner }}/${{ vars.PHP_REPO_NAME || 'safe-access-inline-php' }}
+          target_branch: main
+        env:
+          GITHUB_TOKEN: ${{ secrets.SPLIT_TOKEN }}
+
+  split-js:
+    name: Split JS Package
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout mono-repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Split packages/js
+        uses: claudiodekker/splitsh-action@v1
+        with:
+          source: packages/js
+          target_repo: ${{ github.repository_owner }}/${{ vars.JS_REPO_NAME || 'safe-access-inline-js' }}
+          target_branch: main
+        env:
+          GITHUB_TOKEN: ${{ secrets.SPLIT_TOKEN }}
