@@ -20,3 +20,4 @@ packages/js/coverage/
 # OS
 .DS_Store
 Thumbs.db
+packages/js/package-lock.json
