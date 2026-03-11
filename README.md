@@ -8,6 +8,24 @@
 [![PHP Version](https://img.shields.io/badge/php-%3E%3D8.2-8892BF.svg)](https://php.net)
 [![Node Version](https://img.shields.io/badge/node-%3E%3D18-339933.svg)](https://nodejs.org)
 
+---
+
+## Table of Contents
+
+- [Why?](#why)
+- [Features](#features)
+- [Supported Formats](#supported-formats)
+- [Quick Start](#quick-start)
+- [Plugin System](#plugin-system)
+- [Dot Notation Syntax](#dot-notation-syntax)
+- [API Reference](#api-reference)
+- [Documentation](#documentation)
+- [Project Structure](#project-structure)
+- [Development](#development)
+- [Contributing](#contributing)
+- [Security](#security)
+- [License](#license)
+
 ## Why?
 
 Accessing nested data from configs, APIs, or file formats usually means writing defensive chains of `isset`, optional chaining, or try/catch blocks — each format with its own quirks.
@@ -43,7 +61,8 @@ One unified API. No exceptions. No surprises. Works the same in PHP and JavaScri
 - **Immutable** — `set()` and `remove()` return new instances
 - **Dot notation** — access nested data with `user.profile.name`
 - **Wildcard** — `users.*.email` returns an array of all emails
-- **Zero dependencies** in core (format-specific deps are optional/suggested)
+- **Plugin system** — extend parsing and serialization with custom plugins via `PluginRegistry`
+- **Zero dependencies** in core — format-specific parsers are registered via the Plugin System
 - **PHP ↔ JS parity** — identical API in both languages
 
 ## Supported Formats
@@ -54,11 +73,14 @@ One unified API. No exceptions. No surprises. Works the same in PHP and JavaScri
 | Object | ✅  | ✅    | None |
 | JSON   | ✅  | ✅    | `ext-json` (native) |
 | XML    | ✅  | ✅    | `ext-simplexml` (native) / built-in parser |
-| YAML   | ✅  | ✅    | `symfony/yaml` (suggested) / built-in parser |
-| TOML   | ✅  | ✅    | `devium/toml` (suggested) / built-in parser |
+| YAML   | ✅  | ✅    | Plugin required (PHP) / built-in parser with optional plugin override (JS) |
+| TOML   | ✅  | ✅    | Plugin required (PHP) / built-in parser with optional plugin override (JS) |
 | INI    | ✅  | ✅    | Native |
 | CSV    | ✅  | ✅    | Native |
 | ENV    | ✅  | ✅    | Native |
+
+> **PHP YAML/TOML**: parsing is fully delegated to plugins — register a parser via `PluginRegistry` before using `fromYaml()` / `fromToml()`.
+> **JS YAML/TOML**: built-in lightweight parsers work out of the box. Register a plugin to override them with a more robust parser.
 
 ## Quick Start
 
@@ -99,11 +121,11 @@ $accessor->toXml();     // "<root><name>Ana</name></root>"
 ### JavaScript / TypeScript
 
 ```bash
-npm install @safe-access-inline/core
+npm install @safe-access-inline/safe-access-inline
 ```
 
 ```typescript
-import { SafeAccess } from '@safe-access-inline/core';
+import { SafeAccess } from '@safe-access-inline/safe-access-inline';
 
 // From JSON
 const accessor = SafeAccess.fromJson('{"user": {"name": "Ana", "age": 30}}');
@@ -127,6 +149,59 @@ const auto = SafeAccess.detect(someData);
 accessor.toArray();   // { name: "Ana" }
 accessor.toJson();    // '{"name":"Ana"}'
 ```
+
+## Plugin System
+
+The Plugin System decouples format parsing and serialization from external libraries. Instead of hard-coding dependencies, parsers and serializers are registered at runtime via `PluginRegistry`.
+
+### PHP — Register Plugins
+
+```php
+use SafeAccessInline\Core\PluginRegistry;
+use SafeAccessInline\Plugins\SymfonyYamlParser;
+use SafeAccessInline\Plugins\SymfonyYamlSerializer;
+use SafeAccessInline\Plugins\DeviumTomlParser;
+
+// Register YAML support (requires composer require symfony/yaml)
+PluginRegistry::registerParser('yaml', new SymfonyYamlParser());
+PluginRegistry::registerSerializer('yaml', new SymfonyYamlSerializer());
+
+// Register TOML support (requires composer require devium/toml)
+PluginRegistry::registerParser('toml', new DeviumTomlParser());
+
+// Now you can use YAML and TOML
+$accessor = SafeAccess::fromYaml("name: Ana\nage: 30");
+$accessor->get('name');              // "Ana"
+$accessor->toYaml();                 // "name: Ana\nage: 30\n"
+$accessor->transform('yaml');        // Same — generic serialization
+```
+
+### JS/TS — Register Plugins
+
+```typescript
+import { SafeAccess, PluginRegistry } from '@safe-access-inline/safe-access-inline';
+
+// Register a YAML serializer (e.g., using js-yaml)
+PluginRegistry.registerSerializer('yaml', {
+  serialize: (data) => jsYaml.dump(data),
+});
+
+// Now toYaml() and transform('yaml') work
+const accessor = SafeAccess.fromJson('{"name": "Ana"}');
+accessor.toYaml();              // "name: Ana\n"
+accessor.transform('yaml');     // Same result
+```
+
+### Shipped Plugins (PHP)
+
+| Plugin | Format | Type | Requires |
+|--------|--------|------|----------|
+| `SymfonyYamlParser` | yaml | Parser | `symfony/yaml` |
+| `SymfonyYamlSerializer` | yaml | Serializer | `symfony/yaml` |
+| `NativeYamlParser` | yaml | Parser | `ext-yaml` |
+| `DeviumTomlParser` | toml | Parser | `devium/toml` |
+
+> See [PHP Getting Started — Plugin System](docs/php/getting-started.md#plugin-system) for detailed examples.
 
 ## Dot Notation Syntax
 
@@ -174,17 +249,30 @@ accessor.toJson();    // '{"name":"Ana"}'
 | `toArray()` | `array` | Convert to array |
 | `toJson(pretty?)` | `string` | Convert to JSON |
 | `toObject()` | `object` | Convert to object |
-| `toXml(root?)` | `string` | Convert to XML (PHP only) |
-| `toYaml()` | `string` | Convert to YAML (PHP only) |
+| `toXml(root?)` | `string` | Convert to XML |
+| `toYaml()` | `string` | Convert to YAML (requires serializer plugin) |
+| `transform(format)` | `string` | Convert to any plugin-registered format |
+
+### PluginRegistry
+
+| Method | Description |
+|--------|-------------|
+| `registerParser(format, plugin)` | Register a parser plugin for a format |
+| `registerSerializer(format, plugin)` | Register a serializer plugin for a format |
+| `hasParser(format)` | Check if a parser is registered |
+| `hasSerializer(format)` | Check if a serializer is registered |
+| `getParser(format)` | Get registered parser (throws if missing) |
+| `getSerializer(format)` | Get registered serializer (throws if missing) |
+| `reset()` | Clear all registered plugins (for testing) |
 
 > Full API docs: [PHP](docs/php/api-reference.md) | [JavaScript/TypeScript](docs/js/api-reference.md)
 
 ## Documentation
 
-- [Architecture](docs/architecture.md) — design principles, component diagram, data flow
-- [PHP Getting Started](docs/php/getting-started.md) — installation, usage, examples
+- [Architecture](docs/architecture.md) — design principles, component diagram, plugin system, data flow
+- [PHP Getting Started](docs/php/getting-started.md) — installation, plugin setup, usage examples
 - [PHP API Reference](docs/php/api-reference.md) — full method reference
-- [JS/TS Getting Started](docs/js/getting-started.md) — installation, usage, examples
+- [JS/TS Getting Started](docs/js/getting-started.md) — installation, plugin setup, usage examples
 - [JS/TS API Reference](docs/js/api-reference.md) — full method reference
 
 ## Project Structure
@@ -192,11 +280,32 @@ accessor.toJson();    // '{"name":"Ana"}'
 ```
 safe-access-inline/
 ├── packages/
-│   ├── php/          # PHP package (Composer)
-│   └── js/           # JS/TS package (npm)
-├── docs/             # Documentation
+│   ├── php/                 # PHP package (Composer)
+│   │   ├── src/
+│   │   │   ├── Accessors/   # 9 format accessors
+│   │   │   ├── Contracts/   # Interfaces (incl. ParserPlugin, SerializerPlugin)
+│   │   │   ├── Core/        # AbstractAccessor, DotNotationParser, PluginRegistry
+│   │   │   ├── Exceptions/  # Exception hierarchy
+│   │   │   ├── Plugins/     # Shipped parser/serializer plugins
+│   │   │   ├── Traits/      # HasFactory, HasTransformations, HasWildcardSupport
+│   │   │   └── SafeAccess.php
+│   │   └── tests/
+│   └── js/                  # JS/TS package (npm)
+│       ├── src/
+│       │   ├── accessors/   # 9 format accessors
+│       │   ├── contracts/   # TypeScript interfaces
+│       │   ├── core/        # AbstractAccessor, DotNotationParser, PluginRegistry
+│       │   ├── exceptions/  # Error hierarchy
+│       │   ├── safe-access.ts
+│       │   └── index.ts
+│       └── tests/
+├── docs/                    # Documentation
+├── .github/workflows/       # CI/CD
 ├── CHANGELOG.md
-├── LICENSE           # MIT
+├── CODE_OF_CONDUCT.md
+├── CONTRIBUTING.md
+├── LICENSE                  # MIT
+├── SECURITY.md
 └── README.md
 ```
 
@@ -229,6 +338,12 @@ Contributions are welcome! Please read the [Contributing Guide](CONTRIBUTING.md)
 
 This project uses [Conventional Commits](https://www.conventionalcommits.org/) for automated versioning via [release-please](https://github.com/googleapis/release-please).
 
+Please note that this project is released with a [Code of Conduct](CODE_OF_CONDUCT.md). By participating in this project you agree to abide by its terms.
+
+## Security
+
+If you discover a security vulnerability, please follow the [Security Policy](SECURITY.md) for responsible disclosure.
+
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE) — Copyright (c) 2026 Felipe Sauer
