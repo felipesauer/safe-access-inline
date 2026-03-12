@@ -1,0 +1,15 @@
+{
+  "packages/js/**/*.{ts,js}": [
+    "eslint --config packages/js/eslint.config.js --fix --no-warn-ignored",
+    "prettier --write"
+  ],
+  "packages/php/**/*.php": [
+    "php-cs-fixer fix --config=packages/php/.php-cs-fixer.dist.php"
+  ],
+  "*.{json,yml,yaml}": [
+    "prettier --write"
+  ],
+  "*.md": [
+    "prettier --write"
+  ]
+}
