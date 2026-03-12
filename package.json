@@ -1,0 +1,25 @@
+{
+  "private": true,
+  "name": "safe-access-inline-monorepo",
+  "type": "module",
+  "description": "Monorepo tooling for safe-access-inline",
+  "scripts": {
+    "prepare": "husky",
+    "test:js": "cd packages/js && npm test",
+    "test:php": "cd packages/php && composer test",
+    "test": "npm run test:js && npm run test:php",
+    "lint:js": "cd packages/js && npm run lint",
+    "format:js": "cd packages/js && npm run format",
+    "format:php": "cd packages/php && composer format"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^19.0",
+    "@commitlint/config-conventional": "^19.0",
+    "husky": "^9.0",
+    "lint-staged": "^15.0",
+    "prettier": "^3.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
