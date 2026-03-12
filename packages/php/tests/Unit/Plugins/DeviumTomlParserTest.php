@@ -1,12 +1,12 @@
 <?php
 
-use SafeAccessInline\Plugins\DeviumTomlParser;
 use SafeAccessInline\Exceptions\InvalidFormatException;
+use SafeAccessInline\Plugins\DeviumTomlParser;
 
 describe(DeviumTomlParser::class, function () {
 
     it('throws InvalidFormatException when dependency is not available', function () {
-        $parser = new class extends DeviumTomlParser {
+        $parser = new class () extends DeviumTomlParser {
             protected function isAvailable(): bool
             {
                 return false;

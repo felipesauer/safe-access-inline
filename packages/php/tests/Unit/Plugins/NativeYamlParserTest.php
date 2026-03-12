@@ -1,12 +1,12 @@
 <?php
 
-use SafeAccessInline\Plugins\NativeYamlParser;
 use SafeAccessInline\Exceptions\InvalidFormatException;
+use SafeAccessInline\Plugins\NativeYamlParser;
 
 describe(NativeYamlParser::class, function () {
 
     it('throws InvalidFormatException when dependency is not available', function () {
-        $parser = new class extends NativeYamlParser {
+        $parser = new class () extends NativeYamlParser {
             protected function isAvailable(): bool
             {
                 return false;

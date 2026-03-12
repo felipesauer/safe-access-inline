@@ -1,10 +1,10 @@
 <?php
 
-use SafeAccessInline\SafeAccess;
 use SafeAccessInline\Accessors\YamlAccessor;
-use SafeAccessInline\Core\PluginRegistry;
 use SafeAccessInline\Contracts\ParserPluginInterface;
+use SafeAccessInline\Core\PluginRegistry;
 use SafeAccessInline\Exceptions\InvalidFormatException;
+use SafeAccessInline\SafeAccess;
 
 beforeEach(function () {
     PluginRegistry::reset();
@@ -17,7 +17,9 @@ beforeEach(function () {
 function registerMockYamlParser(array $returnData = []): void
 {
     PluginRegistry::registerParser('yaml', new class ($returnData) implements ParserPluginInterface {
-        public function __construct(private array $returnData) {}
+        public function __construct(private array $returnData)
+        {
+        }
 
         public function parse(string $raw): array
         {

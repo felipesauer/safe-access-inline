@@ -1,9 +1,9 @@
 <?php
 
-use SafeAccessInline\SafeAccess;
 use SafeAccessInline\Core\PluginRegistry;
 use SafeAccessInline\Plugins\SymfonyYamlParser;
 use SafeAccessInline\Plugins\SymfonyYamlSerializer;
+use SafeAccessInline\SafeAccess;
 
 beforeEach(function () {
     PluginRegistry::reset();

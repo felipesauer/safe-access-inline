@@ -21,7 +21,8 @@ class SymfonyYamlSerializer implements SerializerPluginInterface
     public function __construct(
         private int $inline = 4,
         private int $indent = 2,
-    ) {}
+    ) {
+    }
 
     protected function isAvailable(): bool
     {

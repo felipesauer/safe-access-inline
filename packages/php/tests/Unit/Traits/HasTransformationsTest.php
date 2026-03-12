@@ -1,8 +1,8 @@
 <?php
 
 use SafeAccessInline\Accessors\ArrayAccessor;
-use SafeAccessInline\Core\PluginRegistry;
 use SafeAccessInline\Contracts\SerializerPluginInterface;
+use SafeAccessInline\Core\PluginRegistry;
 use SafeAccessInline\Exceptions\InvalidFormatException;
 use SafeAccessInline\Exceptions\UnsupportedTypeException;
 use SafeAccessInline\Traits\HasTransformations;
@@ -34,7 +34,7 @@ describe(HasTransformations::class, function () {
     });
 
     it('toXml uses registered serializer plugin', function () {
-        $serializer = new class implements SerializerPluginInterface {
+        $serializer = new class () implements SerializerPluginInterface {
             public function serialize(array $data): string
             {
                 return '<custom>' . json_encode($data) . '</custom>';
@@ -66,7 +66,7 @@ describe(HasTransformations::class, function () {
     });
 
     it('toYaml uses registered serializer plugin', function () {
-        $serializer = new class implements SerializerPluginInterface {
+        $serializer = new class () implements SerializerPluginInterface {
             public function serialize(array $data): string
             {
                 return 'yaml:' . json_encode($data);
@@ -99,7 +99,7 @@ describe(HasTransformations::class, function () {
     });
 
     it('transform delegates to registered serializer', function () {
-        $serializer = new class implements SerializerPluginInterface {
+        $serializer = new class () implements SerializerPluginInterface {
             public function serialize(array $data): string
             {
                 return 'custom:' . json_encode($data);

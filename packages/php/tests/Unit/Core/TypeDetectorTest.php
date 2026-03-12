@@ -6,9 +6,9 @@ use SafeAccessInline\Accessors\IniAccessor;
 use SafeAccessInline\Accessors\JsonAccessor;
 use SafeAccessInline\Accessors\ObjectAccessor;
 use SafeAccessInline\Accessors\XmlAccessor;
-use SafeAccessInline\Core\TypeDetector;
-use SafeAccessInline\Core\PluginRegistry;
 use SafeAccessInline\Contracts\ParserPluginInterface;
+use SafeAccessInline\Core\PluginRegistry;
+use SafeAccessInline\Core\TypeDetector;
 use SafeAccessInline\Exceptions\UnsupportedTypeException;
 
 describe(TypeDetector::class, function () {
@@ -59,7 +59,7 @@ describe(TypeDetector::class, function () {
     })->throws(UnsupportedTypeException::class);
 
     it('detects YAML string when parser plugin registered', function () {
-        $parser = new class implements ParserPluginInterface {
+        $parser = new class () implements ParserPluginInterface {
             public function parse(string $raw): array
             {
                 return ['key' => 'value'];

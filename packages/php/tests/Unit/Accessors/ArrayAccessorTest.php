@@ -1,8 +1,8 @@
 <?php
 
 use SafeAccessInline\Accessors\ArrayAccessor;
-use SafeAccessInline\Core\PluginRegistry;
 use SafeAccessInline\Contracts\SerializerPluginInterface;
+use SafeAccessInline\Core\PluginRegistry;
 use SafeAccessInline\Exceptions\InvalidFormatException;
 use SafeAccessInline\Exceptions\UnsupportedTypeException;
 
@@ -170,7 +170,7 @@ describe(ArrayAccessor::class, function () {
     })->throws(InvalidFormatException::class, 'Invalid XML root element name');
 
     it('toYaml — returns valid YAML via serializer plugin', function () {
-        PluginRegistry::registerSerializer('yaml', new class implements SerializerPluginInterface {
+        PluginRegistry::registerSerializer('yaml', new class () implements SerializerPluginInterface {
             public function serialize(array $data): string
             {
                 $lines = [];
@@ -207,7 +207,7 @@ describe(ArrayAccessor::class, function () {
     });
 
     it('transform — uses registered serializer plugin', function () {
-        PluginRegistry::registerSerializer('custom', new class implements SerializerPluginInterface {
+        PluginRegistry::registerSerializer('custom', new class () implements SerializerPluginInterface {
             public function serialize(array $data): string
             {
                 return 'custom:' . json_encode($data);

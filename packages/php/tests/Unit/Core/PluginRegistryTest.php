@@ -1,8 +1,8 @@
 <?php
 
-use SafeAccessInline\Core\PluginRegistry;
 use SafeAccessInline\Contracts\ParserPluginInterface;
 use SafeAccessInline\Contracts\SerializerPluginInterface;
+use SafeAccessInline\Core\PluginRegistry;
 use SafeAccessInline\Exceptions\UnsupportedTypeException;
 
 beforeEach(function () {
@@ -14,7 +14,7 @@ describe(PluginRegistry::class, function () {
     // ── Parser Registration ────────────────────────
 
     it('registers and retrieves a parser', function () {
-        $parser = new class implements ParserPluginInterface {
+        $parser = new class () implements ParserPluginInterface {
             public function parse(string $raw): array
             {
                 return ['parsed' => true];
@@ -37,11 +37,17 @@ describe(PluginRegistry::class, function () {
     });
 
     it('replaces parser when registering same format twice', function () {
-        $parser1 = new class implements ParserPluginInterface {
-            public function parse(string $raw): array { return ['v' => 1]; }
+        $parser1 = new class () implements ParserPluginInterface {
+            public function parse(string $raw): array
+            {
+                return ['v' => 1];
+            }
         };
-        $parser2 = new class implements ParserPluginInterface {
-            public function parse(string $raw): array { return ['v' => 2]; }
+        $parser2 = new class () implements ParserPluginInterface {
+            public function parse(string $raw): array
+            {
+                return ['v' => 2];
+            }
         };
 
         PluginRegistry::registerParser('yaml', $parser1);
@@ -53,7 +59,7 @@ describe(PluginRegistry::class, function () {
     // ── Serializer Registration ────────────────────
 
     it('registers and retrieves a serializer', function () {
-        $serializer = new class implements SerializerPluginInterface {
+        $serializer = new class () implements SerializerPluginInterface {
             public function serialize(array $data): string
             {
                 return 'serialized';
@@ -78,11 +84,17 @@ describe(PluginRegistry::class, function () {
     // ── Reset ──────────────────────────────────────
 
     it('reset clears all registered plugins', function () {
-        $parser = new class implements ParserPluginInterface {
-            public function parse(string $raw): array { return []; }
+        $parser = new class () implements ParserPluginInterface {
+            public function parse(string $raw): array
+            {
+                return [];
+            }
         };
-        $serializer = new class implements SerializerPluginInterface {
-            public function serialize(array $data): string { return ''; }
+        $serializer = new class () implements SerializerPluginInterface {
+            public function serialize(array $data): string
+            {
+                return '';
+            }
         };
 
         PluginRegistry::registerParser('yaml', $parser);
@@ -100,11 +112,17 @@ describe(PluginRegistry::class, function () {
     // ── Multiple Formats ───────────────────────────
 
     it('supports multiple formats simultaneously', function () {
-        $yamlParser = new class implements ParserPluginInterface {
-            public function parse(string $raw): array { return ['format' => 'yaml']; }
+        $yamlParser = new class () implements ParserPluginInterface {
+            public function parse(string $raw): array
+            {
+                return ['format' => 'yaml'];
+            }
         };
-        $tomlParser = new class implements ParserPluginInterface {
-            public function parse(string $raw): array { return ['format' => 'toml']; }
+        $tomlParser = new class () implements ParserPluginInterface {
+            public function parse(string $raw): array
+            {
+                return ['format' => 'toml'];
+            }
         };
 
         PluginRegistry::registerParser('yaml', $yamlParser);

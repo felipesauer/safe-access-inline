@@ -1,12 +1,12 @@
 <?php
 
-use SafeAccessInline\Plugins\SymfonyYamlParser;
 use SafeAccessInline\Exceptions\InvalidFormatException;
+use SafeAccessInline\Plugins\SymfonyYamlParser;
 
 describe(SymfonyYamlParser::class, function () {
 
     it('throws InvalidFormatException when dependency is not available', function () {
-        $parser = new class extends SymfonyYamlParser {
+        $parser = new class () extends SymfonyYamlParser {
             protected function isAvailable(): bool
             {
                 return false;

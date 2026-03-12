@@ -1,12 +1,12 @@
 <?php
 
-use SafeAccessInline\Plugins\SymfonyYamlSerializer;
 use SafeAccessInline\Exceptions\InvalidFormatException;
+use SafeAccessInline\Plugins\SymfonyYamlSerializer;
 
 describe(SymfonyYamlSerializer::class, function () {
 
     it('throws InvalidFormatException when dependency is not available', function () {
-        $serializer = new class extends SymfonyYamlSerializer {
+        $serializer = new class () extends SymfonyYamlSerializer {
             protected function isAvailable(): bool
             {
                 return false;

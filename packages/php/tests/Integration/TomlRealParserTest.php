@@ -1,8 +1,8 @@
 <?php
 
-use SafeAccessInline\SafeAccess;
 use SafeAccessInline\Core\PluginRegistry;
 use SafeAccessInline\Plugins\DeviumTomlParser;
+use SafeAccessInline\SafeAccess;
 
 beforeEach(function () {
     PluginRegistry::reset();

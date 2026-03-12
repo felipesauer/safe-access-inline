@@ -109,7 +109,7 @@ describe(ObjectAccessor::class, function () {
     });
 
     it('returns empty array when json_decode result is not an array', function () {
-        $obj = new class implements \JsonSerializable {
+        $obj = new class () implements \JsonSerializable {
             public function jsonSerialize(): string
             {
                 return 'scalar';

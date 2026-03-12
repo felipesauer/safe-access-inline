@@ -1,10 +1,10 @@
 <?php
 
-use SafeAccessInline\SafeAccess;
 use SafeAccessInline\Accessors\TomlAccessor;
-use SafeAccessInline\Core\PluginRegistry;
 use SafeAccessInline\Contracts\ParserPluginInterface;
+use SafeAccessInline\Core\PluginRegistry;
 use SafeAccessInline\Exceptions\InvalidFormatException;
+use SafeAccessInline\SafeAccess;
 
 beforeEach(function () {
     PluginRegistry::reset();
@@ -16,7 +16,9 @@ beforeEach(function () {
 function registerMockTomlParser(array $returnData = []): void
 {
     PluginRegistry::registerParser('toml', new class ($returnData) implements ParserPluginInterface {
-        public function __construct(private array $returnData) {}
+        public function __construct(private array $returnData)
+        {
+        }
 
         public function parse(string $raw): array
         {
