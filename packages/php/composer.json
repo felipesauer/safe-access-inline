@@ -1,6 +1,6 @@
 {
   "name": "safe-access-inline/safe-access-inline",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Safe nested data access with dot notation — supports Array, Object, JSON, XML, YAML, TOML, INI, CSV, ENV.",
   "type": "library",
   "license": "MIT",
