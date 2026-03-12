@@ -46,7 +46,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Wait for PHP split to finish
-        uses: lewagon/wait-on-check-action@v1.3.4
+        uses: lewagon/wait-on-check-action@v1.5.0
         with:
           ref: ${{ github.sha }}
           repo-token: ${{ secrets.GITHUB_TOKEN }}
@@ -55,7 +55,7 @@ jobs:
           allowed-conclusions: success
 
       - name: Wait for JS split to finish
-        uses: lewagon/wait-on-check-action@v1.3.4
+        uses: lewagon/wait-on-check-action@v1.5.0
         with:
           ref: ${{ github.sha }}
           repo-token: ${{ secrets.GITHUB_TOKEN }}
@@ -76,7 +76,7 @@ jobs:
 
     steps:
       - name: Checkout PHP split repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ${{ env.PHP_REPO }}
           token: ${{ secrets.SPLIT_TOKEN }}
@@ -112,7 +112,7 @@ jobs:
 
     steps:
       - name: Checkout JS split repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ${{ env.JS_REPO }}
           token: ${{ secrets.SPLIT_TOKEN }}
@@ -147,14 +147,14 @@ jobs:
 
     steps:
       - name: Checkout JS split repo (tagged version)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ${{ env.JS_REPO }}
           ref: "v${{ needs.release-please.outputs.js_version }}"
           token: ${{ secrets.SPLIT_TOKEN }}
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 20
           registry-url: 'https://registry.npmjs.org'

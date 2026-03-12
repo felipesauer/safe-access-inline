@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.1](https://github.com/felipesauer/safe-access-inline/compare/js-v0.1.0...js-v0.1.1) (2026-03-12)
+
+
+### Bug Fixes
+
+* **js:** add depth limit to XML parser to prevent DoS ([5c9b1ad](https://github.com/felipesauer/safe-access-inline/commit/5c9b1ad841e764fc979da8e4d433bb9c7e79ced6))
+* **js:** validate XML root element name to prevent injection ([10eca88](https://github.com/felipesauer/safe-access-inline/commit/10eca88008794139f25c63e0eb2b9a53d9ea7c4d))
+
 ## 0.1.0 (2026-03-11)
 
 
