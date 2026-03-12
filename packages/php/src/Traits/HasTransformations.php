@@ -49,7 +49,7 @@ trait HasTransformations
             return PluginRegistry::getSerializer('yaml')->serialize($this->data);
         }
 
-        if (function_exists('yaml_emit')) {
+        if ($this->hasNativeYamlEmit()) {
             return yaml_emit($this->data);
         }
 
@@ -57,6 +57,11 @@ trait HasTransformations
             'toYaml() requires a YAML serializer plugin. '
             . "Register with: PluginRegistry::registerSerializer('yaml', new SymfonyYamlSerializer())"
         );
+    }
+
+    protected function hasNativeYamlEmit(): bool
+    {
+        return function_exists('yaml_emit');
     }
 
     /**

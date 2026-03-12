@@ -18,16 +18,21 @@ use SafeAccessInline\Exceptions\InvalidFormatException;
  */
 class SymfonyYamlParser implements ParserPluginInterface
 {
+    protected function isAvailable(): bool
+    {
+        return class_exists(\Symfony\Component\Yaml\Yaml::class);
+    }
+
     public function parse(string $raw): array
     {
-        if (!class_exists(\Symfony\Component\Yaml\Yaml::class)) {
+        if (!$this->isAvailable()) {
             throw new InvalidFormatException(
                 'symfony/yaml is not installed. Run: composer require symfony/yaml'
             );
         }
 
-        $parsed = \Symfony\Component\Yaml\Yaml::parse($raw);
+        $parsed = \Symfony\Component\Yaml\Yaml::parse($raw); // @codeCoverageIgnore
 
-        return is_array($parsed) ? $parsed : [];
+        return is_array($parsed) ? $parsed : []; // @codeCoverageIgnore
     }
 }

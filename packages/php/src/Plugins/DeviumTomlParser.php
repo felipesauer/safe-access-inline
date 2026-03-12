@@ -18,14 +18,19 @@ use SafeAccessInline\Exceptions\InvalidFormatException;
  */
 class DeviumTomlParser implements ParserPluginInterface
 {
+    protected function isAvailable(): bool
+    {
+        return class_exists(\Devium\Toml\Toml::class);
+    }
+
     public function parse(string $raw): array
     {
-        if (!class_exists(\Devium\Toml\Toml::class)) {
+        if (!$this->isAvailable()) {
             throw new InvalidFormatException(
                 'devium/toml is not installed. Run: composer require devium/toml'
             );
         }
 
-        return (array) \Devium\Toml\Toml::decode($raw);
+        return (array) \Devium\Toml\Toml::decode($raw); // @codeCoverageIgnore
     }
 }

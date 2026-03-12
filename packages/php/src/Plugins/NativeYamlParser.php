@@ -18,9 +18,14 @@ use SafeAccessInline\Exceptions\InvalidFormatException;
  */
 class NativeYamlParser implements ParserPluginInterface
 {
+    protected function isAvailable(): bool
+    {
+        return function_exists('yaml_parse');
+    }
+
     public function parse(string $raw): array
     {
-        if (!function_exists('yaml_parse')) {
+        if (!$this->isAvailable()) {
             throw new InvalidFormatException(
                 'ext-yaml is not installed. Run: pecl install yaml'
             );

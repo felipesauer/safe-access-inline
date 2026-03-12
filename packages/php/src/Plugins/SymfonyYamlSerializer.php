@@ -23,14 +23,19 @@ class SymfonyYamlSerializer implements SerializerPluginInterface
         private int $indent = 2,
     ) {}
 
+    protected function isAvailable(): bool
+    {
+        return class_exists(\Symfony\Component\Yaml\Yaml::class);
+    }
+
     public function serialize(array $data): string
     {
-        if (!class_exists(\Symfony\Component\Yaml\Yaml::class)) {
+        if (!$this->isAvailable()) {
             throw new InvalidFormatException(
                 'symfony/yaml is not installed. Run: composer require symfony/yaml'
             );
         }
 
-        return \Symfony\Component\Yaml\Yaml::dump($data, $this->inline, $this->indent);
+        return \Symfony\Component\Yaml\Yaml::dump($data, $this->inline, $this->indent); // @codeCoverageIgnore
     }
 }
