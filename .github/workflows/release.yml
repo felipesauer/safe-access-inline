@@ -76,7 +76,7 @@ jobs:
 
     steps:
       - name: Checkout PHP split repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ${{ env.PHP_REPO }}
           token: ${{ secrets.SPLIT_TOKEN }}
@@ -112,7 +112,7 @@ jobs:
 
     steps:
       - name: Checkout JS split repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ${{ env.JS_REPO }}
           token: ${{ secrets.SPLIT_TOKEN }}
@@ -147,7 +147,7 @@ jobs:
 
     steps:
       - name: Checkout JS split repo (tagged version)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ${{ env.JS_REPO }}
           ref: "v${{ needs.release-please.outputs.js_version }}"
