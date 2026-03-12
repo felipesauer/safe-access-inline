@@ -233,6 +233,9 @@ accessor.transform('yaml');     // Same result
 | `fromCsv(data)` | Create accessor from CSV string |
 | `fromEnv(data)` | Create accessor from ENV string |
 | `detect(data)` | Auto-detect format and create accessor |
+
+> **Note:** `detect()` uses heuristics and may not correctly identify ambiguous formats (e.g., YAML vs INI). TOML and CSV are not auto-detected. For predictable results, use the specific factory method (`fromYaml()`, `fromIni()`, `fromToml()`, `fromCsv()`, etc.).
+
 | `extend(name, class)` | Register custom accessor |
 | `custom(name, data)` | Instantiate registered custom accessor |
 

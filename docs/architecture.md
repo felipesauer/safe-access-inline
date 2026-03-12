@@ -173,6 +173,8 @@ Auto-detection priority (first match wins):
 8. **ENV string** (`KEY=VALUE` pattern) → `EnvAccessor`
 9. **Unsupported** → throws `UnsupportedTypeException`
 
+> **Limitations:** TOML and CSV are not auto-detected due to format ambiguity. The YAML heuristic (`key:` pattern without `=`) may produce false positives for non-YAML strings. Always prefer explicit factory methods (e.g., `fromYaml()`, `fromToml()`) for ambiguous inputs.
+
 ## Monorepo Structure
 
 ```
