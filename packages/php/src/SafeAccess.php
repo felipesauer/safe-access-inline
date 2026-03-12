@@ -110,7 +110,11 @@ final class SafeAccess
         return self::$customAccessors[$name]::from($data);
     }
 
-    /** Prevents instantiation. */
+    /**
+     * Prevents instantiation.
+     *
+     * @codeCoverageIgnore
+     */
     private function __construct()
     {
     }

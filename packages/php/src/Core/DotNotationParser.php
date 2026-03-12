@@ -121,8 +121,8 @@ final class DotNotationParser
         $current = &$result;
 
         $lastKey = array_pop($keys);
-        if ($lastKey === null) {
-            return $result;
+        if ($lastKey === null) { // @codeCoverageIgnore
+            return $result; // @codeCoverageIgnore
         }
 
         foreach ($keys as $key) {
