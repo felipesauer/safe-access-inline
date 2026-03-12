@@ -31,6 +31,8 @@ class DeviumTomlParser implements ParserPluginInterface
             );
         }
 
-        return (array) \Devium\Toml\Toml::decode($raw); // @codeCoverageIgnore
+        $json = json_encode(\Devium\Toml\Toml::decode($raw)); // @codeCoverageIgnore
+
+        return (array) json_decode($json !== false ? $json : '{}', true); // @codeCoverageIgnore
     }
 }

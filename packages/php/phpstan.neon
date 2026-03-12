@@ -6,3 +6,7 @@ parameters:
     paths:
         - src
     tmpDir: .phpstan.cache
+    ignoreErrors:
+        -
+            identifier: class.notFound
+            path: src/Plugins/*
