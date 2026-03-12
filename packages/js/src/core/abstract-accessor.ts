@@ -1,5 +1,6 @@
 import { DotNotationParser } from './dot-notation-parser';
 import { PluginRegistry } from './plugin-registry';
+import { InvalidFormatError } from '../exceptions/invalid-format.error';
 import { UnsupportedTypeError } from '../exceptions/unsupported-type.error';
 
 export interface AccessorInterface {
@@ -105,6 +106,10 @@ export abstract class AbstractAccessor implements AccessorInterface {
   }
 
   toXml(rootElement = 'root'): string {
+    if (!/^[a-zA-Z_][\w.-]*$/.test(rootElement)) {
+      throw new InvalidFormatError(`Invalid XML root element name: '${rootElement}'`);
+    }
+
     if (PluginRegistry.hasSerializer('xml')) {
       return PluginRegistry.getSerializer('xml').serialize(this.data);
     }
