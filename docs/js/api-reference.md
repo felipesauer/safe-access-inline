@@ -189,7 +189,7 @@ accessor.keys();           // ['name', 'age', 'items']
 
 #### `all(): Record<string, unknown>`
 
-Returns all data as a shallow copy.
+Returns all data as a shallow copy. Semantic intent: "give me everything as-is".
 
 ```typescript
 accessor.all(); // { name: 'Ana', age: 30, ... }
@@ -219,7 +219,7 @@ const newAccessor = accessor.remove('user.age');
 
 #### `toArray(): Record<string, unknown>`
 
-Returns a shallow copy of the data.
+Returns a shallow copy of the data. Semantic intent: "convert to array/object format". Currently identical to `all()`, but semantically distinct for future extensibility.
 
 #### `toJson(pretty?: boolean): string`
 

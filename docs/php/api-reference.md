@@ -190,7 +190,7 @@ $accessor->keys('items');    // [0, 1, 2]
 
 #### `all(): array`
 
-Returns all data as an associative array.
+Returns all data as an associative array. Semantic intent: "give me everything as-is".
 
 ```php
 $accessor->all(); // ['name' => 'Ana', 'age' => 30, ...]
@@ -220,7 +220,7 @@ $new = $accessor->remove('user.age');
 
 #### `toArray(): array`
 
-Convert data to a PHP array.
+Convert data to a PHP array. Semantic intent: "convert to array format". Currently identical to `all()`, but semantically distinct for future extensibility.
 
 #### `toJson(int $flags = 0): string`
 
