@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.2](https://github.com/felipesauer/safe-access-inline/compare/php-v0.1.1...php-v0.1.2) (2026-03-12)
+
+
+### Bug Fixes
+
+* **php:** resolve nested TOML tables returning null and PHPStan plugin errors ([228b1da](https://github.com/felipesauer/safe-access-inline/commit/228b1da0f6ce645e7a6ea39b8717cea9fa22d166))
+
+
+### Miscellaneous Chores
+
+* **php:** add coverage ignore annotations for defensive code ([c7cbdc9](https://github.com/felipesauer/safe-access-inline/commit/c7cbdc916bfb0137429912d1536a59932bc4545d))
+
 ## [0.1.1](https://github.com/felipesauer/safe-access-inline/compare/php-v0.1.0...php-v0.1.1) (2026-03-12)
 
 
