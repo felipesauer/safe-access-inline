@@ -159,6 +159,16 @@ describe(ArrayAccessor::class, function () {
         expect((string) $parsed->user->name)->toBe('Ana');
     });
 
+    it('toXml — invalid root element throws', function () {
+        $accessor = ArrayAccessor::from(['a' => 1]);
+        $accessor->toXml('root><evil/><root');
+    })->throws(InvalidFormatException::class, 'Invalid XML root element name');
+
+    it('toXml — empty root element throws', function () {
+        $accessor = ArrayAccessor::from(['a' => 1]);
+        $accessor->toXml('');
+    })->throws(InvalidFormatException::class, 'Invalid XML root element name');
+
     it('toYaml — returns valid YAML via serializer plugin', function () {
         PluginRegistry::registerSerializer('yaml', new class implements SerializerPluginInterface {
             public function serialize(array $data): string

@@ -3,6 +3,7 @@
 namespace SafeAccessInline\Traits;
 
 use SafeAccessInline\Core\PluginRegistry;
+use SafeAccessInline\Exceptions\InvalidFormatException;
 use SafeAccessInline\Exceptions\UnsupportedTypeException;
 
 /**
@@ -29,6 +30,10 @@ trait HasTransformations
 
     public function toXml(string $rootElement = 'root'): string
     {
+        if (!preg_match('/^[a-zA-Z_][\w.\-]*$/', $rootElement)) {
+            throw new InvalidFormatException("Invalid XML root element name: '{$rootElement}'");
+        }
+
         if (PluginRegistry::hasSerializer('xml')) {
             return PluginRegistry::getSerializer('xml')->serialize($this->data);
         }
