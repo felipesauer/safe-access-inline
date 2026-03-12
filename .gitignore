@@ -20,6 +20,9 @@ packages/js/package-lock.json
 node_modules/
 package-lock.json
 
+# Lint-staged artifacts
+.php-cs-fixer.cache
+
 # IDE
 .idea/
 .vscode/
