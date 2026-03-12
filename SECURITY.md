@@ -15,14 +15,15 @@ If you discover a security vulnerability in this project, please report it respo
 
 ### How to Report
 
-1. **Open a GitHub Issue** with the prefix `[SECURITY]` in the title.
-   - Example: `[SECURITY] Arbitrary code execution via crafted TOML input`
+1. **Use GitHub's private vulnerability reporting:** go to the [**Security** tab → **Report a vulnerability**](https://github.com/felipesauer/safe-access-inline/security/advisories/new).
 2. **Include the following details:**
    - A clear description of the vulnerability
    - Steps to reproduce the issue
    - Affected package(s) and version(s)
    - Potential impact assessment
    - (Optional) A suggested fix or patch
+
+> **Important:** Do **not** open a public GitHub Issue for security vulnerabilities. Use the private reporting channel above to ensure responsible disclosure.
 
 ### What to Expect
 
