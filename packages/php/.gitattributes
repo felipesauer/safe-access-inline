@@ -1,0 +1,11 @@
+# Distribution archive ignore — files excluded from Composer/archive downloads
+# These files are only needed for development and CI
+
+/.php-cs-fixer.dist.php export-ignore
+/.php-cs-fixer.cache export-ignore
+/.phpstan.cache/ export-ignore
+/phpstan.neon export-ignore
+/phpunit.xml.dist export-ignore
+/tests/ export-ignore
+/.gitattributes export-ignore
+/.gitignore export-ignore
