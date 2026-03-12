@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.1.1](https://github.com/felipesauer/safe-access-inline/compare/php-v0.1.0...php-v0.1.1) (2026-03-12)
+
+
+### Bug Fixes
+
+* **php:** validate XML root element name to prevent injection ([6736345](https://github.com/felipesauer/safe-access-inline/commit/67363452d42d02c16e8753eae9c54b970dbe8249))
+
+
+### Miscellaneous Chores
+
+* add .gitattributes for LF normalization and export-ignore ([755a3a3](https://github.com/felipesauer/safe-access-inline/commit/755a3a3a6c91a4cc3986fd5fb478c3296bbd3901))
+
 ## 0.1.0 (2026-03-11)
 
 

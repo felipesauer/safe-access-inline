@@ -1,6 +1,6 @@
 {
   "name": "@safe-access-inline/safe-access-inline",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Safe nested data access with dot notation — supports Object, Array, JSON, XML, YAML and more.",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -49,12 +49,12 @@
     "access": "public"
   },
   "devDependencies": {
-    "eslint": "^9.0",
+    "eslint": "^10.0",
     "prettier": "^3.0",
     "tsup": "^8.0",
     "typescript": "^5.5",
     "typescript-eslint": "^8.57.0",
-    "@vitest/coverage-v8": "^2.0",
+    "@vitest/coverage-v8": "^4.1",
     "vitest": "^4.1"
   },
   "engines": {
