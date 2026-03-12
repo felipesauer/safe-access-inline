@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { IniAccessor } from '../../../src/accessors/ini.accessor';
 import { InvalidFormatError } from '../../../src/exceptions/invalid-format.error';
 
-describe('IniAccessor', () => {
-  const ini = `
+describe(IniAccessor.name, () => {
+    const ini = `
 app_name = MyApp
 debug = true
 
@@ -17,79 +17,124 @@ driver = redis
 ttl = 60
 `;
 
-  it('from — valid INI string', () => {
-    const accessor = IniAccessor.from(ini);
-    expect(accessor).toBeInstanceOf(IniAccessor);
-  });
+    it('from — valid INI string', () => {
+        const accessor = IniAccessor.from(ini);
+        expect(accessor).toBeInstanceOf(IniAccessor);
+    });
 
-  it('from — invalid type throws', () => {
-    expect(() => IniAccessor.from(123)).toThrow(InvalidFormatError);
-  });
+    it('from — invalid type throws', () => {
+        expect(() => IniAccessor.from(123)).toThrow(InvalidFormatError);
+    });
 
-  it('get — top-level key', () => {
-    const accessor = IniAccessor.from(ini);
-    expect(accessor.get('app_name')).toBe('MyApp');
-  });
+    it('get — top-level key', () => {
+        const accessor = IniAccessor.from(ini);
+        expect(accessor.get('app_name')).toBe('MyApp');
+    });
 
-  it('get — boolean coercion', () => {
-    const accessor = IniAccessor.from(ini);
-    expect(accessor.get('debug')).toBe(true);
-  });
+    it('get — boolean coercion', () => {
+        const accessor = IniAccessor.from(ini);
+        expect(accessor.get('debug')).toBe(true);
+    });
 
-  it('get — section + key', () => {
-    const accessor = IniAccessor.from(ini);
-    expect(accessor.get('database.host')).toBe('localhost');
-    expect(accessor.get('database.port')).toBe(3306);
-    expect(accessor.get('database.name')).toBe('mydb');
-  });
+    it('get — section + key', () => {
+        const accessor = IniAccessor.from(ini);
+        expect(accessor.get('database.host')).toBe('localhost');
+        expect(accessor.get('database.port')).toBe(3306);
+        expect(accessor.get('database.name')).toBe('mydb');
+    });
 
-  it('get — nonexistent returns default', () => {
-    const accessor = IniAccessor.from(ini);
-    expect(accessor.get('missing.key', 'fallback')).toBe('fallback');
-  });
+    it('get — nonexistent returns default', () => {
+        const accessor = IniAccessor.from(ini);
+        expect(accessor.get('missing.key', 'fallback')).toBe('fallback');
+    });
 
-  it('has — existing', () => {
-    const accessor = IniAccessor.from(ini);
-    expect(accessor.has('database.host')).toBe(true);
-    expect(accessor.has('app_name')).toBe(true);
-  });
+    it('has — existing', () => {
+        const accessor = IniAccessor.from(ini);
+        expect(accessor.has('database.host')).toBe(true);
+        expect(accessor.has('app_name')).toBe(true);
+    });
 
-  it('has — nonexistent', () => {
-    const accessor = IniAccessor.from(ini);
-    expect(accessor.has('database.missing')).toBe(false);
-  });
+    it('has — nonexistent', () => {
+        const accessor = IniAccessor.from(ini);
+        expect(accessor.has('database.missing')).toBe(false);
+    });
 
-  it('set — immutable', () => {
-    const accessor = IniAccessor.from(ini);
-    const newAccessor = accessor.set('database.host', '127.0.0.1');
-    expect(newAccessor.get('database.host')).toBe('127.0.0.1');
-    expect(accessor.get('database.host')).toBe('localhost');
-  });
+    it('set — immutable', () => {
+        const accessor = IniAccessor.from(ini);
+        const newAccessor = accessor.set('database.host', '127.0.0.1');
+        expect(newAccessor.get('database.host')).toBe('127.0.0.1');
+        expect(accessor.get('database.host')).toBe('localhost');
+    });
 
-  it('remove — existing', () => {
-    const accessor = IniAccessor.from(ini);
-    const newAccessor = accessor.remove('cache');
-    expect(newAccessor.has('cache')).toBe(false);
-  });
+    it('remove — existing', () => {
+        const accessor = IniAccessor.from(ini);
+        const newAccessor = accessor.remove('cache');
+        expect(newAccessor.has('cache')).toBe(false);
+    });
 
-  it('toArray', () => {
-    const accessor = IniAccessor.from(ini);
-    const arr = accessor.toArray();
-    expect(arr).toHaveProperty('database');
-    expect(arr).toHaveProperty('cache');
-  });
+    it('toArray', () => {
+        const accessor = IniAccessor.from(ini);
+        const arr = accessor.toArray();
+        expect(arr).toHaveProperty('database');
+        expect(arr).toHaveProperty('cache');
+    });
 
-  it('toJson', () => {
-    const accessor = IniAccessor.from(ini);
-    const json = accessor.toJson();
-    const parsed = JSON.parse(json);
-    expect(parsed.database.host).toBe('localhost');
-  });
+    it('toJson', () => {
+        const accessor = IniAccessor.from(ini);
+        const json = accessor.toJson();
+        const parsed = JSON.parse(json);
+        expect(parsed.database.host).toBe('localhost');
+    });
 
-  it('count and keys', () => {
-    const accessor = IniAccessor.from(ini);
-    expect(accessor.count()).toBeGreaterThanOrEqual(4); // app_name, debug, database, cache
-    expect(accessor.keys()).toContain('database');
-    expect(accessor.keys()).toContain('cache');
-  });
+    it('count and keys', () => {
+        const accessor = IniAccessor.from(ini);
+        expect(accessor.count()).toBeGreaterThanOrEqual(4); // app_name, debug, database, cache
+        expect(accessor.keys()).toContain('database');
+        expect(accessor.keys()).toContain('cache');
+    });
+
+    it('coerces on/yes to true, off/no/none/empty to false, null to null', () => {
+        const data = `on_val = on\nyes_val = yes\noff_val = off\nno_val = no\nnone_val = none\nempty_val = \nnull_val = null`;
+        const accessor = IniAccessor.from(data);
+        expect(accessor.get('on_val')).toBe(true);
+        expect(accessor.get('yes_val')).toBe(true);
+        expect(accessor.get('off_val')).toBe(false);
+        expect(accessor.get('no_val')).toBe(false);
+        expect(accessor.get('none_val')).toBe(false);
+        expect(accessor.get('empty_val')).toBe(false);
+        expect(accessor.get('null_val')).toBeNull();
+    });
+
+    it('coerces float values', () => {
+        const accessor = IniAccessor.from('pi = 3.14');
+        expect(accessor.get('pi')).toBe(3.14);
+    });
+
+    it('handles single-quoted values', () => {
+        const accessor = IniAccessor.from("val = 'hello'");
+        expect(accessor.get('val')).toBe('hello');
+    });
+
+    it('skips comment lines with #', () => {
+        const accessor = IniAccessor.from('# comment line\nkey = value');
+        expect(accessor.get('key')).toBe('value');
+        expect(accessor.has('#')).toBe(false);
+    });
+
+    it('skips lines without = sign', () => {
+        const accessor = IniAccessor.from('invalid line\nkey = value');
+        expect(accessor.get('key')).toBe('value');
+    });
+
+    it('handles keys outside sections', () => {
+        const accessor = IniAccessor.from('global_key = global_val\n[section]\nkey = val');
+        expect(accessor.get('global_key')).toBe('global_val');
+        expect(accessor.get('section.key')).toBe('val');
+    });
+
+    it('merges duplicate section headers', () => {
+        const accessor = IniAccessor.from('[section]\nkey1 = val1\n[section]\nkey2 = val2');
+        expect(accessor.get('section.key1')).toBe('val1');
+        expect(accessor.get('section.key2')).toBe('val2');
+    });
 });
