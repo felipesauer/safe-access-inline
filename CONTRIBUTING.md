@@ -26,6 +26,11 @@ Thank you for considering contributing! This guide covers everything you need to
     - [Types](#types)
     - [Scopes](#scopes)
     - [Breaking Changes](#breaking-changes)
+  - [Git Hooks (Automated Quality)](#git-hooks-automated-quality)
+    - [What the hooks do](#what-the-hooks-do)
+    - [Commit message examples](#commit-message-examples)
+    - [Available scopes](#available-scopes)
+    - [Bypassing hooks](#bypassing-hooks-emergency-only)
   - [Pull Requests](#pull-requests)
     - [Before Opening a PR](#before-opening-a-pr)
     - [PR Expectations](#pr-expectations)
@@ -49,6 +54,8 @@ This project is governed by the [Contributor Covenant Code of Conduct](CODE_OF_C
 | npm | >= 9.x | JS dependency management |
 
 You only need the tools for the package you're working on. PHP contributors don't need Node.js and vice versa.
+
+> **Node version note:** The repository's `.nvmrc` specifies Node 22 for local development. However, the package supports Node 18+ (tested in CI against 18, 20, and 22). Run `nvm use` to switch to the recommended development version.
 
 ## Development Setup
 
@@ -151,6 +158,17 @@ All pull requests must pass:
 | Static analysis | `vendor/bin/phpstan analyse` (Level 9) | `npx tsc --noEmit` |
 | Code style | `vendor/bin/php-cs-fixer fix --dry-run` | `npm run lint` |
 
+### Future Quality Improvements
+
+The following tools are planned for v1.0:
+
+- **Mutation testing** — [Stryker](https://stryker-mutator.io/) (JS) and [Infection](https://infection.github.io/) (PHP) to validate test quality beyond coverage metrics.
+- **Performance benchmarks** — per-format parsing and serialization benchmarks to track regressions.
+
+### Documentation
+
+Documentation in `docs/` is maintained manually. When modifying public API or behavior, update the corresponding documentation files. In the future, automated doc generation (TypeDoc for JS, phpDocumentor for PHP) may be introduced.
+
 ## Coding Standards
 
 ### PHP
@@ -228,6 +246,53 @@ feat(php)!: rename SafeAccess::from() to SafeAccess::detect()
 BREAKING CHANGE: The `from()` method has been renamed to `detect()` for clarity.
 ```
 
+## Git Hooks (Automated Quality)
+
+This project uses [Husky](https://typicode.github.io/husky/) to enforce quality standards automatically through git hooks. After running `npm install` in the repository root, hooks are set up automatically.
+
+### What the hooks do
+
+| Hook | Tool | Purpose |
+|------|------|---------|
+| `commit-msg` | [commitlint](https://commitlint.js.org/) | Validates commit messages follow Conventional Commits |
+| `pre-commit` | [lint-staged](https://github.com/lint-staged/lint-staged) | Runs linters/formatters on staged files |
+
+### Commit message examples
+
+```bash
+# ✅ Valid commits
+git commit -m "feat(js): add MessagePack accessor"
+git commit -m "fix(php): handle empty XML string in XmlAccessor"
+git commit -m "docs: update getting started guide"
+git commit -m "chore(ci): upgrade Node matrix to v22"
+git commit -m "test(php): add edge cases for DotNotationParser"
+
+# ⚠️ Accepted with warning
+git commit -m "feat: did something"       # Missing scope (warning, not error)
+
+# ❌ Invalid commits (will be rejected)
+git commit -m "fixed stuff"              # Missing type
+git commit -m "Feature(js): add thing"    # Type must be lowercase
+```
+
+### Available scopes
+
+| Scope | When to use |
+|-------|-------------|
+| `js` | Changes to `packages/js/` |
+| `php` | Changes to `packages/php/` |
+| `docs` | Documentation changes |
+| `ci` | CI/CD and workflow changes |
+| `deps` | Dependency updates |
+
+### Bypassing hooks (emergency only)
+
+In rare cases, you can skip hooks with `--no-verify`, but CI will still enforce all checks:
+
+```bash
+git commit -m "wip: temporary" --no-verify
+```
+
 ## Pull Requests
 
 ### Before Opening a PR
@@ -253,22 +318,11 @@ BREAKING CHANGE: The `from()` method has been renamed to `detect()` for clarity.
 
 ## Reporting Bugs
 
-Found a bug? Please [open an issue](https://github.com/felipesauer/safe-access-inline/issues/new) with:
-
-- **Title**: a clear, concise summary of the issue
-- **Environment**: PHP/Node version, OS, package version
-- **Steps to reproduce**: minimal code example that demonstrates the bug
-- **Expected behavior**: what you expected to happen
-- **Actual behavior**: what actually happened (include error messages or stack traces)
+Found a bug? [Open a bug report](https://github.com/felipesauer/safe-access-inline/issues/new?template=bug_report.yml) using the issue template. It will guide you through providing all the necessary information.
 
 ## Suggesting Features
 
-Have an idea? [Open an issue](https://github.com/felipesauer/safe-access-inline/issues/new) with:
-
-- **Title**: prefix with `[Feature]` — e.g., `[Feature] Add MessagePack accessor`
-- **Use case**: describe the problem you're trying to solve
-- **Proposal**: describe your suggested solution
-- **Alternatives**: mention any alternative approaches you've considered
+Have an idea? [Open a feature request](https://github.com/felipesauer/safe-access-inline/issues/new?template=feature_request.yml) using the issue template.
 
 ## Security
 
