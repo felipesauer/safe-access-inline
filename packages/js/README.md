@@ -136,7 +136,7 @@ import type {
 
 ## Requirements
 
-- Node.js 18+
+- Node.js 22+
 
 ## Documentation
 

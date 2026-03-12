@@ -15,7 +15,7 @@
 
 ## Requirements
 
-- Node.js 18 or higher
+- Node.js 22 or higher
 - TypeScript 5.5+ (for TypeScript projects)
 
 ## Installation

@@ -50,12 +50,12 @@ This project is governed by the [Contributor Covenant Code of Conduct](CODE_OF_C
 | -------- | ------- | ------------------------- |
 | PHP      | >= 8.2  | PHP package development   |
 | Composer | >= 2.x  | PHP dependency management |
-| Node.js  | >= 18   | JS/TS package development |
+| Node.js  | >= 22   | JS/TS package development |
 | npm      | >= 9.x  | JS dependency management  |
 
 You only need the tools for the package you're working on. PHP contributors don't need Node.js and vice versa.
 
-> **Node version note:** The repository's `.nvmrc` specifies Node 22 for local development. However, the package supports Node 18+ (tested in CI against 18, 20, and 22). Run `nvm use` to switch to the recommended development version.
+> **Node version note:** The repository's `.nvmrc` specifies Node 22 for local development. The package supports Node 22+ (tested in CI against 22 and 24). Run `nvm use` to switch to the recommended development version.
 
 ## Development Setup
 
