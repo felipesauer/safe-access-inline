@@ -13,7 +13,7 @@
     "format:php": "cd packages/php && composer format"
   },
   "devDependencies": {
-    "@commitlint/cli": "^19.0",
+    "@commitlint/cli": "^20.4",
     "@commitlint/config-conventional": "^19.0",
     "husky": "^9.0",
     "lint-staged": "^15.0",
