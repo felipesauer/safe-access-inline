@@ -61,7 +61,11 @@ export class XmlAccessor extends AbstractAccessor {
     return XmlAccessor.parseChildren(rootMatch[2].trim());
   }
 
-  private static parseChildren(content: string): Record<string, unknown> {
+  private static parseChildren(content: string, depth = 0): Record<string, unknown> {
+    if (depth > 100) {
+      throw new Error('XML nesting depth exceeds maximum of 100');
+    }
+
     const result: Record<string, unknown> = {};
     const tagRegex = /<(\w+)([^>]*)>([\s\S]*?)<\/\1>|<(\w+)([^>]*)\s*\/>/g;
     let match: RegExpExecArray | null;
@@ -75,7 +79,7 @@ export class XmlAccessor extends AbstractAccessor {
 
       let value: unknown;
       if (hasChildElements) {
-        value = XmlAccessor.parseChildren(innerContent);
+        value = XmlAccessor.parseChildren(innerContent, depth + 1);
       } else {
         value = innerContent;
       }

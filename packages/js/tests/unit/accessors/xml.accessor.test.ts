@@ -94,4 +94,13 @@ describe('XmlAccessor', () => {
     const items = accessor.get('item');
     expect(items).toEqual(['A', 'B', 'C']);
   });
+
+  it('throws on deeply nested XML (DoS protection)', () => {
+    let xml = '<root>';
+    for (let i = 0; i < 110; i++) xml += `<n${i}>`;
+    xml += 'deep';
+    for (let i = 109; i >= 0; i--) xml += `</n${i}>`;
+    xml += '</root>';
+    expect(() => XmlAccessor.from(xml)).toThrow(InvalidFormatError);
+  });
 });
