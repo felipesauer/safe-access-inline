@@ -128,4 +128,16 @@ describe(DotNotationParser::class, function () {
         expect($result)->toBe(['a' => 1]);
     });
 
+    it('get — wildcard with non-array child returns default per item', function () {
+        $data = ['items' => ['not-array', 'also-not']];
+        $result = DotNotationParser::get($data, 'items.*.name', 'fallback');
+        expect($result)->toBe(['fallback', 'fallback']);
+    });
+
+    it('set — overwrites non-array intermediate value', function () {
+        $data = ['a' => 'string-value'];
+        $result = DotNotationParser::set($data, 'a.b', 'deep');
+        expect($result['a']['b'])->toBe('deep');
+    });
+
 });

@@ -66,4 +66,9 @@ describe(IniAccessor::class, function () {
         expect($accessor->keys())->toBe(['a', 'b']);
     });
 
+    it('from — invalid INI content throws', function () {
+        // Malformed INI: unclosed quote causes parse_ini_string to return false
+        IniAccessor::from("[section]\nkey=\"unclosed");
+    })->throws(InvalidFormatException::class);
+
 });

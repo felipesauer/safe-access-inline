@@ -7,6 +7,8 @@ use SafeAccessInline\Accessors\JsonAccessor;
 use SafeAccessInline\Accessors\ObjectAccessor;
 use SafeAccessInline\Accessors\XmlAccessor;
 use SafeAccessInline\Core\TypeDetector;
+use SafeAccessInline\Core\PluginRegistry;
+use SafeAccessInline\Contracts\ParserPluginInterface;
 use SafeAccessInline\Exceptions\UnsupportedTypeException;
 
 describe(TypeDetector::class, function () {
@@ -54,6 +56,28 @@ describe(TypeDetector::class, function () {
 
     it('throws for unsupported type', function () {
         TypeDetector::resolve(42);
+    })->throws(UnsupportedTypeException::class);
+
+    it('detects YAML string when parser plugin registered', function () {
+        $parser = new class implements ParserPluginInterface {
+            public function parse(string $raw): array
+            {
+                return ['key' => 'value'];
+            }
+        };
+        PluginRegistry::registerParser('yaml', $parser);
+
+        $accessor = TypeDetector::resolve("database:\n  host: localhost");
+        expect($accessor)->toBeInstanceOf(\SafeAccessInline\Accessors\YamlAccessor::class);
+
+        PluginRegistry::reset();
+    });
+
+    it('falls through invalid JSON starting with {', function () {
+        // Invalid JSON starting with { should not be detected as JSON
+        $accessor = TypeDetector::resolve('{not json at all');
+        // This will be detected as something else or throw
+        expect($accessor)->not->toBeNull();
     })->throws(UnsupportedTypeException::class);
 
 });

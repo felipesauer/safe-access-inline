@@ -90,4 +90,33 @@ describe(ObjectAccessor::class, function () {
         expect($accessor->keys())->toBe(['a', 'b']);
     });
 
+    it('handles empty object', function () {
+        $accessor = ObjectAccessor::from((object) []);
+        expect($accessor->toArray())->toBe([]);
+        expect($accessor->count())->toBe(0);
+    });
+
+    it('getMany resolves multiple paths', function () {
+        $accessor = ObjectAccessor::from((object) ['a' => 1, 'b' => 2]);
+        $result = $accessor->getMany(['a' => null, 'missing' => 'default']);
+        expect($result)->toBe(['a' => 1, 'missing' => 'default']);
+    });
+
+    it('throws InvalidFormatException when json_encode fails', function () {
+        $obj = new \stdClass();
+        $obj->self = $obj; // circular reference
+        expect(fn () => ObjectAccessor::from($obj))->toThrow(InvalidFormatException::class);
+    });
+
+    it('returns empty array when json_decode result is not an array', function () {
+        $obj = new class implements \JsonSerializable {
+            public function jsonSerialize(): string
+            {
+                return 'scalar';
+            }
+        };
+        $accessor = ObjectAccessor::from($obj);
+        expect($accessor->toArray())->toBe([]);
+    });
+
 });

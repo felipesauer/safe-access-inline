@@ -83,4 +83,11 @@ describe(EnvAccessor::class, function () {
         expect(json_decode($accessor->toJson(), true))->toBe(['KEY' => 'value']);
     });
 
+    it('skips lines without = sign', function () {
+        $accessor = EnvAccessor::from("VALID=value\ninvalid line\nOTHER=data");
+        expect($accessor->get('VALID'))->toBe('value');
+        expect($accessor->get('OTHER'))->toBe('data');
+        expect($accessor->count())->toBe(2);
+    });
+
 });

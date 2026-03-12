@@ -107,4 +107,11 @@ describe(XmlAccessor::class, function () {
         expect($accessor->keys())->toBe(['a', 'b']);
     });
 
+    it('toXml returns asXML when created from SimpleXMLElement', function () {
+        $xml = new SimpleXMLElement('<root><name>Ana</name></root>');
+        $accessor = XmlAccessor::from($xml);
+        $result = $accessor->toXml();
+        expect($result)->toContain('<name>Ana</name>');
+    });
+
 });
