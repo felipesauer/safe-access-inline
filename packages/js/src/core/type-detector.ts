@@ -21,41 +21,43 @@ import { UnsupportedTypeError } from '../exceptions/unsupported-type.error';
  * 7. string ENV        → EnvAccessor
  */
 export class TypeDetector {
-  static resolve(data: unknown): AbstractAccessor {
-    if (Array.isArray(data)) return ArrayAccessor.from(data);
-    if (typeof data === 'object' && data !== null) return ObjectAccessor.from(data);
-    if (typeof data === 'string') {
-      const trimmed = data.trim();
+    static resolve(data: unknown): AbstractAccessor {
+        if (Array.isArray(data)) return ArrayAccessor.from(data);
+        if (typeof data === 'object' && data !== null) return ObjectAccessor.from(data);
+        if (typeof data === 'string') {
+            const trimmed = data.trim();
 
-      // JSON: starts with { or [
-      if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
-        try {
-          return JsonAccessor.from(data);
-        } catch {
-          /* not JSON */
+            // JSON: starts with { or [
+            if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+                try {
+                    return JsonAccessor.from(data);
+                } catch {
+                    /* not JSON */
+                }
+            }
+
+            // XML: starts with <
+            if (trimmed.startsWith('<')) {
+                return XmlAccessor.from(data);
+            }
+
+            // YAML: lines with "key:" but no "key="
+            if (/^[\w-]+\s*:/m.test(trimmed) && !/^[\w-]+\s*=/m.test(trimmed)) {
+                return YamlAccessor.from(data);
+            }
+
+            // INI: section headers [section]
+            if (/^\[[\w.-]+\]/m.test(trimmed)) {
+                return IniAccessor.from(data);
+            }
+
+            // ENV: lines KEY=VALUE (uppercase with underscores)
+            if (/^[A-Z][A-Z0-9_]*\s*=/m.test(trimmed)) {
+                return EnvAccessor.from(data);
+            }
         }
-      }
-
-      // XML: starts with <
-      if (trimmed.startsWith('<')) {
-        return XmlAccessor.from(data);
-      }
-
-      // YAML: lines with "key:" but no "key="
-      if (/^[\w-]+\s*:/m.test(trimmed) && !/^[\w-]+\s*=/m.test(trimmed)) {
-        return YamlAccessor.from(data);
-      }
-
-      // INI: section headers [section]
-      if (/^\[[\w.-]+\]/m.test(trimmed)) {
-        return IniAccessor.from(data);
-      }
-
-      // ENV: lines KEY=VALUE (uppercase with underscores)
-      if (/^[A-Z][A-Z0-9_]*\s*=/m.test(trimmed)) {
-        return EnvAccessor.from(data);
-      }
+        throw new UnsupportedTypeError(
+            'Unable to auto-detect data format. Use a specific factory (e.g., SafeAccess.fromJson()).',
+        );
     }
-    throw new UnsupportedTypeError('Unable to auto-detect data format. Use a specific factory (e.g., SafeAccess.fromJson()).');
-  }
 }

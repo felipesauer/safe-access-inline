@@ -5,40 +5,40 @@ Thank you for considering contributing! This guide covers everything you need to
 ## Table of Contents
 
 - [Contributing to safe-access-inline](#contributing-to-safe-access-inline)
-  - [Table of Contents](#table-of-contents)
-  - [Code of Conduct](#code-of-conduct)
-  - [Prerequisites](#prerequisites)
-  - [Development Setup](#development-setup)
-    - [PHP](#php)
-    - [JavaScript / TypeScript](#javascript--typescript)
-  - [Architecture Overview](#architecture-overview)
-  - [Testing](#testing)
-    - [Running Tests](#running-tests)
-    - [Test Structure](#test-structure)
-    - [Writing Tests for Plugin-Dependent Code](#writing-tests-for-plugin-dependent-code)
-    - [Quality Gates](#quality-gates)
-  - [Coding Standards](#coding-standards)
-    - [PHP](#php-1)
-    - [JavaScript / TypeScript](#javascript--typescript-1)
-    - [General Principles](#general-principles)
-  - [Commit Convention](#commit-convention)
-    - [Format](#format)
-    - [Types](#types)
-    - [Scopes](#scopes)
-    - [Breaking Changes](#breaking-changes)
-  - [Git Hooks (Automated Quality)](#git-hooks-automated-quality)
-    - [What the hooks do](#what-the-hooks-do)
-    - [Commit message examples](#commit-message-examples)
-    - [Available scopes](#available-scopes)
-    - [Bypassing hooks](#bypassing-hooks-emergency-only)
-  - [Pull Requests](#pull-requests)
-    - [Before Opening a PR](#before-opening-a-pr)
-    - [PR Expectations](#pr-expectations)
-    - [Review Process](#review-process)
-  - [Reporting Bugs](#reporting-bugs)
-  - [Suggesting Features](#suggesting-features)
-  - [Security](#security)
-  - [License](#license)
+    - [Table of Contents](#table-of-contents)
+    - [Code of Conduct](#code-of-conduct)
+    - [Prerequisites](#prerequisites)
+    - [Development Setup](#development-setup)
+        - [PHP](#php)
+        - [JavaScript / TypeScript](#javascript--typescript)
+    - [Architecture Overview](#architecture-overview)
+    - [Testing](#testing)
+        - [Running Tests](#running-tests)
+        - [Test Structure](#test-structure)
+        - [Writing Tests for Plugin-Dependent Code](#writing-tests-for-plugin-dependent-code)
+        - [Quality Gates](#quality-gates)
+    - [Coding Standards](#coding-standards)
+        - [PHP](#php-1)
+        - [JavaScript / TypeScript](#javascript--typescript-1)
+        - [General Principles](#general-principles)
+    - [Commit Convention](#commit-convention)
+        - [Format](#format)
+        - [Types](#types)
+        - [Scopes](#scopes)
+        - [Breaking Changes](#breaking-changes)
+    - [Git Hooks (Automated Quality)](#git-hooks-automated-quality)
+        - [What the hooks do](#what-the-hooks-do)
+        - [Commit message examples](#commit-message-examples)
+        - [Available scopes](#available-scopes)
+        - [Bypassing hooks](#bypassing-hooks-emergency-only)
+    - [Pull Requests](#pull-requests)
+        - [Before Opening a PR](#before-opening-a-pr)
+        - [PR Expectations](#pr-expectations)
+        - [Review Process](#review-process)
+    - [Reporting Bugs](#reporting-bugs)
+    - [Suggesting Features](#suggesting-features)
+    - [Security](#security)
+    - [License](#license)
 
 ## Code of Conduct
 
@@ -46,12 +46,12 @@ This project is governed by the [Contributor Covenant Code of Conduct](CODE_OF_C
 
 ## Prerequisites
 
-| Tool | Version | Purpose |
-|------|---------|---------|
-| PHP | >= 8.2 | PHP package development |
-| Composer | >= 2.x | PHP dependency management |
-| Node.js | >= 18 | JS/TS package development |
-| npm | >= 9.x | JS dependency management |
+| Tool     | Version | Purpose                   |
+| -------- | ------- | ------------------------- |
+| PHP      | >= 8.2  | PHP package development   |
+| Composer | >= 2.x  | PHP dependency management |
+| Node.js  | >= 18   | JS/TS package development |
+| npm      | >= 9.x  | JS dependency management  |
 
 You only need the tools for the package you're working on. PHP contributors don't need Node.js and vice versa.
 
@@ -141,8 +141,8 @@ PluginRegistry::registerParser('yaml', new class implements ParserPluginInterfac
 ```typescript
 // JS/TS — register a mock parser in beforeEach
 PluginRegistry.reset();
-PluginRegistry.registerParser('yaml', {
-  parse: (raw: string) => ({ key: 'value' }),
+PluginRegistry.registerParser("yaml", {
+    parse: (raw: string) => ({ key: "value" }),
 });
 ```
 
@@ -152,11 +152,11 @@ Always call `PluginRegistry::reset()` / `PluginRegistry.reset()` in `beforeEach`
 
 All pull requests must pass:
 
-| Check | PHP | JS/TS |
-|-------|-----|-------|
-| Tests | `vendor/bin/pest` | `npm test` |
-| Static analysis | `vendor/bin/phpstan analyse` (Level 9) | `npx tsc --noEmit` |
-| Code style | `vendor/bin/php-cs-fixer fix --dry-run` | `npm run lint` |
+| Check           | PHP                                     | JS/TS              |
+| --------------- | --------------------------------------- | ------------------ |
+| Tests           | `vendor/bin/pest`                       | `npm test`         |
+| Static analysis | `vendor/bin/phpstan analyse` (Level 9)  | `npx tsc --noEmit` |
+| Code style      | `vendor/bin/php-cs-fixer fix --dry-run` | `npm run lint`     |
 
 ### Future Quality Improvements
 
@@ -174,27 +174,31 @@ Documentation in `docs/` is maintained manually. When modifying public API or be
 ### PHP
 
 - **Code style**: PSR-12 (enforced by [PHP-CS-Fixer](https://cs.symfony.com/))
+- **Indentation**: 4 spaces (enforced by `.editorconfig` and PHP-CS-Fixer)
 - **Static analysis**: PHPStan Level 9 — all code must pass strict analysis
 - **Testing**: [Pest](https://pestphp.com/) framework
+- **Test describes**: use `ClassName::class` in `describe()` blocks for unit tests. Use string literals only for descriptive integration test suites
 - **Immutability**: `set()` and `remove()` use `clone $this` — never mutate `$data` in place
 - **Exceptions**: follow the exception hierarchy:
-  - `AccessorException` — base exception
-  - `InvalidFormatException` — malformed input
-  - `PathNotFoundException` — reserved (not thrown by `get()`)
-  - `UnsupportedTypeException` — unknown format or missing plugin
+    - `AccessorException` — base exception
+    - `InvalidFormatException` — malformed input
+    - `PathNotFoundException` — reserved (not thrown by `get()`)
+    - `UnsupportedTypeException` — unknown format or missing plugin
 - **Naming**: PascalCase classes, camelCase methods, UPPER_SNAKE_CASE constants
 
 ### JavaScript / TypeScript
 
 - **Style**: ESLint + typescript-eslint + Prettier
+- **Indentation**: 4 spaces (enforced by Prettier and `.editorconfig`)
 - **Testing**: [Vitest](https://vitest.dev/)
+- **Test describes**: use `ClassName.name` in `describe()` blocks for unit tests (equivalent to PHP's `::class`). Use string literals only for descriptive integration test suites
 - **Build**: tsup → dual ESM + CJS output, target ES2022
 - **Immutability**: `set()` and `remove()` use `structuredClone` — never mutate the original data
 - **Errors**: follow the error hierarchy:
-  - `AccessorError` — base error
-  - `InvalidFormatError` — malformed input
-  - `PathNotFoundError` — reserved (not thrown by `get()`)
-  - `UnsupportedTypeError` — unknown format or missing plugin
+    - `AccessorError` — base error
+    - `InvalidFormatError` — malformed input
+    - `PathNotFoundError` — reserved (not thrown by `get()`)
+    - `UnsupportedTypeError` — unknown format or missing plugin
 - **Naming**: PascalCase classes, camelCase methods/variables, kebab-case file names
 
 ### General Principles
@@ -215,16 +219,16 @@ This project uses [Conventional Commits](https://www.conventionalcommits.org/) w
 
 ### Types
 
-| Type | Description | Triggers release? |
-|------|-------------|:-----------------:|
-| `feat` | New feature | ✅ minor |
-| `fix` | Bug fix | ✅ patch |
-| `docs` | Documentation only | ❌ |
-| `style` | Formatting, no code change | ❌ |
-| `refactor` | Code restructuring | ❌ |
-| `perf` | Performance improvement | ❌ |
-| `test` | Adding/fixing tests | ❌ |
-| `chore` | Build, CI, tooling | ❌ |
+| Type       | Description                | Triggers release? |
+| ---------- | -------------------------- | :---------------: |
+| `feat`     | New feature                |     ✅ minor      |
+| `fix`      | Bug fix                    |     ✅ patch      |
+| `docs`     | Documentation only         |        ❌         |
+| `style`    | Formatting, no code change |        ❌         |
+| `refactor` | Code restructuring         |        ❌         |
+| `perf`     | Performance improvement    |        ❌         |
+| `test`     | Adding/fixing tests        |        ❌         |
+| `chore`    | Build, CI, tooling         |        ❌         |
 
 ### Scopes
 
@@ -252,10 +256,10 @@ This project uses [Husky](https://typicode.github.io/husky/) to enforce quality 
 
 ### What the hooks do
 
-| Hook | Tool | Purpose |
-|------|------|---------|
-| `commit-msg` | [commitlint](https://commitlint.js.org/) | Validates commit messages follow Conventional Commits |
-| `pre-commit` | [lint-staged](https://github.com/lint-staged/lint-staged) | Runs linters/formatters on staged files |
+| Hook         | Tool                                                      | Purpose                                               |
+| ------------ | --------------------------------------------------------- | ----------------------------------------------------- |
+| `commit-msg` | [commitlint](https://commitlint.js.org/)                  | Validates commit messages follow Conventional Commits |
+| `pre-commit` | [lint-staged](https://github.com/lint-staged/lint-staged) | Runs linters/formatters on staged files               |
 
 ### Commit message examples
 
@@ -277,13 +281,13 @@ git commit -m "Feature(js): add thing"    # Type must be lowercase
 
 ### Available scopes
 
-| Scope | When to use |
-|-------|-------------|
-| `js` | Changes to `packages/js/` |
-| `php` | Changes to `packages/php/` |
-| `docs` | Documentation changes |
-| `ci` | CI/CD and workflow changes |
-| `deps` | Dependency updates |
+| Scope  | When to use                |
+| ------ | -------------------------- |
+| `js`   | Changes to `packages/js/`  |
+| `php`  | Changes to `packages/php/` |
+| `docs` | Documentation changes      |
+| `ci`   | CI/CD and workflow changes |
+| `deps` | Dependency updates         |
 
 ### Bypassing hooks (emergency only)
 

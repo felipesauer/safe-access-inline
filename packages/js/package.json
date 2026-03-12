@@ -49,12 +49,13 @@
     "access": "public"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@vitest/coverage-v8": "^4.1.0",
     "eslint": "^10.0",
     "prettier": "^3.0",
     "tsup": "^8.0",
     "typescript": "^5.5",
     "typescript-eslint": "^8.57.0",
-    "@vitest/coverage-v8": "^4.1",
     "vitest": "^4.1"
   },
   "engines": {
