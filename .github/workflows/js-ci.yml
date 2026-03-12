@@ -1,47 +1,48 @@
 name: JS CI
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'packages/js/**'
-      - '.github/workflows/js-ci.yml'
-  pull_request:
-    branches: [main]
-    paths:
-      - 'packages/js/**'
-      - '.github/workflows/js-ci.yml'
+    push:
+        branches: [main]
+        paths:
+            - "packages/js/**"
+            - ".github/workflows/js-ci.yml"
+    pull_request:
+        branches: [main]
+        paths:
+            - "packages/js/**"
+            - ".github/workflows/js-ci.yml"
+    workflow_dispatch:
 
 jobs:
-  test:
-    name: Node ${{ matrix.node }}
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        node: ['22', '24']
+    test:
+        name: Node ${{ matrix.node }}
+        runs-on: ubuntu-latest
+        strategy:
+            fail-fast: false
+            matrix:
+                node: ["22", "24"]
 
-    defaults:
-      run:
-        working-directory: packages/js
+        defaults:
+            run:
+                working-directory: packages/js
 
-    steps:
-      - uses: actions/checkout@v6
+        steps:
+            - uses: actions/checkout@v6
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: ${{ matrix.node }}
+            - name: Setup Node.js
+              uses: actions/setup-node@v6
+              with:
+                  node-version: ${{ matrix.node }}
 
-      - name: Install dependencies
-        run: npm install
+            - name: Install dependencies
+              run: npm install
 
-      - name: Build
-        run: npm run build
+            - name: Build
+              run: npm run build
 
-      - name: Run tests
-        run: npm test -- --coverage
+            - name: Run tests
+              run: npm test -- --coverage
 
-      - name: Lint
-        if: matrix.node == 22
-        run: npm run lint
+            - name: Lint
+              if: matrix.node == 22
+              run: npm run lint

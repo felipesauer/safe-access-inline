@@ -1,66 +1,67 @@
 name: PHP CI
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'packages/php/**'
-      - '.github/workflows/php-ci.yml'
-  pull_request:
-    branches: [main]
-    paths:
-      - 'packages/php/**'
-      - '.github/workflows/php-ci.yml'
+    push:
+        branches: [main]
+        paths:
+            - "packages/php/**"
+            - ".github/workflows/php-ci.yml"
+    pull_request:
+        branches: [main]
+        paths:
+            - "packages/php/**"
+            - ".github/workflows/php-ci.yml"
+    workflow_dispatch:
 
 jobs:
-  test:
-    name: PHP ${{ matrix.php }} (${{ matrix.deps }})
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        php: ['8.2', '8.3', '8.4']
-        deps: ['core', 'full']
+    test:
+        name: PHP ${{ matrix.php }} (${{ matrix.deps }})
+        runs-on: ubuntu-latest
+        strategy:
+            fail-fast: false
+            matrix:
+                php: ["8.2", "8.3", "8.4"]
+                deps: ["core", "full"]
 
-    defaults:
-      run:
-        working-directory: packages/php
+        defaults:
+            run:
+                working-directory: packages/php
 
-    steps:
-      - uses: actions/checkout@v6
+        steps:
+            - uses: actions/checkout@v6
 
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: ${{ matrix.php }}
-          extensions: json, simplexml, libxml
-          coverage: pcov
+            - name: Setup PHP
+              uses: shivammathur/setup-php@v2
+              with:
+                  php-version: ${{ matrix.php }}
+                  extensions: json, simplexml, libxml
+                  coverage: pcov
 
-      - name: Get Composer cache directory
-        id: composer-cache
-        run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+            - name: Get Composer cache directory
+              id: composer-cache
+              run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
 
-      - name: Cache Composer dependencies
-        uses: actions/cache@v5
-        with:
-          path: ${{ steps.composer-cache.outputs.dir }}
-          key: php-${{ matrix.php }}-${{ matrix.deps }}-composer-${{ hashFiles('packages/php/composer.json') }}
-          restore-keys: php-${{ matrix.php }}-${{ matrix.deps }}-composer-
+            - name: Cache Composer dependencies
+              uses: actions/cache@v5
+              with:
+                  path: ${{ steps.composer-cache.outputs.dir }}
+                  key: php-${{ matrix.php }}-${{ matrix.deps }}-composer-${{ hashFiles('packages/php/composer.json') }}
+                  restore-keys: php-${{ matrix.php }}-${{ matrix.deps }}-composer-
 
-      - name: Install dependencies
-        run: composer install --no-interaction --prefer-dist
+            - name: Install dependencies
+              run: composer install --no-interaction --prefer-dist
 
-      - name: Install optional dependencies
-        if: matrix.deps == 'full'
-        run: composer require symfony/yaml devium/toml --dev --no-progress
+            - name: Install optional dependencies
+              if: matrix.deps == 'full'
+              run: composer require symfony/yaml devium/toml --dev --no-progress
 
-      - name: Run tests
-        run: vendor/bin/pest --coverage --min=95
+            - name: Run tests
+              run: vendor/bin/pest --coverage --min=95
 
-      - name: Run PHPStan
-        if: matrix.deps == 'core' && matrix.php == '8.4'
-        run: vendor/bin/phpstan analyse
+            - name: Run PHPStan
+              if: matrix.deps == 'core' && matrix.php == '8.4'
+              run: vendor/bin/phpstan analyse
 
-      - name: Check code style
-        if: matrix.deps == 'core' && matrix.php == '8.4'
-        run: vendor/bin/php-cs-fixer fix --dry-run --diff
+            - name: Check code style
+              if: matrix.deps == 'core' && matrix.php == '8.4'
+              run: vendor/bin/php-cs-fixer fix --dry-run --diff
