@@ -1,0 +1,43 @@
+name: Docs CI
+
+on:
+    push:
+        branches: [main]
+        paths:
+            - "docs/**"
+            - ".github/workflows/docs-ci.yml"
+    pull_request:
+        branches: [main]
+        paths:
+            - "docs/**"
+            - ".github/workflows/docs-ci.yml"
+    workflow_dispatch:
+
+jobs:
+    build:
+        name: Jekyll Build & Link Check
+        runs-on: ubuntu-latest
+
+        defaults:
+            run:
+                working-directory: docs
+
+        steps:
+            - uses: actions/checkout@v6
+
+            - name: Setup Ruby
+              uses: ruby/setup-ruby@v1
+              with:
+                  ruby-version: "3.3"
+                  bundler-cache: true
+                  working-directory: docs
+
+            - name: Build Jekyll site
+              run: bundle exec jekyll build --strict_front_matter
+
+            - name: Check internal links
+              run: |
+                  bundle exec htmlproofer ./_site \
+                    --disable-external \
+                    --allow-hash-href \
+                    --swap-urls "^/safe-access-inline/:"
