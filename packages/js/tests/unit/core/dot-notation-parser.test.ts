@@ -281,6 +281,44 @@ describe(DotNotationParser.name, () => {
         expect(DotNotationParser.get(data, '..z')).toEqual([]);
     });
 
+    it('get — descent with continuation resolves non-array value', () => {
+        const data = {
+            a: { items: { name: 'hello' } },
+            b: { items: { name: 'world' } },
+        };
+        expect(DotNotationParser.get(data, '..items.name')).toEqual(['hello', 'world']);
+    });
+
+    it('get — descent with escaped dot in key', () => {
+        const data = { 'foo.bar': 1, nested: { 'foo.bar': 2 } };
+        expect(DotNotationParser.get(data, '..foo\\.bar')).toEqual([1, 2]);
+    });
+
+    it('get — descent through null value returns empty array', () => {
+        const data: Record<string, unknown> = { a: null };
+        expect(DotNotationParser.get(data, 'a..x')).toEqual([]);
+    });
+
+    it('get — descent through primitive value returns empty array', () => {
+        const data = { a: 42 };
+        expect(DotNotationParser.get(data, 'a..x')).toEqual([]);
+    });
+
+    it('get — double dot at end of path returns data as-is', () => {
+        const data = { a: 1 };
+        expect(DotNotationParser.get(data, '..')).toEqual({ a: 1 });
+    });
+
+    it('get — filter with nested brackets parses correctly', () => {
+        const data = {
+            items: [
+                { 'tags[0]': 'admin', name: 'Ana' },
+                { 'tags[0]': 'user', name: 'Bob' },
+            ],
+        };
+        expect(DotNotationParser.get(data, "items[?tags[0]=='admin'].name")).toEqual(['Ana']);
+    });
+
     // ── Combined filter + descent ─────────────────────
 
     it('get — descent with filter', () => {

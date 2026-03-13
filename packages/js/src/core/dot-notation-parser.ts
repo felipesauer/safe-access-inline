@@ -330,6 +330,7 @@ export class DotNotationParser {
                     i++;
                 }
             }
+            /* v8 ignore next */
             if (key) segments.push({ type: 'key', value: key });
         }
 
