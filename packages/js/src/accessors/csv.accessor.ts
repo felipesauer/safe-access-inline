@@ -6,7 +6,9 @@ import { InvalidFormatError } from '../exceptions/invalid-format.error';
  * First line is treated as header row.
  * Result: object with numeric string indices mapping to associative row objects.
  */
-export class CsvAccessor extends AbstractAccessor {
+export class CsvAccessor<
+    T extends Record<string, unknown> = Record<string, unknown>,
+> extends AbstractAccessor<T> {
     static from(data: unknown): CsvAccessor {
         if (typeof data !== 'string') {
             throw new InvalidFormatError('CsvAccessor expects a CSV string.');
@@ -40,8 +42,8 @@ export class CsvAccessor extends AbstractAccessor {
         return result;
     }
 
-    clone(data: Record<string, unknown>): CsvAccessor {
-        const inst = Object.create(CsvAccessor.prototype) as CsvAccessor;
+    clone(data: Record<string, unknown>): CsvAccessor<T> {
+        const inst = Object.create(CsvAccessor.prototype) as CsvAccessor<T>;
         inst.raw = this.raw;
         inst.data = data;
         return inst;

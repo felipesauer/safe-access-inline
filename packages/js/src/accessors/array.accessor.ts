@@ -1,7 +1,9 @@
 import { AbstractAccessor } from '../core/abstract-accessor';
 import { InvalidFormatError } from '../exceptions/invalid-format.error';
 
-export class ArrayAccessor extends AbstractAccessor {
+export class ArrayAccessor<
+    T extends Record<string, unknown> = Record<string, unknown>,
+> extends AbstractAccessor<T> {
     static from(data: unknown): ArrayAccessor {
         if (!Array.isArray(data) && (typeof data !== 'object' || data === null)) {
             throw new InvalidFormatError('ArrayAccessor expects an array or object.');
@@ -16,7 +18,7 @@ export class ArrayAccessor extends AbstractAccessor {
         return raw as Record<string, unknown>;
     }
 
-    clone(data: Record<string, unknown>): ArrayAccessor {
-        return new ArrayAccessor(data);
+    clone(data: Record<string, unknown>): ArrayAccessor<T> {
+        return new ArrayAccessor(data) as ArrayAccessor<T>;
     }
 }

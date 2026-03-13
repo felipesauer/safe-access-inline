@@ -6,7 +6,9 @@ import { InvalidFormatError } from '../exceptions/invalid-format.error';
  * Parses XML into a nested object structure using a simple recursive parser.
  * No external dependencies — uses a lightweight built-in parser.
  */
-export class XmlAccessor extends AbstractAccessor {
+export class XmlAccessor<
+    T extends Record<string, unknown> = Record<string, unknown>,
+> extends AbstractAccessor<T> {
     private originalXml: string;
 
     constructor(raw: unknown) {
@@ -30,9 +32,9 @@ export class XmlAccessor extends AbstractAccessor {
         }
     }
 
-    clone(data: Record<string, unknown>): XmlAccessor {
+    clone(data: Record<string, unknown>): XmlAccessor<T> {
         // Rebuild a minimal XML from data for roundtrip (stores as JSON internally)
-        const inst = Object.create(XmlAccessor.prototype) as XmlAccessor;
+        const inst = Object.create(XmlAccessor.prototype) as XmlAccessor<T>;
         inst.raw = this.originalXml;
         inst.data = data;
         inst.originalXml = this.originalXml;

@@ -5,8 +5,11 @@ import { PluginRegistry } from './plugin-registry';
 import type { AccessorInterface } from '../contracts/accessor.interface';
 import { InvalidFormatError } from '../exceptions/invalid-format.error';
 import { UnsupportedTypeError } from '../exceptions/unsupported-type.error';
+import type { DeepPaths, ValueAtPath } from '../types/deep-paths';
 
-export abstract class AbstractAccessor implements AccessorInterface {
+export abstract class AbstractAccessor<
+    T extends Record<string, unknown> = Record<string, unknown>,
+> implements AccessorInterface<T> {
     protected data: Record<string, unknown> = {};
     protected raw: unknown;
 
@@ -16,8 +19,14 @@ export abstract class AbstractAccessor implements AccessorInterface {
     }
 
     protected abstract parse(raw: unknown): Record<string, unknown>;
-    abstract clone(data: Record<string, unknown>): AbstractAccessor;
+    abstract clone(data: Record<string, unknown>): AbstractAccessor<T>;
 
+    get<P extends DeepPaths<T> & string>(path: P): ValueAtPath<T, P>;
+    get<P extends DeepPaths<T> & string>(
+        path: P,
+        defaultValue: ValueAtPath<T, P>,
+    ): ValueAtPath<T, P>;
+    get(path: string, defaultValue?: unknown): unknown;
     get(path: string, defaultValue: unknown = null): unknown {
         return DotNotationParser.get(this.data, path, defaultValue);
     }
@@ -34,13 +43,29 @@ export abstract class AbstractAccessor implements AccessorInterface {
         return DotNotationParser.has(this.data, path);
     }
 
-    set(path: string, value: unknown): AbstractAccessor {
+    set<P extends DeepPaths<T> & string>(path: P, value: ValueAtPath<T, P>): AbstractAccessor<T>;
+    set(path: string, value: unknown): AbstractAccessor<T>;
+    set(path: string, value: unknown): AbstractAccessor<T> {
         const newData = DotNotationParser.set(this.data, path, value);
         return this.clone(newData);
     }
 
-    remove(path: string): AbstractAccessor {
+    remove(path: string): AbstractAccessor<T> {
         const newData = DotNotationParser.remove(this.data, path);
+        return this.clone(newData);
+    }
+
+    merge(value: Record<string, unknown>): AbstractAccessor<T>;
+    merge(path: string, value: Record<string, unknown>): AbstractAccessor<T>;
+    merge(
+        pathOrValue: string | Record<string, unknown>,
+        value?: Record<string, unknown>,
+    ): AbstractAccessor<T> {
+        if (typeof pathOrValue === 'string') {
+            const newData = DotNotationParser.merge(this.data, pathOrValue, value!);
+            return this.clone(newData);
+        }
+        const newData = DotNotationParser.merge(this.data, '', pathOrValue);
         return this.clone(newData);
     }
 

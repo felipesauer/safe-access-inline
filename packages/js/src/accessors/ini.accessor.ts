@@ -6,7 +6,9 @@ import { InvalidFormatError } from '../exceptions/invalid-format.error';
  * Supports sections ([section]) and key=value pairs.
  * Sections become nested objects.
  */
-export class IniAccessor extends AbstractAccessor {
+export class IniAccessor<
+    T extends Record<string, unknown> = Record<string, unknown>,
+> extends AbstractAccessor<T> {
     static from(data: unknown): IniAccessor {
         if (typeof data !== 'string') {
             throw new InvalidFormatError('IniAccessor expects an INI string.');
@@ -67,8 +69,8 @@ export class IniAccessor extends AbstractAccessor {
         return result;
     }
 
-    clone(data: Record<string, unknown>): IniAccessor {
-        const inst = Object.create(IniAccessor.prototype) as IniAccessor;
+    clone(data: Record<string, unknown>): IniAccessor<T> {
+        const inst = Object.create(IniAccessor.prototype) as IniAccessor<T>;
         inst.raw = this.raw;
         inst.data = data;
         return inst;

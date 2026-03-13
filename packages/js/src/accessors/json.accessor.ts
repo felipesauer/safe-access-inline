@@ -1,7 +1,9 @@
 import { AbstractAccessor } from '../core/abstract-accessor';
 import { InvalidFormatError } from '../exceptions/invalid-format.error';
 
-export class JsonAccessor extends AbstractAccessor {
+export class JsonAccessor<
+    T extends Record<string, unknown> = Record<string, unknown>,
+> extends AbstractAccessor<T> {
     static from(data: unknown): JsonAccessor {
         if (typeof data !== 'string') {
             throw new InvalidFormatError('JsonAccessor expects a JSON string.');
@@ -18,7 +20,7 @@ export class JsonAccessor extends AbstractAccessor {
         }
     }
 
-    clone(data: Record<string, unknown>): JsonAccessor {
-        return new JsonAccessor(JSON.stringify(data));
+    clone(data: Record<string, unknown>): JsonAccessor<T> {
+        return new JsonAccessor(JSON.stringify(data)) as JsonAccessor<T>;
     }
 }

@@ -210,4 +210,33 @@ describe(AbstractAccessor.name, () => {
         const accessor = ArrayAccessor.from({ a: 1 });
         expect(() => accessor.transform('nonexistent')).toThrow(UnsupportedTypeError);
     });
+
+    // ── merge() ──
+
+    it('merge — at root merges deeply and returns new instance', () => {
+        const accessor = ArrayAccessor.from({ a: 1, b: { x: 10 } });
+        const merged = accessor.merge({ b: { y: 20 }, c: 3 });
+        expect(merged.get('a')).toBe(1);
+        expect(merged.get('b.x')).toBe(10);
+        expect(merged.get('b.y')).toBe(20);
+        expect(merged.get('c')).toBe(3);
+        // original unchanged
+        expect(accessor.has('c')).toBe(false);
+    });
+
+    it('merge — at path merges deeply and returns new instance', () => {
+        const accessor = ArrayAccessor.from({ config: { db: { host: 'localhost', port: 3306 } } });
+        const merged = accessor.merge('config.db', { port: 5432, name: 'mydb' });
+        expect(merged.get('config.db.host')).toBe('localhost');
+        expect(merged.get('config.db.port')).toBe(5432);
+        expect(merged.get('config.db.name')).toBe('mydb');
+        // original unchanged
+        expect(accessor.get('config.db.port')).toBe(3306);
+    });
+
+    it('merge — returns correct accessor type', () => {
+        const accessor = ArrayAccessor.from({ a: 1 });
+        const merged = accessor.merge({ b: 2 });
+        expect(merged).toBeInstanceOf(ArrayAccessor);
+    });
 });
