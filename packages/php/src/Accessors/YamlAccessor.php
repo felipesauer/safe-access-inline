@@ -5,18 +5,13 @@ namespace SafeAccessInline\Accessors;
 use SafeAccessInline\Core\AbstractAccessor;
 use SafeAccessInline\Core\PluginRegistry;
 use SafeAccessInline\Exceptions\InvalidFormatException;
+use Symfony\Component\Yaml\Yaml;
 
 /**
  * Accessor for YAML strings.
- *
- * Requires a YAML parser plugin to be registered via PluginRegistry.
- * This decouples the Accessor from any specific YAML library.
+ * Uses ext-yaml (if available) or symfony/yaml by default, with optional plugin override via PluginRegistry.
  *
  * @example
- * // Register at app startup:
- * PluginRegistry::registerParser('yaml', new SymfonyYamlParser());
- *
- * // Then use:
  * SafeAccess::fromYaml($yamlString)->get('database.host');
  */
 class YamlAccessor extends AbstractAccessor
@@ -29,14 +24,6 @@ class YamlAccessor extends AbstractAccessor
             );
         }
 
-        if (!PluginRegistry::hasParser('yaml')) {
-            throw new InvalidFormatException(
-                'YamlAccessor requires a YAML parser plugin. '
-                . "Register one with: PluginRegistry::registerParser('yaml', new YourYamlParser()). "
-                . 'Example with symfony/yaml: new SymfonyYamlParser()'
-            );
-        }
-
         return new static($data); // @phpstan-ignore new.static
     }
 
@@ -44,6 +31,28 @@ class YamlAccessor extends AbstractAccessor
     {
         assert(is_string($raw));
 
-        return PluginRegistry::getParser('yaml')->parse($raw);
+        if (PluginRegistry::hasParser('yaml')) {
+            return PluginRegistry::getParser('yaml')->parse($raw);
+        }
+
+        try {
+            if ($this->hasNativeYamlParse()) {
+                $parsed = yaml_parse($raw);
+                return is_array($parsed) ? $parsed : [];
+            }
+
+            $parsed = Yaml::parse($raw);
+            return is_array($parsed) ? $parsed : [];
+        } catch (\Throwable $e) {
+            throw new InvalidFormatException(
+                'YamlAccessor failed to parse YAML string: ' . $e->getMessage(),
+                previous: $e,
+            );
+        }
+    }
+
+    protected function hasNativeYamlParse(): bool
+    {
+        return function_exists('yaml_parse');
     }
 }
