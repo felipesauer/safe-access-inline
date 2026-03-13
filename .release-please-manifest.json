@@ -1,4 +1,4 @@
 {
-  "packages/php": "0.2.0",
-  "packages/js": "0.2.0"
+    "packages/php": "0.1.2",
+    "packages/js": "0.2.0"
 }
