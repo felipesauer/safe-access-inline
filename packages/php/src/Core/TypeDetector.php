@@ -7,6 +7,7 @@ use SafeAccessInline\Accessors\EnvAccessor;
 use SafeAccessInline\Accessors\IniAccessor;
 use SafeAccessInline\Accessors\JsonAccessor;
 use SafeAccessInline\Accessors\ObjectAccessor;
+use SafeAccessInline\Accessors\TomlAccessor;
 use SafeAccessInline\Accessors\XmlAccessor;
 use SafeAccessInline\Accessors\YamlAccessor;
 use SafeAccessInline\Exceptions\UnsupportedTypeException;
@@ -21,8 +22,9 @@ use SafeAccessInline\Exceptions\UnsupportedTypeException;
  * 4. JSON string           → JsonAccessor
  * 5. XML string            → XmlAccessor
  * 6. YAML string           → YamlAccessor
- * 7. INI string            → IniAccessor
- * 8. ENV string            → EnvAccessor
+ * 7. TOML string           → TomlAccessor
+ * 8. INI string            → IniAccessor
+ * 9. ENV string            → EnvAccessor
  */
 final class TypeDetector
 {
@@ -59,6 +61,11 @@ final class TypeDetector
             // YAML: lines with "key:" and no "="
             if (preg_match('/^[\w\-]+\s*:/m', $trimmed) && !preg_match('/^[\w\-]+\s*=/m', $trimmed)) {
                 return YamlAccessor::from($data);
+            }
+
+            // TOML: key = "quoted_value" pattern (characteristic of TOML)
+            if (preg_match('/^[\w\-]+\s*=\s*"/m', $trimmed)) {
+                return TomlAccessor::from($data);
             }
 
             // INI: section headers [section] or key=value
