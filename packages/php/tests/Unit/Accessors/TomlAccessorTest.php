@@ -55,9 +55,9 @@ function registerMockTomlParser(array $returnData = []): void
 
 describe(TomlAccessor::class, function () {
 
-    it('throws when no parser plugin is registered', function () {
-        expect(fn () => SafeAccess::fromToml('key = "value"'))
-            ->toThrow(InvalidFormatException::class, 'requires a TOML parser plugin');
+    it('works without plugin using devium/toml', function () {
+        $accessor = SafeAccess::fromToml('key = "value"');
+        expect($accessor->get('key'))->toBe('value');
     });
 
     it('from — valid TOML string with registered plugin', function () {
@@ -138,5 +138,11 @@ describe(TomlAccessor::class, function () {
         $accessor = TomlAccessor::from('a = 1');
         expect($accessor->count())->toBe(3);
         expect($accessor->keys())->toBe(['a', 'b', 'c']);
+    });
+
+    it('throws InvalidFormatException for invalid TOML without plugin', function () {
+        // No plugin registered, so devium/toml will attempt to parse and fail
+        expect(fn () => TomlAccessor::from('{{{{invalid toml}}}}'))
+            ->toThrow(InvalidFormatException::class, 'failed to parse TOML');
     });
 });
