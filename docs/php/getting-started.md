@@ -16,17 +16,7 @@
 - `ext-json` (built-in)
 - `ext-simplexml` (built-in, for XML support)
 
-### Optional Dependencies
-
-For YAML and TOML support, install a parser library and register it via the [Plugin System](#plugin-system):
-
-```bash
-# For YAML support
-composer require symfony/yaml
-
-# For TOML support
-composer require devium/toml
-```
+YAML and TOML support is included out of the box. YAML prefers `ext-yaml` when available, falling back to `symfony/yaml`. TOML uses `devium/toml`. Both are installed as dependencies.
 
 ## Installation
 
@@ -112,13 +102,15 @@ $accessor->toArray();    // ['name' => 'Ana', 'age' => 30]
 $accessor->toObject();   // stdClass { name: "Ana", age: 30 }
 $accessor->toXml();      // "<root><name>Ana</name><age>30</age></root>"
 $accessor->toJson();     // '{"name":"Ana","age":30}'
+$accessor->toYaml();     // "name: Ana\nage: 30\n"
+$accessor->toToml();     // 'name = "Ana"\nage = 30\n'
 ```
 
 ## Plugin System
 
-The Plugin System decouples YAML/TOML parsing from external libraries. Instead of hard-coding dependency checks, parsers and serializers are registered at runtime via `PluginRegistry`.
+YAML and TOML work out of the box (`ext-yaml` or `symfony/yaml` for YAML, `devium/toml` for TOML). The Plugin System lets you **override** the default parsers and serializers with custom implementations.
 
-### Registering Plugins
+### Overriding Defaults
 
 ```php
 use SafeAccessInline\Core\PluginRegistry;
@@ -126,32 +118,31 @@ use SafeAccessInline\Plugins\SymfonyYamlParser;
 use SafeAccessInline\Plugins\SymfonyYamlSerializer;
 use SafeAccessInline\Plugins\DeviumTomlParser;
 
-// Register YAML parser and serializer (requires symfony/yaml)
+// Override YAML parser with custom options
 PluginRegistry::registerParser('yaml', new SymfonyYamlParser());
 PluginRegistry::registerSerializer('yaml', new SymfonyYamlSerializer());
 
-// Register TOML parser (requires devium/toml)
+// Override TOML parser
 PluginRegistry::registerParser('toml', new DeviumTomlParser());
 ```
 
-> Register plugins early in your application bootstrap (e.g., a service provider, config file, or entry point).
+> Plugins are **optional overrides**. YAML and TOML work without any plugin registration.
 
-### Using YAML with Plugins
+### Using YAML (zero config)
 
 ```php
-// After registering SymfonyYamlParser:
+// Works out of the box — no plugin registration needed:
 $accessor = SafeAccess::fromYaml("name: Ana\nage: 30");
 $accessor->get('name');           // "Ana"
 $accessor->get('age');            // 30
 
-// After registering SymfonyYamlSerializer:
 $accessor->toYaml();              // "name: Ana\nage: 30\n"
 ```
 
-### Using TOML with Plugins
+### Using TOML (zero config)
 
 ```php
-// After registering DeviumTomlParser:
+// Works out of the box — no plugin registration needed:
 $toml = <<<TOML
 title = "My Config"
 
@@ -163,6 +154,7 @@ TOML;
 $accessor = SafeAccess::fromToml($toml);
 $accessor->get('title');              // "My Config"
 $accessor->get('database.host');      // "localhost"
+$accessor->toToml();                  // TOML output
 ```
 
 ### Generic Serialization with `transform()`
@@ -178,12 +170,14 @@ $accessor->transform('yaml');     // "name: Ana\n"
 
 ### Shipped Plugins
 
-| Plugin | Format | Type | Requires |
-|--------|--------|------|----------|
-| `SymfonyYamlParser` | yaml | Parser | `symfony/yaml` |
-| `SymfonyYamlSerializer` | yaml | Serializer | `symfony/yaml` |
-| `NativeYamlParser` | yaml | Parser | `ext-yaml` (PHP extension) |
-| `DeviumTomlParser` | toml | Parser | `devium/toml` |
+| Plugin                  | Format | Type       | Requires                   |
+| ----------------------- | ------ | ---------- | -------------------------- |
+| `SymfonyYamlParser`     | yaml   | Parser     | `symfony/yaml`             |
+| `SymfonyYamlSerializer` | yaml   | Serializer | `symfony/yaml`             |
+| `NativeYamlParser`      | yaml   | Parser     | `ext-yaml` (PHP extension) |
+| `NativeYamlSerializer`  | yaml   | Serializer | `ext-yaml` (PHP extension) |
+| `DeviumTomlParser`      | toml   | Parser     | `devium/toml`              |
+| `DeviumTomlSerializer`  | toml   | Serializer | `devium/toml`              |
 
 ### Creating Custom Plugins
 

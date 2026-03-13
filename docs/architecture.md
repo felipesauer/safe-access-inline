@@ -22,7 +22,7 @@ safe-access-inline is a format-agnostic data access library that provides a sing
 1. **Zero Surprises** — `get()` never throws exceptions. Missing paths return a default value.
 2. **Format-Agnostic** — The same API works identically across all supported formats.
 3. **Immutability** — `set()` and `remove()` always return new instances; the original is never mutated.
-4. **Zero Dependencies** — The core library has no external runtime dependencies. Format-specific parsers are registered via the Plugin System.
+4. **Real Dependencies for Complex Formats** — YAML and TOML use real libraries (`js-yaml`/`smol-toml` in JS, `symfony/yaml`/`devium/toml` in PHP) as dependencies. The Plugin System provides optional override capability.
 5. **Extensibility** — Custom accessors via `SafeAccess::extend()`, custom parsers and serializers via `PluginRegistry`.
 
 ## Component Diagram
@@ -39,7 +39,7 @@ safe-access-inline is a format-agnostic data access library that provides a sing
 │     AbstractAccessor         │  ← Base class (all logic)
 │  get / set / remove / has    │
 │  toArray / toJson / toXml    │
-│  toYaml / transform          │
+│  toYaml / toToml / transform │
 │  type / count / keys / all   │
 └──────────┬───────────────────┘
            │
@@ -68,12 +68,12 @@ Concrete Accessors (extend AbstractAccessor):
 │  INI     │  CSV     │  ENV     │
 └──────────┴──────────┴──────────┘
 Each only implements: parse(raw) → array
-(YAML/TOML delegate parsing to PluginRegistry)
+(YAML/TOML use real libraries by default, with optional PluginRegistry override)
 ```
 
 ## Plugin System
 
-The Plugin System decouples format-specific parsing and serialization from external libraries. Instead of hard-coding `class_exists` checks, accessors query the `PluginRegistry` at runtime.
+The Plugin System provides **optional override** capability for format-specific parsing and serialization. YAML and TOML use real libraries by default — plugins let users swap in alternative implementations.
 
 ### Contracts
 
@@ -103,11 +103,11 @@ PluginRegistry::registerSerializer('yaml', new SymfonyYamlSerializer());
 
 ### PHP vs JS Behavior
 
-| Aspect | PHP | JS/TS |
-|--------|-----|-------|
-| YAML/TOML parsing | Plugin **required** — no built-in parser | Built-in lightweight parser; plugin **optional** (overrides built-in) |
-| Serialization (`toYaml`, `toXml`, `transform`) | Via PluginRegistry (with `yaml_emit` fallback for YAML, `SimpleXMLElement` fallback for XML) | Via PluginRegistry only — no built-in serializers |
-| Shipped plugins | 4 plugins (SymfonyYamlParser, SymfonyYamlSerializer, NativeYamlParser, DeviumTomlParser) | None shipped — users register their own |
+| Aspect                                                   | PHP                                                                                                                                  | JS/TS                                                                             |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
+| YAML/TOML parsing                                        | Real library by default (`ext-yaml` or `symfony/yaml` for YAML, `devium/toml` for TOML); plugin **optional** (overrides)             | Real library by default (`js-yaml`, `smol-toml`); plugin **optional** (overrides) |
+| Serialization (`toYaml`, `toToml`, `toXml`, `transform`) | Plugin override → `ext-yaml`/real library fallback (with `SimpleXMLElement` fallback for XML)                                        | Real library by default for YAML/TOML; plugin required for XML                    |
+| Shipped plugins                                          | 6 plugins (SymfonyYamlParser, SymfonyYamlSerializer, NativeYamlParser, NativeYamlSerializer, DeviumTomlParser, DeviumTomlSerializer) | 4 plugins (JsYamlParser, JsYamlSerializer, SmolTomlParser, SmolTomlSerializer)    |
 
 ## Data Flow
 
@@ -116,14 +116,16 @@ Input (string/array/object)
   → Accessor::from(data)
     → Constructor: raw = data, data = parse(raw)
       → For most formats: accessor-specific parsing (JSON.parse, XML parse, etc.)
-      → For YAML/TOML (PHP): PluginRegistry::getParser(format)->parse(raw)
-      → For YAML/TOML (JS): PluginRegistry.hasParser(format) ? plugin : built-in parser
+      → For YAML (PHP): PluginRegistry override → ext-yaml (yaml_parse) → Symfony\Yaml fallback
+      → For TOML (PHP): PluginRegistry override → Devium\Toml default
+      → For YAML/TOML (JS): PluginRegistry override → real library default (js-yaml / smol-toml)
   → Normalized array stored in $data / this.data
   → All read operations (get/set/has/etc.) operate on data via DotNotationParser
   → Transformation methods:
       → toArray() / toJson() / toObject() — built-in, always available
       → toXml() — built-in in PHP (SimpleXMLElement), plugin-based in JS
-      → toYaml() — plugin-based (PluginRegistry), with yaml_emit() fallback in PHP
+      → toYaml() — Plugin override → ext-yaml (yaml_emit) → symfony/yaml fallback in PHP; js-yaml default in JS
+      → toToml() — Plugin override → devium/toml default in PHP; smol-toml default in JS
       → transform(format) — always delegates to PluginRegistry::getSerializer(format)
 ```
 
@@ -132,6 +134,7 @@ Input (string/array/object)
 The parser resolves paths like `user.profile.name` against nested data structures.
 
 **Supported path syntax:**
+
 - `name` — simple key access
 - `user.profile.name` — nested access
 - `items.0.title` — numeric index access
@@ -140,6 +143,7 @@ The parser resolves paths like `user.profile.name` against nested data structure
 - `config\.db.host` — escaped dot (literal dot in key name)
 
 **Resolution algorithm:**
+
 1. Parse path into key segments via `parseKeys()`
 2. Walk the data structure segment by segment
 3. On `*` wildcard: iterate all children, recursively resolve remaining path
@@ -157,12 +161,14 @@ $modified = $original->set('b', 2);
 ```
 
 Implementation:
+
 - PHP: `clone $this` + update `$data`
 - JS: `clone(newData)` method creates a new instance with modified data (via `structuredClone`)
 
 ## TypeDetector
 
 Auto-detection priority (first match wins):
+
 1. **Array** → `ArrayAccessor`
 2. **SimpleXMLElement** (PHP only) → `XmlAccessor`
 3. **Object** → `ObjectAccessor`
@@ -226,27 +232,30 @@ any accessor-specific metadata when producing a new instance. Only `$data` is up
 **Consequence:** Metadata like `originalXml` survives mutations, which is the expected behavior. The
 round-trip `set() → toXml()` can still access the original XML via `getOriginalXml()`.
 
-### ADR-2: JS `toXml()` / `toYaml()` via Plugin System *(revised)*
+### ADR-2: JS `toXml()` / `toYaml()` / `toToml()` via Real Libraries + Plugin Override
 
-**Context:** Initially, the JS package omitted `toXml()` and `toYaml()` because JavaScript has no native XML emitter and YAML serialization would require a runtime dependency, contradicting the zero-dependency principle.
+**Context:** Initially, the JS package omitted `toXml()` and `toYaml()` because JavaScript has no native XML emitter and YAML serialization would require a runtime dependency.
 
 **Decision (original):** JS only exposed `toArray()`, `toJson()`, and `toObject()`.
 
-**Decision (revised):** With the introduction of the Plugin System, JS now exposes `toYaml()`, `toXml()`, and `transform()`. These methods delegate to `PluginRegistry.getSerializer(format)` and throw `UnsupportedTypeError` if no serializer plugin is registered. This preserves the zero-dependency principle — no serialization library is bundled — while giving users a clean API to register their own.
+**Decision (revised #1):** With the introduction of the Plugin System, JS exposed `toYaml()`, `toXml()`, and `transform()` via PluginRegistry.
 
-**Consequence:** Users who need YAML or XML output in JS register a serializer plugin (e.g., wrapping `js-yaml` or `fast-xml-parser`), then call `accessor.toYaml()` or `accessor.toXml()` directly. The API is now consistent with PHP.
+**Decision (revised #2):** `js-yaml` and `smol-toml` are now real `dependencies`. `toYaml()` and `toToml()` work zero-config using these libraries. Plugins provide optional override for users who need different libraries. `toXml()` still requires a plugin.
 
-### ADR-3: Plugin System — PluginRegistry for format parsing and serialization
+**Consequence:** YAML and TOML serialization works out of the box. Users who need alternative serializers register a plugin override. XML serialization still requires explicit plugin registration.
 
-**Context:** PHP's YAML and TOML accessors originally used `class_exists()` and `function_exists()` checks to detect available parsers at runtime. This created tight coupling to specific libraries and caused tests to be skipped when libraries weren't installed.
+### ADR-3: Real Dependencies for YAML/TOML + PluginRegistry for Override
 
-**Decision:** Introduce a `PluginRegistry` — a static registry where parsers (`ParserPluginInterface` / `ParserPlugin`) and serializers (`SerializerPluginInterface` / `SerializerPlugin`) are registered by format name. Accessors query the registry instead of checking for classes directly.
+**Context:** PHP's YAML and TOML accessors originally used `class_exists()` and `function_exists()` checks to detect available parsers at runtime. Later, a PluginRegistry was introduced that required manual plugin registration. Both PHP and JS had different approaches: PHP required plugins, JS had built-in lightweight parsers.
+
+**Decision:** Make YAML/TOML libraries real dependencies in both platforms. `js-yaml` + `smol-toml` are `dependencies` in JS. `symfony/yaml` + `devium/toml` are `require` in PHP. PluginRegistry continues to exist for override: if a plugin is registered, it takes priority over the default library.
 
 **Key design choices:**
-- **PHP**: YAML/TOML parsing is fully delegated to plugins — no built-in parser. This ensures the library has zero external dependencies.
-- **JS**: Built-in lightweight parsers are kept as defaults for YAML/TOML. Plugins are optional overrides for users who need more robust parsing.
-- **Serialization**: Always via PluginRegistry in both languages (with `yaml_emit()` and `SimpleXMLElement` fallbacks in PHP).
-- **Exception types**: `InvalidFormatException` at the accessor level, `UnsupportedTypeException` at the registry level.
-- **Testing**: Unit tests use mock plugins (anonymous classes/objects), eliminating test skips. Integration tests with real libraries skip if not installed.
 
-**Consequence:** Zero skipped unit tests for YAML/TOML. Clean separation of concerns. Users can register any parser library without modifying library source code.
+- **Both platforms**: YAML/TOML parsing and serialization work out of the box — zero configuration needed.
+- **Plugin override**: `PluginRegistry.registerParser()` / `PluginRegistry.registerSerializer()` still works — registered plugins take priority over default libraries.
+- **JS built-in parsers removed**: The old lightweight YAML/TOML parsers were removed in favor of proven libraries (`js-yaml`, `smol-toml`).
+- **Exception types**: `InvalidFormatException` at the accessor level, `UnsupportedTypeException` at the registry level.
+- **Testing**: Unit tests use mock plugins (anonymous classes/objects) for isolation. Integration tests use real libraries.
+
+**Consequence:** Zero configuration for YAML/TOML in both platforms. Consistent behavior between PHP and JS. Users who need alternative parsers/serializers register them via PluginRegistry.

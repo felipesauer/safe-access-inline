@@ -21,59 +21,55 @@ import { SafeAccess } from '@safe-access-inline/safe-access-inline';
 
 // From JSON string
 const accessor = SafeAccess.fromJson('{"user": {"name": "Felipe", "roles": ["admin"]}}');
-accessor.get('user.name');           // "Felipe"
-accessor.get('user.roles.0');        // "admin"
-accessor.get('user.email', 'N/A');   // "N/A" (default)
+accessor.get('user.name'); // "Felipe"
+accessor.get('user.roles.0'); // "admin"
+accessor.get('user.email', 'N/A'); // "N/A" (default)
 
 // From plain object
 const accessor2 = SafeAccess.fromObject({ database: { host: 'localhost', port: 5432 } });
-accessor2.get('database.port');      // 5432
+accessor2.get('database.port'); // 5432
 
 // From XML string
 const accessor3 = SafeAccess.fromXml('<root><server><host>localhost</host></server></root>');
-accessor3.get('server.host');        // "localhost"
+accessor3.get('server.host'); // "localhost"
 ```
 
 ## Supported Formats
 
-| Method | Format | Built-in |
-|--------|--------|----------|
-| `SafeAccess.fromArray()` | Array | Yes |
-| `SafeAccess.fromObject()` | Object | Yes |
-| `SafeAccess.fromJson()` | JSON string | Yes |
-| `SafeAccess.fromXml()` | XML string | Yes |
-| `SafeAccess.fromYaml()` | YAML string | Yes (basic) |
-| `SafeAccess.fromToml()` | TOML string | Yes (basic) |
-| `SafeAccess.fromIni()` | INI string | Yes |
-| `SafeAccess.fromCsv()` | CSV string | Yes |
-| `SafeAccess.fromEnv()` | ENV string | Yes |
-| `SafeAccess.from()` | Auto-detect | Yes |
+| Method                    | Format      | Built-in          |
+| ------------------------- | ----------- | ----------------- |
+| `SafeAccess.fromArray()`  | Array       | Yes               |
+| `SafeAccess.fromObject()` | Object      | Yes               |
+| `SafeAccess.fromJson()`   | JSON string | Yes               |
+| `SafeAccess.fromXml()`    | XML string  | Yes               |
+| `SafeAccess.fromYaml()`   | YAML string | Yes (`js-yaml`)   |
+| `SafeAccess.fromToml()`   | TOML string | Yes (`smol-toml`) |
+| `SafeAccess.fromIni()`    | INI string  | Yes               |
+| `SafeAccess.fromCsv()`    | CSV string  | Yes               |
+| `SafeAccess.fromEnv()`    | ENV string  | Yes               |
+| `SafeAccess.from()`       | Auto-detect | Yes               |
 
-All formats include built-in parsers. You can override any parser via the plugin system.
+All formats include built-in parsers. YAML uses `js-yaml` and TOML uses `smol-toml` by default. You can override any parser or serializer via the plugin system.
 
 ## Plugin System
 
-Register custom parsers or serializers to override built-in behavior:
+Register custom parsers or serializers to override the built-in defaults:
 
 ```typescript
-import { SafeAccess } from '@safe-access-inline/safe-access-inline';
+import { SafeAccess, PluginRegistry } from '@safe-access-inline/safe-access-inline';
 import type { ParserPlugin, SerializerPlugin } from '@safe-access-inline/safe-access-inline';
 
+// Override the default YAML parser with a custom implementation
 const myYamlParser: ParserPlugin = {
-  parse(raw: string): Record<string, unknown> {
-    return myYamlLib.parse(raw);
-  }
+    parse(raw: string): Record<string, unknown> {
+        return myYamlLib.parse(raw);
+    },
 };
 
-const myYamlSerializer: SerializerPlugin = {
-  serialize(data: Record<string, unknown>): string {
-    return myYamlLib.stringify(data);
-  }
-};
-
-SafeAccess.registerPlugin('yaml', 'parser', myYamlParser);
-SafeAccess.registerPlugin('yaml', 'serializer', myYamlSerializer);
+PluginRegistry.registerParser('yaml', myYamlParser);
 ```
+
+The package also ships ready-to-use plugins: `JsYamlParser`, `JsYamlSerializer`, `SmolTomlParser`, `SmolTomlSerializer`.
 
 ## Dot Notation
 
@@ -90,27 +86,28 @@ servers.0.host      → data.servers[0].host
 ### Reading
 
 ```typescript
-accessor.get('key');                // value or undefined
-accessor.get('key', 'default');     // value or default
-accessor.getMany(['a', 'b']);       // { a: value, b: value }
-accessor.all();                     // all data as object
+accessor.get('key'); // value or undefined
+accessor.get('key', 'default'); // value or default
+accessor.getMany(['a', 'b']); // { a: value, b: value }
+accessor.all(); // all data as object
 ```
 
 ### Writing (Immutable)
 
 ```typescript
-const updated = accessor.set('key', 'value');  // returns new instance
-const removed = accessor.remove('key');        // returns new instance
+const updated = accessor.set('key', 'value'); // returns new instance
+const removed = accessor.remove('key'); // returns new instance
 ```
 
 ### Transforming
 
 ```typescript
-accessor.toArray();        // [key, value][] entries
-accessor.toJson();         // JSON string
-accessor.toXml();          // XML string
-accessor.toYaml();         // YAML string
-accessor.toObject();       // plain object
+accessor.toArray(); // [key, value][] entries
+accessor.toJson(); // JSON string
+accessor.toXml(); // XML string
+accessor.toYaml(); // YAML string
+accessor.toToml(); // TOML string
+accessor.toObject(); // plain object
 accessor.transform('json'); // by format name
 ```
 
@@ -119,7 +116,7 @@ accessor.transform('json'); // by format name
 Full type definitions are included. The package exports ESM and CommonJS builds:
 
 ```typescript
-import { SafeAccess } from '@safe-access-inline/safe-access-inline';  // ESM
+import { SafeAccess } from '@safe-access-inline/safe-access-inline'; // ESM
 const { SafeAccess } = require('@safe-access-inline/safe-access-inline'); // CJS
 ```
 
@@ -127,10 +124,10 @@ const { SafeAccess } = require('@safe-access-inline/safe-access-inline'); // CJS
 
 ```typescript
 import type {
-  AccessorInterface,
-  ReadableInterface,
-  TransformableInterface,
-  WritableInterface,
+    AccessorInterface,
+    ReadableInterface,
+    TransformableInterface,
+    WritableInterface,
 } from '@safe-access-inline/safe-access-inline';
 ```
 

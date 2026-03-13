@@ -14,17 +14,6 @@ Safe nested data access with dot notation for PHP — supports **Array, Object, 
 composer require safe-access-inline/safe-access-inline
 ```
 
-### Optional dependencies
-
-| Format | Package |
-|--------|---------|
-| YAML | `symfony/yaml` (^7.0) **or** `ext-yaml` |
-| TOML | `devium/toml` |
-
-```bash
-composer require symfony/yaml devium/toml
-```
-
 ## Quick Start
 
 ```php
@@ -47,22 +36,22 @@ $accessor->get('server.host');         // "localhost"
 
 ## Supported Formats
 
-| Method | Format | Requirements |
-|--------|--------|-------------|
-| `SafeAccess::fromArray()` | PHP Array | — |
-| `SafeAccess::fromObject()` | stdClass | — |
-| `SafeAccess::fromJson()` | JSON string | `ext-json` |
-| `SafeAccess::fromXml()` | XML string | `ext-simplexml` |
-| `SafeAccess::fromYaml()` | YAML string | Plugin required |
-| `SafeAccess::fromToml()` | TOML string | Plugin required |
-| `SafeAccess::fromIni()` | INI string | — |
-| `SafeAccess::fromCsv()` | CSV string | — |
-| `SafeAccess::fromEnv()` | ENV string | — |
-| `SafeAccess::from()` | Auto-detect | Varies |
+| Method                     | Format      | Requirements                            |
+| -------------------------- | ----------- | --------------------------------------- |
+| `SafeAccess::fromArray()`  | PHP Array   | —                                       |
+| `SafeAccess::fromObject()` | stdClass    | —                                       |
+| `SafeAccess::fromJson()`   | JSON string | `ext-json`                              |
+| `SafeAccess::fromXml()`    | XML string  | `ext-simplexml`                         |
+| `SafeAccess::fromYaml()`   | YAML string | `ext-yaml` or `symfony/yaml` (included) |
+| `SafeAccess::fromToml()`   | TOML string | `devium/toml` (included)                |
+| `SafeAccess::fromIni()`    | INI string  | —                                       |
+| `SafeAccess::fromCsv()`    | CSV string  | —                                       |
+| `SafeAccess::fromEnv()`    | ENV string  | —                                       |
+| `SafeAccess::from()`       | Auto-detect | Varies                                  |
 
 ## Plugin System
 
-YAML and TOML formats require parser plugins. The library ships with four plugins:
+YAML and TOML work out of the box. YAML prefers `ext-yaml` when available, falling back to `symfony/yaml`. TOML uses `devium/toml`. The Plugin System lets you **override** the defaults with custom or alternative implementations:
 
 ```php
 use SafeAccessInline\SafeAccess;
@@ -71,15 +60,15 @@ use SafeAccessInline\Plugins\SymfonyYamlSerializer;
 use SafeAccessInline\Plugins\DeviumTomlParser;
 use SafeAccessInline\Plugins\DeviumTomlSerializer;
 
-// Register parsers (for reading)
+// Override parsers (optional — works without this)
 SafeAccess::registerPlugin('yaml', 'parser', new SymfonyYamlParser());
 SafeAccess::registerPlugin('toml', 'parser', new DeviumTomlParser());
 
-// Register serializers (for transform output)
+// Override serializers (optional — works without this)
 SafeAccess::registerPlugin('yaml', 'serializer', new SymfonyYamlSerializer());
 SafeAccess::registerPlugin('toml', 'serializer', new DeviumTomlSerializer());
 
-// Now YAML and TOML work
+// YAML and TOML work with or without plugins
 $accessor = SafeAccess::fromYaml("server:\n  host: localhost");
 $accessor->get('server.host'); // "localhost"
 ```
@@ -136,7 +125,8 @@ $new = $accessor->remove('key');        // returns new instance
 $accessor->toArray();
 $accessor->toJson();
 $accessor->toXml();
-$accessor->toYaml();    // requires serializer plugin
+$accessor->toYaml();    // YAML string (works out of the box)
+$accessor->toToml();    // TOML string (works out of the box)
 $accessor->toObject();
 $accessor->transform('json');  // by format name
 ```

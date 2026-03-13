@@ -126,7 +126,7 @@ Tests are organized into two categories:
 
 ### Writing Tests for Plugin-Dependent Code
 
-When testing accessors that use the Plugin System (YAML, TOML), use **mock plugins** instead of real libraries:
+YAML and TOML now have real library dependencies, so accessors work without plugin registration. However, when testing **plugin override** behavior or testing in **isolation**, use **mock plugins**:
 
 ```php
 // PHP — register a mock parser in beforeEach
@@ -203,7 +203,7 @@ Documentation in `docs/` is maintained manually. When modifying public API or be
 
 ### General Principles
 
-- **Zero dependencies** in core — format-specific parsers are registered via the Plugin System
+- **Real dependencies for YAML/TOML** — `js-yaml`/`smol-toml` (JS) and `symfony/yaml`/`devium/toml` (PHP) are included as direct dependencies. The Plugin System provides override capability, not a requirement.
 - **`get()` never throws** — always returns a default value for missing paths
 - **All write operations are immutable** — `set()` and `remove()` return new instances
 

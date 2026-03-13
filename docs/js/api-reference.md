@@ -22,7 +22,7 @@
 Creates an accessor from an array or object.
 
 ```typescript
-const accessor = SafeAccess.fromArray([{ name: 'Ana' }, { name: 'Bob' }]);
+const accessor = SafeAccess.fromArray([{ name: "Ana" }, { name: "Bob" }]);
 ```
 
 #### `SafeAccess.fromObject(data: Record<string, unknown>): ObjectAccessor`
@@ -30,7 +30,7 @@ const accessor = SafeAccess.fromArray([{ name: 'Ana' }, { name: 'Bob' }]);
 Creates an accessor from a plain object.
 
 ```typescript
-const accessor = SafeAccess.fromObject({ name: 'Ana', age: 30 });
+const accessor = SafeAccess.fromObject({ name: "Ana", age: 30 });
 ```
 
 #### `SafeAccess.fromJson(data: string): JsonAccessor`
@@ -46,20 +46,20 @@ const accessor = SafeAccess.fromJson('{"name": "Ana"}');
 Creates an accessor from an XML string.
 
 ```typescript
-const accessor = SafeAccess.fromXml('<root><name>Ana</name></root>');
+const accessor = SafeAccess.fromXml("<root><name>Ana</name></root>");
 ```
 
 #### `SafeAccess.fromYaml(data: string): YamlAccessor`
 
-Creates an accessor from a YAML string. Uses a built-in lightweight parser by default. If a parser plugin is registered via `PluginRegistry`, the plugin takes precedence.
+Creates an accessor from a YAML string. Uses `js-yaml` by default. If a parser plugin is registered via `PluginRegistry`, the plugin takes precedence.
 
 ```typescript
-const accessor = SafeAccess.fromYaml('name: Ana\nage: 30');
+const accessor = SafeAccess.fromYaml("name: Ana\nage: 30");
 ```
 
 #### `SafeAccess.fromToml(data: string): TomlAccessor`
 
-Creates an accessor from a TOML string. Uses a built-in lightweight parser by default. If a parser plugin is registered via `PluginRegistry`, the plugin takes precedence.
+Creates an accessor from a TOML string. Uses `smol-toml` by default. If a parser plugin is registered via `PluginRegistry`, the plugin takes precedence.
 
 ```typescript
 const accessor = SafeAccess.fromToml('name = "Ana"');
@@ -70,7 +70,7 @@ const accessor = SafeAccess.fromToml('name = "Ana"');
 Creates an accessor from an INI string.
 
 ```typescript
-const accessor = SafeAccess.fromIni('[section]\nkey = value');
+const accessor = SafeAccess.fromIni("[section]\nkey = value");
 ```
 
 #### `SafeAccess.fromCsv(data: string): CsvAccessor`
@@ -78,7 +78,7 @@ const accessor = SafeAccess.fromIni('[section]\nkey = value');
 Creates an accessor from a CSV string (first line = headers).
 
 ```typescript
-const accessor = SafeAccess.fromCsv('name,age\nAna,30');
+const accessor = SafeAccess.fromCsv("name,age\nAna,30");
 ```
 
 #### `SafeAccess.fromEnv(data: string): EnvAccessor`
@@ -86,7 +86,7 @@ const accessor = SafeAccess.fromCsv('name,age\nAna,30');
 Creates an accessor from a `.env` format string.
 
 ```typescript
-const accessor = SafeAccess.fromEnv('APP_NAME=MyApp\nDEBUG=true');
+const accessor = SafeAccess.fromEnv("APP_NAME=MyApp\nDEBUG=true");
 ```
 
 #### `SafeAccess.detect(data: unknown): AbstractAccessor`
@@ -96,10 +96,10 @@ Auto-detects the format and creates the appropriate accessor.
 Detection priority: array → object → JSON string → XML string → YAML string → INI string → ENV string.
 
 ```typescript
-const accessor = SafeAccess.detect({ key: 'value' });           // ObjectAccessor
-const fromJson = SafeAccess.detect('{"name": "Ana"}');          // JsonAccessor
-const fromXml  = SafeAccess.detect('<root><name>Ana</name></root>'); // XmlAccessor
-const fromYaml = SafeAccess.detect('name: Ana\nage: 30');       // YamlAccessor
+const accessor = SafeAccess.detect({ key: "value" }); // ObjectAccessor
+const fromJson = SafeAccess.detect('{"name": "Ana"}'); // JsonAccessor
+const fromXml = SafeAccess.detect("<root><name>Ana</name></root>"); // XmlAccessor
+const fromYaml = SafeAccess.detect("name: Ana\nage: 30"); // YamlAccessor
 ```
 
 #### `SafeAccess.extend(name: string, cls: Constructor): void`
@@ -107,7 +107,7 @@ const fromYaml = SafeAccess.detect('name: Ana\nage: 30');       // YamlAccessor
 Registers a custom accessor class.
 
 ```typescript
-SafeAccess.extend('custom', MyAccessor);
+SafeAccess.extend("custom", MyAccessor);
 ```
 
 #### `SafeAccess.custom(name: string, data: unknown): AbstractAccessor`
@@ -115,7 +115,7 @@ SafeAccess.extend('custom', MyAccessor);
 Instantiates a previously registered custom accessor.
 
 ```typescript
-const accessor = SafeAccess.custom('custom', data);
+const accessor = SafeAccess.custom("custom", data);
 ```
 
 ---
@@ -131,9 +131,9 @@ All accessors extend `AbstractAccessor` and implement the `AccessorInterface`.
 Access a value via dot notation path. **Never throws** — returns `defaultValue` (default: `null`) if path not found.
 
 ```typescript
-accessor.get('user.name');           // value or null
-accessor.get('user.email', 'N/A');   // value or 'N/A'
-accessor.get('users.*.name');        // array of values (wildcard)
+accessor.get("user.name"); // value or null
+accessor.get("user.email", "N/A"); // value or 'N/A'
+accessor.get("users.*.name"); // array of values (wildcard)
 ```
 
 #### `getMany(paths: Record<string, unknown>): Record<string, unknown>`
@@ -142,8 +142,8 @@ Get multiple values at once. Keys are paths, values are defaults.
 
 ```typescript
 accessor.getMany({
-  'user.name': 'Unknown',
-  'user.email': 'N/A',
+    "user.name": "Unknown",
+    "user.email": "N/A",
 });
 // { 'user.name': 'Ana', 'user.email': 'N/A' }
 ```
@@ -153,8 +153,8 @@ accessor.getMany({
 Check if a path exists in the data.
 
 ```typescript
-accessor.has('user.name');    // true
-accessor.has('missing');      // false
+accessor.has("user.name"); // true
+accessor.has("missing"); // false
 ```
 
 #### `type(path: string): string | null`
@@ -164,10 +164,10 @@ Returns the JavaScript type of the value at the given path, or `null` if path do
 Possible values: `"string"`, `"number"`, `"boolean"`, `"object"`, `"array"`, `"null"`, `"undefined"`.
 
 ```typescript
-accessor.type('name');   // "string"
-accessor.type('age');    // "number"
-accessor.type('tags');   // "array"
-accessor.type('x');      // null
+accessor.type("name"); // "string"
+accessor.type("age"); // "number"
+accessor.type("tags"); // "array"
+accessor.type("x"); // null
 ```
 
 #### `count(path?: string): number`
@@ -175,8 +175,8 @@ accessor.type('x');      // null
 Count elements at path (or root).
 
 ```typescript
-accessor.count();          // root element count
-accessor.count('items');   // count of items
+accessor.count(); // root element count
+accessor.count("items"); // count of items
 ```
 
 #### `keys(path?: string): string[]`
@@ -184,7 +184,7 @@ accessor.count('items');   // count of items
 List keys at path (or root).
 
 ```typescript
-accessor.keys();           // ['name', 'age', 'items']
+accessor.keys(); // ['name', 'age', 'items']
 ```
 
 #### `all(): Record<string, unknown>`
@@ -202,7 +202,7 @@ accessor.all(); // { name: 'Ana', age: 30, ... }
 Returns a **new instance** with the value set at the given path.
 
 ```typescript
-const newAccessor = accessor.set('user.email', 'ana@example.com');
+const newAccessor = accessor.set("user.email", "ana@example.com");
 // accessor is unchanged, newAccessor has the value
 ```
 
@@ -211,7 +211,7 @@ const newAccessor = accessor.set('user.email', 'ana@example.com');
 Returns a **new instance** with the given path removed.
 
 ```typescript
-const newAccessor = accessor.remove('user.age');
+const newAccessor = accessor.remove("user.age");
 // accessor is unchanged, newAccessor has 'age' removed
 ```
 
@@ -226,8 +226,8 @@ Returns a shallow copy of the data. Semantic intent: "convert to array/object fo
 Convert to JSON string.
 
 ```typescript
-accessor.toJson();       // compact
-accessor.toJson(true);   // pretty-printed with 2-space indent
+accessor.toJson(); // compact
+accessor.toJson(true); // pretty-printed with 2-space indent
 ```
 
 #### `toObject(): Record<string, unknown>`
@@ -236,16 +236,20 @@ Returns a deep clone of the data (via `structuredClone`).
 
 #### `toYaml(): string`
 
-Serializes the data to YAML. Requires a `'yaml'` serializer plugin registered via `PluginRegistry`. Throws `UnsupportedTypeError` if no serializer is registered.
+Serializes the data to YAML. Uses `js-yaml` by default. If a `'yaml'` serializer plugin is registered via `PluginRegistry`, the plugin takes precedence.
 
 ```typescript
-import { PluginRegistry } from '@safe-access-inline/safe-access-inline';
-import jsYaml from 'js-yaml';
-
-PluginRegistry.registerSerializer('yaml', { serialize: (data) => jsYaml.dump(data) });
-
 const accessor = SafeAccess.fromJson('{"name": "Ana"}');
 accessor.toYaml(); // "name: Ana\n"
+```
+
+#### `toToml(): string`
+
+Serializes the data to TOML. Uses `smol-toml` by default. If a `'toml'` serializer plugin is registered via `PluginRegistry`, the plugin takes precedence.
+
+```typescript
+const accessor = SafeAccess.fromJson('{"name": "Ana"}');
+accessor.toToml(); // 'name = "Ana"\n'
 ```
 
 #### `toXml(rootElement?: string): string`
@@ -253,11 +257,11 @@ accessor.toYaml(); // "name: Ana\n"
 Serializes the data to XML. Requires an `'xml'` serializer plugin registered via `PluginRegistry`. Falls back to `UnsupportedTypeError` if no serializer is registered. The `rootElement` parameter (default: `'root'`) is passed internally but the serializer plugin controls the actual output.
 
 ```typescript
-PluginRegistry.registerSerializer('xml', {
-  serialize: (data) => {
-    // Your XML serialization logic
-    return '<root>...</root>';
-  },
+PluginRegistry.registerSerializer("xml", {
+    serialize: (data) => {
+        // Your XML serialization logic
+        return "<root>...</root>";
+    },
 });
 
 accessor.toXml();
@@ -268,8 +272,8 @@ accessor.toXml();
 Serializes the data to any format that has a registered serializer plugin. Throws `UnsupportedTypeError` if no serializer is found for the given format.
 
 ```typescript
-accessor.transform('yaml');  // uses registered 'yaml' serializer
-accessor.transform('csv');   // uses registered 'csv' serializer
+accessor.transform("yaml"); // uses registered 'yaml' serializer
+accessor.transform("csv"); // uses registered 'csv' serializer
 ```
 
 ---
@@ -287,13 +291,13 @@ Central registry for parser and serializer plugins. All methods are static.
 Registers a parser plugin for the given format. The plugin must implement `{ parse(raw: string): Record<string, unknown> }`.
 
 ```typescript
-import type { ParserPlugin } from '@safe-access-inline/safe-access-inline';
+import type { ParserPlugin } from "@safe-access-inline/safe-access-inline";
 
 const yamlParser: ParserPlugin = {
-  parse: (raw) => jsYaml.load(raw) as Record<string, unknown>,
+    parse: (raw) => jsYaml.load(raw) as Record<string, unknown>,
 };
 
-PluginRegistry.registerParser('yaml', yamlParser);
+PluginRegistry.registerParser("yaml", yamlParser);
 ```
 
 #### `PluginRegistry.hasParser(format: string): boolean`
@@ -311,13 +315,13 @@ Returns the registered parser plugin. Throws `UnsupportedTypeError` if not found
 Registers a serializer plugin for the given format. The plugin must implement `{ serialize(data: Record<string, unknown>): string }`.
 
 ```typescript
-import type { SerializerPlugin } from '@safe-access-inline/safe-access-inline';
+import type { SerializerPlugin } from "@safe-access-inline/safe-access-inline";
 
 const yamlSerializer: SerializerPlugin = {
-  serialize: (data) => jsYaml.dump(data),
+    serialize: (data) => jsYaml.dump(data),
 };
 
-PluginRegistry.registerSerializer('yaml', yamlSerializer);
+PluginRegistry.registerSerializer("yaml", yamlSerializer);
 ```
 
 #### `PluginRegistry.hasSerializer(format: string): boolean`
@@ -362,12 +366,12 @@ Returns a new object (does not mutate input).
 
 ## Errors
 
-| Error | When |
-|-------|------|
-| `AccessorError` | Base error class |
-| `InvalidFormatError` | Invalid input format (e.g., malformed JSON, missing parser plugin) |
-| `PathNotFoundError` | Reserved (not thrown by `get()`) |
-| `UnsupportedTypeError` | No serializer/parser plugin registered for the requested format |
+| Error                  | When                                                                                             |
+| ---------------------- | ------------------------------------------------------------------------------------------------ |
+| `AccessorError`        | Base error class                                                                                 |
+| `InvalidFormatError`   | Invalid input format (e.g., malformed JSON, missing parser plugin)                               |
+| `PathNotFoundError`    | Reserved (not thrown by `get()`)                                                                 |
+| `UnsupportedTypeError` | No serializer/parser plugin registered for the requested format (e.g., `toXml()` without plugin) |
 
 All errors extend the base `Error` class and `AccessorError`.
 
@@ -377,28 +381,53 @@ All errors extend the base `Error` class and `AccessorError`.
 
 ```typescript
 interface AccessorInterface {
-  get(path: string, defaultValue?: unknown): unknown;
-  getMany(paths: Record<string, unknown>): Record<string, unknown>;
-  has(path: string): boolean;
-  set(path: string, value: unknown): AbstractAccessor;
-  remove(path: string): AbstractAccessor;
-  type(path: string): string | null;
-  count(path?: string): number;
-  keys(path?: string): string[];
-  all(): Record<string, unknown>;
-  toArray(): Record<string, unknown>;
-  toJson(pretty?: boolean): string;
-  toObject(): Record<string, unknown>;
-  toYaml(): string;
-  toXml(rootElement?: string): string;
-  transform(format: string): string;
+    get(path: string, defaultValue?: unknown): unknown;
+    getMany(paths: Record<string, unknown>): Record<string, unknown>;
+    has(path: string): boolean;
+    set(path: string, value: unknown): AbstractAccessor;
+    remove(path: string): AbstractAccessor;
+    type(path: string): string | null;
+    count(path?: string): number;
+    keys(path?: string): string[];
+    all(): Record<string, unknown>;
+    toArray(): Record<string, unknown>;
+    toJson(pretty?: boolean): string;
+    toObject(): Record<string, unknown>;
+    toYaml(): string;
+    toToml(): string;
+    toXml(rootElement?: string): string;
+    transform(format: string): string;
 }
 
 interface ParserPlugin {
-  parse(raw: string): Record<string, unknown>;
+    parse(raw: string): Record<string, unknown>;
 }
+```
+
+### Shipped Plugins
+
+The package ships with ready-to-use parser and serializer plugins for overriding the default YAML/TOML implementations:
+
+```typescript
+import {
+    JsYamlParser,
+    JsYamlSerializer,
+    SmolTomlParser,
+    SmolTomlSerializer,
+} from "@safe-access-inline/safe-access-inline";
+```
+
+| Plugin               | Format | Type       | Library     |
+| -------------------- | ------ | ---------- | ----------- |
+| `JsYamlParser`       | yaml   | Parser     | `js-yaml`   |
+| `JsYamlSerializer`   | yaml   | Serializer | `js-yaml`   |
+| `SmolTomlParser`     | toml   | Parser     | `smol-toml` |
+| `SmolTomlSerializer` | toml   | Serializer | `smol-toml` |
 
 interface SerializerPlugin {
-  serialize(data: Record<string, unknown>): string;
+serialize(data: Record<string, unknown>): string;
 }
+
+```
+
 ```
