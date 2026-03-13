@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.2.0](https://github.com/felipesauer/safe-access-inline/compare/php-v0.1.2...php-v0.2.0) (2026-03-13)
+
+
+### ⚠ BREAKING CHANGES
+
+* **php:** installing the package now requires symfony/yaml ^7.0 and devium/toml ^1.0. Suggest entry updated to ext-yaml only.
+
+### Features
+
+* **php:** add DeviumTomlSerializer and NativeYamlSerializer plugins ([d8d2e33](https://github.com/felipesauer/safe-access-inline/commit/d8d2e3347aa63703c137b883a866cb50e2f45a7b))
+* **php:** add toToml() to TransformableInterface ([7d69982](https://github.com/felipesauer/safe-access-inline/commit/7d69982a80367657d692cb6b2329a76f0d381a45))
+* **php:** add YAML and TOML format auto-detection to TypeDetector ([f0f48e9](https://github.com/felipesauer/safe-access-inline/commit/f0f48e96d3a5997c657bd28f6ec9a2e7004d7d6c))
+* **php:** promote symfony/yaml and devium/toml to required dependencies ([f351290](https://github.com/felipesauer/safe-access-inline/commit/f3512905bcf30c96a0e7cf7b194e318df3d8a7f6))
+
+
+### Bug Fixes
+
+* **php:** suppress PHP warnings in IniAccessor parse_ini_string call ([97f818e](https://github.com/felipesauer/safe-access-inline/commit/97f818ec531eb457462340d523738462c0cb2797))
+
+
+### Miscellaneous Chores
+
+* **main:** release php 0.2.0 ([13fe09b](https://github.com/felipesauer/safe-access-inline/commit/13fe09be73cab46ca88e797efee721a438954684))
+* **main:** release php 0.2.0 ([9f7210a](https://github.com/felipesauer/safe-access-inline/commit/9f7210a46bc96d59217494f64926821c621169d0))
+* revert php version to 0.1.2 and update changelog ([9e89858](https://github.com/felipesauer/safe-access-inline/commit/9e89858561065171677a87244b74fa7ef4ff26c8))
+
 ## [0.1.2](https://github.com/felipesauer/safe-access-inline/compare/php-v0.1.1...php-v0.1.2) (2026-03-12)
 
 ### Bug Fixes
