@@ -137,7 +137,11 @@ import type {
 
 ## Documentation
 
-Full documentation is available in the [mono-repo](https://github.com/felipesauer/safe-access-inline/tree/main/docs/js).
+Full documentation is available at [felipesauer.github.io/safe-access-inline](https://felipesauer.github.io/safe-access-inline):
+
+- [Getting Started — JS/TS](https://felipesauer.github.io/safe-access-inline/js/getting-started/)
+- [API Reference — JS/TS](https://felipesauer.github.io/safe-access-inline/js/api-reference/)
+- [Architecture](https://felipesauer.github.io/safe-access-inline/architecture/)
 
 ## License
 

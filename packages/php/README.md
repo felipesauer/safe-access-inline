@@ -139,7 +139,11 @@ $accessor->transform('json');  // by format name
 
 ## Documentation
 
-Full documentation is available in the [mono-repo](https://github.com/felipesauer/safe-access-inline/tree/main/docs/php).
+Full documentation is available at [felipesauer.github.io/safe-access-inline](https://felipesauer.github.io/safe-access-inline):
+
+- [Getting Started — PHP](https://felipesauer.github.io/safe-access-inline/php/getting-started/)
+- [API Reference — PHP](https://felipesauer.github.io/safe-access-inline/php/api-reference/)
+- [Architecture](https://felipesauer.github.io/safe-access-inline/architecture/)
 
 ## License
 
