@@ -135,9 +135,32 @@ describe(AbstractAccessor.name, () => {
         expect(accessor.toYaml()).toBe('yaml:{"a":1}');
     });
 
-    it('toYaml — throws UnsupportedTypeError when no serializer registered', () => {
+    it('toYaml — uses default js-yaml when no serializer registered', () => {
         const accessor = ArrayAccessor.from({ a: 1 });
-        expect(() => accessor.toYaml()).toThrow(UnsupportedTypeError);
+        const result = accessor.toYaml();
+        expect(result).toContain('a: 1');
+    });
+
+    // ── toToml() ──
+
+    it('toToml — uses registered serializer plugin', () => {
+        PluginRegistry.registerSerializer('toml', {
+            serialize: (data) => `toml:${JSON.stringify(data)}`,
+        });
+        const accessor = ArrayAccessor.from({ a: 1 });
+        expect(accessor.toToml()).toBe('toml:{"a":1}');
+    });
+
+    it('toToml — uses default smol-toml when no serializer registered', () => {
+        const accessor = ArrayAccessor.from({ a: 1 });
+        const result = accessor.toToml();
+        expect(result).toContain('a = 1');
+    });
+
+    it('toToml — throws InvalidFormatError when smol-toml fails to serialize', () => {
+        // smol-toml cannot serialize undefined or functions
+        const accessor = ArrayAccessor.from({ fn: () => {} } as unknown as Record<string, unknown>);
+        expect(() => accessor.toToml()).toThrow(InvalidFormatError);
     });
 
     // ── toXml() ──
@@ -172,7 +195,17 @@ describe(AbstractAccessor.name, () => {
         const accessor = ArrayAccessor.from({ a: 1 });
         expect(accessor.transform('custom')).toBe('custom:{"a":1}');
     });
+    it('transform — falls back to toYaml for yaml format', () => {
+        const accessor = ArrayAccessor.from({ a: 1 });
+        const result = accessor.transform('yaml');
+        expect(result).toContain('a: 1');
+    });
 
+    it('transform — falls back to toToml for toml format', () => {
+        const accessor = ArrayAccessor.from({ a: 1 });
+        const result = accessor.transform('toml');
+        expect(result).toContain('a = 1');
+    });
     it('transform — throws when no serializer registered', () => {
         const accessor = ArrayAccessor.from({ a: 1 });
         expect(() => accessor.transform('nonexistent')).toThrow(UnsupportedTypeError);

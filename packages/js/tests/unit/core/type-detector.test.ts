@@ -5,6 +5,7 @@ import { ObjectAccessor } from '../../../src/accessors/object.accessor';
 import { JsonAccessor } from '../../../src/accessors/json.accessor';
 import { XmlAccessor } from '../../../src/accessors/xml.accessor';
 import { YamlAccessor } from '../../../src/accessors/yaml.accessor';
+import { TomlAccessor } from '../../../src/accessors/toml.accessor';
 import { IniAccessor } from '../../../src/accessors/ini.accessor';
 import { EnvAccessor } from '../../../src/accessors/env.accessor';
 import { UnsupportedTypeError } from '../../../src/exceptions/unsupported-type.error';
@@ -56,5 +57,16 @@ describe(TypeDetector.name, () => {
 
     it('throws UnsupportedTypeError for non-JSON string', () => {
         expect(() => TypeDetector.resolve('just plain text')).toThrow(UnsupportedTypeError);
+    });
+
+    it('detects TOML string', () => {
+        const accessor = TypeDetector.resolve('title = "Hello"\n\n[server]\nhost = "localhost"');
+        expect(accessor).toBeInstanceOf(TomlAccessor);
+    });
+
+    it('falls through invalid JSON array to throw', () => {
+        // Starts with [ so tries JSON first, fails, then falls through
+        // No other pattern matches, so UnsupportedTypeError is thrown
+        expect(() => TypeDetector.resolve('[not json at all')).toThrow(UnsupportedTypeError);
     });
 });

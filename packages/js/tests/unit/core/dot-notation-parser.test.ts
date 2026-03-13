@@ -129,4 +129,15 @@ describe(DotNotationParser.name, () => {
         const data = { items: [{ name: 'Ana' }, 'primitive', { name: 'Bob' }] };
         expect(DotNotationParser.get(data, 'items.*.name', 'N/A')).toEqual(['Ana', 'N/A', 'Bob']);
     });
+
+    it('get — wildcard on object values', () => {
+        const data = { config: { db: { host: 'localhost' }, cache: { host: 'redis' } } };
+        expect(DotNotationParser.get(data, 'config.*.host')).toEqual(['localhost', 'redis']);
+    });
+
+    it('set — overwrites non-object intermediate with empty object', () => {
+        const data = { a: 'string' };
+        const result = DotNotationParser.set(data, 'a.b.c', 'value');
+        expect(result).toEqual({ a: { b: { c: 'value' } } });
+    });
 });

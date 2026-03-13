@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { YamlAccessor } from '../../../src/accessors/yaml.accessor';
+import { PluginRegistry } from '../../../src/core/plugin-registry';
 import { InvalidFormatError } from '../../../src/exceptions/invalid-format.error';
 
 describe(YamlAccessor.name, () => {
@@ -179,18 +180,9 @@ features:
         expect(accessor.get('c')).toBe(false);
     });
 
-    it('skips lines without colon at block level', () => {
-        const yamlData = `key1: value1\njust a stray line\nkey2: value2`;
-        const accessor = YamlAccessor.from(yamlData);
-        expect(accessor.get('key1')).toBe('value1');
-        expect(accessor.get('key2')).toBe('value2');
-    });
-
-    it('skips dash items at object level', () => {
+    it('rejects invalid YAML with stray lines', () => {
         const yamlData = `key: value\n- stray item\nother: data`;
-        const accessor = YamlAccessor.from(yamlData);
-        expect(accessor.get('key')).toBe('value');
-        expect(accessor.get('other')).toBe('data');
+        expect(() => YamlAccessor.from(yamlData)).toThrow();
     });
 
     it('handles array followed by non-dash line returning to parent', () => {
@@ -200,8 +192,8 @@ features:
         expect(accessor.get('next')).toBe('value');
     });
 
-    it('skips deeper-indent lines already consumed in parseBlock', () => {
-        const yamlData = `parent:\n  child: value\n      deepOrphan: stray\nsibling: ok`;
+    it('parses nested keys correctly', () => {
+        const yamlData = `parent:\n  child: value\nsibling: ok`;
         const accessor = YamlAccessor.from(yamlData);
         expect(accessor.get('parent.child')).toBe('value');
         expect(accessor.get('sibling')).toBe('ok');
@@ -211,5 +203,25 @@ features:
         const yamlData = `config: |\n  line1\n  line2\nafter: done`;
         const accessor = YamlAccessor.from(yamlData);
         expect(accessor.has('after')).toBe(true);
+    });
+
+    it('handles empty YAML returning empty object', () => {
+        const accessor = YamlAccessor.from('   ');
+        expect(accessor.toArray()).toEqual({});
+    });
+
+    describe('with registered parser plugin', () => {
+        beforeEach(() => {
+            PluginRegistry.reset();
+        });
+
+        it('uses registered parser plugin instead of js-yaml', () => {
+            PluginRegistry.registerParser('yaml', {
+                parse: (input: string) => ({ custom: true, raw: input.substring(0, 5) }),
+            });
+            const accessor = YamlAccessor.from('name: test');
+            expect(accessor.get('custom')).toBe(true);
+            expect(accessor.get('raw')).toBe('name:');
+        });
     });
 });

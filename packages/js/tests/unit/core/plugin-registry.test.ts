@@ -94,10 +94,10 @@ describe(PluginRegistry.name, () => {
 
     // ── Serialization via AbstractAccessor ──
 
-    it('toYaml throws when no serializer registered', () => {
+    it('toYaml uses default js-yaml when no serializer registered', () => {
         const accessor = SafeAccess.fromArray([1, 2]);
-        expect(() => accessor.toYaml()).toThrow(UnsupportedTypeError);
-        expect(() => accessor.toYaml()).toThrow('requires a YAML serializer plugin');
+        const result = accessor.toYaml();
+        expect(typeof result).toBe('string');
     });
 
     it('toXml throws when no serializer registered', () => {

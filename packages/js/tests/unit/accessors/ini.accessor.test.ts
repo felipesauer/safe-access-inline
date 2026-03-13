@@ -137,4 +137,24 @@ ttl = 60
         expect(accessor.get('section.key1')).toBe('val1');
         expect(accessor.get('section.key2')).toBe('val2');
     });
+
+    it('coerces false specifically', () => {
+        const accessor = IniAccessor.from('flag = false');
+        expect(accessor.get('flag')).toBe(false);
+    });
+
+    it('coerces negative integer values', () => {
+        const accessor = IniAccessor.from('offset = -42');
+        expect(accessor.get('offset')).toBe(-42);
+    });
+
+    it('coerces negative float values', () => {
+        const accessor = IniAccessor.from('temp = -3.14');
+        expect(accessor.get('temp')).toBe(-3.14);
+    });
+
+    it('skips semicolon comment lines', () => {
+        const accessor = IniAccessor.from('; comment line\nkey = value');
+        expect(accessor.get('key')).toBe('value');
+    });
 });
