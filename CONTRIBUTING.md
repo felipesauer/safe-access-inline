@@ -17,6 +17,8 @@ Thank you for considering contributing! This guide covers everything you need to
         - [Test Structure](#test-structure)
         - [Writing Tests for Plugin-Dependent Code](#writing-tests-for-plugin-dependent-code)
         - [Quality Gates](#quality-gates)
+        - [Future Quality Improvements](#future-quality-improvements)
+        - [Documentation](#documentation)
     - [Coding Standards](#coding-standards)
         - [PHP](#php-1)
         - [JavaScript / TypeScript](#javascript--typescript-1)
@@ -30,7 +32,7 @@ Thank you for considering contributing! This guide covers everything you need to
         - [What the hooks do](#what-the-hooks-do)
         - [Commit message examples](#commit-message-examples)
         - [Available scopes](#available-scopes)
-        - [Bypassing hooks](#bypassing-hooks-emergency-only)
+        - [Bypassing hooks (emergency only)](#bypassing-hooks-emergency-only)
     - [Pull Requests](#pull-requests)
         - [Before Opening a PR](#before-opening-a-pr)
         - [PR Expectations](#pr-expectations)
@@ -98,7 +100,7 @@ safe-access-inline follows the **Facade + Accessor** pattern:
 
 Each concrete accessor (JSON, XML, YAML, TOML, INI, CSV, ENV, Array, Object) extends `AbstractAccessor` and only implements `parse(raw) → array`.
 
-For a detailed component diagram and data flow, read [docs/architecture.md](docs/architecture.md).
+For a detailed component diagram and data flow, read [Architecture](https://felipesauer.github.io/safe-access-inline/architecture/).
 
 ## Testing
 
@@ -167,7 +169,55 @@ The following tools are planned for v1.0:
 
 ### Documentation
 
-Documentation in `docs/` is maintained manually. When modifying public API or behavior, update the corresponding documentation files. In the future, automated doc generation (TypeDoc for JS, phpDocumentor for PHP) may be introduced.
+Documentation in `docs/` is published via GitHub Pages + Jekyll at [felipesauer.github.io/safe-access-inline](https://felipesauer.github.io/safe-access-inline).
+
+**Structure:**
+
+```
+docs/
+├── _config.yml          # Jekyll config (version, theme, i18n)
+├── Gemfile              # Jekyll dependencies for local preview
+├── index.md             # EN landing page
+├── architecture.md      # EN
+├── js/                  # JS/TS docs (EN)
+│   ├── index.md
+│   ├── getting-started.md
+│   └── api-reference.md
+├── php/                 # PHP docs (EN)
+│   ├── index.md
+│   ├── getting-started.md
+│   └── api-reference.md
+└── pt-br/               # Portuguese (BR) translations
+    ├── index.md
+    ├── architecture.md
+    ├── js/
+    └── php/
+```
+
+**Editing docs:**
+
+- Each `.md` file needs YAML front matter (`title`, `nav_order`, `parent`, `permalink`)
+- When creating a new page, also create the corresponding `pt-br/` translation (even a stub is fine)
+- When modifying a page, update the `pt-br/` translation too
+
+**Local preview:**
+
+```bash
+cd docs
+bundle install
+bundle exec jekyll serve
+# → http://localhost:4000/safe-access-inline/
+```
+
+**Docs ↔ code alignment rules:**
+
+- New feature or API change → update Getting Started and/or API Reference for the affected language(s)
+- Behavior change → update Architecture if it affects design or data flow
+- Use `docs` scope in conventional commits: `docs: update PHP API reference for new method`
+
+**Version bump:**
+
+The `version` field in `docs/_config.yml` is updated automatically by Release Please during releases.
 
 ## Coding Standards
 
