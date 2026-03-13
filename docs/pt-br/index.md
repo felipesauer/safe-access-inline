@@ -1,5 +1,5 @@
 ---
-layout: home
+layout: default
 title: Início
 nav_exclude: true
 description: Acesse dados profundamente aninhados com notação de ponto — uma API, 9 formatos, PHP + JS/TS.
