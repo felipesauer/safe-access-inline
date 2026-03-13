@@ -22,4 +22,5 @@
 - [ ] Tests added or updated
 - [ ] Static analysis passes (`phpstan analyse` / `tsc --noEmit`)
 - [ ] Commits follow [Conventional Commits](https://www.conventionalcommits.org/)
-- [ ] Documentation updated (if applicable)
+- [ ] Documentation updated (if applicable: Getting Started, API Reference, Architecture)
+- [ ] PT-BR translation updated or stub created (if docs changed)
