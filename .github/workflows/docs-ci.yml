@@ -40,4 +40,4 @@ jobs:
                   bundle exec htmlproofer ./_site \
                     --disable-external \
                     --allow-hash-href \
-                    --swap-urls "^/safe-access-inline/:"
+                    --swap-urls "^/safe-access-inline:"
