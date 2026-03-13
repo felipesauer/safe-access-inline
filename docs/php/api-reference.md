@@ -1,3 +1,10 @@
+---
+title: API Reference
+parent: PHP
+nav_order: 2
+permalink: /php/api-reference/
+---
+
 # API Reference — PHP
 
 ## Table of Contents

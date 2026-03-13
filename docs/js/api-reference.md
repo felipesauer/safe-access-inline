@@ -1,3 +1,10 @@
+---
+title: API Reference
+parent: JavaScript / TypeScript
+nav_order: 2
+permalink: /js/api-reference/
+---
+
 # API Reference — JavaScript / TypeScript
 
 ## Table of Contents

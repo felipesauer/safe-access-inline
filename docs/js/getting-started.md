@@ -1,3 +1,10 @@
+---
+title: Getting Started
+parent: JavaScript / TypeScript
+nav_order: 1
+permalink: /js/getting-started/
+---
+
 # Getting Started — JavaScript / TypeScript
 
 ## Table of Contents
