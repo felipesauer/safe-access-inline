@@ -1,64 +1,70 @@
 {
-  "name": "@safe-access-inline/safe-access-inline",
-  "version": "0.1.1",
-  "description": "Safe nested data access with dot notation — supports Object, Array, JSON, XML, YAML and more.",
-  "type": "module",
-  "main": "./dist/index.cjs",
-  "module": "./dist/index.mjs",
-  "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.mjs",
-      "require": "./dist/index.cjs"
+    "name": "@safe-access-inline/safe-access-inline",
+    "version": "0.1.1",
+    "description": "Safe nested data access with dot notation — supports Object, Array, JSON, XML, YAML and more.",
+    "type": "module",
+    "main": "./dist/index.cjs",
+    "module": "./dist/index.mjs",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.mjs",
+            "require": "./dist/index.cjs"
+        }
+    },
+    "files": [
+        "dist",
+        "README.md",
+        "CHANGELOG.md"
+    ],
+    "scripts": {
+        "build": "tsup src/index.ts --format cjs,esm --dts",
+        "test": "vitest run",
+        "test:coverage": "vitest run --coverage",
+        "test:watch": "vitest",
+        "lint": "eslint src/ tests/",
+        "format": "prettier --write src/ tests/"
+    },
+    "keywords": [
+        "safe-access",
+        "dot-notation",
+        "nested-data",
+        "json",
+        "xml",
+        "yaml",
+        "accessor"
+    ],
+    "license": "MIT",
+    "author": "Felipe Sauer (https://github.com/felipesauer)",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/felipesauer/safe-access-inline.git",
+        "directory": "packages/js"
+    },
+    "homepage": "https://github.com/felipesauer/safe-access-inline#readme",
+    "bugs": {
+        "url": "https://github.com/felipesauer/safe-access-inline/issues"
+    },
+    "publishConfig": {
+        "access": "public"
+    },
+    "dependencies": {
+        "js-yaml": "^4.0.0",
+        "smol-toml": "^1.0.0"
+    },
+    "devDependencies": {
+        "@types/js-yaml": "^4.0.0",
+        "@eslint/js": "^10.0.1",
+        "@vitest/coverage-v8": "^4.1.0",
+        "eslint": "^10.0",
+        "prettier": "^3.0",
+        "tsup": "^8.0",
+        "typescript": "^5.5",
+        "typescript-eslint": "^8.57.0",
+        "vitest": "^4.1"
+    },
+    "engines": {
+        "node": ">=22"
     }
-  },
-  "files": [
-    "dist",
-    "README.md",
-    "CHANGELOG.md"
-  ],
-  "scripts": {
-    "build": "tsup src/index.ts --format cjs,esm --dts",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "lint": "eslint src/ tests/",
-    "format": "prettier --write src/ tests/"
-  },
-  "keywords": [
-    "safe-access",
-    "dot-notation",
-    "nested-data",
-    "json",
-    "xml",
-    "yaml",
-    "accessor"
-  ],
-  "license": "MIT",
-  "author": "Felipe Sauer (https://github.com/felipesauer)",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/felipesauer/safe-access-inline.git",
-    "directory": "packages/js"
-  },
-  "homepage": "https://github.com/felipesauer/safe-access-inline#readme",
-  "bugs": {
-    "url": "https://github.com/felipesauer/safe-access-inline/issues"
-  },
-  "publishConfig": {
-    "access": "public"
-  },
-  "devDependencies": {
-    "@eslint/js": "^10.0.1",
-    "@vitest/coverage-v8": "^4.1.0",
-    "eslint": "^10.0",
-    "prettier": "^3.0",
-    "tsup": "^8.0",
-    "typescript": "^5.5",
-    "typescript-eslint": "^8.57.0",
-    "vitest": "^4.1"
-  },
-  "engines": {
-    "node": ">=22"
-  }
 }
