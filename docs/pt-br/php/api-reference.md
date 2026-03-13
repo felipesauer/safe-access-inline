@@ -94,6 +94,35 @@ Cria um accessor a partir de uma string no formato `.env`.
 $accessor = SafeAccess::fromEnv("APP_NAME=MyApp\nDEBUG=true");
 ```
 
+#### `SafeAccess::from(mixed $data, string|AccessorFormat $format = ''): AbstractAccessor`
+
+Fábrica unificada — cria um accessor a partir de qualquer dado. Com uma string de formato ou um valor do enum `AccessorFormat`, delega para a fábrica tipada correspondente. Sem formato, detecta automaticamente (equivalente a `detect()`).
+
+Formatos suportados: `'array'`, `'object'`, `'json'`, `'xml'`, `'yaml'`, `'toml'`, `'ini'`, `'csv'`, `'env'`, ou qualquer nome customizado registrado via `extend()`. Todos os formatos built-in também estão disponíveis como casos do enum `AccessorFormat`.
+
+```php
+use SafeAccessInline\Enums\AccessorFormat;
+
+// Auto-detecção (sem formato)
+$accessor = SafeAccess::from('{"name": "Ana"}'); // JsonAccessor
+
+// Formato explícito via string
+$json = SafeAccess::from('{"name": "Ana"}', 'json');
+$yaml = SafeAccess::from("name: Ana", 'yaml');
+
+// Formato explícito via enum
+$json = SafeAccess::from('{"name": "Ana"}', AccessorFormat::Json);
+$yaml = SafeAccess::from("name: Ana", AccessorFormat::Yaml);
+$xml  = SafeAccess::from('<root><n>1</n></root>', AccessorFormat::Xml);
+$arr  = SafeAccess::from(['a' => 1], AccessorFormat::Array);
+
+// Formato customizado (apenas string)
+SafeAccess::extend('custom', MyAccessor::class);
+$custom = SafeAccess::from($data, 'custom');
+```
+
+Lança `InvalidFormatException` se o formato for desconhecido e não estiver registrado.
+
 #### `SafeAccess::detect(mixed $data): AbstractAccessor`
 
 Auto-detecta o formato e cria o accessor apropriado.
@@ -136,6 +165,8 @@ Acessa um valor via caminho em notação de ponto. **Nunca lança** — retorna 
 $accessor->get('user.name');           // valor ou null
 $accessor->get('user.email', 'N/A');   // valor ou 'N/A'
 $accessor->get('users.*.name');        // array de valores (wildcard)
+$accessor->get("users[?role=='admin'].name"); // valores filtrados
+$accessor->get('..name');              // descida recursiva
 ```
 
 #### `getMany(array $paths): array`
@@ -205,6 +236,20 @@ Retorna uma **nova instância** com o valor definido no caminho dado.
 ```php
 $new = $accessor->set('user.email', 'ana@example.com');
 // $accessor inalterado, $new tem o valor
+```
+
+#### `merge(array $value): static`
+
+#### `merge(string $path, array $value): static`
+
+Faz deep merge de dados na raiz ou em um caminho específico. Retorna uma **nova instância**. Arrays associativos são mesclados recursivamente; outros valores são substituídos.
+
+```php
+// Merge na raiz
+$merged = $accessor->merge(['theme' => 'dark', 'notifications' => true]);
+
+// Merge em caminho
+$merged = $accessor->merge('user.settings', ['theme' => 'dark']);
 ```
 
 #### `remove(string $path): static`
@@ -360,11 +405,55 @@ Classe utilitária estática. Normalmente usada internamente, mas disponível pa
 
 #### `DotNotationParser::get(array $data, string $path, mixed $default = null): mixed`
 
+Suporta expressões de caminho avançadas:
+
+| Sintaxe           | Descrição                                                                     | Exemplo                 |
+| ----------------- | ----------------------------------------------------------------------------- | ----------------------- |
+| `a.b.c`           | Acesso a chave aninhada                                                       | `"user.profile.name"`   |
+| `a[0]`            | Índice com colchetes                                                          | `"items[0].title"`      |
+| `a.*`             | Wildcard — retorna array de valores                                           | `"users.*.name"`        |
+| `a[?field>value]` | Filtro — retorna itens correspondentes                                        | `"products[?price>20]"` |
+| `..key`           | Descida recursiva — coleta todos os valores de `key` em qualquer profundidade | `"..name"`              |
+
+**Expressões de filtro** suportam:
+
+- Comparação: `==`, `!=`, `>`, `<`, `>=`, `<=`
+- Lógicos: `&&` (AND), `\|\|` (OR)
+- Valores: números, `'strings'`, `true`, `false`, `null`
+
+```php
+// Filtro: todos os usuários admin
+DotNotationParser::get($data, "users[?role=='admin']");
+
+// Filtro com comparação numérica + continuação de caminho
+DotNotationParser::get($data, 'products[?price>20].name');
+
+// AND combinado
+DotNotationParser::get($data, "items[?type=='fruit' && color=='red'].name");
+
+// Descida recursiva: todos os valores "name" em qualquer profundidade
+DotNotationParser::get($data, '..name');
+
+// Descida + wildcard
+DotNotationParser::get($data, '..items.*.id');
+
+// Descida + filtro
+DotNotationParser::get($data, "..employees[?active==true].name");
+```
+
 #### `DotNotationParser::has(array $data, string $path): bool`
 
 #### `DotNotationParser::set(array $data, string $path, mixed $value): array`
 
 Retorna um novo array (não muta o input).
+
+#### `DotNotationParser::merge(array $data, string $path, array $value): array`
+
+Faz deep merge de `$value` em `$path`. Quando `$path` é vazio, mescla na raiz. Arrays associativos são mesclados recursivamente; outros valores são substituídos.
+
+```php
+$result = DotNotationParser::merge($data, 'user.settings', ['theme' => 'dark']);
+```
 
 #### `DotNotationParser::remove(array $data, string $path): array`
 
@@ -388,8 +477,30 @@ Retorna um novo array (não muta o input).
 | Interface                   | Métodos                                                                                                           |
 | --------------------------- | ----------------------------------------------------------------------------------------------------------------- |
 | `ReadableInterface`         | `get()`, `getMany()`, `all()`                                                                                     |
-| `WritableInterface`         | `set()`, `remove()`                                                                                               |
+| `WritableInterface`         | `set()`, `merge()`, `remove()`                                                                                    |
 | `TransformableInterface`    | `toArray()`, `toJson()`, `toXml()`, `toYaml()`, `toToml()`, `toObject()`, `transform()`                           |
 | `AccessorInterface`         | Estende `ReadableInterface` + `TransformableInterface`, adiciona `from()`, `has()`, `type()`, `count()`, `keys()` |
 | `ParserPluginInterface`     | `parse()`                                                                                                         |
 | `SerializerPluginInterface` | `serialize()`                                                                                                     |
+
+---
+
+## Enums
+
+### `AccessorFormat`
+
+**Namespace:** `SafeAccessInline\Enums\AccessorFormat`
+
+Enum backed por string cobrindo todos os formatos built-in. Use como alternativa tipada a passar strings brutas para `SafeAccess::from()`.
+
+| Caso                     | Valor      |
+| ------------------------ | ---------- |
+| `AccessorFormat::Array`  | `'array'`  |
+| `AccessorFormat::Object` | `'object'` |
+| `AccessorFormat::Json`   | `'json'`   |
+| `AccessorFormat::Xml`    | `'xml'`    |
+| `AccessorFormat::Yaml`   | `'yaml'`   |
+| `AccessorFormat::Toml`   | `'toml'`   |
+| `AccessorFormat::Ini`    | `'ini'`    |
+| `AccessorFormat::Csv`    | `'csv'`    |
+| `AccessorFormat::Env`    | `'env'`    |
