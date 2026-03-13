@@ -1,5 +1,46 @@
 # Changelog
 
+## [0.3.0](https://github.com/felipesauer/safe-access-inline/compare/php-v0.2.0...php-v0.3.0) (2026-03-13)
+
+
+### ⚠ BREAKING CHANGES
+
+* **php:** installing the package now requires symfony/yaml ^7.0 and devium/toml ^1.0. Suggest entry updated to ext-yaml only.
+
+### Features
+
+* **php:** add contracts and exception hierarchy ([2b71664](https://github.com/felipesauer/safe-access-inline/commit/2b7166430ae4617b7fcc59b6c639d433110d8477))
+* **php:** add core engine with dot notation parser and plugin registry ([81e008a](https://github.com/felipesauer/safe-access-inline/commit/81e008a05b44e31b734eb330c2801f91756f7c90))
+* **php:** add DeviumTomlSerializer and NativeYamlSerializer plugins ([d8d2e33](https://github.com/felipesauer/safe-access-inline/commit/d8d2e3347aa63703c137b883a866cb50e2f45a7b))
+* **php:** add format accessors for array, object, json, xml, yaml, toml, ini, csv, and env ([eb62f4e](https://github.com/felipesauer/safe-access-inline/commit/eb62f4eccba716f694163824bbeb0e1fd0d1a6d4))
+* **php:** add SafeAccess facade and parser/serializer plugins ([4927424](https://github.com/felipesauer/safe-access-inline/commit/49274244739ad24e13e5a8d55f56f18e50d6b3e1))
+* **php:** add toToml() to TransformableInterface ([7d69982](https://github.com/felipesauer/safe-access-inline/commit/7d69982a80367657d692cb6b2329a76f0d381a45))
+* **php:** add YAML and TOML format auto-detection to TypeDetector ([f0f48e9](https://github.com/felipesauer/safe-access-inline/commit/f0f48e96d3a5997c657bd28f6ec9a2e7004d7d6c))
+* **php:** promote symfony/yaml and devium/toml to required dependencies ([f351290](https://github.com/felipesauer/safe-access-inline/commit/f3512905bcf30c96a0e7cf7b194e318df3d8a7f6))
+
+
+### Bug Fixes
+
+* cast Toml::decode() result to array in DeviumTomlParser ([b04dadb](https://github.com/felipesauer/safe-access-inline/commit/b04dadb0781cebef8169c90c2e2c1c0c4b61bbd6))
+* **php:** resolve nested TOML tables returning null and PHPStan plugin errors ([228b1da](https://github.com/felipesauer/safe-access-inline/commit/228b1da0f6ce645e7a6ea39b8717cea9fa22d166))
+* **php:** suppress PHP warnings in IniAccessor parse_ini_string call ([97f818e](https://github.com/felipesauer/safe-access-inline/commit/97f818ec531eb457462340d523738462c0cb2797))
+* **php:** validate XML root element name to prevent injection ([6736345](https://github.com/felipesauer/safe-access-inline/commit/67363452d42d02c16e8753eae9c54b970dbe8249))
+
+
+### Miscellaneous Chores
+
+* add .gitattributes for LF normalization and export-ignore ([755a3a3](https://github.com/felipesauer/safe-access-inline/commit/755a3a3a6c91a4cc3986fd5fb478c3296bbd3901))
+* **main:** release php 0.1.0 ([8203c39](https://github.com/felipesauer/safe-access-inline/commit/8203c39d244c1f8a94d2b298530bdbc3d4da96d8))
+* **main:** release php 0.1.0 ([363069e](https://github.com/felipesauer/safe-access-inline/commit/363069e11154fdf38d0d26dd4414dcddc04ce4b6))
+* **main:** release php 0.1.1 ([198db41](https://github.com/felipesauer/safe-access-inline/commit/198db4139f5ef2a1d8fa7d7d2772639ae9542ffb))
+* **main:** release php 0.1.1 ([6c4eb37](https://github.com/felipesauer/safe-access-inline/commit/6c4eb371fad8d55945a770e2c1d92d8f3df4507a))
+* **main:** release php 0.1.2 ([0750313](https://github.com/felipesauer/safe-access-inline/commit/0750313af4c26215e010a42a6fbd6f0dd46971c3))
+* **main:** release php 0.1.2 ([2519d27](https://github.com/felipesauer/safe-access-inline/commit/2519d273304dd7a954e95b3b853c294211d4eba4))
+* **main:** release php 0.2.0 ([13fe09b](https://github.com/felipesauer/safe-access-inline/commit/13fe09be73cab46ca88e797efee721a438954684))
+* **main:** release php 0.2.0 ([9f7210a](https://github.com/felipesauer/safe-access-inline/commit/9f7210a46bc96d59217494f64926821c621169d0))
+* **php:** add coverage ignore annotations for defensive code ([c7cbdc9](https://github.com/felipesauer/safe-access-inline/commit/c7cbdc916bfb0137429912d1536a59932bc4545d))
+* **php:** add project configuration and tooling ([a08cafb](https://github.com/felipesauer/safe-access-inline/commit/a08cafbb6a67308c0f686d0ea8b51062bacce427))
+
 ## [0.2.0](https://github.com/felipesauer/safe-access-inline/compare/php-v0.1.2...php-v0.2.0) (2026-03-13)
 
 
