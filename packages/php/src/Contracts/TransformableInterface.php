@@ -13,6 +13,9 @@ interface TransformableInterface
     /** @param string $rootElement Name of the root XML element */
     public function toXml(string $rootElement = 'root'): string;
 
+    /** @return string Formatted TOML */
+    public function toToml(): string;
+
     /** @return string Formatted YAML */
     public function toYaml(): string;
 

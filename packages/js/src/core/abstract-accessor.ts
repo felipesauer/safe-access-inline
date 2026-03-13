@@ -1,25 +1,10 @@
+import yaml from 'js-yaml';
+import { stringify as tomlStringify } from 'smol-toml';
 import { DotNotationParser } from './dot-notation-parser';
 import { PluginRegistry } from './plugin-registry';
+import type { AccessorInterface } from '../contracts/accessor.interface';
 import { InvalidFormatError } from '../exceptions/invalid-format.error';
 import { UnsupportedTypeError } from '../exceptions/unsupported-type.error';
-
-export interface AccessorInterface {
-    get(path: string, defaultValue?: unknown): unknown;
-    getMany(paths: Record<string, unknown>): Record<string, unknown>;
-    has(path: string): boolean;
-    set(path: string, value: unknown): AbstractAccessor;
-    remove(path: string): AbstractAccessor;
-    type(path: string): string | null;
-    count(path?: string): number;
-    keys(path?: string): string[];
-    all(): Record<string, unknown>;
-    toArray(): Record<string, unknown>;
-    toJson(pretty?: boolean): string;
-    toObject(): Record<string, unknown>;
-    toYaml(): string;
-    toXml(rootElement?: string): string;
-    transform(format: string): string;
-}
 
 export abstract class AbstractAccessor implements AccessorInterface {
     protected data: Record<string, unknown> = {};
@@ -94,15 +79,27 @@ export abstract class AbstractAccessor implements AccessorInterface {
         return structuredClone(this.data);
     }
 
+    toToml(): string {
+        if (PluginRegistry.hasSerializer('toml')) {
+            return PluginRegistry.getSerializer('toml').serialize(this.data);
+        }
+
+        try {
+            return tomlStringify(this.data);
+        } catch (e) {
+            throw new InvalidFormatError(
+                /* v8 ignore next */
+                `toToml() failed to serialize data: ${e instanceof Error ? e.message : String(e)}`,
+            );
+        }
+    }
+
     toYaml(): string {
         if (PluginRegistry.hasSerializer('yaml')) {
             return PluginRegistry.getSerializer('yaml').serialize(this.data);
         }
 
-        throw new UnsupportedTypeError(
-            'toYaml() requires a YAML serializer plugin. ' +
-                "Register with: PluginRegistry.registerSerializer('yaml', { serialize: (data) => ... })",
-        );
+        return yaml.dump(this.data);
     }
 
     toXml(rootElement = 'root'): string {
@@ -121,6 +118,14 @@ export abstract class AbstractAccessor implements AccessorInterface {
     }
 
     transform(format: string): string {
+        if (PluginRegistry.hasSerializer(format)) {
+            return PluginRegistry.getSerializer(format).serialize(this.data);
+        }
+
+        // Fall back to built-in serializers for YAML and TOML
+        if (format === 'yaml') return this.toYaml();
+        if (format === 'toml') return this.toToml();
+
         return PluginRegistry.getSerializer(format).serialize(this.data);
     }
 }

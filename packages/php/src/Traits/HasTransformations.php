@@ -43,6 +43,18 @@ trait HasTransformations
         return $xml->asXML() ?: '';
     }
 
+    public function toToml(): string
+    {
+        if (PluginRegistry::hasSerializer('toml')) {
+            return PluginRegistry::getSerializer('toml')->serialize($this->data);
+        }
+
+        /** @var array<string, mixed>|\stdClass */
+        $tomlData = json_decode(json_encode($this->data) ?: '{}');
+
+        return \Devium\Toml\Toml::encode($tomlData);
+    }
+
     public function toYaml(): string
     {
         if (PluginRegistry::hasSerializer('yaml')) {
@@ -53,10 +65,7 @@ trait HasTransformations
             return yaml_emit($this->data);
         }
 
-        throw new UnsupportedTypeException(
-            'toYaml() requires a YAML serializer plugin. '
-            . "Register with: PluginRegistry::registerSerializer('yaml', new SymfonyYamlSerializer())"
-        );
+        return \Symfony\Component\Yaml\Yaml::dump($this->data, 4, 2);
     }
 
     protected function hasNativeYamlEmit(): bool
@@ -66,13 +75,26 @@ trait HasTransformations
 
     /**
      * Transform data to a specific format using a registered serializer plugin.
+     * Falls back to built-in serializers for YAML and TOML.
      *
      * @param string $format Format identifier (e.g., 'yaml', 'xml', 'toml')
      * @return string Serialized output
-     * @throws UnsupportedTypeException If no serializer is registered
+     * @throws UnsupportedTypeException If no serializer is registered and no built-in fallback exists
      */
     public function transform(string $format): string
     {
+        if (PluginRegistry::hasSerializer($format)) {
+            return PluginRegistry::getSerializer($format)->serialize($this->data);
+        }
+
+        // Fall back to built-in serializers for YAML and TOML
+        if ($format === 'yaml') {
+            return $this->toYaml();
+        }
+        if ($format === 'toml') {
+            return $this->toToml();
+        }
+
         return PluginRegistry::getSerializer($format)->serialize($this->data);
     }
 

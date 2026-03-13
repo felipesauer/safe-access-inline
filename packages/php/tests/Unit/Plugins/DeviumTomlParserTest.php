@@ -1,27 +1,20 @@
 <?php
 
-use SafeAccessInline\Exceptions\InvalidFormatException;
 use SafeAccessInline\Plugins\DeviumTomlParser;
 
 describe(DeviumTomlParser::class, function () {
 
-    it('throws InvalidFormatException when dependency is not available', function () {
-        $parser = new class () extends DeviumTomlParser {
-            protected function isAvailable(): bool
-            {
-                return false;
-            }
-        };
-        expect(fn () => $parser->parse('key = "value"'))->toThrow(InvalidFormatException::class);
+    it('parses flat TOML key-value pairs', function () {
+        $parser = new DeviumTomlParser();
+        $result = $parser->parse('key = "value"');
+        expect($result)->toBe(['key' => 'value']);
     });
 
-    it('parses TOML when dependency is available', function () {
-        if (!class_exists(\Devium\Toml\Toml::class)) {
-            $this->markTestSkipped('devium/toml is not installed');
-        }
+    it('parses TOML with sections', function () {
         $parser = new DeviumTomlParser();
         $result = $parser->parse("[server]\nhost = \"localhost\"");
         expect($result)->toHaveKey('server');
+        expect($result['server']['host'])->toBe('localhost');
     });
 
 });

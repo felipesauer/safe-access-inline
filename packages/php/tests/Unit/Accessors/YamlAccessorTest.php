@@ -54,9 +54,31 @@ function registerMockYamlParser(array $returnData = []): void
 
 describe(YamlAccessor::class, function () {
 
-    it('throws when no parser plugin is registered', function () {
-        expect(fn () => SafeAccess::fromYaml('key: value'))
-            ->toThrow(InvalidFormatException::class, 'requires a YAML parser plugin');
+    it('works without plugin using symfony/yaml', function () {
+        $accessor = SafeAccess::fromYaml("name: Ana\nage: 30");
+        expect($accessor->get('name'))->toBe('Ana');
+        expect($accessor->get('age'))->toBe(30);
+    });
+
+    it('prefers ext-yaml over symfony/yaml when available', function () {
+        if (!function_exists('yaml_parse')) {
+            $this->markTestSkipped('ext-yaml is not installed');
+        }
+        // Without any plugin, ext-yaml should be used (same result)
+        $accessor = SafeAccess::fromYaml("name: Ana\nage: 30");
+        expect($accessor->get('name'))->toBe('Ana');
+        expect($accessor->get('age'))->toBe(30);
+    });
+
+    it('falls back to symfony/yaml when ext-yaml is not available', function () {
+        $accessor = (new class ("name: Ana\nage: 30") extends YamlAccessor {
+            protected function hasNativeYamlParse(): bool
+            {
+                return false;
+            }
+        });
+        expect($accessor->get('name'))->toBe('Ana');
+        expect($accessor->get('age'))->toBe(30);
     });
 
     it('from — valid YAML string with registered plugin', function () {
@@ -153,5 +175,33 @@ describe(YamlAccessor::class, function () {
         expect($accessor->type('name'))->toBe('string');
         expect($accessor->type('age'))->toBe('integer');
         expect($accessor->type('active'))->toBe('boolean');
+    });
+
+    it('handles empty YAML returning empty array via symfony', function () {
+        $accessor = (new class ('   ') extends YamlAccessor {
+            protected function hasNativeYamlParse(): bool
+            {
+                return false;
+            }
+        });
+        expect($accessor->toArray())->toBe([]);
+    });
+
+    it('handles empty YAML returning empty array via native yaml_parse', function () {
+        if (!function_exists('yaml_parse')) {
+            $this->markTestSkipped('ext-yaml is not installed');
+        }
+        $accessor = YamlAccessor::from('   ');
+        expect($accessor->toArray())->toBe([]);
+    });
+
+    it('throws InvalidFormatException for invalid YAML without plugin via symfony', function () {
+        $accessor = fn () => new class (":\n  :\n invalid\nyaml: [") extends YamlAccessor {
+            protected function hasNativeYamlParse(): bool
+            {
+                return false;
+            }
+        };
+        expect($accessor)->toThrow(InvalidFormatException::class, 'failed to parse YAML');
     });
 });

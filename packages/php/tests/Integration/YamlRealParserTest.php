@@ -1,22 +1,8 @@
 <?php
 
-use SafeAccessInline\Core\PluginRegistry;
-use SafeAccessInline\Plugins\SymfonyYamlParser;
-use SafeAccessInline\Plugins\SymfonyYamlSerializer;
 use SafeAccessInline\SafeAccess;
 
-beforeEach(function () {
-    PluginRegistry::reset();
-
-    if (!class_exists(\Symfony\Component\Yaml\Yaml::class)) {
-        test()->markTestSkipped('symfony/yaml not installed');
-    }
-
-    PluginRegistry::registerParser('yaml', new SymfonyYamlParser());
-    PluginRegistry::registerSerializer('yaml', new SymfonyYamlSerializer());
-});
-
-describe('YamlAccessor with real symfony/yaml', function () {
+describe('YamlAccessor with real libraries', function () {
 
     it('parses real YAML with nested structures', function () {
         $yaml = <<<YAML
@@ -48,10 +34,7 @@ describe('YamlAccessor with real symfony/yaml', function () {
         expect($accessor->get('items'))->toBe(['first', 'second', 'third']);
     });
 
-    it('round-trips through toYaml', function () {
-        PluginRegistry::registerParser('yaml', new SymfonyYamlParser());
-        PluginRegistry::registerSerializer('yaml', new SymfonyYamlSerializer());
-
+    it('YAML → toYaml roundtrip preserves data', function () {
         $accessor = SafeAccess::fromArray(['name' => 'test', 'value' => 42]);
         $yaml = $accessor->toYaml();
 

@@ -22,3 +22,7 @@ export { PathNotFoundError } from './exceptions/path-not-found.error';
 export { UnsupportedTypeError } from './exceptions/unsupported-type.error';
 export { PluginRegistry } from './core/plugin-registry';
 export type { ParserPlugin, SerializerPlugin } from './core/plugin-registry';
+export { JsYamlParser } from './plugins/js-yaml.parser';
+export { JsYamlSerializer } from './plugins/js-yaml.serializer';
+export { SmolTomlParser } from './plugins/smol-toml.parser';
+export { SmolTomlSerializer } from './plugins/smol-toml.serializer';

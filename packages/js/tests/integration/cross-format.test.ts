@@ -82,6 +82,39 @@ describe('Cross-format conversion', () => {
         expect(parsed.server.port).toBe(8080);
     });
 
+    it('YAML → toYaml roundtrip (zero config)', () => {
+        const yaml = `app:\n  name: MyApp\n  port: 3000`;
+        const accessor = SafeAccess.fromYaml(yaml);
+        const output = accessor.toYaml();
+        const accessor2 = SafeAccess.fromYaml(output);
+        expect(accessor2.get('app.name')).toBe('MyApp');
+        expect(accessor2.get('app.port')).toBe(3000);
+    });
+
+    it('TOML → toToml roundtrip (zero config)', () => {
+        const toml = `title = "Test"\n\n[server]\nhost = "localhost"\nport = 8080`;
+        const accessor = SafeAccess.fromToml(toml);
+        const output = accessor.toToml();
+        const accessor2 = SafeAccess.fromToml(output);
+        expect(accessor2.get('title')).toBe('Test');
+        expect(accessor2.get('server.host')).toBe('localhost');
+        expect(accessor2.get('server.port')).toBe(8080);
+    });
+
+    it('JSON → toToml pipeline (zero config)', () => {
+        const accessor = SafeAccess.fromJson('{"name": "Ana", "age": 30}');
+        const toml = accessor.toToml();
+        expect(toml).toContain('name = "Ana"');
+        expect(toml).toContain('age = 30');
+    });
+
+    it('JSON → toYaml pipeline (zero config)', () => {
+        const accessor = SafeAccess.fromJson('{"name": "Ana", "age": 30}');
+        const yaml = accessor.toYaml();
+        expect(yaml).toContain('name: Ana');
+        expect(yaml).toContain('age: 30');
+    });
+
     describe('Serialization via plugins', () => {
         beforeEach(() => {
             PluginRegistry.reset();

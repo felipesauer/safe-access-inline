@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { TomlAccessor } from '../../../src/accessors/toml.accessor';
+import { PluginRegistry } from '../../../src/core/plugin-registry';
 import { InvalidFormatError } from '../../../src/exceptions/invalid-format.error';
 
 describe(TomlAccessor.name, () => {
@@ -138,10 +139,8 @@ port = 443
         expect(accessor.get('pi')).toBe(3.14);
     });
 
-    it('skips lines without = outside tables', () => {
-        const accessor = TomlAccessor.from('title = "hello"\njust a stray line\nother = 1');
-        expect(accessor.get('title')).toBe('hello');
-        expect(accessor.get('other')).toBe(1);
+    it('rejects invalid TOML with stray lines', () => {
+        expect(() => TomlAccessor.from('title = "hello"\njust a stray line\nother = 1')).toThrow();
     });
 
     it('coerces negative float values', () => {
@@ -152,5 +151,20 @@ port = 443
     it('coerces negative integer values', () => {
         const accessor = TomlAccessor.from('offset = -42');
         expect(accessor.get('offset')).toBe(-42);
+    });
+
+    describe('with registered parser plugin', () => {
+        beforeEach(() => {
+            PluginRegistry.reset();
+        });
+
+        it('uses registered parser plugin instead of smol-toml', () => {
+            PluginRegistry.registerParser('toml', {
+                parse: (input: string) => ({ custom: true, raw: input.substring(0, 5) }),
+            });
+            const accessor = TomlAccessor.from('title = "Test"');
+            expect(accessor.get('custom')).toBe(true);
+            expect(accessor.get('raw')).toBe('title');
+        });
     });
 });

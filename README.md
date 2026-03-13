@@ -42,7 +42,7 @@ $name = isset($data['user']['profile']['name']) ? $data['user']['profile']['name
 
 ```typescript
 // JS — optional chaining still needs fallback handling
-const name = data?.user?.profile?.name ?? 'N/A';
+const name = data?.user?.profile?.name ?? "N/A";
 ```
 
 **After:**
@@ -52,7 +52,7 @@ $accessor->get('user.profile.name', 'N/A');  // Works with JSON, XML, YAML, TOML
 ```
 
 ```typescript
-accessor.get('user.profile.name', 'N/A');    // Same API, same result
+accessor.get("user.profile.name", "N/A"); // Same API, same result
 ```
 
 One unified API. No exceptions. No surprises. Works the same in PHP and JavaScript.
@@ -65,25 +65,24 @@ One unified API. No exceptions. No surprises. Works the same in PHP and JavaScri
 - **Dot notation** — access nested data with `user.profile.name`
 - **Wildcard** — `users.*.email` returns an array of all emails
 - **Plugin system** — extend parsing and serialization with custom plugins via `PluginRegistry`
-- **Zero dependencies** in core — format-specific parsers are registered via the Plugin System
+- **Real dependencies for YAML/TOML** — `js-yaml`/`smol-toml` (JS) and `symfony/yaml`/`devium/toml` (PHP) work out of the box
 - **PHP ↔ JS parity** — identical API in both languages
 
 ## Supported Formats
 
-| Format | PHP | JS/TS | Dependencies |
-|--------|:---:|:-----:|-------------|
-| Array  | ✅  | ✅    | None |
-| Object | ✅  | ✅    | None |
-| JSON   | ✅  | ✅    | `ext-json` (native) |
-| XML    | ✅  | ✅    | `ext-simplexml` (native) / built-in parser |
-| YAML   | ✅  | ✅    | Plugin required (PHP) / built-in parser with optional plugin override (JS) |
-| TOML   | ✅  | ✅    | Plugin required (PHP) / built-in parser with optional plugin override (JS) |
-| INI    | ✅  | ✅    | Native |
-| CSV    | ✅  | ✅    | Native |
-| ENV    | ✅  | ✅    | Native |
+| Format | PHP | JS/TS | Dependencies                                                                   |
+| ------ | :-: | :---: | ------------------------------------------------------------------------------ |
+| Array  | ✅  |  ✅   | None                                                                           |
+| Object | ✅  |  ✅   | None                                                                           |
+| JSON   | ✅  |  ✅   | `ext-json` (native)                                                            |
+| XML    | ✅  |  ✅   | `ext-simplexml` (native) / built-in parser                                     |
+| YAML   | ✅  |  ✅   | `ext-yaml` or `symfony/yaml` (PHP) / `js-yaml` (JS) — plugin override optional |
+| TOML   | ✅  |  ✅   | Built-in (`devium/toml` / `smol-toml`) — plugin override optional              |
+| INI    | ✅  |  ✅   | Native                                                                         |
+| CSV    | ✅  |  ✅   | Native                                                                         |
+| ENV    | ✅  |  ✅   | Native                                                                         |
 
-> **PHP YAML/TOML**: parsing is fully delegated to plugins — register a parser via `PluginRegistry` before using `fromYaml()` / `fromToml()`.
-> **JS YAML/TOML**: built-in lightweight parsers work out of the box. Register a plugin to override them with a more robust parser.
+> **YAML/TOML** work out of the box in both PHP and JS — no plugin registration needed. PHP YAML prefers `ext-yaml` when available, falling back to `symfony/yaml`. Register a plugin via `PluginRegistry` to override the default parser or serializer.
 
 ## Quick Start
 
@@ -128,36 +127,38 @@ npm install @safe-access-inline/safe-access-inline
 ```
 
 ```typescript
-import { SafeAccess } from '@safe-access-inline/safe-access-inline';
+import { SafeAccess } from "@safe-access-inline/safe-access-inline";
 
 // From JSON
 const accessor = SafeAccess.fromJson('{"user": {"name": "Ana", "age": 30}}');
-accessor.get('user.name');           // "Ana"
-accessor.get('user.email', 'N/A');   // "N/A"
-accessor.has('user.name');           // true
+accessor.get("user.name"); // "Ana"
+accessor.get("user.email", "N/A"); // "N/A"
+accessor.has("user.name"); // true
 
 // Immutable set
-const newAccessor = accessor.set('user.email', 'ana@example.com');
-newAccessor.get('user.email');       // "ana@example.com"
-accessor.get('user.email', 'N/A');   // "N/A" (original unchanged)
+const newAccessor = accessor.set("user.email", "ana@example.com");
+newAccessor.get("user.email"); // "ana@example.com"
+accessor.get("user.email", "N/A"); // "N/A" (original unchanged)
 
 // Wildcard
-const obj = SafeAccess.fromObject({ users: [{ name: 'Ana' }, { name: 'Bob' }] });
-obj.get('users.*.name');             // ["Ana", "Bob"]
+const obj = SafeAccess.fromObject({
+    users: [{ name: "Ana" }, { name: "Bob" }],
+});
+obj.get("users.*.name"); // ["Ana", "Bob"]
 
 // Auto-detect
 const auto = SafeAccess.detect(someData);
 
 // Cross-format
-accessor.toArray();   // { name: "Ana" }
-accessor.toJson();    // '{"name":"Ana"}'
+accessor.toArray(); // { name: "Ana" }
+accessor.toJson(); // '{"name":"Ana"}'
 ```
 
 ## Plugin System
 
-The Plugin System decouples format parsing and serialization from external libraries. Instead of hard-coding dependencies, parsers and serializers are registered at runtime via `PluginRegistry`.
+The Plugin System provides **optional override** capability for format parsing and serialization. YAML and TOML work out of the box — plugins let you swap in alternative implementations.
 
-### PHP — Register Plugins
+### PHP — Override Plugins
 
 ```php
 use SafeAccessInline\Core\PluginRegistry;
@@ -165,11 +166,11 @@ use SafeAccessInline\Plugins\SymfonyYamlParser;
 use SafeAccessInline\Plugins\SymfonyYamlSerializer;
 use SafeAccessInline\Plugins\DeviumTomlParser;
 
-// Register YAML support (requires composer require symfony/yaml)
+// Register YAML support override (optional — works without this)
 PluginRegistry::registerParser('yaml', new SymfonyYamlParser());
 PluginRegistry::registerSerializer('yaml', new SymfonyYamlSerializer());
 
-// Register TOML support (requires composer require devium/toml)
+// Register TOML support override (optional — works without this)
 PluginRegistry::registerParser('toml', new DeviumTomlParser());
 
 // Now you can use YAML and TOML
@@ -179,60 +180,74 @@ $accessor->toYaml();                 // "name: Ana\nage: 30\n"
 $accessor->transform('yaml');        // Same — generic serialization
 ```
 
-### JS/TS — Register Plugins
+### JS/TS — Override Plugins
 
 ```typescript
-import { SafeAccess, PluginRegistry } from '@safe-access-inline/safe-access-inline';
+import {
+    SafeAccess,
+    PluginRegistry,
+} from "@safe-access-inline/safe-access-inline";
 
-// Register a YAML serializer (e.g., using js-yaml)
-PluginRegistry.registerSerializer('yaml', {
-  serialize: (data) => jsYaml.dump(data),
+// Override the default YAML serializer (optional — works without this)
+PluginRegistry.registerSerializer("yaml", {
+    serialize: (data) => myCustomYamlLib.dump(data),
 });
 
-// Now toYaml() and transform('yaml') work
+// toYaml() and transform('yaml') now use your custom implementation
 const accessor = SafeAccess.fromJson('{"name": "Ana"}');
-accessor.toYaml();              // "name: Ana\n"
-accessor.transform('yaml');     // Same result
+accessor.toYaml(); // custom YAML output
+accessor.transform("yaml"); // Same result
 ```
 
 ### Shipped Plugins (PHP)
 
-| Plugin | Format | Type | Requires |
-|--------|--------|------|----------|
-| `SymfonyYamlParser` | yaml | Parser | `symfony/yaml` |
-| `SymfonyYamlSerializer` | yaml | Serializer | `symfony/yaml` |
-| `NativeYamlParser` | yaml | Parser | `ext-yaml` |
-| `DeviumTomlParser` | toml | Parser | `devium/toml` |
+| Plugin                  | Format | Type       | Requires       |
+| ----------------------- | ------ | ---------- | -------------- |
+| `SymfonyYamlParser`     | yaml   | Parser     | `symfony/yaml` |
+| `SymfonyYamlSerializer` | yaml   | Serializer | `symfony/yaml` |
+| `NativeYamlParser`      | yaml   | Parser     | `ext-yaml`     |
+| `NativeYamlSerializer`  | yaml   | Serializer | `ext-yaml`     |
+| `DeviumTomlParser`      | toml   | Parser     | `devium/toml`  |
+| `DeviumTomlSerializer`  | toml   | Serializer | `devium/toml`  |
+
+### Shipped Plugins (JS/TS)
+
+| Plugin               | Format | Type       | Requires    |
+| -------------------- | ------ | ---------- | ----------- |
+| `JsYamlParser`       | yaml   | Parser     | `js-yaml`   |
+| `JsYamlSerializer`   | yaml   | Serializer | `js-yaml`   |
+| `SmolTomlParser`     | toml   | Parser     | `smol-toml` |
+| `SmolTomlSerializer` | toml   | Serializer | `smol-toml` |
 
 > See [PHP Getting Started — Plugin System](docs/php/getting-started.md#plugin-system) for detailed examples.
 
 ## Dot Notation Syntax
 
-| Pattern | Example | Description |
-|---------|---------|-------------|
-| Simple | `name` | Top-level key |
-| Nested | `user.profile.name` | Deep access |
-| Numeric | `items.0.title` | Array index |
-| Bracket | `matrix[0][1]` | Converted to `matrix.0.1` |
-| Wildcard | `users.*.name` | All matching values |
-| Escaped | `config\.db.host` | Literal dot in key |
+| Pattern  | Example             | Description               |
+| -------- | ------------------- | ------------------------- |
+| Simple   | `name`              | Top-level key             |
+| Nested   | `user.profile.name` | Deep access               |
+| Numeric  | `items.0.title`     | Array index               |
+| Bracket  | `matrix[0][1]`      | Converted to `matrix.0.1` |
+| Wildcard | `users.*.name`      | All matching values       |
+| Escaped  | `config\.db.host`   | Literal dot in key        |
 
 ## API Reference
 
 ### Facade: `SafeAccess`
 
-| Method | Description |
-|--------|-------------|
-| `fromArray(data)` | Create accessor from array |
-| `fromObject(data)` | Create accessor from object |
-| `fromJson(data)` | Create accessor from JSON string |
-| `fromXml(data)` | Create accessor from XML string |
-| `fromYaml(data)` | Create accessor from YAML string |
-| `fromToml(data)` | Create accessor from TOML string |
-| `fromIni(data)` | Create accessor from INI string |
-| `fromCsv(data)` | Create accessor from CSV string |
-| `fromEnv(data)` | Create accessor from ENV string |
-| `detect(data)` | Auto-detect format and create accessor |
+| Method             | Description                            |
+| ------------------ | -------------------------------------- |
+| `fromArray(data)`  | Create accessor from array             |
+| `fromObject(data)` | Create accessor from object            |
+| `fromJson(data)`   | Create accessor from JSON string       |
+| `fromXml(data)`    | Create accessor from XML string        |
+| `fromYaml(data)`   | Create accessor from YAML string       |
+| `fromToml(data)`   | Create accessor from TOML string       |
+| `fromIni(data)`    | Create accessor from INI string        |
+| `fromCsv(data)`    | Create accessor from CSV string        |
+| `fromEnv(data)`    | Create accessor from ENV string        |
+| `detect(data)`     | Auto-detect format and create accessor |
 
 > **Note:** `detect()` uses heuristics and may not correctly identify ambiguous formats (e.g., YAML vs INI). TOML and CSV are not auto-detected. For predictable results, use the specific factory method (`fromYaml()`, `fromIni()`, `fromToml()`, `fromCsv()`, etc.).
 
@@ -241,35 +256,36 @@ accessor.transform('yaml');     // Same result
 
 ### Accessor Instance Methods
 
-| Method | Returns | Description |
-|--------|---------|-------------|
-| `get(path, default?)` | `mixed` | Get value at path (never throws) |
-| `getMany(paths)` | `array` | Get multiple paths at once |
-| `has(path)` | `bool` | Check if path exists |
-| `set(path, value)` | `Accessor` | Set value (returns new instance) |
-| `remove(path)` | `Accessor` | Remove path (returns new instance) |
-| `type(path)` | `string\|null` | Get type at path |
-| `count(path?)` | `int` | Count elements |
-| `keys(path?)` | `array` | List keys |
-| `all()` | `array` | Get all data |
-| `toArray()` | `array` | Convert to array |
-| `toJson(pretty?)` | `string` | Convert to JSON |
-| `toObject()` | `object` | Convert to object |
-| `toXml(root?)` | `string` | Convert to XML |
-| `toYaml()` | `string` | Convert to YAML (requires serializer plugin) |
-| `transform(format)` | `string` | Convert to any plugin-registered format |
+| Method                | Returns        | Description                             |
+| --------------------- | -------------- | --------------------------------------- |
+| `get(path, default?)` | `mixed`        | Get value at path (never throws)        |
+| `getMany(paths)`      | `array`        | Get multiple paths at once              |
+| `has(path)`           | `bool`         | Check if path exists                    |
+| `set(path, value)`    | `Accessor`     | Set value (returns new instance)        |
+| `remove(path)`        | `Accessor`     | Remove path (returns new instance)      |
+| `type(path)`          | `string\|null` | Get type at path                        |
+| `count(path?)`        | `int`          | Count elements                          |
+| `keys(path?)`         | `array`        | List keys                               |
+| `all()`               | `array`        | Get all data                            |
+| `toArray()`           | `array`        | Convert to array                        |
+| `toJson(pretty?)`     | `string`       | Convert to JSON                         |
+| `toObject()`          | `object`       | Convert to object                       |
+| `toXml(root?)`        | `string`       | Convert to XML                          |
+| `toYaml()`            | `string`       | Convert to YAML                         |
+| `toToml()`            | `string`       | Convert to TOML                         |
+| `transform(format)`   | `string`       | Convert to any plugin-registered format |
 
 ### PluginRegistry
 
-| Method | Description |
-|--------|-------------|
-| `registerParser(format, plugin)` | Register a parser plugin for a format |
-| `registerSerializer(format, plugin)` | Register a serializer plugin for a format |
-| `hasParser(format)` | Check if a parser is registered |
-| `hasSerializer(format)` | Check if a serializer is registered |
-| `getParser(format)` | Get registered parser (throws if missing) |
-| `getSerializer(format)` | Get registered serializer (throws if missing) |
-| `reset()` | Clear all registered plugins (for testing) |
+| Method                               | Description                                   |
+| ------------------------------------ | --------------------------------------------- |
+| `registerParser(format, plugin)`     | Register a parser plugin for a format         |
+| `registerSerializer(format, plugin)` | Register a serializer plugin for a format     |
+| `hasParser(format)`                  | Check if a parser is registered               |
+| `hasSerializer(format)`              | Check if a serializer is registered           |
+| `getParser(format)`                  | Get registered parser (throws if missing)     |
+| `getSerializer(format)`              | Get registered serializer (throws if missing) |
+| `reset()`                            | Clear all registered plugins (for testing)    |
 
 > Full API docs: [PHP](docs/php/api-reference.md) | [JavaScript/TypeScript](docs/js/api-reference.md)
 

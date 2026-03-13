@@ -4,6 +4,7 @@ import { ObjectAccessor } from '../accessors/object.accessor';
 import { JsonAccessor } from '../accessors/json.accessor';
 import { XmlAccessor } from '../accessors/xml.accessor';
 import { YamlAccessor } from '../accessors/yaml.accessor';
+import { TomlAccessor } from '../accessors/toml.accessor';
 import { IniAccessor } from '../accessors/ini.accessor';
 import { EnvAccessor } from '../accessors/env.accessor';
 import { UnsupportedTypeError } from '../exceptions/unsupported-type.error';
@@ -17,8 +18,9 @@ import { UnsupportedTypeError } from '../exceptions/unsupported-type.error';
  * 3. string JSON       → JsonAccessor
  * 4. string XML        → XmlAccessor
  * 5. string YAML       → YamlAccessor
- * 6. string INI        → IniAccessor
- * 7. string ENV        → EnvAccessor
+ * 6. string TOML       → TomlAccessor
+ * 7. string INI        → IniAccessor
+ * 8. string ENV        → EnvAccessor
  */
 export class TypeDetector {
     static resolve(data: unknown): AbstractAccessor {
@@ -44,6 +46,11 @@ export class TypeDetector {
             // YAML: lines with "key:" but no "key="
             if (/^[\w-]+\s*:/m.test(trimmed) && !/^[\w-]+\s*=/m.test(trimmed)) {
                 return YamlAccessor.from(data);
+            }
+
+            // TOML: key = "quoted_value" pattern (characteristic of TOML)
+            if (/^[\w-]+\s*=\s*"/m.test(trimmed)) {
+                return TomlAccessor.from(data);
             }
 
             // INI: section headers [section]

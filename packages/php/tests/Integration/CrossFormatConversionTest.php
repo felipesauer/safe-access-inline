@@ -88,4 +88,38 @@ describe('Cross-format conversion', function () {
         expect(SafeAccess::detect('<root><a>1</a></root>'))->toBeInstanceOf(\SafeAccessInline\Accessors\XmlAccessor::class);
     });
 
+    it('YAML → toYaml roundtrip (zero config)', function () {
+        $yaml = "app:\n  name: MyApp\n  port: 3000";
+        $accessor = SafeAccess::fromYaml($yaml);
+        $output = $accessor->toYaml();
+        $accessor2 = SafeAccess::fromYaml($output);
+        expect($accessor2->get('app.name'))->toBe('MyApp');
+        expect($accessor2->get('app.port'))->toBe(3000);
+    });
+
+    it('TOML → toToml roundtrip (zero config)', function () {
+        $toml = "title = \"Test\"\n\n[server]\nhost = \"localhost\"\nport = 8080";
+        $accessor = SafeAccess::fromToml($toml);
+        $output = $accessor->toToml();
+        $accessor2 = SafeAccess::fromToml($output);
+        expect($accessor2->get('title'))->toBe('Test');
+        expect($accessor2->get('server.host'))->toBe('localhost');
+        expect($accessor2->get('server.port'))->toBe(8080);
+    });
+
+    it('JSON → toYaml pipeline (zero config)', function () {
+        $accessor = SafeAccess::fromJson('{"name": "Ana", "age": 30}');
+        $yaml = $accessor->toYaml();
+        expect($yaml)->toContain('name:');
+        expect($yaml)->toContain('Ana');
+        expect($yaml)->toContain('age: 30');
+    });
+
+    it('JSON → toToml pipeline (zero config)', function () {
+        $accessor = SafeAccess::fromJson('{"name": "Ana", "age": 30}');
+        $toml = $accessor->toToml();
+        expect($toml)->toContain('Ana');
+        expect($toml)->toContain('age = 30');
+    });
+
 });

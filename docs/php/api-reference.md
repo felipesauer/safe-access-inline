@@ -49,24 +49,17 @@ $accessor = SafeAccess::fromXml('<root><name>Ana</name></root>');
 
 #### `SafeAccess::fromYaml(string $data): YamlAccessor`
 
-Creates an accessor from a YAML string. Requires a YAML parser plugin registered via `PluginRegistry`.
+Creates an accessor from a YAML string. Uses `ext-yaml` (if available) or `symfony/yaml` by default. If a parser plugin is registered via `PluginRegistry`, the plugin takes precedence.
 
 ```php
-use SafeAccessInline\Core\PluginRegistry;
-use SafeAccessInline\Plugins\SymfonyYamlParser;
-
-PluginRegistry::registerParser('yaml', new SymfonyYamlParser());
 $accessor = SafeAccess::fromYaml("name: Ana\nage: 30");
 ```
 
 #### `SafeAccess::fromToml(string $data): TomlAccessor`
 
-Creates an accessor from a TOML string. Requires a TOML parser plugin registered via `PluginRegistry`.
+Creates an accessor from a TOML string. Uses `devium/toml` by default. If a parser plugin is registered via `PluginRegistry`, the plugin takes precedence.
 
 ```php
-use SafeAccessInline\Plugins\DeviumTomlParser;
-
-PluginRegistry::registerParser('toml', new DeviumTomlParser());
 $accessor = SafeAccess::fromToml('name = "Ana"');
 ```
 
@@ -246,13 +239,20 @@ $accessor->toXml('config');   // <config>...</config>
 
 #### `toYaml(): string`
 
-Convert data to a YAML string. Checks `PluginRegistry` for a YAML serializer first; falls back to `yaml_emit()` if the `ext-yaml` PHP extension is available. Throws `UnsupportedTypeException` if neither is available.
+Convert data to a YAML string. Checks `PluginRegistry` for a YAML serializer first; then falls back to `yaml_emit()` if `ext-yaml` is available; otherwise uses `Symfony\Component\Yaml\Yaml::dump()`.
 
 ```php
-use SafeAccessInline\Plugins\SymfonyYamlSerializer;
+$accessor = SafeAccess::fromJson('{"name": "Ana"}');
+$accessor->toYaml();          // "name: Ana\n"
+```
 
-PluginRegistry::registerSerializer('yaml', new SymfonyYamlSerializer());
-$accessor->toYaml();          // "name: Ana\nage: 30\n"
+#### `toToml(): string`
+
+Convert data to a TOML string. Checks `PluginRegistry` for a TOML serializer first; falls back to `Devium\Toml\Toml::encode()`.
+
+```php
+$accessor = SafeAccess::fromJson('{"name": "Ana"}');
+$accessor->toToml();          // 'name = "Ana"'
 ```
 
 #### `transform(string $format): string`
@@ -367,22 +367,22 @@ Returns a new array (does not mutate input).
 
 ## Exceptions
 
-| Exception | When |
-|-----------|------|
-| `AccessorException` | Base exception class |
-| `InvalidFormatException` | Invalid input format (e.g., malformed JSON, missing parser plugin at accessor level) |
-| `UnsupportedTypeException` | `detect()` cannot determine format; `PluginRegistry` has no registered plugin; `toYaml()`/`transform()` has no serializer |
-| `PathNotFoundException` | Reserved (not thrown by `get()`) |
+| Exception                  | When                                                                                                                     |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `AccessorException`        | Base exception class                                                                                                     |
+| `InvalidFormatException`   | Invalid input format (e.g., malformed JSON, missing parser plugin at accessor level)                                     |
+| `UnsupportedTypeException` | `detect()` cannot determine format; `PluginRegistry` has no registered plugin; `toXml()`/`transform()` has no serializer |
+| `PathNotFoundException`    | Reserved (not thrown by `get()`)                                                                                         |
 
 ---
 
 ## Interfaces
 
-| Interface | Methods |
-|-----------|--------|
-| `ReadableInterface` | `get()`, `getMany()`, `all()` |
-| `WritableInterface` | `set()`, `remove()` |
-| `TransformableInterface` | `toArray()`, `toJson()`, `toXml()`, `toYaml()`, `toObject()`, `transform()` |
-| `AccessorInterface` | Extends `ReadableInterface` + `TransformableInterface`, adds `from()`, `has()`, `type()`, `count()`, `keys()` |
-| `ParserPluginInterface` | `parse()` |
-| `SerializerPluginInterface` | `serialize()` |
+| Interface                   | Methods                                                                                                       |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `ReadableInterface`         | `get()`, `getMany()`, `all()`                                                                                 |
+| `WritableInterface`         | `set()`, `remove()`                                                                                           |
+| `TransformableInterface`    | `toArray()`, `toJson()`, `toXml()`, `toYaml()`, `toToml()`, `toObject()`, `transform()`                       |
+| `AccessorInterface`         | Extends `ReadableInterface` + `TransformableInterface`, adds `from()`, `has()`, `type()`, `count()`, `keys()` |
+| `ParserPluginInterface`     | `parse()`                                                                                                     |
+| `SerializerPluginInterface` | `serialize()`                                                                                                 |

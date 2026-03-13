@@ -1,6 +1,6 @@
 {
     "packages/js/**/*.{ts,js}": [
-        "eslint --config packages/js/eslint.config.js --fix --no-warn-ignored",
+        "packages/js/node_modules/.bin/eslint --config packages/js/eslint.config.js --fix --no-warn-ignored",
         "prettier --write"
     ],
     "packages/php/**/*.php": [

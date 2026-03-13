@@ -80,4 +80,9 @@ describe(TypeDetector::class, function () {
         expect($accessor)->not->toBeNull();
     })->throws(UnsupportedTypeException::class);
 
+    it('detects TOML string', function () {
+        $accessor = TypeDetector::resolve('title = "Hello"');
+        expect($accessor)->toBeInstanceOf(\SafeAccessInline\Accessors\TomlAccessor::class);
+    });
+
 });

@@ -78,14 +78,15 @@ describe(HasTransformations::class, function () {
         expect($accessor->toYaml())->toBe('yaml:{"a":1}');
     });
 
-    it('toYaml throws UnsupportedTypeException when no serializer and no native yaml', function () {
+    it('toYaml uses symfony/yaml when no serializer and no native yaml', function () {
         $accessor = new class (['a' => 1]) extends ArrayAccessor {
             protected function hasNativeYamlEmit(): bool
             {
                 return false;
             }
         };
-        expect(fn () => $accessor->toYaml())->toThrow(UnsupportedTypeException::class);
+        $yaml = $accessor->toYaml();
+        expect($yaml)->toContain('a: 1');
     });
 
     it('toYaml falls back to native yaml_emit when ext-yaml is available', function () {
@@ -120,6 +121,38 @@ describe(HasTransformations::class, function () {
         $accessor = ArrayAccessor::from(['key' => null]);
         $xml = $accessor->toXml();
         expect($xml)->toContain('key');
+    });
+
+    it('toToml uses registered serializer plugin', function () {
+        $serializer = new class () implements SerializerPluginInterface {
+            public function serialize(array $data): string
+            {
+                return 'toml:' . json_encode($data);
+            }
+        };
+        PluginRegistry::registerSerializer('toml', $serializer);
+
+        $accessor = ArrayAccessor::from(['a' => 1]);
+        expect($accessor->toToml())->toBe('toml:{"a":1}');
+    });
+
+    it('toToml uses default devium/toml when no serializer registered', function () {
+        $accessor = ArrayAccessor::from(['name' => 'Ana', 'count' => 5]);
+        $toml = $accessor->toToml();
+        expect($toml)->toContain('name');
+        expect($toml)->toContain('Ana');
+    });
+
+    it('transform falls back to toYaml for yaml format', function () {
+        $accessor = ArrayAccessor::from(['a' => 1]);
+        $result = $accessor->transform('yaml');
+        expect($result)->toContain('a: 1');
+    });
+
+    it('transform falls back to toToml for toml format', function () {
+        $accessor = ArrayAccessor::from(['a' => 1]);
+        $result = $accessor->transform('toml');
+        expect($result)->toContain('a');
     });
 
 });
