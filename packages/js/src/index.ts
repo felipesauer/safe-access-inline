@@ -1,11 +1,14 @@
 // Barrel export
 export { SafeAccess } from './safe-access';
+export { Format } from './format.enum';
 export { AbstractAccessor } from './core/abstract-accessor';
 export type { AccessorInterface } from './contracts/accessor.interface';
 export type { ReadableInterface } from './contracts/readable.interface';
 export type { WritableInterface } from './contracts/writable.interface';
 export type { TransformableInterface } from './contracts/transformable.interface';
 export { DotNotationParser } from './core/dot-notation-parser';
+export { FilterParser } from './core/filter-parser';
+export type { FilterCondition, FilterExpression } from './core/filter-parser';
 export { TypeDetector } from './core/type-detector';
 export { ArrayAccessor } from './accessors/array.accessor';
 export { ObjectAccessor } from './accessors/object.accessor';
@@ -26,3 +29,4 @@ export { JsYamlParser } from './plugins/js-yaml.parser';
 export { JsYamlSerializer } from './plugins/js-yaml.serializer';
 export { SmolTomlParser } from './plugins/smol-toml.parser';
 export { SmolTomlSerializer } from './plugins/smol-toml.serializer';
+export type { DeepPaths, ValueAtPath } from './types/deep-paths';
