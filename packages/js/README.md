@@ -73,13 +73,27 @@ The package also ships ready-to-use plugins: `JsYamlParser`, `JsYamlSerializer`,
 
 ## Dot Notation
 
-Access nested values using dot-separated keys:
+Access nested values using dot-separated keys, wildcards, filters, and recursive descent:
 
 ```
-user.name           → data.user.name
-user.roles.0        → data.user.roles[0]
-servers.0.host      → data.servers[0].host
+user.name                        → simple nested access
+user.roles.0                     → array index
+servers.*.host                   → wildcard (all items)
+users[?active==true].name        → filter by condition
+users[?age>=18 && role=='admin'] → compound filter (&&, ||)
+..name                           → recursive descent (find at any depth)
 ```
+
+### Path Expressions
+
+| Syntax            | Description                  | Example                          |
+| ----------------- | ---------------------------- | -------------------------------- |
+| `key`             | Direct property access       | `user.name`                      |
+| `0`, `1`          | Numeric array index          | `items.0.title`                  |
+| `*`               | Wildcard — all items         | `users.*.email`                  |
+| `[?field>value]`  | Filter with comparison       | `items[?price>100]`              |
+| `[?f==v && f2>v]` | Filter with logical operator | `items[?active==true && age>18]` |
+| `..key`           | Recursive descent            | `..name` (any depth)             |
 
 ## API Reference
 
@@ -97,6 +111,13 @@ accessor.all(); // all data as object
 ```typescript
 const updated = accessor.set('key', 'value'); // returns new instance
 const removed = accessor.remove('key'); // returns new instance
+```
+
+### Merging (Immutable)
+
+```typescript
+const merged = accessor.merge('settings', { theme: 'dark', lang: 'en' }); // deep merge at path
+const rootMerge = accessor.merge('', { extra: true }); // merge at root
 ```
 
 ### Transforming

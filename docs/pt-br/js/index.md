@@ -11,3 +11,4 @@ Documentação do pacote JavaScript / TypeScript (`@safe-access-inline/safe-acce
 
 - [Primeiros Passos](getting-started) — instalação, exemplos de uso, sistema de plugins
 - [Referência da API](api-reference) — referência completa dos métodos
+- [Plugins](plugins) — plugins incluídos, plugins customizados, exemplo com Zod
