@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.2.0](https://github.com/felipesauer/safe-access-inline/compare/js-v0.1.1...js-v0.2.0) (2026-03-13)
+
+
+### ⚠ BREAKING CHANGES
+
+* **js:** installing the package now requires js-yaml ^4.0.0 and smol-toml ^1.0.0.
+
+### Features
+
+* **js:** add js-yaml and smol-toml plugin adapters and export from index ([1c04f52](https://github.com/felipesauer/safe-access-inline/commit/1c04f5282ac3c46cced5115e2206e41b26f7a88a))
+* **js:** add TOML auto-detection to TypeDetector ([40ace9b](https://github.com/felipesauer/safe-access-inline/commit/40ace9b15c4f511a3604244bd29a02815775d44f))
+* **js:** add toToml() to TransformableInterface ([92a5da4](https://github.com/felipesauer/safe-access-inline/commit/92a5da435f7ed874ccd1bdf6c5bb13ec12bf0fa2))
+* **js:** promote js-yaml and smol-toml to production dependencies ([a8eecca](https://github.com/felipesauer/safe-access-inline/commit/a8eeccabe2ac4c3ac4932a193acf45a42e302b46))
+
 ## [0.1.1](https://github.com/felipesauer/safe-access-inline/compare/js-v0.1.0...js-v0.1.1) (2026-03-12)
 
 
