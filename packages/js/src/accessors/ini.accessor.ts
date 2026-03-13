@@ -45,8 +45,8 @@ export class IniAccessor extends AbstractAccessor {
             let value: unknown = line.substring(eqPos + 1).trim();
 
             // Remove surrounding quotes
+            /* v8 ignore next -- typeof value is always string here */
             if (typeof value === 'string') {
-                /* v8 ignore -- always true */
                 if (
                     (value.startsWith('"') && value.endsWith('"')) ||
                     (value.startsWith("'") && value.endsWith("'"))
