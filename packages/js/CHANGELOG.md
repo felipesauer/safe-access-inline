@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.2.1](https://github.com/felipesauer/safe-access-inline/compare/js-v0.2.0...js-v0.2.1) (2026-03-13)
+
+
+### Features
+
+* **js:** add FilterParser with expression parsing and evaluation ([598956d](https://github.com/felipesauer/safe-access-inline/commit/598956d9cf1e78f6826eebfe5a0bef3ab9a905e7))
+* **js:** add Format enum and SafeAccess.from() unified factory with typed overloads ([cc50dc6](https://github.com/felipesauer/safe-access-inline/commit/cc50dc61428e1313ca8a9a986656181db5f3c53c))
+* **js:** make AbstractAccessor generic with DeepPaths/ValueAtPath type inference and add merge() ([a113d82](https://github.com/felipesauer/safe-access-inline/commit/a113d827428af9bf5d6caf148c33695c249ce72b))
+* **js:** refactor DotNotationParser to support filter expressions, recursive descent, and merge ([5a2287d](https://github.com/felipesauer/safe-access-inline/commit/5a2287dc6594c372db01ba4379caf3e1987b4715))
+
 ## [0.2.0](https://github.com/felipesauer/safe-access-inline/compare/js-v0.1.1...js-v0.2.0) (2026-03-13)
 
 
