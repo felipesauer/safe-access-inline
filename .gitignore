@@ -7,6 +7,8 @@ packages/php/composer.lock
 packages/php/.phpunit.cache/
 packages/php/.php-cs-fixer.cache
 packages/php/.phpstan.cache/
+packages/php/coverage/
+packages/php/coverage.xml
 
 # JS/TS
 packages/js/node_modules/
