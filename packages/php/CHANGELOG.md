@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.2.1](https://github.com/felipesauer/safe-access-inline/compare/php-v0.2.0...php-v0.2.1) (2026-03-13)
+
+
+### Features
+
+* **php:** add AccessorFormat enum and SafeAccess::from() unified factory ([4e88d80](https://github.com/felipesauer/safe-access-inline/commit/4e88d80671af92a533f3c266b62310922312fd3e))
+* **php:** add FilterParser with expression parsing and evaluation ([a71f922](https://github.com/felipesauer/safe-access-inline/commit/a71f922748784491ce4f3c827af03b4bf9ab28f0))
+* **php:** add immutable merge() to AbstractAccessor and WritableInterface ([1558a54](https://github.com/felipesauer/safe-access-inline/commit/1558a5458e8c1b1ab2bb45d017ba808c0f18f104))
+* **php:** refactor DotNotationParser to support filter expressions, recursive descent, and merge ([25c6563](https://github.com/felipesauer/safe-access-inline/commit/25c6563ec52cca17d1d740dfd61a89a5c154bef0))
+
+
+### Miscellaneous Chores
+
+* add DotNotationParser performance benchmarks for JS and PHP ([4cd3d01](https://github.com/felipesauer/safe-access-inline/commit/4cd3d01095f10c539ed8671159492df1daa5318d))
+
 ## [0.2.0](https://github.com/felipesauer/safe-access-inline/compare/php-v0.1.2...php-v0.2.0) (2026-03-13)
 
 
