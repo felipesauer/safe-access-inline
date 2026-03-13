@@ -1,39 +1,39 @@
 ---
-title: Getting Started
-parent: JavaScript / TypeScript
-nav_order: 1
-permalink: /js/getting-started/
+title: Primeiros Passos — JS/TS
+nav_exclude: true
+permalink: /pt-br/js/getting-started/
+lang: pt-br
 ---
 
-# Getting Started — JavaScript / TypeScript
+# Primeiros Passos — JavaScript / TypeScript
 
-## Table of Contents
+## Índice
 
-- [Requirements](#requirements)
-- [Installation](#installation)
-- [Basic Usage](#basic-usage)
-- [Plugin System](#plugin-system)
-- [Working with Formats](#working-with-formats)
-- [Custom Accessors](#custom-accessors)
-- [ESM and CommonJS](#esm-and-commonjs)
-- [TypeScript Support](#typescript-support)
+- [Requisitos](#requisitos)
+- [Instalação](#instalação)
+- [Uso Básico](#uso-básico)
+- [Sistema de Plugins](#sistema-de-plugins)
+- [Trabalhando com Formatos](#trabalhando-com-formatos)
+- [Accessors Customizados](#accessors-customizados)
+- [ESM e CommonJS](#esm-e-commonjs)
+- [Suporte TypeScript](#suporte-typescript)
 
 ---
 
-## Requirements
+## Requisitos
 
-- Node.js 22 or higher
-- TypeScript 5.5+ (for TypeScript projects)
+- Node.js 22 ou superior
+- TypeScript 5.5+ (para projetos TypeScript)
 
-## Installation
+## Instalação
 
 ```bash
 npm install @safe-access-inline/safe-access-inline
 ```
 
-## Basic Usage
+## Uso Básico
 
-### Accessing data with dot notation
+### Acessando dados com notação de ponto
 
 ```typescript
 import { SafeAccess } from "@safe-access-inline/safe-access-inline";
@@ -41,20 +41,20 @@ import { SafeAccess } from "@safe-access-inline/safe-access-inline";
 const json = '{"user": {"profile": {"name": "Ana", "age": 30}}}';
 const accessor = SafeAccess.fromJson(json);
 
-// Simple access
+// Acesso simples
 accessor.get("user.profile.name"); // "Ana"
 accessor.get("user.profile.age"); // 30
 
-// Safe access — never throws, returns default
+// Acesso seguro — nunca lança, retorna valor padrão
 accessor.get("user.email", "N/A"); // "N/A"
-accessor.get("nonexistent.path"); // null (default)
+accessor.get("nonexistent.path"); // null (padrão)
 
-// Check existence
+// Verificar existência
 accessor.has("user.profile.name"); // true
 accessor.has("user.email"); // false
 ```
 
-### Working with arrays and objects
+### Trabalhando com arrays e objetos
 
 ```typescript
 const data = {
@@ -67,32 +67,32 @@ const data = {
 
 const accessor = SafeAccess.fromObject(data);
 
-// Access by index
+// Acesso por índice
 accessor.get("users.0.name"); // "Ana"
 accessor.get("users.2.role"); // "user"
 
-// Wildcard — get all matching values
+// Wildcard — obter todos os valores correspondentes
 accessor.get("users.*.name"); // ["Ana", "Bob", "Carol"]
 accessor.get("users.*.role"); // ["admin", "user", "user"]
 ```
 
-### Immutable modifications
+### Modificações imutáveis
 
 ```typescript
 const accessor = SafeAccess.fromJson('{"name": "Ana", "age": 30}');
 
-// set() returns a NEW instance
+// set() retorna uma NOVA instância
 const modified = accessor.set("email", "ana@example.com");
 modified.get("email"); // "ana@example.com"
-accessor.get("email"); // null (original unchanged)
+accessor.get("email"); // null (original inalterado)
 
-// remove() also returns a new instance
+// remove() também retorna uma nova instância
 const cleaned = accessor.remove("age");
 cleaned.has("age"); // false
-accessor.has("age"); // true (original unchanged)
+accessor.has("age"); // true (original inalterado)
 ```
 
-### Format auto-detection
+### Auto-detecção de formato
 
 ```typescript
 const arr = SafeAccess.detect([1, 2, 3]); // ArrayAccessor
@@ -100,32 +100,32 @@ const obj = SafeAccess.detect({ key: "value" }); // ObjectAccessor
 const json = SafeAccess.detect('{"key": "value"}'); // JsonAccessor
 ```
 
-### Cross-format transformation
+### Transformação cross-format
 
 ```typescript
 const accessor = SafeAccess.fromJson('{"name": "Ana", "age": 30}');
 
 accessor.toArray(); // { name: "Ana", age: 30 }
-accessor.toObject(); // deep clone as plain object
+accessor.toObject(); // cópia profunda como objeto plano
 accessor.toJson(); // '{"name":"Ana","age":30}'
-accessor.toJson(true); // pretty-printed JSON
+accessor.toJson(true); // JSON formatado
 
-// YAML and TOML work zero-config (powered by js-yaml and smol-toml)
+// YAML e TOML funcionam sem configuração (via js-yaml e smol-toml)
 accessor.toYaml(); // "name: Ana\nage: 30\n"
 accessor.toToml(); // 'name = "Ana"\nage = 30\n'
-accessor.toXml("person"); // requires 'xml' serializer plugin
-accessor.transform("yaml"); // generic — uses PluginRegistry
+accessor.toXml("person"); // requer plugin serializer 'xml'
+accessor.transform("yaml"); // genérico — usa PluginRegistry
 ```
 
-> **Note:** `toXml()` and `transform()` for custom formats require serializer plugins. `toYaml()` and `toToml()` work out of the box.
+> **Nota:** `toXml()` e `transform()` para formatos customizados requerem plugins serializer. `toYaml()` e `toToml()` funcionam sem configuração.
 
 ---
 
-## Plugin System
+## Sistema de Plugins
 
-YAML and TOML work out of the box using `js-yaml` and `smol-toml` (shipped as dependencies). The Plugin System lets you **override** the default parsers and serializers, or register plugins for other formats (like XML).
+YAML e TOML funcionam sem configuração usando `js-yaml` e `smol-toml` (incluídos como dependências). O Sistema de Plugins permite **substituir** os parsers e serializers padrão, ou registrar plugins para outros formatos (como XML).
 
-### Overriding Default Parsers
+### Substituindo Parsers Padrão
 
 ```typescript
 import { PluginRegistry } from "@safe-access-inline/safe-access-inline";
@@ -134,36 +134,36 @@ import type {
     SerializerPlugin,
 } from "@safe-access-inline/safe-access-inline";
 
-// Override the default YAML parser with a custom implementation
+// Substituir o parser YAML padrão com uma implementação customizada
 const customYamlParser: ParserPlugin = {
     parse: (raw) => myCustomYamlLib.parse(raw),
 };
 
 PluginRegistry.registerParser("yaml", customYamlParser);
 
-// fromYaml() now uses your custom parser instead of js-yaml
+// fromYaml() agora usa seu parser customizado em vez de js-yaml
 const accessor = SafeAccess.fromYaml(yamlContent);
 ```
 
-### Registering Serializer Plugins for XML
+### Registrando Plugins Serializer para XML
 
 ```typescript
-// XML requires a plugin since there's no default XML serializer
+// XML requer um plugin pois não há serializer XML padrão
 PluginRegistry.registerSerializer("xml", {
     serialize: (data) => myXmlLib.build(data),
 });
 
-accessor.toXml(); // uses your XML serializer plugin
+accessor.toXml(); // usa seu plugin serializer XML
 ```
 
-### Using `transform()`
+### Usando `transform()`
 
-The generic `transform()` method serializes data to any format that has a registered serializer:
+O método genérico `transform()` serializa dados para qualquer formato que tenha um serializer registrado:
 
 ```typescript
 PluginRegistry.registerSerializer("csv", {
     serialize: (data) => {
-        // Your CSV serialization logic
+        // Sua lógica de serialização CSV
         return Object.entries(data)
             .map(([k, v]) => `${k},${v}`)
             .join("\n");
@@ -174,9 +174,9 @@ const accessor = SafeAccess.fromJson('{"name": "Ana", "age": 30}');
 accessor.transform("csv"); // "name,Ana\nage,30"
 ```
 
-### Resetting Plugins (Testing)
+### Resetando Plugins (Testes)
 
-In test suites, call `reset()` to clear all registered plugins between tests:
+Em suítes de teste, chame `reset()` para limpar todos os plugins registrados entre testes:
 
 ```typescript
 import { PluginRegistry } from "@safe-access-inline/safe-access-inline";
@@ -188,9 +188,9 @@ afterEach(() => {
 
 ---
 
-## Working with Formats
+## Trabalhando com Formatos
 
-### Working with XML
+### Trabalhando com XML
 
 ```typescript
 const xml = `<config><database><host>localhost</host><port>5432</port></database></config>`;
@@ -200,7 +200,7 @@ accessor.get("database.host"); // "localhost"
 accessor.get("database.port"); // "5432"
 ```
 
-### Working with YAML
+### Trabalhando com YAML
 
 ```typescript
 const yaml = `
@@ -217,7 +217,7 @@ accessor.get("app.name"); // "MyApp"
 accessor.get("database.port"); // 5432
 ```
 
-### Working with TOML
+### Trabalhando com TOML
 
 ```typescript
 const toml = `
@@ -233,7 +233,7 @@ accessor.get("title"); // "My Config"
 accessor.get("database.host"); // "localhost"
 ```
 
-### Working with INI
+### Trabalhando com INI
 
 ```typescript
 const ini = `
@@ -249,14 +249,14 @@ accessor.get("app_name"); // "MyApp"
 accessor.get("database.host"); // "localhost"
 ```
 
-### Working with ENV
+### Trabalhando com ENV
 
 ```typescript
 const env = `
 APP_NAME=MyApp
 APP_KEY="secret-key"
 DEBUG=true
-# Comment
+# Comentário
 DB_HOST=localhost
 `;
 
@@ -265,7 +265,7 @@ accessor.get("APP_NAME"); // "MyApp"
 accessor.get("APP_KEY"); // "secret-key"
 ```
 
-### Working with CSV
+### Trabalhando com CSV
 
 ```typescript
 const csv = `name,age,city
@@ -278,7 +278,7 @@ accessor.get("1.city"); // "São Paulo"
 accessor.get("*.name"); // ["Ana", "Bob"]
 ```
 
-### Custom accessors
+### Accessors customizados
 
 ```typescript
 import { AbstractAccessor } from "@safe-access-inline/safe-access-inline";
@@ -289,7 +289,7 @@ class MyFormatAccessor extends AbstractAccessor {
     }
 
     protected parse(raw: unknown): Record<string, unknown> {
-        // Your custom parsing logic
+        // Sua lógica de parsing customizada
         return { parsed: raw };
     }
 
@@ -301,17 +301,17 @@ class MyFormatAccessor extends AbstractAccessor {
     }
 }
 
-// Register
+// Registrar
 SafeAccess.extend("myformat", MyFormatAccessor);
 
-// Use
+// Usar
 const accessor = SafeAccess.custom("myformat", data);
 accessor.get("parsed");
 ```
 
-## ESM and CommonJS
+## ESM e CommonJS
 
-The package ships dual ESM/CJS builds:
+O pacote inclui builds duplos ESM/CJS:
 
 ```javascript
 // ESM
@@ -321,9 +321,9 @@ import { SafeAccess } from "@safe-access-inline/safe-access-inline";
 const { SafeAccess } = require("@safe-access-inline/safe-access-inline");
 ```
 
-## TypeScript Support
+## Suporte TypeScript
 
-Full TypeScript definitions are included. All public types are exported:
+Definições TypeScript completas estão incluídas. Todos os tipos públicos são exportados:
 
 ```typescript
 import {
@@ -356,7 +356,7 @@ import type {
     SerializerPlugin,
     AccessorInterface,
     ReadableInterface,
-    WritableInterface,
     TransformableInterface,
+    WritableInterface,
 } from "@safe-access-inline/safe-access-inline";
 ```

@@ -1,3 +1,9 @@
+---
+title: Architecture
+nav_order: 2
+permalink: /architecture/
+---
+
 # Architecture
 
 ## Table of Contents

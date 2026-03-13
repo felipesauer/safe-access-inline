@@ -1,39 +1,39 @@
 ---
-title: Getting Started
-parent: PHP
-nav_order: 1
-permalink: /php/getting-started/
+title: Primeiros Passos — PHP
+nav_exclude: true
+permalink: /pt-br/php/getting-started/
+lang: pt-br
 ---
 
-# Getting Started — PHP
+# Primeiros Passos — PHP
 
-## Table of Contents
+## Índice
 
-- [Requirements](#requirements)
-- [Installation](#installation)
-- [Basic Usage](#basic-usage)
-- [Plugin System](#plugin-system)
-- [Working with Formats](#working-with-formats)
-- [Custom Accessors](#custom-accessors)
-- [Utility Methods](#utility-methods)
+- [Requisitos](#requisitos)
+- [Instalação](#instalação)
+- [Uso Básico](#uso-básico)
+- [Sistema de Plugins](#sistema-de-plugins)
+- [Trabalhando com Formatos](#trabalhando-com-formatos)
+- [Accessors Customizados](#accessors-customizados)
+- [Métodos Utilitários](#métodos-utilitários)
 
-## Requirements
+## Requisitos
 
-- PHP 8.2 or higher
-- `ext-json` (built-in)
-- `ext-simplexml` (built-in, for XML support)
+- PHP 8.2 ou superior
+- `ext-json` (embutido)
+- `ext-simplexml` (embutido, para suporte XML)
 
-YAML and TOML support is included out of the box. YAML prefers `ext-yaml` when available, falling back to `symfony/yaml`. TOML uses `devium/toml`. Both are installed as dependencies.
+Suporte a YAML e TOML está incluído sem configuração. YAML prefere `ext-yaml` quando disponível, caindo para `symfony/yaml`. TOML usa `devium/toml`. Ambos são instalados como dependências.
 
-## Installation
+## Instalação
 
 ```bash
 composer require safe-access-inline/safe-access-inline
 ```
 
-## Basic Usage
+## Uso Básico
 
-### Accessing data with dot notation
+### Acessando dados com notação de ponto
 
 ```php
 use SafeAccessInline\SafeAccess;
@@ -41,20 +41,20 @@ use SafeAccessInline\SafeAccess;
 $json = '{"user": {"profile": {"name": "Ana", "age": 30}}}';
 $accessor = SafeAccess::fromJson($json);
 
-// Simple access
+// Acesso simples
 $accessor->get('user.profile.name');     // "Ana"
 $accessor->get('user.profile.age');      // 30
 
-// Safe access — never throws, returns default
+// Acesso seguro — nunca lança, retorna valor padrão
 $accessor->get('user.email', 'N/A');     // "N/A"
-$accessor->get('nonexistent.path');      // null (default)
+$accessor->get('nonexistent.path');      // null (padrão)
 
-// Check existence
+// Verificar existência
 $accessor->has('user.profile.name');     // true
 $accessor->has('user.email');            // false
 ```
 
-### Working with arrays
+### Trabalhando com arrays
 
 ```php
 $data = [
@@ -67,32 +67,32 @@ $data = [
 
 $accessor = SafeAccess::fromArray($data);
 
-// Access by index
+// Acesso por índice
 $accessor->get('users.0.name');          // "Ana"
 $accessor->get('users.2.role');          // "user"
 
-// Wildcard — get all matching values
+// Wildcard — obter todos os valores correspondentes
 $accessor->get('users.*.name');          // ["Ana", "Bob", "Carol"]
 $accessor->get('users.*.role');          // ["admin", "user", "user"]
 ```
 
-### Immutable modifications
+### Modificações imutáveis
 
 ```php
 $accessor = SafeAccess::fromJson('{"name": "Ana", "age": 30}');
 
-// set() returns a NEW instance
+// set() retorna uma NOVA instância
 $modified = $accessor->set('email', 'ana@example.com');
 $modified->get('email');                 // "ana@example.com"
-$accessor->get('email');                 // null (original unchanged)
+$accessor->get('email');                 // null (original inalterado)
 
-// remove() also returns a new instance
+// remove() também retorna uma nova instância
 $cleaned = $accessor->remove('age');
 $cleaned->has('age');                    // false
-$accessor->has('age');                   // true (original unchanged)
+$accessor->has('age');                   // true (original inalterado)
 ```
 
-### Format auto-detection
+### Auto-detecção de formato
 
 ```php
 $array = SafeAccess::detect(['key' => 'value']);    // ArrayAccessor
@@ -100,7 +100,7 @@ $json  = SafeAccess::detect('{"key": "value"}');    // JsonAccessor
 $obj   = SafeAccess::detect((object)['a' => 1]);    // ObjectAccessor
 ```
 
-### Cross-format transformation
+### Transformação cross-format
 
 ```php
 $accessor = SafeAccess::fromJson('{"name": "Ana", "age": 30}');
@@ -113,11 +113,11 @@ $accessor->toYaml();     // "name: Ana\nage: 30\n"
 $accessor->toToml();     // 'name = "Ana"\nage = 30\n'
 ```
 
-## Plugin System
+## Sistema de Plugins
 
-YAML and TOML work out of the box (`ext-yaml` or `symfony/yaml` for YAML, `devium/toml` for TOML). The Plugin System lets you **override** the default parsers and serializers with custom implementations.
+YAML e TOML funcionam sem configuração (`ext-yaml` ou `symfony/yaml` para YAML, `devium/toml` para TOML). O Sistema de Plugins permite **substituir** os parsers e serializers padrão com implementações customizadas.
 
-### Overriding Defaults
+### Substituindo Padrões
 
 ```php
 use SafeAccessInline\Core\PluginRegistry;
@@ -125,20 +125,20 @@ use SafeAccessInline\Plugins\SymfonyYamlParser;
 use SafeAccessInline\Plugins\SymfonyYamlSerializer;
 use SafeAccessInline\Plugins\DeviumTomlParser;
 
-// Override YAML parser with custom options
+// Substituir parser YAML com opções customizadas
 PluginRegistry::registerParser('yaml', new SymfonyYamlParser());
 PluginRegistry::registerSerializer('yaml', new SymfonyYamlSerializer());
 
-// Override TOML parser
+// Substituir parser TOML
 PluginRegistry::registerParser('toml', new DeviumTomlParser());
 ```
 
-> Plugins are **optional overrides**. YAML and TOML work without any plugin registration.
+> Plugins são **overrides opcionais**. YAML e TOML funcionam sem nenhum registro de plugin.
 
-### Using YAML (zero config)
+### Usando YAML (zero configuração)
 
 ```php
-// Works out of the box — no plugin registration needed:
+// Funciona sem configuração — não é necessário registrar plugins:
 $accessor = SafeAccess::fromYaml("name: Ana\nage: 30");
 $accessor->get('name');           // "Ana"
 $accessor->get('age');            // 30
@@ -146,10 +146,10 @@ $accessor->get('age');            // 30
 $accessor->toYaml();              // "name: Ana\nage: 30\n"
 ```
 
-### Using TOML (zero config)
+### Usando TOML (zero configuração)
 
 ```php
-// Works out of the box — no plugin registration needed:
+// Funciona sem configuração — não é necessário registrar plugins:
 $toml = <<<TOML
 title = "My Config"
 
@@ -164,9 +164,9 @@ $accessor->get('database.host');      // "localhost"
 $accessor->toToml();                  // TOML output
 ```
 
-### Generic Serialization with `transform()`
+### Serialização Genérica com `transform()`
 
-The `transform()` method serializes data to any format that has a registered serializer plugin:
+O método `transform()` serializa dados para qualquer formato que tenha um plugin serializer registrado:
 
 ```php
 PluginRegistry::registerSerializer('yaml', new SymfonyYamlSerializer());
@@ -175,20 +175,20 @@ $accessor = SafeAccess::fromJson('{"name": "Ana"}');
 $accessor->transform('yaml');     // "name: Ana\n"
 ```
 
-### Shipped Plugins
+### Plugins Incluídos
 
-| Plugin                  | Format | Type       | Requires                   |
-| ----------------------- | ------ | ---------- | -------------------------- |
-| `SymfonyYamlParser`     | yaml   | Parser     | `symfony/yaml`             |
-| `SymfonyYamlSerializer` | yaml   | Serializer | `symfony/yaml`             |
-| `NativeYamlParser`      | yaml   | Parser     | `ext-yaml` (PHP extension) |
-| `NativeYamlSerializer`  | yaml   | Serializer | `ext-yaml` (PHP extension) |
-| `DeviumTomlParser`      | toml   | Parser     | `devium/toml`              |
-| `DeviumTomlSerializer`  | toml   | Serializer | `devium/toml`              |
+| Plugin                  | Formato | Tipo       | Requer                    |
+| ----------------------- | ------- | ---------- | ------------------------- |
+| `SymfonyYamlParser`     | yaml    | Parser     | `symfony/yaml`            |
+| `SymfonyYamlSerializer` | yaml    | Serializer | `symfony/yaml`            |
+| `NativeYamlParser`      | yaml    | Parser     | `ext-yaml` (extensão PHP) |
+| `NativeYamlSerializer`  | yaml    | Serializer | `ext-yaml` (extensão PHP) |
+| `DeviumTomlParser`      | toml    | Parser     | `devium/toml`             |
+| `DeviumTomlSerializer`  | toml    | Serializer | `devium/toml`             |
 
-### Creating Custom Plugins
+### Criando Plugins Customizados
 
-You can create your own plugins by implementing the plugin interfaces:
+Você pode criar seus próprios plugins implementando as interfaces de plugin:
 
 ```php
 use SafeAccessInline\Contracts\ParserPluginInterface;
@@ -198,7 +198,7 @@ class MyYamlParser implements ParserPluginInterface
 {
     public function parse(string $raw): array
     {
-        // Your parsing logic
+        // Sua lógica de parsing
         return yaml_parse($raw);
     }
 }
@@ -207,19 +207,19 @@ class MyYamlSerializer implements SerializerPluginInterface
 {
     public function serialize(array $data): string
     {
-        // Your serialization logic
+        // Sua lógica de serialização
         return yaml_emit($data);
     }
 }
 
-// Register
+// Registrar
 PluginRegistry::registerParser('yaml', new MyYamlParser());
 PluginRegistry::registerSerializer('yaml', new MyYamlSerializer());
 ```
 
-## Working with Formats
+## Trabalhando com Formatos
 
-### Working with XML
+### Trabalhando com XML
 
 ```php
 $xml = <<<XML
@@ -240,7 +240,7 @@ $accessor->get('database.host');         // "localhost"
 $accessor->get('app.name');              // "MyApp"
 ```
 
-### Working with INI
+### Trabalhando com INI
 
 ```php
 $ini = <<<INI
@@ -260,14 +260,14 @@ $accessor->get('database.host');         // "localhost"
 $accessor->get('cache.driver');          // "redis"
 ```
 
-### Working with ENV
+### Trabalhando com ENV
 
 ```php
 $env = <<<ENV
 APP_NAME=MyApp
 APP_KEY="secret-key"
 DEBUG=true
-# This is a comment
+# Este é um comentário
 DB_HOST=localhost
 ENV;
 
@@ -277,7 +277,7 @@ $accessor->get('APP_KEY');               // "secret-key"
 $accessor->get('DB_HOST');               // "localhost"
 ```
 
-### Working with CSV
+### Trabalhando com CSV
 
 ```php
 $csv = "name,age,city\nAna,30,Porto Alegre\nBob,25,São Paulo";
@@ -288,7 +288,7 @@ $accessor->get('1.city');                // "São Paulo"
 $accessor->get('*.name');                // ["Ana", "Bob"]
 ```
 
-### Custom accessors
+### Accessors customizados
 
 ```php
 use SafeAccessInline\Core\AbstractAccessor;
@@ -302,20 +302,20 @@ class MyFormatAccessor extends AbstractAccessor
 
     protected function parse(mixed $raw): array
     {
-        // Your custom parsing logic
+        // Sua lógica de parsing customizada
         return ['parsed' => $raw];
     }
 }
 
-// Register
+// Registrar
 SafeAccess::extend('myformat', MyFormatAccessor::class);
 
-// Use
+// Usar
 $accessor = SafeAccess::custom('myformat', $data);
 $accessor->get('parsed');
 ```
 
-## Utility Methods
+## Métodos Utilitários
 
 ```php
 $accessor = SafeAccess::fromArray([
@@ -329,11 +329,11 @@ $accessor->type('age');      // "integer"
 $accessor->type('tags');     // "array"
 $accessor->type('missing');  // null
 
-$accessor->count();          // 3 (root keys)
+$accessor->count();          // 3 (chaves raiz)
 $accessor->count('tags');    // 2
 
 $accessor->keys();           // ['name', 'age', 'tags']
 $accessor->keys('tags');     // [0, 1]
 
-$accessor->all();            // full array
+$accessor->all();            // array completo
 ```
