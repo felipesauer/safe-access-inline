@@ -22,4 +22,15 @@ interface WritableInterface
      * @return static New instance
      */
     public function remove(string $path): static;
+
+    /**
+     * Deep merges data at root or at a specific path.
+     * IMMUTABLE: returns a new instance with the merge applied.
+     * Objects are merged recursively; scalar values and arrays are replaced.
+     *
+     * @param array<mixed>|string $pathOrValue Data to merge at root, or dot notation path
+     * @param array<mixed>|null $value Data to merge when first arg is a path
+     * @return static New instance
+     */
+    public function merge(array|string $pathOrValue, ?array $value = null): static;
 }

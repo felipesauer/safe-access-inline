@@ -79,6 +79,19 @@ abstract class AbstractAccessor implements AccessorInterface, WritableInterface
     }
 
     /** {@inheritDoc} */
+    public function merge(array|string $pathOrValue, ?array $value = null): static
+    {
+        if (is_string($pathOrValue)) {
+            $newData = DotNotationParser::merge($this->data, $pathOrValue, $value ?? []);
+        } else {
+            $newData = DotNotationParser::merge($this->data, '', $pathOrValue);
+        }
+        $clone = clone $this;
+        $clone->data = $newData;
+        return $clone;
+    }
+
+    /** {@inheritDoc} */
     public function type(string $path): ?string
     {
         if (!$this->has($path)) {
