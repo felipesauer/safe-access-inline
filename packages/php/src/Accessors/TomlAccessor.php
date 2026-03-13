@@ -2,17 +2,16 @@
 
 namespace SafeAccessInline\Accessors;
 
+use Devium\Toml\Toml;
 use SafeAccessInline\Core\AbstractAccessor;
 use SafeAccessInline\Core\PluginRegistry;
 use SafeAccessInline\Exceptions\InvalidFormatException;
 
 /**
  * Accessor for TOML strings.
- *
- * Requires a TOML parser plugin to be registered via PluginRegistry.
+ * Uses devium/toml by default, with optional plugin override via PluginRegistry.
  *
  * @example
- * PluginRegistry::registerParser('toml', new DeviumTomlParser());
  * SafeAccess::fromToml($tomlString)->get('database.host');
  */
 class TomlAccessor extends AbstractAccessor
@@ -25,14 +24,6 @@ class TomlAccessor extends AbstractAccessor
             );
         }
 
-        if (!PluginRegistry::hasParser('toml')) {
-            throw new InvalidFormatException(
-                'TomlAccessor requires a TOML parser plugin. '
-                . "Register one with: PluginRegistry::registerParser('toml', new YourTomlParser()). "
-                . 'Example with devium/toml: new DeviumTomlParser()'
-            );
-        }
-
         return new static($data); // @phpstan-ignore new.static
     }
 
@@ -40,6 +31,20 @@ class TomlAccessor extends AbstractAccessor
     {
         assert(is_string($raw));
 
-        return PluginRegistry::getParser('toml')->parse($raw);
+        if (PluginRegistry::hasParser('toml')) {
+            return PluginRegistry::getParser('toml')->parse($raw);
+        }
+
+        try {
+            $decoded = Toml::decode($raw);
+            $json = json_encode($decoded);
+
+            return (array) json_decode($json !== false ? $json : '{}', true);
+        } catch (\Throwable $e) {
+            throw new InvalidFormatException(
+                'TomlAccessor failed to parse TOML string: ' . $e->getMessage(),
+                previous: $e,
+            );
+        }
     }
 }
