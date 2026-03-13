@@ -63,5 +63,6 @@ export class SafeAccess {
         return new Cls(data);
     }
 
+    /* v8 ignore next */
     private constructor() {}
 }
