@@ -15,6 +15,7 @@ lang: pt-br
 - [DotNotationParser](#dotnotationparser)
 - [Erros](#erros)
 - [Tipos TypeScript](#tipos-typescript)
+- [Enums](#enums)
 
 ---
 
@@ -96,6 +97,37 @@ Cria um accessor a partir de uma string no formato `.env`.
 const accessor = SafeAccess.fromEnv("APP_NAME=MyApp\nDEBUG=true");
 ```
 
+#### `SafeAccess.from(data: unknown, format?: string | Format): AbstractAccessor`
+
+Fábrica unificada — cria um accessor a partir de qualquer dado. Com uma string de formato ou um valor do enum `Format`, delega para a fábrica tipada correspondente. Sem formato, detecta automaticamente (equivalente a `detect()`).
+
+Formatos suportados: `'array'`, `'object'`, `'json'`, `'xml'`, `'yaml'`, `'toml'`, `'ini'`, `'csv'`, `'env'`, ou qualquer nome customizado registrado via `extend()`. Todos os formatos built-in também estão disponíveis como membros do enum `Format`.
+
+Os overloads TypeScript preservam o tipo de retorno específico para cada formato conhecido — tanto string literals quanto valores do enum `Format` são totalmente tipados.
+
+```typescript
+import { SafeAccess, Format } from "@safe-access-inline/safe-access-inline";
+
+// Auto-detecção (sem formato)
+const accessor = SafeAccess.from('{"name": "Ana"}'); // JsonAccessor
+
+// Formato explícito via string
+const json = SafeAccess.from('{"name": "Ana"}', "json");
+const yaml = SafeAccess.from("name: Ana", "yaml");
+
+// Formato explícito via enum
+const json2 = SafeAccess.from('{"name": "Ana"}', Format.Json);
+const yaml2 = SafeAccess.from("name: Ana", Format.Yaml);
+const xml = SafeAccess.from("<root><n>1</n></root>", Format.Xml);
+const arr = SafeAccess.from([1, 2, 3], Format.Array);
+
+// Formato customizado (apenas string)
+SafeAccess.extend("custom", MyAccessor);
+const custom = SafeAccess.from(data, "custom");
+```
+
+Lança `InvalidFormatError` se o formato for desconhecido e não estiver registrado.
+
 #### `SafeAccess.detect(data: unknown): AbstractAccessor`
 
 Auto-detecta o formato e cria o accessor apropriado.
@@ -141,6 +173,8 @@ Acessa um valor via caminho em notação de ponto. **Nunca lança** — retorna 
 accessor.get("user.name"); // valor ou null
 accessor.get("user.email", "N/A"); // valor ou 'N/A'
 accessor.get("users.*.name"); // array de valores (wildcard)
+accessor.get("users[?role=='admin'].name"); // valores filtrados
+accessor.get("..name"); // descida recursiva
 ```
 
 #### `getMany(paths: Record<string, unknown>): Record<string, unknown>`
@@ -211,6 +245,20 @@ Retorna uma **nova instância** com o valor definido no caminho dado.
 ```typescript
 const newAccessor = accessor.set("user.email", "ana@example.com");
 // accessor inalterado, newAccessor tem o valor
+```
+
+#### `merge(value: Record<string, unknown>): AbstractAccessor`
+
+#### `merge(path: string, value: Record<string, unknown>): AbstractAccessor`
+
+Faz deep merge de dados na raiz ou em um caminho específico. Retorna uma **nova instância**. Objetos são mesclados recursivamente; arrays e escalares são substituídos.
+
+```typescript
+// Merge na raiz
+const merged = accessor.merge({ theme: "dark", notifications: true });
+
+// Merge em caminho
+const merged = accessor.merge("user.settings", { theme: "dark" });
 ```
 
 #### `remove(path: string): AbstractAccessor`
@@ -359,13 +407,194 @@ Classe utilitária estática. Normalmente usada internamente, mas disponível pa
 
 #### `DotNotationParser.get(data, path, defaultValue?): unknown`
 
+Suporta expressões de caminho avançadas:
+
+| Sintaxe           | Descrição                                                                     | Exemplo                 |
+| ----------------- | ----------------------------------------------------------------------------- | ----------------------- |
+| `a.b.c`           | Acesso a chave aninhada                                                       | `"user.profile.name"`   |
+| `a[0]`            | Índice com colchetes                                                          | `"items[0].title"`      |
+| `a.*`             | Wildcard — retorna array de valores                                           | `"users.*.name"`        |
+| `a[?field>value]` | Filtro — retorna itens correspondentes                                        | `"products[?price>20]"` |
+| `..key`           | Descida recursiva — coleta todos os valores de `key` em qualquer profundidade | `"..name"`              |
+
+**Expressões de filtro** suportam:
+
+- Comparação: `==`, `!=`, `>`, `<`, `>=`, `<=`
+- Lógicos: `&&` (AND), `\|\|` (OR)
+- Valores: números, `'strings'`, `true`, `false`, `null`
+
+```typescript
+// Filtro: todos os usuários admin
+DotNotationParser.get(data, "users[?role=='admin']");
+
+// Filtro com comparação numérica + continuação de caminho
+DotNotationParser.get(data, "products[?price>20].name");
+
+// AND combinado
+DotNotationParser.get(data, "items[?type=='fruit' && color=='red'].name");
+
+// Descida recursiva: todos os valores "name" em qualquer profundidade
+DotNotationParser.get(data, "..name");
+
+// Descida + wildcard
+DotNotationParser.get(data, "..items.*.id");
+
+// Descida + filtro
+DotNotationParser.get(data, "..employees[?active==true].name");
+```
+
 #### `DotNotationParser.has(data, path): boolean`
 
 #### `DotNotationParser.set(data, path, value): Record<string, unknown>`
 
 Retorna um novo objeto (usa `structuredClone`, não muta o input).
 
+#### `DotNotationParser.merge(data, path, value): Record<string, unknown>`
+
+Faz deep merge de `value` no `path` dado. Quando `path` é uma string vazia, mescla na raiz. Objetos são mesclados recursivamente; todos os outros valores são substituídos.
+
+```typescript
+const result = DotNotationParser.merge(data, "user.settings", {
+    theme: "dark",
+});
+// Mescla { theme: "dark" } em data.user.settings
+```
+
 #### `DotNotationParser.remove(data, path): Record<string, unknown>`
+
+Retorna um novo objeto (não muta o input).
+
+---
+
+## Erros
+
+| Erro                   | Quando                                                                                          |
+| ---------------------- | ----------------------------------------------------------------------------------------------- |
+| `AccessorError`        | Classe base de erro                                                                             |
+| `InvalidFormatError`   | Formato de input inválido (ex: JSON malformado, plugin parser ausente)                          |
+| `PathNotFoundError`    | Reservado (não lançado por `get()`)                                                             |
+| `UnsupportedTypeError` | Nenhum plugin serializer/parser registrado para o formato solicitado (ex: `toXml()` sem plugin) |
+
+Todos os erros estendem a classe base `Error` e `AccessorError`.
+
+---
+
+## Tipos TypeScript
+
+```typescript
+interface AccessorInterface {
+    get(path: string, defaultValue?: unknown): unknown;
+    getMany(paths: Record<string, unknown>): Record<string, unknown>;
+    has(path: string): boolean;
+    set(path: string, value: unknown): AbstractAccessor;
+    remove(path: string): AbstractAccessor;
+    type(path: string): string | null;
+    count(path?: string): number;
+    keys(path?: string): string[];
+    all(): Record<string, unknown>;
+    toArray(): Record<string, unknown>;
+    toJson(pretty?: boolean): string;
+    toObject(): Record<string, unknown>;
+    toYaml(): string;
+    toToml(): string;
+    toXml(rootElement?: string): string;
+    transform(format: string): string;
+}
+
+interface ParserPlugin {
+    parse(raw: string): Record<string, unknown>;
+}
+```
+
+### Plugins Incluídos
+
+O pacote inclui plugins de parser e serializer prontos para uso para substituir as implementações padrão de YAML/TOML:
+
+```typescript
+import {
+    JsYamlParser,
+    JsYamlSerializer,
+    SmolTomlParser,
+    SmolTomlSerializer,
+} from "@safe-access-inline/safe-access-inline";
+```
+
+| Plugin               | Formato | Tipo       | Biblioteca  |
+| -------------------- | ------- | ---------- | ----------- |
+| `JsYamlParser`       | yaml    | Parser     | `js-yaml`   |
+| `JsYamlSerializer`   | yaml    | Serializer | `js-yaml`   |
+| `SmolTomlParser`     | toml    | Parser     | `smol-toml` |
+| `SmolTomlSerializer` | toml    | Serializer | `smol-toml` |
+
+```typescript
+interface SerializerPlugin {
+    serialize(data: Record<string, unknown>): string;
+}
+```
+
+---
+
+## Enums
+
+### `Format`
+
+**Import:** `import { Format } from '@safe-access-inline/safe-access-inline'`
+
+Enum string cobrindo todos os formatos built-in. Use como alternativa tipada a passar strings brutas para `SafeAccess.from()`.
+
+| Membro          | Valor      |
+| --------------- | ---------- |
+| `Format.Array`  | `'array'`  |
+| `Format.Object` | `'object'` |
+| `Format.Json`   | `'json'`   |
+| `Format.Xml`    | `'xml'`    |
+| `Format.Yaml`   | `'yaml'`   |
+| `Format.Toml`   | `'toml'`   |
+| `Format.Ini`    | `'ini'`    |
+| `Format.Csv`    | `'csv'`    |
+| `Format.Env`    | `'env'`    |
+
+### Utilitários de Inferência de Caminho
+
+Inferência de caminho type-safe para validação de caminhos em tempo de compilação e resolução de valores:
+
+```typescript
+import type {
+    DeepPaths,
+    ValueAtPath,
+} from "@safe-access-inline/safe-access-inline";
+
+type Config = {
+    db: { host: string; port: number };
+    cache: { ttl: number; enabled: boolean };
+};
+
+// Todos os caminhos válidos em notação de ponto como tipo união
+type ConfigPaths = DeepPaths<Config>;
+// "db" | "db.host" | "db.port" | "cache" | "cache.ttl" | "cache.enabled"
+
+// Resolver tipo do valor em um caminho específico
+type Host = ValueAtPath<Config, "db.host">; // string
+type Port = ValueAtPath<Config, "db.port">; // number
+
+// Usar em assinaturas de função para type safety
+function getConfig<P extends DeepPaths<Config>>(
+    accessor: AbstractAccessor,
+    path: P,
+): ValueAtPath<Config, P> {
+    return accessor.get(path) as ValueAtPath<Config, P>;
+}
+
+const host = getConfig(accessor, "db.host"); // tipado como string
+```
+
+#### `DeepPaths<T, Depth?>`
+
+Gera uma união de todos os caminhos válidos em notação de ponto para o tipo `T`. Profundidade de recursão padrão: 7 níveis.
+
+#### `ValueAtPath<T, P>`
+
+Resolve o tipo do valor no caminho de notação de ponto `P` no tipo `T`. Retorna `unknown` para caminhos inválidos.
 
 Retorna um novo objeto (não muta o input).
 
@@ -434,3 +663,25 @@ import {
 | `JsYamlSerializer`   | yaml    | Serializer | `js-yaml`   |
 | `SmolTomlParser`     | toml    | Parser     | `smol-toml` |
 | `SmolTomlSerializer` | toml    | Serializer | `smol-toml` |
+
+---
+
+## Enums
+
+### `Format`
+
+**Import:** `import { Format } from '@safe-access-inline/safe-access-inline'`
+
+Enum de string cobrindo todos os formatos built-in. Use como alternativa tipada a passar strings brutas para `SafeAccess.from()`.
+
+| Membro          | Valor      |
+| --------------- | ---------- |
+| `Format.Array`  | `'array'`  |
+| `Format.Object` | `'object'` |
+| `Format.Json`   | `'json'`   |
+| `Format.Xml`    | `'xml'`    |
+| `Format.Yaml`   | `'yaml'`   |
+| `Format.Toml`   | `'toml'`   |
+| `Format.Ini`    | `'ini'`    |
+| `Format.Csv`    | `'csv'`    |
+| `Format.Env`    | `'env'`    |

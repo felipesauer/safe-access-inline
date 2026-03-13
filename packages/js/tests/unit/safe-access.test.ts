@@ -9,6 +9,7 @@ import { TomlAccessor } from '../../src/accessors/toml.accessor';
 import { IniAccessor } from '../../src/accessors/ini.accessor';
 import { CsvAccessor } from '../../src/accessors/csv.accessor';
 import { EnvAccessor } from '../../src/accessors/env.accessor';
+import { InvalidFormatError } from '../../src/exceptions/invalid-format.error';
 
 describe(SafeAccess.name, () => {
     it('fromArray', () => {
@@ -91,5 +92,95 @@ describe(SafeAccess.name, () => {
 
     it('custom — unregistered throws', () => {
         expect(() => SafeAccess.custom('nonexistent', {})).toThrow();
+    });
+
+    // ── from() ──────────────────────────────────────────
+
+    describe('from()', () => {
+        it('auto-detects array', () => {
+            const accessor = SafeAccess.from([{ name: 'Ana' }]);
+            expect(accessor).toBeInstanceOf(ArrayAccessor);
+            expect(accessor.get('0.name')).toBe('Ana');
+        });
+
+        it('auto-detects object', () => {
+            const accessor = SafeAccess.from({ name: 'Ana' });
+            expect(accessor).toBeInstanceOf(ObjectAccessor);
+            expect(accessor.get('name')).toBe('Ana');
+        });
+
+        it('auto-detects JSON string', () => {
+            const accessor = SafeAccess.from('{"name": "Ana"}');
+            expect(accessor).toBeInstanceOf(JsonAccessor);
+            expect(accessor.get('name')).toBe('Ana');
+        });
+
+        it('with format "array"', () => {
+            const accessor = SafeAccess.from([{ name: 'Ana' }], 'array');
+            expect(accessor).toBeInstanceOf(ArrayAccessor);
+            expect(accessor.get('0.name')).toBe('Ana');
+        });
+
+        it('with format "object"', () => {
+            const accessor = SafeAccess.from({ name: 'Ana' }, 'object');
+            expect(accessor).toBeInstanceOf(ObjectAccessor);
+            expect(accessor.get('name')).toBe('Ana');
+        });
+
+        it('with format "json"', () => {
+            const accessor = SafeAccess.from('{"name": "Ana"}', 'json');
+            expect(accessor).toBeInstanceOf(JsonAccessor);
+            expect(accessor.get('name')).toBe('Ana');
+        });
+
+        it('with format "xml"', () => {
+            const accessor = SafeAccess.from('<root><name>Ana</name></root>', 'xml');
+            expect(accessor).toBeInstanceOf(XmlAccessor);
+            expect(accessor.get('name')).toBe('Ana');
+        });
+
+        it('with format "yaml"', () => {
+            const accessor = SafeAccess.from('name: Ana\nage: 30', 'yaml');
+            expect(accessor).toBeInstanceOf(YamlAccessor);
+            expect(accessor.get('name')).toBe('Ana');
+        });
+
+        it('with format "toml"', () => {
+            const accessor = SafeAccess.from('name = "Ana"\nage = 30', 'toml');
+            expect(accessor).toBeInstanceOf(TomlAccessor);
+            expect(accessor.get('name')).toBe('Ana');
+        });
+
+        it('with format "ini"', () => {
+            const accessor = SafeAccess.from('[app]\nname = MyApp', 'ini');
+            expect(accessor).toBeInstanceOf(IniAccessor);
+            expect(accessor.get('app.name')).toBe('MyApp');
+        });
+
+        it('with format "csv"', () => {
+            const accessor = SafeAccess.from('name,age\nAna,30', 'csv');
+            expect(accessor).toBeInstanceOf(CsvAccessor);
+            expect(accessor.get('0.name')).toBe('Ana');
+        });
+
+        it('with format "env"', () => {
+            const accessor = SafeAccess.from('APP_NAME=MyApp\nDEBUG=true', 'env');
+            expect(accessor).toBeInstanceOf(EnvAccessor);
+            expect(accessor.get('APP_NAME')).toBe('MyApp');
+        });
+
+        it('with custom format registered via extend()', () => {
+            SafeAccess.extend(
+                'from_test_format',
+                ArrayAccessor as unknown as new (data: unknown) => ArrayAccessor,
+            );
+            const accessor = SafeAccess.from({ a: 1 }, 'from_test_format');
+            expect(accessor.get('a')).toBe(1);
+        });
+
+        it('throws InvalidFormatError for unknown format', () => {
+            expect(() => SafeAccess.from('data', 'unknown_xyz')).toThrow(InvalidFormatError);
+            expect(() => SafeAccess.from('data', 'unknown_xyz')).toThrow(/Unknown format/);
+        });
     });
 });

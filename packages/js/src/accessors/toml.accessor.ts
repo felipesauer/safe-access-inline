@@ -7,7 +7,9 @@ import { InvalidFormatError } from '../exceptions/invalid-format.error';
  * Accessor for TOML strings.
  * Uses smol-toml by default, with optional plugin override via PluginRegistry.
  */
-export class TomlAccessor extends AbstractAccessor {
+export class TomlAccessor<
+    T extends Record<string, unknown> = Record<string, unknown>,
+> extends AbstractAccessor<T> {
     static from(data: unknown): TomlAccessor {
         if (typeof data !== 'string') {
             throw new InvalidFormatError('TomlAccessor expects a TOML string.');
@@ -30,8 +32,8 @@ export class TomlAccessor extends AbstractAccessor {
         }
     }
 
-    clone(data: Record<string, unknown>): TomlAccessor {
-        const inst = Object.create(TomlAccessor.prototype) as TomlAccessor;
+    clone(data: Record<string, unknown>): TomlAccessor<T> {
+        const inst = Object.create(TomlAccessor.prototype) as TomlAccessor<T>;
         inst.raw = this.raw;
         inst.data = data;
         return inst;

@@ -43,6 +43,14 @@ jobs:
             - name: Run tests
               run: npm test -- --coverage
 
+            - name: Upload coverage to Codecov
+              if: matrix.node == 22
+              uses: codecov/codecov-action@v5
+              with:
+                  flags: javascript
+                  directory: packages/js/coverage
+                  fail_ci_if_error: false
+
             - name: Lint
               if: matrix.node == 22
               run: npm run lint

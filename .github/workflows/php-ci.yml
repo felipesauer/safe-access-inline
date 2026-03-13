@@ -58,6 +58,14 @@ jobs:
             - name: Run tests
               run: vendor/bin/pest --coverage --min=95
 
+            - name: Upload coverage to Codecov
+              if: matrix.php == '8.4' && matrix.deps == 'core'
+              uses: codecov/codecov-action@v5
+              with:
+                  flags: php
+                  files: packages/php/coverage.xml
+                  fail_ci_if_error: false
+
             - name: Run PHPStan
               if: matrix.deps == 'core' && matrix.php == '8.4'
               run: vendor/bin/phpstan analyse

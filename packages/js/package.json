@@ -23,6 +23,7 @@
         "test": "vitest run",
         "test:coverage": "vitest run --coverage",
         "test:watch": "vitest",
+        "bench": "vitest bench benchmarks/",
         "lint": "eslint src/ tests/",
         "format": "prettier --write src/ tests/"
     },

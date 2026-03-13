@@ -15,6 +15,7 @@ permalink: /js/api-reference/
 - [DotNotationParser](#dotnotationparser)
 - [Errors](#errors)
 - [TypeScript Types](#typescript-types)
+- [Enums](#enums)
 
 ---
 
@@ -96,6 +97,37 @@ Creates an accessor from a `.env` format string.
 const accessor = SafeAccess.fromEnv("APP_NAME=MyApp\nDEBUG=true");
 ```
 
+#### `SafeAccess.from(data: unknown, format?: string | Format): AbstractAccessor`
+
+Unified factory — creates an accessor from any data. With a format string or `Format` enum value, delegates to the corresponding typed factory. Without a format, auto-detects (same as `detect()`).
+
+Supported formats: `'array'`, `'object'`, `'json'`, `'xml'`, `'yaml'`, `'toml'`, `'ini'`, `'csv'`, `'env'`, or any custom name registered via `extend()`. All built-in formats are also available as `Format` enum members.
+
+TypeScript overloads preserve the specific return type for each known format — both string literals and `Format` enum values are fully typed.
+
+```typescript
+import { SafeAccess, Format } from "@safe-access-inline/safe-access-inline";
+
+// Auto-detect (no format)
+const accessor = SafeAccess.from('{"name": "Ana"}'); // JsonAccessor
+
+// Explicit format via string
+const json = SafeAccess.from('{"name": "Ana"}', "json"); // JsonAccessor
+const yaml = SafeAccess.from("name: Ana", "yaml"); // YamlAccessor
+
+// Explicit format via enum
+const json2 = SafeAccess.from('{"name": "Ana"}', Format.Json); // JsonAccessor
+const yaml2 = SafeAccess.from("name: Ana", Format.Yaml); // YamlAccessor
+const xml = SafeAccess.from("<root><n>1</n></root>", Format.Xml); // XmlAccessor
+const arr = SafeAccess.from([1, 2, 3], Format.Array); // ArrayAccessor
+
+// Custom format (string only)
+SafeAccess.extend("custom", MyAccessor);
+const custom = SafeAccess.from(data, "custom");
+```
+
+Throws `InvalidFormatError` if the format is unknown and not registered.
+
 #### `SafeAccess.detect(data: unknown): AbstractAccessor`
 
 Auto-detects the format and creates the appropriate accessor.
@@ -141,6 +173,8 @@ Access a value via dot notation path. **Never throws** — returns `defaultValue
 accessor.get("user.name"); // value or null
 accessor.get("user.email", "N/A"); // value or 'N/A'
 accessor.get("users.*.name"); // array of values (wildcard)
+accessor.get("users[?role=='admin'].name"); // filtered values
+accessor.get("..name"); // recursive descent
 ```
 
 #### `getMany(paths: Record<string, unknown>): Record<string, unknown>`
@@ -211,6 +245,20 @@ Returns a **new instance** with the value set at the given path.
 ```typescript
 const newAccessor = accessor.set("user.email", "ana@example.com");
 // accessor is unchanged, newAccessor has the value
+```
+
+#### `merge(value: Record<string, unknown>): AbstractAccessor`
+
+#### `merge(path: string, value: Record<string, unknown>): AbstractAccessor`
+
+Deep merges data at root or at a specific path. Returns a **new instance**. Objects are merged recursively; arrays and scalars are replaced.
+
+```typescript
+// Merge at root
+const merged = accessor.merge({ theme: "dark", notifications: true });
+
+// Merge at path
+const merged = accessor.merge("user.settings", { theme: "dark" });
 ```
 
 #### `remove(path: string): AbstractAccessor`
@@ -359,11 +407,58 @@ Static utility class. Typically used internally, but available for direct use.
 
 #### `DotNotationParser.get(data, path, defaultValue?): unknown`
 
+Supports advanced path expressions:
+
+| Syntax            | Description                                                   | Example                 |
+| ----------------- | ------------------------------------------------------------- | ----------------------- |
+| `a.b.c`           | Nested key access                                             | `"user.profile.name"`   |
+| `a[0]`            | Bracket index                                                 | `"items[0].title"`      |
+| `a.*`             | Wildcard — returns array of values                            | `"users.*.name"`        |
+| `a[?field>value]` | Filter — returns matching items                               | `"products[?price>20]"` |
+| `..key`           | Recursive descent — collects all values of `key` at any depth | `"..name"`              |
+
+**Filter expressions** support:
+
+- Comparison: `==`, `!=`, `>`, `<`, `>=`, `<=`
+- Logical: `&&` (AND), `\|\|` (OR)
+- Values: numbers, `'strings'`, `true`, `false`, `null`
+
+```typescript
+// Filter: all admin users
+DotNotationParser.get(data, "users[?role=='admin']");
+
+// Filter with numeric comparison + path continuation
+DotNotationParser.get(data, "products[?price>20].name");
+
+// Combined AND
+DotNotationParser.get(data, "items[?type=='fruit' && color=='red'].name");
+
+// Recursive descent: all "name" values at any depth
+DotNotationParser.get(data, "..name");
+
+// Descent + wildcard
+DotNotationParser.get(data, "..items.*.id");
+
+// Descent + filter
+DotNotationParser.get(data, "..employees[?active==true].name");
+```
+
 #### `DotNotationParser.has(data, path): boolean`
 
 #### `DotNotationParser.set(data, path, value): Record<string, unknown>`
 
 Returns a new object (uses `structuredClone`, does not mutate input).
+
+#### `DotNotationParser.merge(data, path, value): Record<string, unknown>`
+
+Deep merges `value` at the given `path`. When `path` is an empty string, merges at root. Objects are merged recursively; all other values are replaced.
+
+```typescript
+const result = DotNotationParser.merge(data, "user.settings", {
+    theme: "dark",
+});
+// Merges { theme: "dark" } into data.user.settings
+```
 
 #### `DotNotationParser.remove(data, path): Record<string, unknown>`
 
@@ -431,10 +526,72 @@ import {
 | `SmolTomlParser`     | toml   | Parser     | `smol-toml` |
 | `SmolTomlSerializer` | toml   | Serializer | `smol-toml` |
 
+```typescript
 interface SerializerPlugin {
-serialize(data: Record<string, unknown>): string;
+    serialize(data: Record<string, unknown>): string;
+}
+```
+
+---
+
+## Enums
+
+### `Format`
+
+**Import:** `import { Format } from '@safe-access-inline/safe-access-inline'`
+
+String enum covering all built-in formats. Use it as a type-safe alternative to passing raw strings to `SafeAccess.from()`.
+
+| Member          | Value      |
+| --------------- | ---------- |
+| `Format.Array`  | `'array'`  |
+| `Format.Object` | `'object'` |
+| `Format.Json`   | `'json'`   |
+| `Format.Xml`    | `'xml'`    |
+| `Format.Yaml`   | `'yaml'`   |
+| `Format.Toml`   | `'toml'`   |
+| `Format.Ini`    | `'ini'`    |
+| `Format.Csv`    | `'csv'`    |
+| `Format.Env`    | `'env'`    |
+
+### Path Inference Utilities
+
+Type-safe path inference for compile-time path validation and value resolution:
+
+```typescript
+import type {
+    DeepPaths,
+    ValueAtPath,
+} from "@safe-access-inline/safe-access-inline";
+
+type Config = {
+    db: { host: string; port: number };
+    cache: { ttl: number; enabled: boolean };
+};
+
+// All valid dot-notation paths as a union type
+type ConfigPaths = DeepPaths<Config>;
+// "db" | "db.host" | "db.port" | "cache" | "cache.ttl" | "cache.enabled"
+
+// Resolve value type at a specific path
+type Host = ValueAtPath<Config, "db.host">; // string
+type Port = ValueAtPath<Config, "db.port">; // number
+
+// Use in function signatures for type safety
+function getConfig<P extends DeepPaths<Config>>(
+    accessor: AbstractAccessor,
+    path: P,
+): ValueAtPath<Config, P> {
+    return accessor.get(path) as ValueAtPath<Config, P>;
 }
 
+const host = getConfig(accessor, "db.host"); // typed as string
 ```
 
-```
+#### `DeepPaths<T, Depth?>`
+
+Generates a union of all valid dot-notation string paths for type `T`. Recursion depth defaults to 7 levels.
+
+#### `ValueAtPath<T, P>`
+
+Resolves the value type at dot-notation path `P` in type `T`. Returns `unknown` for invalid paths.

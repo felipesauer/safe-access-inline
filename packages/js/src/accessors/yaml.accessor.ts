@@ -7,7 +7,9 @@ import { InvalidFormatError } from '../exceptions/invalid-format.error';
  * Accessor for YAML strings.
  * Uses js-yaml by default, with optional plugin override via PluginRegistry.
  */
-export class YamlAccessor extends AbstractAccessor {
+export class YamlAccessor<
+    T extends Record<string, unknown> = Record<string, unknown>,
+> extends AbstractAccessor<T> {
     static from(data: unknown): YamlAccessor {
         if (typeof data !== 'string') {
             throw new InvalidFormatError('YamlAccessor expects a YAML string.');
@@ -30,8 +32,8 @@ export class YamlAccessor extends AbstractAccessor {
         }
     }
 
-    clone(data: Record<string, unknown>): YamlAccessor {
-        const inst = Object.create(YamlAccessor.prototype) as YamlAccessor;
+    clone(data: Record<string, unknown>): YamlAccessor<T> {
+        const inst = Object.create(YamlAccessor.prototype) as YamlAccessor<T>;
         inst.raw = this.raw;
         inst.data = data;
         return inst;

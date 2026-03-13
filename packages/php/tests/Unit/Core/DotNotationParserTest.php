@@ -140,4 +140,164 @@ describe(DotNotationParser::class, function () {
         expect($result['a']['b'])->toBe('deep');
     });
 
+    // ── merge() ───────────────────────────────────────────
+
+    it('merge — deep merges at root', function () {
+        $data = ['a' => 1, 'b' => ['x' => 10, 'y' => 20]];
+        $result = DotNotationParser::merge($data, '', ['b' => ['y' => 99, 'z' => 30], 'c' => 3]);
+        expect($result)->toBe(['a' => 1, 'b' => ['x' => 10, 'y' => 99, 'z' => 30], 'c' => 3]);
+    });
+
+    it('merge — deep merges at path', function () {
+        $data = ['config' => ['db' => ['host' => 'localhost', 'port' => 3306]]];
+        $result = DotNotationParser::merge($data, 'config.db', ['port' => 5432, 'name' => 'mydb']);
+        expect($result)->toBe(['config' => ['db' => ['host' => 'localhost', 'port' => 5432, 'name' => 'mydb']]]);
+    });
+
+    it('merge — replaces list arrays (does not concat)', function () {
+        $data = ['tags' => ['a', 'b']];
+        $result = DotNotationParser::merge($data, '', ['tags' => ['c']]);
+        expect($result)->toBe(['tags' => ['c']]);
+    });
+
+    it('merge — replaces scalar with array at path', function () {
+        $data = ['a' => 'string'];
+        $result = DotNotationParser::merge($data, 'a', ['b' => 1]);
+        expect($result)->toBe(['a' => ['b' => 1]]);
+    });
+
+    it('merge — creates path if it does not exist', function () {
+        $data = ['a' => 1];
+        $result = DotNotationParser::merge($data, 'b.c', ['d' => 2]);
+        expect($result)->toBe(['a' => 1, 'b' => ['c' => ['d' => 2]]]);
+    });
+
+    it('merge — does not mutate original', function () {
+        $data = ['a' => ['b' => 1]];
+        $result = DotNotationParser::merge($data, '', ['a' => ['c' => 2]]);
+        expect($data)->toBe(['a' => ['b' => 1]]);
+        expect($result)->toBe(['a' => ['b' => 1, 'c' => 2]]);
+    });
+
+    it('merge — deeply nested merge', function () {
+        $data = ['a' => ['b' => ['c' => ['d' => 1, 'e' => 2]]]];
+        $result = DotNotationParser::merge($data, 'a.b', ['c' => ['e' => 99, 'f' => 3]]);
+        expect($result)->toBe(['a' => ['b' => ['c' => ['d' => 1, 'e' => 99, 'f' => 3]]]]);
+    });
+
+    // ── Filter expressions ────────────────────────────
+
+    it('get — filter by equality', function () {
+        $data = [
+            'users' => [
+                ['name' => 'Ana', 'role' => 'admin'],
+                ['name' => 'Bob', 'role' => 'user'],
+                ['name' => 'Carlos', 'role' => 'admin'],
+            ],
+        ];
+        $result = DotNotationParser::get($data, "users[?role=='admin']");
+        expect($result)->toBe([
+            ['name' => 'Ana', 'role' => 'admin'],
+            ['name' => 'Carlos', 'role' => 'admin'],
+        ]);
+    });
+
+    it('get — filter with numeric comparison', function () {
+        $data = [
+            'products' => [
+                ['name' => 'A', 'price' => 10],
+                ['name' => 'B', 'price' => 50],
+                ['name' => 'C', 'price' => 30],
+            ],
+        ];
+        expect(DotNotationParser::get($data, 'products[?price>20].name'))->toBe(['B', 'C']);
+    });
+
+    it('get — filter with && (AND)', function () {
+        $data = [
+            'items' => [
+                ['type' => 'fruit', 'color' => 'red', 'name' => 'apple'],
+                ['type' => 'fruit', 'color' => 'yellow', 'name' => 'banana'],
+                ['type' => 'vegetable', 'color' => 'red', 'name' => 'tomato'],
+            ],
+        ];
+        $result = DotNotationParser::get($data, "items[?type=='fruit' && color=='red'].name");
+        expect($result)->toBe(['apple']);
+    });
+
+    it('get — filter with || (OR)', function () {
+        $data = [
+            'scores' => [
+                ['student' => 'Ana', 'grade' => 95],
+                ['student' => 'Bob', 'grade' => 60],
+                ['student' => 'Carlos', 'grade' => 40],
+            ],
+        ];
+        $result = DotNotationParser::get($data, 'scores[?grade>=90 || grade<50].student');
+        expect($result)->toBe(['Ana', 'Carlos']);
+    });
+
+    it('get — filter returns empty array when no match', function () {
+        $data = ['items' => [['a' => 1], ['a' => 2]]];
+        expect(DotNotationParser::get($data, 'items[?a>100]'))->toBe([]);
+    });
+
+    it('get — filter on non-array returns default', function () {
+        $data = ['value' => 'string'];
+        expect(DotNotationParser::get($data, "value[?x=='y']", 'nope'))->toBe('nope');
+    });
+
+    // ── Recursive descent ─────────────────────────────
+
+    it('get — descent collects all matching keys', function () {
+        $data = [
+            'a' => ['name' => 'root-a', 'nested' => ['name' => 'deep-a']],
+            'b' => ['name' => 'root-b'],
+        ];
+        expect(DotNotationParser::get($data, '..name'))->toBe(['root-a', 'deep-a', 'root-b']);
+    });
+
+    it('get — descent with further path', function () {
+        $data = [
+            'level1' => [
+                'items' => [['id' => 1], ['id' => 2]],
+                'nested' => [
+                    'items' => [['id' => 3]],
+                ],
+            ],
+        ];
+        $result = DotNotationParser::get($data, '..items.*.id');
+        expect($result)->toBe([1, 2, 3]);
+    });
+
+    it('get — descent on flat structure', function () {
+        $data = ['x' => 1, 'y' => ['x' => 2]];
+        expect(DotNotationParser::get($data, '..x'))->toBe([1, 2]);
+    });
+
+    it('get — descent returns empty array when key not found', function () {
+        $data = ['a' => ['b' => 1]];
+        expect(DotNotationParser::get($data, '..z'))->toBe([]);
+    });
+
+    // ── Combined filter + descent ─────────────────────
+
+    it('get — descent with filter', function () {
+        $data = [
+            'dept1' => [
+                'employees' => [
+                    ['name' => 'Ana', 'active' => true],
+                    ['name' => 'Bob', 'active' => false],
+                ],
+            ],
+            'dept2' => [
+                'employees' => [
+                    ['name' => 'Carlos', 'active' => true],
+                ],
+            ],
+        ];
+        $result = DotNotationParser::get($data, "..employees[?active==true].name");
+        expect($result)->toBe(['Ana', 'Carlos']);
+    });
+
 });

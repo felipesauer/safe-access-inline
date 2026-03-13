@@ -12,7 +12,10 @@ lang: pt-br
 - [Requisitos](#requisitos)
 - [Instalação](#instalação)
 - [Uso Básico](#uso-básico)
+- [Filtragem e Descida Recursiva](#filtragem-e-descida-recursiva)
+- [Deep Merge](#deep-merge)
 - [Sistema de Plugins](#sistema-de-plugins)
+- [Exemplos de Plugins](#exemplos-de-plugins)
 - [Trabalhando com Formatos](#trabalhando-com-formatos)
 - [Accessors Customizados](#accessors-customizados)
 - [Métodos Utilitários](#métodos-utilitários)
@@ -112,6 +115,106 @@ $accessor->toJson();     // '{"name":"Ana","age":30}'
 $accessor->toYaml();     // "name: Ana\nage: 30\n"
 $accessor->toToml();     // 'name = "Ana"\nage = 30\n'
 ```
+
+---
+
+## Filtragem e Descida Recursiva
+
+### Expressões de filtro
+
+Use `[?campo operador valor]` para filtrar arrays:
+
+```php
+$accessor = SafeAccess::fromObject([
+    'products' => [
+        ['name' => 'Laptop', 'price' => 1200, 'category' => 'electronics'],
+        ['name' => 'Phone',  'price' => 800,  'category' => 'electronics'],
+        ['name' => 'Book',   'price' => 25,   'category' => 'education'],
+    ],
+]);
+
+// Filtrar por igualdade
+$accessor->get("products[?category=='electronics'].name");
+// ['Laptop', 'Phone']
+
+// Filtrar por comparação numérica
+$accessor->get('products[?price>500].name');
+// ['Laptop', 'Phone']
+
+// Combinar com AND / OR
+$accessor->get("products[?price>100 && category=='electronics'].name");
+// ['Laptop', 'Phone']
+```
+
+### Descida recursiva
+
+Use `..key` para coletar todos os valores com essa chave em qualquer profundidade:
+
+```php
+$accessor = SafeAccess::fromArray([
+    'name' => 'Corp',
+    'departments' => [
+        'engineering' => [
+            'name' => 'Engineering',
+            'teams' => [
+                'frontend' => ['name' => 'Frontend', 'members' => 5],
+                'backend'  => ['name' => 'Backend',  'members' => 8],
+            ],
+        ],
+        'marketing' => ['name' => 'Marketing', 'members' => 3],
+    ],
+]);
+
+$accessor->get('..name');
+// ['Corp', 'Engineering', 'Frontend', 'Backend', 'Marketing']
+
+$accessor->get('..members');
+// [5, 8, 3]
+```
+
+### Combinando filtros com descida
+
+```php
+$accessor = SafeAccess::fromArray([
+    'region1' => [
+        'stores' => [
+            ['name' => 'Store A', 'revenue' => 50000, 'active' => true],
+            ['name' => 'Store B', 'revenue' => 20000, 'active' => false],
+        ],
+    ],
+    'region2' => [
+        'stores' => [
+            ['name' => 'Store C', 'revenue' => 80000, 'active' => true],
+        ],
+    ],
+]);
+
+$accessor->get("..stores[?active==true].name");
+// ['Store A', 'Store C']
+```
+
+---
+
+## Deep Merge
+
+```php
+$accessor = SafeAccess::fromArray([
+    'user' => ['name' => 'Ana', 'settings' => ['theme' => 'light', 'lang' => 'en']],
+]);
+
+// Merge em um caminho específico
+$updated = $accessor->merge('user.settings', ['theme' => 'dark', 'notifications' => true]);
+$updated->get('user.settings.theme');         // 'dark'
+$updated->get('user.settings.lang');          // 'en' (preservado)
+$updated->get('user.settings.notifications'); // true
+
+// Merge na raiz
+$withMeta = $accessor->merge(['version' => '2.0', 'debug' => false]);
+$withMeta->get('version');   // '2.0'
+$withMeta->get('user.name'); // 'Ana' (preservado)
+```
+
+---
 
 ## Sistema de Plugins
 
@@ -216,6 +319,46 @@ class MyYamlSerializer implements SerializerPluginInterface
 PluginRegistry::registerParser('yaml', new MyYamlParser());
 PluginRegistry::registerSerializer('yaml', new MyYamlSerializer());
 ```
+
+---
+
+## Exemplos de Plugins
+
+### Integração com Laravel Config
+
+```php
+use SafeAccessInline\SafeAccess;
+
+// Carregar a configuração do Laravel como accessor seguro
+$config = SafeAccess::fromArray(config()->all());
+$config->get('database.connections.mysql.host');     // type-safe, nunca lança
+$config->get('app.timezone', 'UTC');                 // com fallback
+$config->get('database.connections.*.driver');        // wildcard entre conexões
+```
+
+### Integração com Symfony ParameterBag
+
+```php
+use SafeAccessInline\SafeAccess;
+use Symfony\Component\DependencyInjection\ParameterBag\ParameterBagInterface;
+
+class ConfigService
+{
+    private \SafeAccessInline\Core\AbstractAccessor $accessor;
+
+    public function __construct(ParameterBagInterface $params)
+    {
+        $this->accessor = SafeAccess::fromArray($params->all());
+    }
+
+    public function get(string $path, mixed $default = null): mixed
+    {
+        return $this->accessor->get($path, $default);
+    }
+}
+```
+
+---
 
 ## Trabalhando com Formatos
 

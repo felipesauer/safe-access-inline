@@ -11,3 +11,4 @@ Documentação do pacote PHP (`safe-access-inline/safe-access-inline`).
 
 - [Primeiros Passos](getting-started) — instalação, exemplos de uso, sistema de plugins
 - [Referência da API](api-reference) — referência completa dos métodos
+- [Plugins](plugins) — plugins incluídos, plugins customizados, exemplos Laravel e Symfony

@@ -5,7 +5,9 @@ import { InvalidFormatError } from '../exceptions/invalid-format.error';
  * Accessor for .env format strings (KEY=VALUE per line).
  * Supports: comments (#), quoted values, blank lines.
  */
-export class EnvAccessor extends AbstractAccessor {
+export class EnvAccessor<
+    T extends Record<string, unknown> = Record<string, unknown>,
+> extends AbstractAccessor<T> {
     static from(data: unknown): EnvAccessor {
         if (typeof data !== 'string') {
             throw new InvalidFormatError('EnvAccessor expects an ENV string.');
@@ -45,8 +47,8 @@ export class EnvAccessor extends AbstractAccessor {
         return result;
     }
 
-    clone(data: Record<string, unknown>): EnvAccessor {
-        const inst = Object.create(EnvAccessor.prototype) as EnvAccessor;
+    clone(data: Record<string, unknown>): EnvAccessor<T> {
+        const inst = Object.create(EnvAccessor.prototype) as EnvAccessor<T>;
         inst.raw = this.raw;
         inst.data = data;
         return inst;

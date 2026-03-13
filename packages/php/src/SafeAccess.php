@@ -13,6 +13,8 @@ use SafeAccessInline\Accessors\XmlAccessor;
 use SafeAccessInline\Accessors\YamlAccessor;
 use SafeAccessInline\Core\AbstractAccessor;
 use SafeAccessInline\Core\TypeDetector;
+use SafeAccessInline\Enums\AccessorFormat;
+use SafeAccessInline\Exceptions\InvalidFormatException;
 
 /**
  * Main entry point for the safe-access-inline library.
@@ -20,14 +22,54 @@ use SafeAccessInline\Core\TypeDetector;
  * Usage:
  *   SafeAccess::fromArray($data)->get('user.name', 'default');
  *   SafeAccess::fromJson($json)->has('config.debug');
- *   SafeAccess::detect($anything)->get('any.path');
+ *   SafeAccess::from($data, 'json')->get('key');
+ *   SafeAccess::from($data)->get('auto.detected');
  */
 final class SafeAccess
 {
     /** @var array<string, class-string<AbstractAccessor>> */
     private static array $customAccessors = [];
 
-    // ── Factories Tipadas ────────────────────────────
+    // ── Unified Factory ─────────────────────────────
+
+    /**
+     * Creates an accessor from any data, optionally specifying the format.
+     * Without format, auto-detects the type (same as detect()).
+     *
+     * @param mixed $data The input data
+     * @param string|AccessorFormat $format Optional format: 'array','object','json','xml','yaml','toml','ini','csv','env', an AccessorFormat enum value, or a custom name
+     *
+     * @throws InvalidFormatException When the format is unknown
+     */
+    public static function from(mixed $data, string|AccessorFormat $format = ''): AbstractAccessor
+    {
+        if ($format instanceof AccessorFormat) {
+            $format = $format->value;
+        }
+
+        if ($format === '') {
+            return TypeDetector::resolve($data);
+        }
+
+        return match ($format) {
+            'array' => ArrayAccessor::from($data),
+            'object' => ObjectAccessor::from($data),
+            'json' => JsonAccessor::from($data),
+            'xml' => XmlAccessor::from($data),
+            'yaml' => YamlAccessor::from($data),
+            'toml' => TomlAccessor::from($data),
+            'ini' => IniAccessor::from($data),
+            'csv' => CsvAccessor::from($data),
+            'env' => EnvAccessor::from($data),
+            default => isset(self::$customAccessors[$format])
+                ? self::$customAccessors[$format]::from($data)
+                : throw new InvalidFormatException(
+                    "Unknown format '{$format}'. Use a known format or register a custom accessor via SafeAccess::extend()."
+                ),
+        };
+    }
+
+    // ── Typed Factories ──────────────────────────────
 
     /** @param array<mixed> $data */
     public static function fromArray(array $data): ArrayAccessor
