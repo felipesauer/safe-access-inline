@@ -526,10 +526,10 @@ import {
 | `SmolTomlParser`     | toml    | Parser     | `smol-toml` |
 | `SmolTomlSerializer` | toml    | Serializer | `smol-toml` |
 
+```typescript
 interface SerializerPlugin {
-serialize(data: Record<string, unknown>): string;
+    serialize(data: Record<string, unknown>): string;
 }
-
 ```
 
 ---
@@ -553,8 +553,6 @@ Enum string cobrindo todos os formatos built-in. Use como alternativa tipada a p
 | `Format.Ini`    | `'ini'`    |
 | `Format.Csv`    | `'csv'`    |
 | `Format.Env`    | `'env'`    |
-
-```
 
 ### Utilitários de Inferência de Caminho
 

@@ -526,10 +526,10 @@ import {
 | `SmolTomlParser`     | toml   | Parser     | `smol-toml` |
 | `SmolTomlSerializer` | toml   | Serializer | `smol-toml` |
 
+```typescript
 interface SerializerPlugin {
-serialize(data: Record<string, unknown>): string;
+    serialize(data: Record<string, unknown>): string;
 }
-
 ```
 
 ---
@@ -553,8 +553,6 @@ String enum covering all built-in formats. Use it as a type-safe alternative to 
 | `Format.Ini`    | `'ini'`    |
 | `Format.Csv`    | `'csv'`    |
 | `Format.Env`    | `'env'`    |
-
-```
 
 ### Path Inference Utilities
 
