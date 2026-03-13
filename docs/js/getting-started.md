@@ -14,6 +14,9 @@ permalink: /js/getting-started/
 - [Basic Usage](#basic-usage)
 - [Plugin System](#plugin-system)
 - [Working with Formats](#working-with-formats)
+- [Filtering and Recursive Descent](#filtering-and-recursive-descent)
+- [Deep Merge](#deep-merge)
+- [Plugin Examples](#plugin-examples)
 - [Custom Accessors](#custom-accessors)
 - [ESM and CommonJS](#esm-and-commonjs)
 - [TypeScript Support](#typescript-support)
@@ -188,6 +191,181 @@ afterEach(() => {
 
 ---
 
+## Filtering and Recursive Descent
+
+### Filter expressions
+
+Use `[?field operator value]` to filter arrays:
+
+```typescript
+const data = {
+    products: [
+        { name: "Laptop", price: 1200, category: "electronics" },
+        { name: "Phone", price: 800, category: "electronics" },
+        { name: "Book", price: 25, category: "education" },
+    ],
+};
+
+const accessor = SafeAccess.fromObject(data);
+
+// Filter by equality
+accessor.get("products[?category=='electronics'].name");
+// ["Laptop", "Phone"]
+
+// Filter by numeric comparison
+accessor.get("products[?price>500].name");
+// ["Laptop", "Phone"]
+
+// Combine with AND / OR
+accessor.get("products[?price>100 && category=='electronics'].name");
+// ["Laptop", "Phone"]
+
+accessor.get("products[?price>1000 || category=='education'].name");
+// ["Laptop", "Book"]
+```
+
+### Recursive descent
+
+Use `..key` to collect all values with that key at any nesting depth:
+
+```typescript
+const org = {
+    name: "Corp",
+    departments: {
+        engineering: {
+            name: "Engineering",
+            teams: {
+                frontend: { name: "Frontend", members: 5 },
+                backend: { name: "Backend", members: 8 },
+            },
+        },
+        marketing: { name: "Marketing", members: 3 },
+    },
+};
+
+const accessor = SafeAccess.fromObject(org);
+accessor.get("..name");
+// ["Corp", "Engineering", "Frontend", "Backend", "Marketing"]
+
+accessor.get("..members");
+// [5, 8, 3]
+```
+
+### Combining filters with descent
+
+```typescript
+const data = {
+    region1: {
+        stores: [
+            { name: "Store A", revenue: 50000, active: true },
+            { name: "Store B", revenue: 20000, active: false },
+        ],
+    },
+    region2: {
+        stores: [{ name: "Store C", revenue: 80000, active: true }],
+    },
+};
+
+const accessor = SafeAccess.fromObject(data);
+
+// All active store names across all regions
+accessor.get("..stores[?active==true].name");
+// ["Store A", "Store C"]
+```
+
+---
+
+## Deep Merge
+
+The `merge()` method deep-merges objects. Arrays and scalars are replaced, nested objects are merged recursively:
+
+```typescript
+const accessor = SafeAccess.fromObject({
+    user: { name: "Ana", settings: { theme: "light", lang: "en" } },
+});
+
+// Merge at a specific path
+const updated = accessor.merge("user.settings", {
+    theme: "dark",
+    notifications: true,
+});
+updated.get("user.settings.theme"); // "dark"
+updated.get("user.settings.lang"); // "en" (preserved)
+updated.get("user.settings.notifications"); // true
+
+// Merge at root
+const withMeta = accessor.merge({ version: "2.0", debug: false });
+withMeta.get("version"); // "2.0"
+withMeta.get("user.name"); // "Ana" (preserved)
+```
+
+---
+
+## Plugin Examples
+
+### Zod Validation Plugin
+
+Validate parsed data against a Zod schema:
+
+```typescript
+import { z } from "zod";
+import { SafeAccess } from "@safe-access-inline/safe-access-inline";
+
+const ConfigSchema = z.object({
+    db: z.object({
+        host: z.string(),
+        port: z.number().int().positive(),
+    }),
+    cache: z.object({
+        ttl: z.number().default(3600),
+    }),
+});
+
+function loadConfig(raw: string) {
+    const accessor = SafeAccess.fromYaml(raw);
+    const parsed = ConfigSchema.parse(accessor.all());
+    return SafeAccess.fromObject(parsed);
+}
+
+const config = loadConfig(
+    "db:\n  host: localhost\n  port: 5432\ncache:\n  ttl: 600",
+);
+config.get("db.host"); // "localhost" — validated at load time
+```
+
+### Custom XML Serializer Plugin
+
+```typescript
+import { PluginRegistry } from "@safe-access-inline/safe-access-inline";
+import type { SerializerPlugin } from "@safe-access-inline/safe-access-inline";
+import { create } from "xmlbuilder2";
+
+const xmlSerializer: SerializerPlugin = {
+    serialize: (data) => {
+        const doc = create({ version: "1.0" }).ele("root");
+        function build(parent: any, obj: Record<string, unknown>) {
+            for (const [key, value] of Object.entries(obj)) {
+                if (
+                    typeof value === "object" &&
+                    value !== null &&
+                    !Array.isArray(value)
+                ) {
+                    build(parent.ele(key), value as Record<string, unknown>);
+                } else {
+                    parent.ele(key).txt(String(value));
+                }
+            }
+        }
+        build(doc, data);
+        return doc.end({ prettyPrint: true });
+    },
+};
+
+PluginRegistry.registerSerializer("xml", xmlSerializer);
+```
+
+---
+
 ## Working with Formats
 
 ### Working with XML
@@ -358,5 +536,37 @@ import type {
     ReadableInterface,
     WritableInterface,
     TransformableInterface,
+    DeepPaths,
+    ValueAtPath,
 } from "@safe-access-inline/safe-access-inline";
+```
+
+### Type-Safe Path Inference
+
+```typescript
+import type {
+    DeepPaths,
+    ValueAtPath,
+} from "@safe-access-inline/safe-access-inline";
+
+type AppConfig = {
+    db: { host: string; port: number };
+    cache: { enabled: boolean; ttl: number };
+};
+
+// Autocomplete all valid paths
+type Paths = DeepPaths<AppConfig>;
+// "db" | "db.host" | "db.port" | "cache" | "cache.enabled" | "cache.ttl"
+
+// Resolve value types
+type Host = ValueAtPath<AppConfig, "db.host">; // string
+type TTL = ValueAtPath<AppConfig, "cache.ttl">; // number
+
+// Build your own typed getter
+function getTyped<P extends DeepPaths<AppConfig>>(
+    accessor: AbstractAccessor,
+    path: P,
+): ValueAtPath<AppConfig, P> {
+    return accessor.get(path) as ValueAtPath<AppConfig, P>;
+}
 ```
