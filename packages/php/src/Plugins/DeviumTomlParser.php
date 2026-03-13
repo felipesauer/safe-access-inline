@@ -3,12 +3,9 @@
 namespace SafeAccessInline\Plugins;
 
 use SafeAccessInline\Contracts\ParserPluginInterface;
-use SafeAccessInline\Exceptions\InvalidFormatException;
 
 /**
  * TOML parser plugin using devium/toml.
- *
- * Requires: composer require devium/toml
  *
  * @example
  * use SafeAccessInline\Core\PluginRegistry;
@@ -18,21 +15,11 @@ use SafeAccessInline\Exceptions\InvalidFormatException;
  */
 class DeviumTomlParser implements ParserPluginInterface
 {
-    protected function isAvailable(): bool
-    {
-        return class_exists(\Devium\Toml\Toml::class);
-    }
-
     public function parse(string $raw): array
     {
-        if (!$this->isAvailable()) {
-            throw new InvalidFormatException(
-                'devium/toml is not installed. Run: composer require devium/toml'
-            );
-        }
+        $decoded = \Devium\Toml\Toml::decode($raw);
+        $json = json_encode($decoded);
 
-        $json = json_encode(\Devium\Toml\Toml::decode($raw)); // @codeCoverageIgnore
-
-        return (array) json_decode($json !== false ? $json : '{}', true); // @codeCoverageIgnore
+        return (array) json_decode($json !== false ? $json : '{}', true);
     }
 }
