@@ -1,41 +1,25 @@
-## Description
+## Summary
 
-<!-- Describe what this PR does and why. Reference related issues with "Closes #123". -->
+<!-- 2–3 sentences: what was done, why, and what impact it has. -->
 
-## Type of Change
+## Changes
 
-<!-- Check all that apply -->
+- <!-- Behavioral or functional change — not a file name -->
+- <!-- Add more bullets as needed, remove this line if only one change -->
 
-- [ ] 🐛 Bug fix (non-breaking change that fixes an issue)
-- [ ] ✨ New feature (non-breaking change that adds functionality)
-- [ ] 💥 Breaking change (fix or feature that would break existing functionality)
-- [ ] 📝 Documentation update
-- [ ] ♻️ Refactoring (no functional changes)
-- [ ] 🧪 Test improvement (no production code changes)
-- [ ] 🔧 Build/CI/tooling changes
+## Breaking Changes
 
-## Package(s) Affected
+<!-- Remove this section entirely if there are no breaking changes.
+     If there are, describe what breaks and how to migrate. -->
 
-- [ ] PHP (`packages/php/`)
-- [ ] JS/TS (`packages/js/`)
-- [ ] Root / CI / Docs
+## Related
 
-## How to Test
-
-<!-- Describe how reviewers can test your changes. -->
-
-1. ...
-2. ...
-3. ...
+<!-- Remove this section if no issues are referenced.
+     Otherwise: Closes #N -->
 
 ## Checklist
 
-<!-- Ensure all items are checked before submitting. -->
-
-- [ ] My code follows the [coding standards](CONTRIBUTING.md#coding-standards)
-- [ ] I have added tests that prove my fix/feature works
-- [ ] All existing tests pass locally
+- [ ] Tests added or updated
 - [ ] Static analysis passes (`phpstan analyse` / `tsc --noEmit`)
-- [ ] Code style passes (`php-cs-fixer fix --dry-run` / `npm run lint`)
-- [ ] My commits follow [Conventional Commits](https://www.conventionalcommits.org/)
-- [ ] I have updated documentation if needed
+- [ ] Commits follow [Conventional Commits](https://www.conventionalcommits.org/)
+- [ ] Documentation updated (if applicable)
