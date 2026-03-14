@@ -16,7 +16,7 @@ use Symfony\Component\Yaml\Yaml;
  */
 class YamlAccessor extends AbstractAccessor
 {
-    public static function from(mixed $data): static
+    public static function from(mixed $data, bool $readonly = false): static
     {
         if (!is_string($data)) {
             throw new InvalidFormatException(
@@ -24,7 +24,7 @@ class YamlAccessor extends AbstractAccessor
             );
         }
 
-        return new static($data); // @phpstan-ignore new.static
+        return new static($data, $readonly); // @phpstan-ignore new.static
     }
 
     protected function parse(mixed $raw): array
@@ -41,7 +41,7 @@ class YamlAccessor extends AbstractAccessor
                 return is_array($parsed) ? $parsed : [];
             }
 
-            $parsed = Yaml::parse($raw);
+            $parsed = Yaml::parse($raw, Yaml::PARSE_EXCEPTION_ON_INVALID_TYPE);
             return is_array($parsed) ? $parsed : [];
         } catch (\Throwable $e) {
             throw new InvalidFormatException(
