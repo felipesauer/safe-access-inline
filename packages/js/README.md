@@ -156,6 +156,215 @@ import type {
 
 - Node.js 22+
 
+## TypeScript Types
+
+Full type inference for nested paths and values:
+
+```typescript
+import type { DeepPaths, ValueAtPath } from '@safe-access-inline/safe-access-inline';
+
+type Config = { database: { host: string; port: number } };
+type Paths = DeepPaths<Config>; // 'database' | 'database.host' | 'database.port'
+type Host = ValueAtPath<Config, 'database.host'>; // string
+
+const accessor = SafeAccess.fromObject<Config>({ database: { host: 'localhost', port: 5432 } });
+const host = accessor.get('database.host'); // typed as string
+```
+
+## JSONPath (RFC 9535)
+
+Extended path syntax beyond dot notation:
+
+```typescript
+accessor.get('$.user.name'); // root anchor
+accessor.get("user['first-name']"); // bracket notation
+accessor.get('items[0,2,4]'); // multi-index
+accessor.get('..email'); // recursive descent
+```
+
+## Schema Validation
+
+Plug in any schema library via the adapter interface:
+
+```typescript
+import { SchemaRegistry, SafeAccess } from '@safe-access-inline/safe-access-inline';
+import type { SchemaAdapterInterface } from '@safe-access-inline/safe-access-inline';
+
+const zodAdapter: SchemaAdapterInterface = {
+    validate(data, schema) {
+        const result = schema.safeParse(data);
+        return {
+            valid: result.success,
+            errors: result.success
+                ? []
+                : result.error.issues.map((i) => ({
+                      path: i.path.join('.'),
+                      message: i.message,
+                  })),
+        };
+    },
+};
+
+SchemaRegistry.setDefaultAdapter(zodAdapter);
+const result = accessor.validate(myZodSchema);
+```
+
+## Array Operations
+
+`ArrayAccessor` provides rich mutation methods (all immutable — return new instances):
+
+```typescript
+const arr = SafeAccess.fromArray([{ id: 1 }, { id: 2 }, { id: 3 }]);
+arr.push({ id: 4 });
+arr.filterAt('', (i) => i.id > 1);
+arr.sortAt('', (a, b) => a.id - b.id);
+arr.unique();
+arr.flatten();
+arr.first();
+arr.last();
+arr.nth(1);
+```
+
+## JSON Patch (RFC 6902)
+
+```typescript
+import { diff, applyPatch } from '@safe-access-inline/safe-access-inline';
+
+const a = { version: 1, name: 'old' };
+const b = { version: 2, name: 'new', extra: true };
+
+const patches = diff(a, b);
+const result = applyPatch(a, patches);
+```
+
+## Security
+
+Built-in security with configurable policies:
+
+```typescript
+import { SafeAccess, STRICT_POLICY, mergePolicy } from '@safe-access-inline/safe-access-inline';
+
+// Preset policies
+const accessor = SafeAccess.withPolicy(data, STRICT_POLICY);
+
+// Custom policy
+const policy = mergePolicy(STRICT_POLICY, { maxPayloadBytes: 2_097_152 });
+SafeAccess.setGlobalPolicy(policy);
+
+// Data masking
+const masked = accessor.masked(['password', 'secret', 'api_*']);
+
+// Audit events
+SafeAccess.onAudit((event) => console.log(event.type, event.detail));
+```
+
+Security features: prototype pollution guard, payload/key/depth limits, XML hardening, YAML safe schema, CSV injection protection, path traversal prevention, SSRF protection, data masking.
+
+## File Watcher (Hot Reload)
+
+```typescript
+const stop = SafeAccess.watchFile('./config.yaml', (accessor) => {
+    console.log('Config reloaded:', accessor.get('server.port'));
+});
+
+stop(); // stop watching
+```
+
+## NestJS Integration
+
+```typescript
+import { SafeAccessModule, SafeAccessService } from '@safe-access-inline/safe-access-inline';
+
+@Module({
+    imports: [SafeAccessModule.register({ filePath: './config.yaml' })],
+})
+export class AppModule {}
+
+@Injectable()
+export class MyService {
+    constructor(private config: SafeAccessService) {}
+    getPort() {
+        return this.config.get<number>('server.port', 3000);
+    }
+}
+```
+
+## Vite Integration
+
+```typescript
+// vite.config.ts
+import { safeAccessPlugin } from '@safe-access-inline/safe-access-inline';
+
+export default {
+    plugins: [safeAccessPlugin({ filePath: './config.yaml', virtualId: 'virtual:config' })],
+};
+
+// In your app
+import config from 'virtual:config';
+```
+
+## I/O Loading
+
+Load data directly from the filesystem or a remote URL:
+
+```typescript
+import { SafeAccess } from '@safe-access-inline/safe-access-inline';
+
+// From file (async, format detected from extension)
+const accessor = await SafeAccess.fromFile('./config.yaml');
+accessor.get('database.host');
+
+// From file (sync)
+const accessor = SafeAccess.fromFileSync('./config.json');
+
+// From URL (async, HTTPS only)
+const remote = await SafeAccess.fromUrl('https://example.com/config.json');
+```
+
+File loads are protected against path-traversal attacks. URL loads enforce HTTPS and block private/cloud-metadata IPs.
+
+## Layered Configuration
+
+Merge multiple configuration sources with last-wins deep-merge semantics:
+
+```typescript
+import { SafeAccess } from '@safe-access-inline/safe-access-inline';
+
+// Merge two in-memory objects
+const merged = SafeAccess.layer(
+    { database: { host: 'localhost', port: 5432 } },
+    { database: { port: 5433, name: 'mydb' } },
+);
+merged.get('database.port'); // 5433
+merged.get('database.host'); // 'localhost'
+
+// Merge multiple config files (last file wins)
+const config = await SafeAccess.layerFiles([
+    './config/base.yaml',
+    './config/production.yaml',
+    './config/local.yaml',
+]);
+config.get('database.host');
+```
+
+## NDJSON
+
+NDJSON (Newline Delimited JSON) — each line is an independent JSON object:
+
+```typescript
+import { SafeAccess } from '@safe-access-inline/safe-access-inline';
+
+const raw = `{"id":1,"name":"Alice"}
+{"id":2,"name":"Bob"}`;
+
+const accessor = SafeAccess.fromNdjson(raw);
+accessor.get('0.name'); // "Alice"
+accessor.get('1.id'); // 2
+
+// Serialize back to NDJSON
+accessor.toNdjson(); // '{"id":1,"name":"Alice"}\n{"id":2,"name":"Bob"}'
+```
+
 ## Documentation
 
 Full documentation is available at [felipesauer.github.io/safe-access-inline](https://felipesauer.github.io/safe-access-inline):

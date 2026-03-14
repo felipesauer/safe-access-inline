@@ -158,6 +158,185 @@ $accessor->transform('json');  // by format name
 - `ext-json`
 - `ext-simplexml` / `ext-libxml`
 
+## Security
+
+Built-in security features with configurable policies:
+
+```php
+use SafeAccessInline\SafeAccess;
+use SafeAccessInline\Security\SecurityGuard;
+
+// Prototype pollution guard (enabled by default)
+// SecurityGuard blocks __proto__, constructor, prototype keys
+
+// Payload & key limits
+SafeAccess::fromJson($bigPayload); // throws SecurityError if payload exceeds limits
+
+// Data masking
+$masked = $accessor->masked(['password', 'secret', 'api_*']);
+```
+
+Security features: prototype pollution guard, payload/key/depth limits, XML hardening (DOCTYPE/ENTITY blocked, LIBXML_NONET), YAML safe schema, CSV injection protection, path traversal prevention, SSRF protection, data masking.
+
+## Laravel Integration
+
+Auto-discovered in Laravel 11+ via `extra.laravel` in composer.json. For Laravel 10 and below, add to `config/app.php`:
+
+```php
+// config/app.php
+'providers' => [
+    SafeAccessInline\Integrations\LaravelServiceProvider::class,
+],
+'aliases' => [
+    'SafeAccess' => SafeAccessInline\Integrations\LaravelFacade::class,
+],
+```
+
+Usage:
+
+```php
+// Via Facade
+SafeAccess::get('database.host');
+
+// Via container
+$accessor = app('safe-access');
+$accessor->get('database.host');
+
+// Via injection
+public function __construct(
+    private \SafeAccessInline\Core\AbstractAccessor $config
+) {}
+```
+
+## Symfony Integration
+
+Register as a Symfony bundle:
+
+```php
+// config/bundles.php
+return [
+    SafeAccessInline\Integrations\SafeAccessBundle::class => ['all' => true],
+];
+```
+
+Or use static helpers directly:
+
+```php
+use SafeAccessInline\Integrations\SymfonyIntegration;
+
+$accessor = SymfonyIntegration::fromParameterBag($container->getParameterBag());
+$accessor->get('database_host');
+
+$accessor = SymfonyIntegration::fromYamlFile(__DIR__ . '/../config/services.yaml');
+```
+
+## I/O Loading
+
+Load data directly from the filesystem or a remote URL:
+
+```php
+use SafeAccessInline\SafeAccess;
+
+// From file (format auto-detected from extension)
+$accessor = SafeAccess::fromFile('/path/to/config.yaml');
+$accessor->get('database.host');
+
+// From URL (HTTPS only)
+$accessor = SafeAccess::fromUrl('https://example.com/config.json');
+$accessor->get('database.host');
+```
+
+File loads are protected against path-traversal attacks. URL loads enforce HTTPS and block private/cloud-metadata IPs.
+
+## Layered Configuration
+
+Merge multiple configuration sources with last-wins deep-merge semantics:
+
+```php
+use SafeAccessInline\SafeAccess;
+
+// Merge two arrays
+$merged = SafeAccess::layer(
+    ['database' => ['host' => 'localhost', 'port' => 5432]],
+    ['database' => ['port' => 5433, 'name' => 'mydb']]
+);
+$merged->get('database.port'); // 5433
+$merged->get('database.host'); // 'localhost'
+
+// Merge multiple config files (last file wins)
+$config = SafeAccess::layerFiles([
+    '/path/to/config/base.yaml',
+    '/path/to/config/production.yaml',
+]);
+$config->get('database.host');
+```
+
+## NDJSON
+
+NDJSON (Newline Delimited JSON) — each line is an independent JSON object:
+
+```php
+use SafeAccessInline\SafeAccess;
+
+$raw = '{"id":1,"name":"Alice"}' . "\n" . '{"id":2,"name":"Bob"}';
+$accessor = SafeAccess::fromNdjson($raw);
+$accessor->get('0.name'); // "Alice"
+$accessor->get('1.id');   // 2
+
+// Serialize back to NDJSON
+$accessor->toNdjson(); // '{"id":1,"name":"Alice"}' . "\n" . '{"id":2,"name":"Bob"}'
+```
+
+## File Watcher
+
+Watch a config file for changes and reload automatically (polling-based):
+
+```php
+use SafeAccessInline\SafeAccess;
+use SafeAccessInline\Core\AbstractAccessor;
+
+$stop = SafeAccess::watchFile('/path/to/config.yaml', function (AbstractAccessor $accessor): void {
+    echo 'Config reloaded: ' . $accessor->get('server.port');
+});
+
+// Stop watching
+$stop();
+```
+
+## Audit Events
+
+Subscribe to security and I/O audit events:
+
+```php
+use SafeAccessInline\SafeAccess;
+
+SafeAccess::onAudit(function (array $event): void {
+    echo $event['type'] . ': ' . ($event['detail'] ?? '');
+});
+
+// Event types: file.read, url.fetch, mask.apply, schema.validate, security.block
+```
+
+## Security Policy
+
+Configure and enforce security boundaries with preset or custom policies:
+
+```php
+use SafeAccessInline\SafeAccess;
+use SafeAccessInline\Security\SecurityPolicy;
+
+// Apply preset policies
+$strict     = SafeAccess::withPolicy($data, SecurityPolicy::strict());
+$permissive = SafeAccess::withPolicy($data, SecurityPolicy::permissive());
+
+// Set a global policy for all instances
+SafeAccess::setGlobalPolicy(SecurityPolicy::strict());
+SafeAccess::clearGlobalPolicy();
+```
+
+`SecurityPolicy::strict()` — `maxDepth: 20`, `maxPayloadBytes: 1 MB`, `maxKeys: 1000`, CSV injection protection.  
+`SecurityPolicy::permissive()` — `maxDepth: 1024`, `maxPayloadBytes: 100 MB`, `maxKeys: 100 000`.
+
 ## Documentation
 
 Full documentation is available at [felipesauer.github.io/safe-access-inline](https://felipesauer.github.io/safe-access-inline):
