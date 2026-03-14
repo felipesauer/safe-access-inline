@@ -56,6 +56,31 @@ describe(SecurityPolicy::class, function () {
         $merged = $policy->merge(['maxDepth' => 50]);
         expect($merged->url)->toBe(['allowedPorts' => [443]]);
     });
+
+    it('strict() returns restrictive policy', function () {
+        $policy = SecurityPolicy::strict();
+        expect($policy->maxDepth)->toBe(20);
+        expect($policy->maxPayloadBytes)->toBe(1_048_576);
+        expect($policy->maxKeys)->toBe(1_000);
+        expect($policy->csvMode)->toBe('strip');
+    });
+
+    it('permissive() returns relaxed policy', function () {
+        $policy = SecurityPolicy::permissive();
+        expect($policy->maxDepth)->toBe(1_024);
+        expect($policy->maxPayloadBytes)->toBe(104_857_600);
+        expect($policy->maxKeys)->toBe(100_000);
+    });
+
+    it('setGlobal/getGlobal/clearGlobal manage global policy', function () {
+        expect(SecurityPolicy::getGlobal())->toBeNull();
+        $policy = new SecurityPolicy(maxDepth: 42);
+        SecurityPolicy::setGlobal($policy);
+        expect(SecurityPolicy::getGlobal())->toBe($policy);
+        expect(SecurityPolicy::getGlobal()->maxDepth)->toBe(42);
+        SecurityPolicy::clearGlobal();
+        expect(SecurityPolicy::getGlobal())->toBeNull();
+    });
 });
 
 // ── AuditLogger ─────────────────────────────────────────
