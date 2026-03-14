@@ -1,7 +1,7 @@
 <?php
 
-use SafeAccessInline\SafeAccess;
 use SafeAccessInline\Exceptions\InvalidFormatException;
+use SafeAccessInline\SafeAccess;
 
 $data = json_encode([
     'users' => [
