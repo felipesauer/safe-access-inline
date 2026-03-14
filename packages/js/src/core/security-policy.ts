@@ -45,6 +45,10 @@ export function clearGlobalPolicy(): void {
     globalPolicy = null;
 }
 
+export function getGlobalPolicy(): SecurityPolicy | null {
+    return globalPolicy;
+}
+
 export function mergePolicy(
     base: SecurityPolicy,
     overrides?: Partial<SecurityPolicy>,

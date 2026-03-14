@@ -77,6 +77,7 @@ export {
     PERMISSIVE_POLICY,
     setGlobalPolicy,
     clearGlobalPolicy,
+    getGlobalPolicy,
 } from './core/security-policy';
 export { onAudit, emitAudit, clearAuditListeners } from './core/audit-emitter';
 export type { AuditEvent, AuditEventType, AuditListener } from './core/audit-emitter';

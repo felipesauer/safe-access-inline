@@ -14,6 +14,8 @@ import type { MaskPattern } from './data-masker';
 import type { SchemaAdapterInterface } from '../contracts/schema-adapter.interface';
 import { SchemaValidationError } from '../exceptions/schema-validation.error';
 import { SchemaRegistry } from './schema-registry';
+import { getGlobalPolicy } from './security-policy';
+import { sanitizeCsvCell } from './csv-sanitizer';
 import type { DeepPaths, ValueAtPath } from '../types/deep-paths';
 
 export abstract class AbstractAccessor<
