@@ -19,6 +19,14 @@ permalink: /php/getting-started/
 - [Working with Formats](#working-with-formats)
 - [Custom Accessors](#custom-accessors)
 - [Utility Methods](#utility-methods)
+- [Array Operations](#array-operations)
+- [JSON Patch & Diff](#json-patch--diff)
+- [I/O & File Loading](#io--file-loading)
+- [Layered Configuration](#layered-configuration)
+- [Security](#security)
+- [Schema Validation](#schema-validation)
+- [Audit Logging](#audit-logging)
+- [Framework Integrations](#framework-integrations)
 
 ## Requirements
 
@@ -479,4 +487,295 @@ $accessor->keys();           // ['name', 'age', 'tags']
 $accessor->keys('tags');     // [0, 1]
 
 $accessor->all();            // full array
+```
+
+---
+
+## Array Operations
+
+All array operations return **new instances** — the original is never mutated.
+
+```php
+$accessor = SafeAccess::fromArray([
+    'tags' => ['php', 'laravel', 'php'],
+    'users' => [
+        ['name' => 'Ana', 'age' => 30],
+        ['name' => 'Bob', 'age' => 25],
+        ['name' => 'Carol', 'age' => 30],
+    ],
+]);
+
+// Append items
+$new = $accessor->push('tags', 'safe-access');
+// ['php', 'laravel', 'php', 'safe-access']
+
+// Remove last / first
+$new = $accessor->pop('tags');     // removes last element
+$new = $accessor->shift('tags');   // removes first element
+
+// Prepend
+$new = $accessor->unshift('tags', 'first');
+
+// Insert at index (supports negative indices)
+$new = $accessor->insert('tags', 1, 'inserted');
+
+// Filter
+$adults = $accessor->filterAt('users', fn($u) => $u['age'] >= 30);
+
+// Map / transform
+$names = $accessor->mapAt('users', fn($u) => $u['name']);
+
+// Sort
+$sorted = $accessor->sortAt('users', 'name');        // ascending by 'name'
+$desc   = $accessor->sortAt('users', 'age', 'desc'); // descending by 'age'
+
+// Unique
+$unique = $accessor->unique('tags');                  // removes duplicate 'php'
+$byAge  = $accessor->unique('users', 'age');          // unique by sub-key
+
+// Flatten
+$flat = SafeAccess::fromArray(['matrix' => [[1, 2], [3, 4]]])
+    ->flatten('matrix');  // [1, 2, 3, 4]
+
+// Access helpers
+$accessor->first('users');    // ['name' => 'Ana', 'age' => 30]
+$accessor->last('users');     // ['name' => 'Carol', 'age' => 30]
+$accessor->nth('users', 1);   // ['name' => 'Bob', 'age' => 25]
+$accessor->nth('users', -1);  // ['name' => 'Carol', 'age' => 30]
+```
+
+---
+
+## JSON Patch & Diff
+
+Generate and apply RFC 6902 JSON Patch operations:
+
+```php
+$a = SafeAccess::fromArray(['name' => 'Ana', 'age' => 30]);
+$b = SafeAccess::fromArray(['name' => 'Ana', 'age' => 31, 'city' => 'SP']);
+
+// Generate diff
+$ops = $a->diff($b);
+// [
+//   ['op' => 'replace', 'path' => '/age', 'value' => 31],
+//   ['op' => 'add', 'path' => '/city', 'value' => 'SP'],
+// ]
+
+// Apply patch (returns new instance)
+$patched = $a->applyPatch([
+    ['op' => 'replace', 'path' => '/age', 'value' => 31],
+    ['op' => 'add',     'path' => '/city', 'value' => 'SP'],
+    ['op' => 'remove',  'path' => '/age'],
+]);
+```
+
+Supported operations: `add`, `replace`, `remove`, `move`, `copy`, `test`.
+
+---
+
+## I/O & File Loading
+
+### Load from file
+
+```php
+// Auto-detect format from extension
+$config = SafeAccess::fromFile('/app/config.json');
+$config = SafeAccess::fromFile('/app/config.yaml');
+
+// Explicit format
+$config = SafeAccess::fromFile('/app/data.txt', 'json');
+
+// Restrict allowed directories (path-traversal protection)
+$config = SafeAccess::fromFile('/app/config.json', null, ['/app']);
+```
+
+### Load from URL
+
+```php
+// HTTPS-only, SSRF-safe
+$data = SafeAccess::fromUrl('https://api.example.com/config.json');
+
+// With restrictions
+$data = SafeAccess::fromUrl('https://api.example.com/data', 'json', [
+    'allowedHosts' => ['api.example.com'],
+    'allowedPorts' => [443],
+    'allowPrivateIps' => false,
+]);
+```
+
+### NDJSON support
+
+```php
+$ndjson = '{"id":1,"name":"Ana"}' . "\n" . '{"id":2,"name":"Bob"}';
+$accessor = SafeAccess::fromNdjson($ndjson);
+$accessor->get('0.name');   // 'Ana'
+$accessor->get('*.id');     // [1, 2]
+$accessor->toNdjson();      // back to NDJSON string
+```
+
+---
+
+## Layered Configuration
+
+Merge multiple config sources (last-wins):
+
+```php
+// Layer accessor instances
+$defaults = SafeAccess::fromFile('/app/config/defaults.yaml');
+$env      = SafeAccess::fromFile('/app/config/production.yaml');
+$config   = SafeAccess::layer([$defaults, $env]);
+
+$config->get('database.host'); // value from production.yaml (if present)
+
+// Convenience: layer from files
+$config = SafeAccess::layerFiles([
+    '/app/config/defaults.yaml',
+    '/app/config/production.yaml',
+], ['/app/config']); // allowed directories
+```
+
+### File watching
+
+```php
+$stop = SafeAccess::watchFile('/app/config.json', function ($accessor) {
+    echo "Config updated: " . $accessor->get('version') . "\n";
+});
+
+// Later: stop watching
+$stop();
+```
+
+---
+
+## Security
+
+### SecurityPolicy
+
+Combine all security settings into a single policy:
+
+```php
+use SafeAccessInline\Security\SecurityPolicy;
+
+$policy = new SecurityPolicy(
+    maxDepth: 128,
+    maxPayloadBytes: 1_048_576,  // 1 MB
+    maxKeys: 5000,
+    allowedDirs: ['/app/config'],
+    url: ['allowedHosts' => ['api.example.com']],
+    csvMode: 'strip',
+    maskPatterns: ['password', '*_token'],
+);
+
+// Load with policy
+$accessor = SafeAccess::withPolicy($jsonString, $policy);
+$accessor = SafeAccess::fromFileWithPolicy('/app/config.json', $policy);
+$accessor = SafeAccess::fromUrlWithPolicy('https://api.example.com/config.json', $policy);
+```
+
+### Data masking
+
+```php
+$accessor = SafeAccess::fromArray([
+    'user' => 'Ana',
+    'password' => 's3cret',
+    'api_key' => 'abc-123',
+]);
+
+$safe = $accessor->masked();
+$safe->get('password');  // '[REDACTED]'
+$safe->get('api_key');   // '[REDACTED]'
+$safe->get('user');      // 'Ana'
+
+// Custom patterns
+$safe = $accessor->masked(['custom_secret', '*_token']);
+```
+
+### Readonly accessors
+
+```php
+$readonly = new \SafeAccessInline\Accessors\ArrayAccessor(['key' => 'value'], true);
+$readonly->get('key');           // 'value' — reading works
+$readonly->set('key', 'new');    // throws ReadonlyViolationException
+```
+
+---
+
+## Schema Validation
+
+```php
+use SafeAccessInline\Core\SchemaRegistry;
+
+// Register a default adapter (implement SchemaAdapterInterface)
+SchemaRegistry::setDefaultAdapter($myAdapter);
+
+// Validate — throws SchemaValidationException on failure
+$accessor->validate($schema);
+
+// Fluent chaining
+$name = $accessor->validate($schema)->get('name');
+
+// With explicit adapter
+$accessor->validate($schema, new MySchemaAdapter());
+```
+
+---
+
+## Audit Logging
+
+Track security-relevant operations:
+
+```php
+$unsub = SafeAccess::onAudit(function (array $event) {
+    // $event = ['type' => 'file.read', 'timestamp' => ..., 'detail' => [...]]
+    logger()->info($event['type'], $event['detail']);
+});
+
+// Events: file.read, file.watch, url.fetch, security.violation,
+//         data.mask, data.freeze, schema.validate
+
+// Clean up
+$unsub();
+SafeAccess::clearAuditListeners();
+```
+
+---
+
+## Framework Integrations
+
+### Laravel
+
+```php
+use SafeAccessInline\Integrations\LaravelServiceProvider;
+
+// In a service provider's register() method:
+LaravelServiceProvider::register($this->app);
+
+// Now resolve from container:
+$accessor = app('safe-access');
+$accessor = app(\SafeAccessInline\Core\AbstractAccessor::class);
+
+// Or wrap config directly:
+$config = LaravelServiceProvider::fromConfig(config());
+$config->get('app.name');                        // type-safe access
+$config->get('database.connections.*.driver');    // wildcard
+
+// Specific config key:
+$db = LaravelServiceProvider::fromConfigKey(config(), 'database');
+$db->get('default'); // 'mysql'
+```
+
+### Symfony
+
+```php
+use SafeAccessInline\Integrations\SymfonyIntegration;
+
+// From ParameterBag
+$accessor = SymfonyIntegration::fromParameterBag($container->getParameterBag());
+$accessor->get('kernel.environment');  // 'prod'
+
+// From config array
+$accessor = SymfonyIntegration::fromConfig($processedConfig);
+
+// From YAML file (with path protection)
+$accessor = SymfonyIntegration::fromYamlFile('/app/config/services.yaml', ['/app/config']);
 ```

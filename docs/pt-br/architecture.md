@@ -23,6 +23,12 @@ lang: pt-br
     - [Padrão de Imutabilidade](#padrão-de-imutabilidade)
     - [TypeDetector](#typedetector)
     - [Estrutura do Monorepo](#estrutura-do-monorepo)
+    - [Arquitetura de Segurança](#arquitetura-de-segurança)
+    - [I/O & Carregamento de Arquivos](#io--carregamento-de-arquivos)
+    - [Validação de Schema](#validação-de-schema)
+    - [Sistema de Auditoria](#sistema-de-auditoria)
+    - [Pacote CLI](#pacote-cli)
+    - [Integrações com Frameworks](#integrações-com-frameworks)
     - [Registros de Decisão de Arquitetura](#registros-de-decisão-de-arquitetura)
         - [ADR-1: `set()` / `remove()` usam `clone` em vez de `static::from()`](#adr-1-set--remove-usam-clone-em-vez-de-staticfrom)
         - [ADR-2: JS `toXml()` / `toYaml()` / `toToml()` via Bibliotecas Reais + Plugin Override](#adr-2-js-toxml--toyaml--totoml-via-bibliotecas-reais--plugin-override)
@@ -56,6 +62,9 @@ safe-access-inline é uma biblioteca de acesso a dados agnóstica de formato que
 │  toArray / toJson / toXml    │
 │  toYaml / toToml / transform │
 │  type / count / keys / all   │
+│  push / pop / shift / insert │  ← Operações de array
+│  diff / applyPatch           │  ← JSON Patch (RFC 6902)
+│  masked / validate           │  ← Segurança & schema
 └──────────┬───────────────────┘
            │
      ┌─────┴─────────────────────┐
@@ -81,6 +90,7 @@ Accessors Concretos (estendem AbstractAccessor):
 │  Array   │  Object  │  JSON    │
 │  XML     │  YAML    │  TOML    │
 │  INI     │  CSV     │  ENV     │
+│  NDJSON  │          │          │
 └──────────┴──────────┴──────────┘
 Cada um implementa apenas: parse(raw) → array
 (YAML/TOML usam bibliotecas reais por padrão, com override opcional via PluginRegistry)
@@ -188,11 +198,12 @@ Prioridade de auto-detecção (primeiro match vence):
 2. **SimpleXMLElement** (apenas PHP) → `XmlAccessor`
 3. **Object** → `ObjectAccessor`
 4. **String JSON** (`{` ou `[`) → `JsonAccessor`
-5. **String XML** (`<?xml` ou `<`) → `XmlAccessor`
-6. **String YAML** (contém pares `: ` ou front-matter `---`) → `YamlAccessor`
-7. **String INI** (tem `[seção]` ou `chave = valor`) → `IniAccessor`
-8. **String ENV** (padrão `CHAVE=VALOR`) → `EnvAccessor`
-9. **Não suportado** → lança `UnsupportedTypeException`
+5. **String NDJSON** (múltiplas linhas `{...}`) → `NdjsonAccessor`
+6. **String XML** (`<?xml` ou `<`) → `XmlAccessor`
+7. **String YAML** (contém pares `: ` ou front-matter `---`) → `YamlAccessor`
+8. **String INI** (tem `[seção]` ou `chave = valor`) → `IniAccessor`
+9. **String ENV** (padrão `CHAVE=VALOR`) → `EnvAccessor`
+10. **Não suportado** → lança `UnsupportedTypeError` / `UnsupportedTypeException`
 
 > **Limitações:** TOML e CSV não são auto-detectados devido à ambiguidade de formato. A heurística YAML (padrão `chave:` sem `=`) pode produzir falsos positivos para strings que não são YAML. Sempre prefira métodos factory explícitos (ex: `fromYaml()`, `fromToml()`) para inputs ambíguos.
 
@@ -203,28 +214,37 @@ safe-access-inline/
 ├── packages/
 │   ├── php/                 # Pacote Composer
 │   │   ├── src/
-│   │   │   ├── Accessors/   # 9 accessors de formato
-│   │   │   ├── Contracts/   # Interfaces (incl. ParserPlugin, SerializerPlugin)
-│   │   │   ├── Core/        # AbstractAccessor, DotNotationParser, TypeDetector, PluginRegistry
-│   │   │   ├── Exceptions/  # Hierarquia de exceções
+│   │   │   ├── Accessors/   # 10 accessors de formato (incl. NDJSON)
+│   │   │   ├── Contracts/   # Interfaces (incl. ParserPlugin, SerializerPlugin, SchemaAdapter)
+│   │   │   ├── Core/        # AbstractAccessor, DotNotationParser, TypeDetector, PluginRegistry, SchemaRegistry, JsonPatch, IoLoader, FileWatcher, DeepMerger
+│   │   │   ├── Enums/       # AccessorFormat enum
+│   │   │   ├── Exceptions/  # Hierarquia de exceções (incl. SecurityException, SchemaValidationException, ReadonlyViolationException)
+│   │   │   ├── Integrations/# LaravelServiceProvider, SymfonyIntegration
 │   │   │   ├── Plugins/     # Plugins incluídos (SymfonyYaml*, NativeYaml*, DeviumToml*)
+│   │   │   ├── Security/    # SecurityPolicy, SecurityOptions, SecurityGuard, CsvSanitizer, DataMasker, AuditLogger
 │   │   │   ├── Traits/      # HasFactory, HasTransformations, HasWildcardSupport
 │   │   │   └── SafeAccess.php
 │   │   └── tests/
 │   │       ├── Unit/        # Testes unitários mock-based
 │   │       └── Integration/ # Testes de integração com parsers reais
-│   └── js/                  # Pacote npm
-│       ├── src/
-│       │   ├── accessors/   # 9 accessors de formato
-│       │   ├── contracts/   # Interfaces TypeScript
-│       │   ├── core/        # AbstractAccessor, DotNotationParser, TypeDetector, PluginRegistry
-│       │   ├── exceptions/  # Hierarquia de erros
-│       │   ├── safe-access.ts
-│       │   └── index.ts     # Barrel export
+│   ├── js/                  # Pacote npm
+│   │   ├── src/
+│   │   │   ├── accessors/   # 10 accessors de formato (incl. NDJSON)
+│   │   │   ├── contracts/   # Interfaces TypeScript
+│   │   │   ├── core/        # AbstractAccessor, DotNotationParser, TypeDetector, PluginRegistry, SchemaRegistry, JsonPatch, IoLoader, FileWatcher, DeepMerger, AuditLogger
+│   │   │   ├── exceptions/  # Hierarquia de erros (incl. SecurityError, SchemaValidationError, ReadonlyViolationError)
+│   │   │   ├── integrations/# Módulo NestJS, plugin Vite
+│   │   │   ├── plugins/     # Plugins incluídos (JsYaml*, SmolToml*)
+│   │   │   ├── types/       # DeepPaths, ValueAtPath utility types
+│   │   │   ├── safe-access.ts
+│   │   │   └── index.ts     # Barrel export
+│   │   └── tests/
+│   │       ├── unit/        # Testes unitários mock-based
+│   │       └── integration/ # Testes de pipeline cross-format
+│   └── cli/                 # Pacote CLI (@safe-access-inline/cli)
+│       ├── src/cli.ts       # Ponto de entrada CLI (get, set, remove, transform, diff, mask, layer, keys, type, has, count)
 │       └── tests/
-│           ├── unit/        # Testes unitários mock-based
-│           └── integration/ # Testes de pipeline cross-format
-├── docs/                    # Documentação
+├── docs/                    # Documentação (Jekyll, English + pt-BR)
 ├── .github/workflows/       # CI/CD
 ├── CHANGELOG.md
 ├── CODE_OF_CONDUCT.md
@@ -233,6 +253,105 @@ safe-access-inline/
 ├── SECURITY.md
 └── README.md
 ```
+
+## Arquitetura de Segurança
+
+O módulo de segurança fornece defesa em profundidade para processamento de dados:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    SecurityPolicy                       │
+│  maxDepth, maxPayloadBytes, maxKeys, allowedDirs,       │
+│  url options, csvMode, maskPatterns                     │
+└──────────┬──────────────────────────────────────────────┘
+           │ delega para
+     ┌─────┴─────────┬──────────────┬────────────────┐
+     ▼               ▼              ▼                ▼
+┌──────────┐  ┌──────────────┐ ┌───────────┐  ┌───────────┐
+│ Security │  │    IoLoader   │ │   CSV     │  │   Data    │
+│ Options  │  │  path/URL    │ │ Sanitizer │  │  Masker   │
+│ (limits) │  │  validation  │ │           │  │           │
+└──────────┘  └──────────────┘ └───────────┘  └───────────┘
+```
+
+- **SecurityPolicy** — Agregado imutável de todas as configurações de segurança. Suporta `merge()` para criar políticas derivadas.
+- **SecurityOptions** — Métodos estáticos de asserção para limites de tamanho de payload, contagem de chaves e profundidade de aninhamento.
+- **SecurityGuard** — Bloqueia chaves de prototype pollution (`__proto__`, `constructor`, `prototype`). Sanitiza objetos recursivamente.
+- **IoLoader** — Proteção contra path-traversal para leitura de arquivos. Proteção contra SSRF para fetch de URLs (bloqueia IPs privados, metadata de cloud, exige HTTPS).
+- **CsvSanitizer** — Protege contra ataques de CSV injection com modos configuráveis (none, prefix, strip, error).
+- **DataMasker** — Substitui valores sensíveis (password, token, secret, etc.) por `[REDACTED]`. Suporta padrões customizados de glob/regex.
+
+## I/O & Carregamento de Arquivos
+
+Carregamento de arquivos e URLs segue um pipeline seguro:
+
+1. **Validação de caminho** — O caminho resolvido deve estar dentro de `allowedDirs` (se especificado)
+2. **Detecção de formato** — Baseada em extensão (`resolveFormatFromExtension`)
+3. **Leitura de conteúdo** — Sistema de arquivos ou fetch HTTPS
+4. **Emissão de auditoria** — Evento `file.read` ou `url.fetch`
+5. **Criação do accessor** — Delegado ao método `SafeAccess.from*()` apropriado
+
+File watching usa polling (`FileWatcher`) — verifica mtime em intervalos configuráveis. Retorna uma função stop para cleanup.
+
+Configuração em camadas (`layer()`, `layerFiles()`) realiza deep-merge de múltiplas fontes com semântica last-wins.
+
+## Validação de Schema
+
+A validação de schema usa o padrão **Adapter** para permanecer agnóstica de biblioteca:
+
+```
+┌───────────────────┐     ┌────────────────────────┐
+│  SchemaRegistry   │────▶│  SchemaAdapterInterface │
+│  default adapter  │     │  validate(data, schema) │
+└───────────────────┘     └────────────┬───────────┘
+                                       │ retorna
+                                       ▼
+                          ┌────────────────────────┐
+                          │ SchemaValidationResult  │
+                          │  valid: bool            │
+                          │  errors: Issue[]        │
+                          └────────────────────────┘
+```
+
+Usuários implementam `SchemaAdapterInterface` com sua biblioteca de validação preferida (Zod, Joi, JSON Schema, etc.) e registram via `SchemaRegistry.setDefaultAdapter()`.
+
+## Sistema de Auditoria
+
+O sistema de auditoria fornece observabilidade para operações relevantes à segurança:
+
+- **Tipos de evento:** `file.read`, `file.watch`, `url.fetch`, `security.violation`, `data.mask`, `data.freeze`, `schema.validate`
+- **Assinatura:** `SafeAccess.onAudit(listener)` retorna uma função de unsubscribe
+- **Emissão:** Interna — disparada automaticamente por IoLoader, DataMasker, validação de schema, etc.
+- **Design:** Padrão pub/sub. Listeners são síncronos. Eventos incluem campos `type`, `timestamp` e `detail`.
+
+## Pacote CLI
+
+O pacote `@safe-access-inline/cli` fornece acesso via linha de comando a todas as funcionalidades da biblioteca:
+
+| Comando     | Descrição                                       |
+| ----------- | ----------------------------------------------- |
+| `get`       | Ler um valor por caminho                        |
+| `set`       | Definir um valor em um caminho                  |
+| `remove`    | Remover um valor em um caminho                  |
+| `transform` | Converter entre formatos (JSON ↔ YAML ↔ TOML)   |
+| `diff`      | Gerar diff JSON Patch entre dois arquivos       |
+| `mask`      | Ocultar valores sensíveis                       |
+| `layer`     | Mesclar múltiplos arquivos de configuração      |
+| `keys`      | Listar chaves em um caminho                     |
+| `type`      | Mostrar o tipo de um valor em um caminho        |
+| `has`       | Verificar existência de caminho (exit code 0/1) |
+| `count`     | Contar elementos em um caminho                  |
+
+Suporta entrada via stdin (`-`), todos os formatos (JSON, YAML, TOML, XML, INI, CSV, ENV, NDJSON), saída formatada e expressões de caminho.
+
+## Integrações com Frameworks
+
+| Framework | Pacote | Módulo                   | Funcionalidades                                          |
+| --------- | ------ | ------------------------ | -------------------------------------------------------- |
+| NestJS    | JS     | `SafeAccessModule`       | Módulo dinâmico, token de injeção `SAFE_ACCESS`          |
+| Vite      | JS     | `safeAccessPlugin`       | Módulo virtual, suporte HMR, merge de múltiplos arquivos |
+| Laravel   | PHP    | `LaravelServiceProvider` | Binding singleton, wrapping do config repository         |
+| Symfony   | PHP    | `SymfonyIntegration`     | Wrapping de ParameterBag, carregamento de arquivo YAML   |
 
 ## Registros de Decisão de Arquitetura
 

@@ -20,6 +20,14 @@ lang: pt-br
 - [Accessors Customizados](#accessors-customizados)
 - [ESM e CommonJS](#esm-e-commonjs)
 - [Suporte TypeScript](#suporte-typescript)
+- [Operações de Array](#operações-de-array)
+- [JSON Patch & Diff](#json-patch--diff)
+- [I/O & Carregamento de Arquivos](#io--carregamento-de-arquivos)
+- [Configuração em Camadas](#configuração-em-camadas)
+- [Segurança](#segurança)
+- [Validação de Schema](#validação-de-schema)
+- [Log de Auditoria](#log-de-auditoria)
+- [Integrações de Framework](#integrações-de-framework)
 
 ---
 
@@ -534,7 +542,357 @@ import type {
     SerializerPlugin,
     AccessorInterface,
     ReadableInterface,
-    TransformableInterface,
     WritableInterface,
+    TransformableInterface,
+    DeepPaths,
+    ValueAtPath,
 } from "@safe-access-inline/safe-access-inline";
+```
+
+### Inferência de Caminhos com Tipagem
+
+```typescript
+import type {
+    DeepPaths,
+    ValueAtPath,
+} from "@safe-access-inline/safe-access-inline";
+
+type AppConfig = {
+    db: { host: string; port: number };
+    cache: { enabled: boolean; ttl: number };
+};
+
+// Autocomplete de todos os caminhos válidos
+type Paths = DeepPaths<AppConfig>;
+// "db" | "db.host" | "db.port" | "cache" | "cache.enabled" | "cache.ttl"
+
+// Resolver tipos dos valores
+type Host = ValueAtPath<AppConfig, "db.host">; // string
+type TTL = ValueAtPath<AppConfig, "cache.ttl">; // number
+
+// Construa seu próprio getter tipado
+function getTyped<P extends DeepPaths<AppConfig>>(
+    accessor: AbstractAccessor,
+    path: P,
+): ValueAtPath<AppConfig, P> {
+    return accessor.get(path) as ValueAtPath<AppConfig, P>;
+}
+```
+
+---
+
+## Operações de Array
+
+Todas as operações de array retornam **novas instâncias** — o original nunca é modificado.
+
+```typescript
+const accessor = SafeAccess.fromObject({
+    tags: ["js", "ts", "js"],
+    users: [
+        { name: "Ana", age: 30 },
+        { name: "Bob", age: 25 },
+        { name: "Carol", age: 30 },
+    ],
+});
+
+// Adicionar itens
+const pushed = accessor.push("tags", "safe-access");
+// ['js', 'ts', 'js', 'safe-access']
+
+// Remover último / primeiro
+accessor.pop("tags"); // remove o último elemento
+accessor.shift("tags"); // remove o primeiro elemento
+
+// Inserir no início
+accessor.unshift("tags", "first");
+
+// Inserir no índice (suporta índices negativos)
+accessor.insert("tags", 1, "inserted");
+
+// Filtrar
+accessor.filterAt("users", (u) => u.age >= 30);
+
+// Map / transformar
+accessor.mapAt("users", (u) => u.name);
+
+// Ordenar
+accessor.sortAt("users", "name"); // ascendente por 'name'
+accessor.sortAt("users", "age", "desc"); // descendente por 'age'
+
+// Único
+accessor.unique("tags"); // remove 'js' duplicado
+accessor.unique("users", "age"); // único por sub-chave
+
+// Achatar
+SafeAccess.fromObject({
+    matrix: [
+        [1, 2],
+        [3, 4],
+    ],
+}).flatten("matrix");
+// [1, 2, 3, 4]
+
+// Helpers de acesso
+accessor.first("users"); // { name: 'Ana', age: 30 }
+accessor.last("users"); // { name: 'Carol', age: 30 }
+accessor.nth("users", 1); // { name: 'Bob', age: 25 }
+accessor.nth("users", -1); // { name: 'Carol', age: 30 }
+```
+
+---
+
+## JSON Patch & Diff
+
+Gere e aplique operações de JSON Patch conforme RFC 6902:
+
+```typescript
+import {
+    SafeAccess,
+    diff,
+    applyPatch,
+} from "@safe-access-inline/safe-access-inline";
+
+const a = SafeAccess.fromObject({ name: "Ana", age: 30 });
+const b = SafeAccess.fromObject({ name: "Ana", age: 31, city: "SP" });
+
+// Método de instância
+const ops = a.diff(b);
+// [
+//   { op: 'replace', path: '/age', value: 31 },
+//   { op: 'add', path: '/city', value: 'SP' },
+// ]
+
+// Aplicar patch (retorna nova instância)
+const patched = a.applyPatch([
+    { op: "replace", path: "/age", value: 31 },
+    { op: "add", path: "/city", value: "SP" },
+]);
+
+// Funções standalone também disponíveis
+const ops2 = diff(a.all(), b.all());
+const result = applyPatch(a.all(), ops2);
+```
+
+Operações suportadas: `add`, `replace`, `remove`, `move`, `copy`, `test`.
+
+---
+
+## I/O & Carregamento de Arquivos
+
+### Carregar de arquivo
+
+```typescript
+// Auto-detectar formato pela extensão
+const config = SafeAccess.fromFileSync("/app/config.json");
+
+// Assíncrono
+const config2 = await SafeAccess.fromFile("/app/config.yaml");
+
+// Restringir diretórios permitidos (proteção contra path-traversal)
+const safe = SafeAccess.fromFileSync("/app/config.json", undefined, ["/app"]);
+```
+
+### Carregar de URL
+
+```typescript
+// Apenas HTTPS, seguro contra SSRF
+const data = await SafeAccess.fromUrl("https://api.example.com/config.json");
+
+// Com restrições
+const data2 = await SafeAccess.fromUrl("https://api.example.com/data", "json", {
+    allowedHosts: ["api.example.com"],
+    allowedPorts: [443],
+    allowPrivateIps: false,
+});
+```
+
+### Suporte a NDJSON
+
+```typescript
+const ndjson = '{"id":1}\n{"id":2}';
+const accessor = SafeAccess.fromNdjson(ndjson);
+accessor.get("0.id"); // 1
+accessor.get("*.id"); // [1, 2]
+accessor.toNdjson(); // volta para string NDJSON
+```
+
+---
+
+## Configuração em Camadas
+
+Mescle múltiplas fontes de configuração (último vence):
+
+```typescript
+// Camadas de instâncias accessor
+const defaults = SafeAccess.fromFileSync("/app/config/defaults.json");
+const overrides = SafeAccess.fromFileSync("/app/config/local.json");
+const config = SafeAccess.layer([defaults, overrides]);
+
+// Conveniência: camadas a partir de arquivos
+const config2 = SafeAccess.layerFiles(
+    ["/app/config/defaults.yaml", "/app/config/production.yaml"],
+    ["/app/config"], // diretórios permitidos
+);
+
+// Observação de arquivos
+const stop = SafeAccess.watchFile("/app/config.json", (accessor) => {
+    console.log("Config atualizada:", accessor.get("version"));
+});
+// Depois: stop()
+```
+
+---
+
+## Segurança
+
+### SecurityPolicy
+
+```typescript
+import {
+    SecurityPolicy,
+    defaultPolicy,
+    mergePolicy,
+} from "@safe-access-inline/safe-access-inline";
+
+const policy: SecurityPolicy = mergePolicy(defaultPolicy, {
+    maxDepth: 128,
+    maxPayloadBytes: 1_048_576,
+    allowedDirs: ["/app/config"],
+    url: { allowedHosts: ["api.example.com"] },
+    csvMode: "strip",
+    maskPatterns: ["password", /.*_token/],
+});
+
+// Carregar com política
+const accessor = SafeAccess.withPolicy(jsonString, policy);
+const fromFile = SafeAccess.fromFileWithPolicy("/app/config.json", policy);
+const fromUrl = await SafeAccess.fromUrlWithPolicy(
+    "https://api.example.com/config.json",
+    policy,
+);
+```
+
+### Mascaramento de dados
+
+```typescript
+const accessor = SafeAccess.fromObject({
+    user: "Ana",
+    password: "s3cret",
+    api_key: "abc-123",
+});
+
+const safe = accessor.masked();
+safe.get("password"); // '[REDACTED]'
+safe.get("api_key"); // '[REDACTED]'
+safe.get("user"); // 'Ana'
+
+// Padrões customizados
+const custom = accessor.masked(["custom_secret", /.*_token/]);
+```
+
+### Readonly & Deep Freeze
+
+```typescript
+// Readonly — lança ReadonlyViolationError ao tentar modificar
+const ro = SafeAccess.fromObject({ key: "value" }, { readonly: true });
+ro.get("key"); // 'value'
+ro.set("key", "new"); // lança ReadonlyViolationError
+
+// Deep freeze — previne poluição de protótipo no objeto de dados
+SafeAccess.deepFreeze(myObject);
+```
+
+---
+
+## Validação de Schema
+
+```typescript
+import { SchemaRegistry } from "@safe-access-inline/safe-access-inline";
+
+// Registrar um adapter padrão (implemente SchemaAdapterInterface)
+SchemaRegistry.setDefaultAdapter(myAdapter);
+
+// Validar — lança SchemaValidationError em caso de falha
+accessor.validate(schema);
+
+// Encadeamento fluente
+const name = accessor.validate(schema).get("name");
+```
+
+---
+
+## Log de Auditoria
+
+```typescript
+const unsub = SafeAccess.onAudit((event) => {
+    // event = { type: 'file.read', timestamp: 1234567890.123, detail: {...} }
+    console.log(event.type, event.detail);
+});
+
+// Eventos: file.read, file.watch, url.fetch, security.violation,
+//         data.mask, data.freeze, schema.validate
+
+// Limpar
+unsub();
+SafeAccess.clearAuditListeners();
+```
+
+---
+
+## Integrações de Framework
+
+### NestJS
+
+```typescript
+import {
+    SafeAccessModule,
+    SAFE_ACCESS,
+} from "@safe-access-inline/safe-access-inline";
+
+// No seu módulo NestJS
+@Module({
+    imports: [
+        SafeAccessModule.register({
+            filePath: "./config.yaml",
+            allowedDirs: ["./config"],
+        }),
+    ],
+})
+export class AppModule {}
+
+// Injetar em um serviço
+@Injectable()
+export class ConfigService {
+    constructor(@Inject(SAFE_ACCESS) private config: AbstractAccessor) {}
+
+    getDbHost() {
+        return this.config.get("database.host");
+    }
+}
+```
+
+### Vite
+
+```typescript
+import {
+    safeAccessPlugin,
+    loadConfig,
+} from "@safe-access-inline/safe-access-inline";
+
+// vite.config.ts
+export default defineConfig({
+    plugins: [
+        safeAccessPlugin({
+            files: ["./config/defaults.yaml", "./config/local.yaml"],
+            virtualId: "virtual:app-config", // opcional, padrão é 'virtual:safe-access-config'
+        }),
+    ],
+});
+
+// Na sua aplicação
+import config from "virtual:app-config";
+// config é um accessor mesclado de todos os arquivos
+
+// Ou carregue a config manualmente
+const config2 = loadConfig(["./config/defaults.yaml", "./config/local.yaml"]);
 ```
