@@ -57,4 +57,25 @@ describe(PathCache::class, function () {
         $result = DotNotationParser::get($data, 'a.b');
         expect($result)->toBe(1);
     });
+
+    it('disable prevents caching', function () {
+        PathCache::enable();
+        PathCache::disable();
+        expect(PathCache::isEnabled())->toBeFalse();
+        PathCache::set('x', [['type' => 'key', 'value' => 'x']]);
+        expect(PathCache::get('x'))->toBeNull();
+        expect(PathCache::size())->toBe(0);
+    });
+
+    it('enable re-enables caching after disable', function () {
+        PathCache::disable();
+        PathCache::enable();
+        expect(PathCache::isEnabled())->toBeTrue();
+        PathCache::set('y', [['type' => 'key', 'value' => 'y']]);
+        expect(PathCache::get('y'))->not->toBeNull();
+    });
+
+    afterEach(function () {
+        PathCache::enable();
+    });
 });
