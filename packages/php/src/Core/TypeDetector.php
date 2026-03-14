@@ -6,6 +6,7 @@ use SafeAccessInline\Accessors\ArrayAccessor;
 use SafeAccessInline\Accessors\EnvAccessor;
 use SafeAccessInline\Accessors\IniAccessor;
 use SafeAccessInline\Accessors\JsonAccessor;
+use SafeAccessInline\Accessors\NdjsonAccessor;
 use SafeAccessInline\Accessors\ObjectAccessor;
 use SafeAccessInline\Accessors\TomlAccessor;
 use SafeAccessInline\Accessors\XmlAccessor;
@@ -50,6 +51,21 @@ final class TypeDetector
                 $json = json_decode($trimmed, true);
                 if (json_last_error() === JSON_ERROR_NONE) {
                     return JsonAccessor::from($data);
+                }
+                // Check for NDJSON (multiple JSON objects per line)
+                $lines = array_filter(array_map('trim', explode("\n", $trimmed)), fn ($l) => $l !== '');
+                if (count($lines) > 1) {
+                    $allJson = true;
+                    foreach ($lines as $line) {
+                        json_decode($line, true);
+                        if (json_last_error() !== JSON_ERROR_NONE) {
+                            $allJson = false;
+                            break;
+                        }
+                    }
+                    if ($allJson) {
+                        return NdjsonAccessor::from($data);
+                    }
                 }
             }
 
