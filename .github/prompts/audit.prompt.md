@@ -29,7 +29,7 @@ This is a **monorepo** with three packages:
 - `packages/cli` — standalone CLI tool that wraps the JS library
 
 **Core feature:** safe nested data access using dot-notation paths with support for:
-wildcards (`users.*.name`), filters (`items[?price>100]`), recursive descent (`..name`), immutable write operations (`set`, `remove`, `merge`), **10 data formats** (Array, Object, JSON, NDJSON, XML, YAML, TOML, INI, CSV, ENV), plugin system, auto-detection.
+wildcards (`users.*.name`), filters (`items[?price>100]`), recursive descent (`..name`), immutable write operations (`set`, `remove`, `merge`), **multiple data formats** (Array, Object, JSON, NDJSON, XML, YAML, TOML, INI, CSV, ENV), plugin system, auto-detection.
 
 **Additional capabilities (all with parity between PHP and JS/TS):**
 
@@ -46,257 +46,58 @@ wildcards (`users.*.name`), filters (`items[?price>100]`), recursive descent (`.
 
 ---
 
-## Step 1 — Map the full project structure
+## Step 1 — Discovery
 
-Read and list all files and directories recursively:
+> Complete all three phases before proceeding to Step 2. Do not begin analysis until all source files have been read.
 
-```
-packages/js/src/
-packages/js/src/core/
-packages/js/src/accessors/
-packages/js/src/contracts/
-packages/js/src/exceptions/
-packages/js/src/integrations/
-packages/js/src/plugins/
-packages/js/src/schema-adapters/
-packages/js/src/types/
-packages/js/tests/
-packages/js/benchmarks/
-packages/php/src/
-packages/php/src/Core/
-packages/php/src/Accessors/
-packages/php/src/Contracts/
-packages/php/src/Exceptions/
-packages/php/src/Integrations/
-packages/php/src/Plugins/
-packages/php/src/SchemaAdapters/
-packages/php/src/Security/
-packages/php/src/Traits/
-packages/php/tests/
-packages/php/benchmarks/
-packages/cli/src/
-packages/cli/tests/
-.github/workflows/
-.github/prompts/
-docs/
+### Phase A — Map project structure
+
+Run the following command via terminal to discover the real project structure at audit time:
+
+```sh
+find packages/ .github/ docs/ \
+  -not -path '*/vendor/*' \
+  -not -path '*/node_modules/*' \
+  -not -path '*/coverage/*' \
+  -not -path '*/dist/*' \
+  | sort
 ```
 
-Also read root-level files: `package.json`, `README.md`, `CONTRIBUTING.md`, `CHANGELOG.md`, `commitlint.config.js`, `.lintstagedrc.json`, `.nvmrc`, `.editorconfig`, `release-please-config.json`, `.release-please-manifest.json`.
+Also list all files at the repository root to identify every configuration file present.
+
+### Phase B — Read all source files
+
+Use the `codebase` tool with glob patterns to discover all files that currently exist — do not assume any specific filename.
+
+**JS/TS:**
+
+- All `**/*.ts` files under `packages/js/src/`
+- All `**/*.ts` files under `packages/js/tests/`
+- All `**/*.ts` files under `packages/js/benchmarks/`
+- All `**/*.ts` files under `packages/cli/src/`
+- All `**/*.ts` files under `packages/cli/tests/`
+- All configuration files at the root of each package: every `package.json`, `tsconfig.json`, and `*.config.*` file present (e.g. `vitest.config.ts`, `eslint.config.js`, `.prettierrc`)
+
+**PHP:**
+
+- All `**/*.php` files under `packages/php/src/`
+- All `**/*.php` files under `packages/php/tests/`
+- All `**/*.php` files under `packages/php/benchmarks/`
+- All configuration files at the root of `packages/php/`: `composer.json` and every `*.neon`, `*.xml.dist`, and `*.php` config file present (e.g. `phpstan.neon`, `phpunit.xml.dist`, `.php-cs-fixer.dist.php`)
+
+**Repository root:**
+
+- All configuration files present at the repository root: `package.json`, `README.md`, `CONTRIBUTING.md`, `CHANGELOG.md`, and every config file found (e.g. `.nvmrc`, `.editorconfig`, `.lintstagedrc.*`, `commitlint.config.*`, `release-please-config.json`, `.release-please-manifest.json`)
+
+### Phase C — Read CI/CD and tooling configuration
+
+Read **all** files currently present in `.github/workflows/` and `.github/prompts/` — discover them dynamically via the `codebase` tool; do not assume specific filenames.
 
 ---
 
-## Step 2 — Read all source files
+## Step 2 — Run analysis
 
-Read **every** source file in both packages before writing any analysis:
-
-### JS/TS (`packages/js/src/`)
-
-- `index.ts`
-- `safe-access.ts`
-- `format.enum.ts`
-
-**Core:**
-
-- `core/abstract-accessor.ts`
-- `core/dot-notation-parser.ts`
-- `core/filter-parser.ts`
-- `core/type-detector.ts`
-- `core/plugin-registry.ts`
-- `core/schema-registry.ts`
-- `core/path-cache.ts`
-- `core/deep-freeze.ts`
-- `core/deep-merger.ts`
-- `core/json-patch.ts`
-- `core/io-loader.ts`
-- `core/file-watcher.ts`
-- `core/security-guard.ts`
-- `core/security-options.ts`
-- `core/security-policy.ts`
-- `core/audit-emitter.ts`
-- `core/csv-sanitizer.ts`
-- `core/data-masker.ts`
-- `core/ip-range-checker.ts`
-
-**Contracts:**
-
-- `contracts/accessor.interface.ts`
-- `contracts/readable.interface.ts`
-- `contracts/writable.interface.ts`
-- `contracts/transformable.interface.ts`
-- `contracts/schema-adapter.interface.ts`
-
-**Accessors:**
-
-- `accessors/array.accessor.ts`
-- `accessors/object.accessor.ts`
-- `accessors/json.accessor.ts`
-- `accessors/ndjson.accessor.ts`
-- `accessors/xml.accessor.ts`
-- `accessors/yaml.accessor.ts`
-- `accessors/toml.accessor.ts`
-- `accessors/ini.accessor.ts`
-- `accessors/csv.accessor.ts`
-- `accessors/env.accessor.ts`
-
-**Exceptions:**
-
-- `exceptions/accessor.error.ts`
-- `exceptions/invalid-format.error.ts`
-- `exceptions/path-not-found.error.ts`
-- `exceptions/unsupported-type.error.ts`
-- `exceptions/security.error.ts`
-- `exceptions/readonly-violation.error.ts`
-- `exceptions/schema-validation.error.ts`
-
-**Plugins:**
-
-- `plugins/js-yaml.parser.ts`
-- `plugins/js-yaml.serializer.ts`
-- `plugins/smol-toml.parser.ts`
-- `plugins/smol-toml.serializer.ts`
-
-**Schema adapters:**
-
-- `schema-adapters/zod.adapter.ts`
-- `schema-adapters/valibot.adapter.ts`
-- `schema-adapters/yup.adapter.ts`
-
-**Framework integrations:**
-
-- `integrations/nestjs.ts`
-- `integrations/vite.ts`
-
-**Types:**
-
-- `types/deep-paths.ts`
-
-**CLI (`packages/cli/src/`):**
-
-- `cli.ts`
-
-**Config & tests:**
-
-- All test files in `packages/js/tests/`
-- All test files in `packages/cli/tests/`
-- All benchmark files in `packages/js/benchmarks/`
-- `packages/js/tsconfig.json`
-- `packages/js/eslint.config.js`
-- `packages/js/.prettierrc`
-- `packages/js/vitest.config.ts`
-- `packages/js/package.json`
-- `packages/cli/package.json`
-- `packages/cli/tsconfig.json`
-
-### PHP (`packages/php/src/`)
-
-- `SafeAccess.php`
-
-**Core:**
-
-- `Core/AbstractAccessor.php`
-- `Core/DotNotationParser.php`
-- `Core/FilterParser.php`
-- `Core/TypeDetector.php`
-- `Core/PluginRegistry.php`
-- `Core/SchemaRegistry.php`
-- `Core/PathCache.php`
-- `Core/DeepMerger.php`
-- `Core/JsonPatch.php`
-- `Core/IoLoader.php`
-- `Core/FileWatcher.php`
-
-**Contracts:**
-
-- `Contracts/AccessorInterface.php`
-- `Contracts/ReadableInterface.php`
-- `Contracts/WritableInterface.php`
-- `Contracts/TransformableInterface.php`
-- `Contracts/ParserPluginInterface.php`
-- `Contracts/SerializerPluginInterface.php`
-- `Contracts/SchemaAdapterInterface.php`
-- `Contracts/SchemaValidationIssue.php`
-- `Contracts/SchemaValidationResult.php`
-
-**Accessors:**
-
-- `Accessors/ArrayAccessor.php`
-- `Accessors/ObjectAccessor.php`
-- `Accessors/JsonAccessor.php`
-- `Accessors/NdjsonAccessor.php`
-- `Accessors/XmlAccessor.php`
-- `Accessors/YamlAccessor.php`
-- `Accessors/TomlAccessor.php`
-- `Accessors/IniAccessor.php`
-- `Accessors/CsvAccessor.php`
-- `Accessors/EnvAccessor.php`
-
-**Enums:**
-
-- `Enums/AccessorFormat.php`
-
-**Exceptions:**
-
-- `Exceptions/AccessorException.php`
-- `Exceptions/InvalidFormatException.php`
-- `Exceptions/PathNotFoundException.php`
-- `Exceptions/UnsupportedTypeException.php`
-- `Exceptions/SecurityException.php`
-- `Exceptions/ReadonlyViolationException.php`
-- `Exceptions/SchemaValidationException.php`
-
-**Security subsystem:**
-
-- `Security/SecurityGuard.php`
-- `Security/SecurityOptions.php`
-- `Security/SecurityPolicy.php`
-- `Security/CsvSanitizer.php`
-- `Security/DataMasker.php`
-- `Security/AuditLogger.php`
-
-**Schema adapters:**
-
-- `SchemaAdapters/JsonSchemaAdapter.php`
-- `SchemaAdapters/SymfonyValidatorAdapter.php`
-
-**Framework integrations:**
-
-- `Integrations/LaravelFacade.php`
-- `Integrations/LaravelServiceProvider.php`
-- `Integrations/SafeAccessBundle.php`
-- `Integrations/SymfonyIntegration.php`
-- `Integrations/helpers.php`
-
-**Plugins:**
-
-- `Plugins/` (all files — `DeviumTomlParser.php`, `DeviumTomlSerializer.php`, `NativeYamlParser.php`, `NativeYamlSerializer.php`, `SymfonyYamlParser.php`, `SymfonyYamlSerializer.php`)
-
-**Traits:**
-
-- `Traits/HasFactory.php`
-- `Traits/HasTransformations.php`
-- `Traits/HasWildcardSupport.php`
-- `Traits/HasArrayOperations.php`
-
-**Config & tests:**
-
-- All test files in `packages/php/tests/`
-- All benchmark files in `packages/php/benchmarks/`
-- `packages/php/composer.json`
-- `packages/php/phpstan.neon`
-- `packages/php/.php-cs-fixer.dist.php`
-- `packages/php/phpunit.xml.dist`
-
----
-
-## Step 3 — Read CI/CD and tooling configuration
-
-Read all files in `.github/workflows/` (`php-ci.yml`, `js-ci.yml`, `docs-ci.yml`, `release.yml`, `split-packages.yml`) and `.github/prompts/`.
-
-Also read `packages/cli/package.json` and `packages/cli/tsconfig.json`.
-
----
-
-## Step 4 — Run analysis
+> **Note on class and file names:** The subsystem headings below name classes and files as they exist in the current known state of the codebase. Before analysing each subsystem, use the `codebase` tool to locate the actual files that implement that concept — names may have changed since this prompt was written. Analyse whatever you find; do not skip a subsystem because an expected filename is absent.
 
 After reading all files, perform the audit across every axis below. For **every problem found**, include:
 
@@ -342,7 +143,7 @@ Pay particular attention to the following subsystems that are new and critical:
 - Laravel Service Provider: deferred vs eager binding — is the facade correctly resolved?
 - Symfony Bundle: extension class naming conventions (PSR-4, bundle naming), DI tag correctness
 
-**CLI** (`packages/cli/src/cli.ts`):
+**CLI** (locate the CLI entry point discovered in Phase B):
 
 - Input sanitisation — are file paths from argv validated against allowed directories?
 - Error exit codes — are all failure modes returning non-zero exit codes?
@@ -375,9 +176,81 @@ Pay particular attention to the following subsystems that are new and critical:
 - Static registry: what happens if two different tests or library consumers register conflicting plugins for the same format key? Is there an override warning?
 - PHP plugins: `NativeYamlParser` requires the `yaml` extension — is there a graceful fallback or a clear error message?
 
+**Documentation:**
+
+- `README.md` accuracy — do all code examples match the current public API? Run each example mentally against the source to verify it would not throw.
+- JSDoc / PHPDoc completeness — are all public methods and classes documented? Are parameter types, return types, and thrown exceptions declared?
+- `CONTRIBUTING.md` and `CHANGELOG.md` — are they up to date and accurate relative to the current codebase?
+- Inline comments — are complex algorithms (e.g. filter parser, recursive descent, prototype-pollution guard) explained where the logic is non-obvious?
+
+**Run static analysis and tests — include full tool output in the report:**
+
+Execute the following commands via terminal and capture their complete output:
+
+```sh
+# JS/TS
+cd packages/js && npx eslint . --max-warnings=0 2>&1
+cd packages/js && npx tsc --noEmit 2>&1
+cd packages/js && npx vitest run --coverage 2>&1
+
+# CLI
+cd packages/cli && npx tsc --noEmit 2>&1
+cd packages/cli && npx vitest run 2>&1
+
+# PHP
+cd packages/php && vendor/bin/phpstan analyse --no-progress 2>&1
+cd packages/php && vendor/bin/pest --coverage --min=95 2>&1
+```
+
+For each command: report ✅ if it passes with zero warnings/errors, or ❌ with the exact output if it fails. Do not skip this step — tool failures are findings and must appear in the report.
+
+**Test Coverage Suppression & Skipped Tests:**
+
+Search for and evaluate every instance where test coverage is suppressed, tests are skipped, or coverage configuration excludes files.
+
+**PHP — locate all suppression annotations in source and tests:**
+
+Run via terminal:
+
+```sh
+grep -rn "@codeCoverageIgnore\|@coversNothing\|markTestSkipped\|->skip()" packages/php/src/ packages/php/tests/
+```
+
+**JS/TS — locate all suppression comments and skipped tests:**
+
+Run via terminal:
+
+```sh
+grep -rn "c8 ignore\|istanbul ignore\|test\.skip\|it\.skip\|describe\.skip\|\.skip(\|xit(\|xdescribe(" packages/js/src/ packages/js/tests/ packages/cli/src/ packages/cli/tests/
+```
+
+**Coverage config-level exclusions:**
+
+- Locate the JS/TS coverage configuration file (e.g. `vitest.config.ts`) discovered in Phase B — list every entry in `coverage.exclude` and `coverage.include`; justify each exclusion.
+- Locate the PHP test configuration file (e.g. `phpunit.xml.dist`) discovered in Phase B — list every `<exclude>`, `<directory suffix>`, or `<file>` exclusion inside `<coverage>`.
+
+**For each suppression or exclusion found, evaluate:**
+
+1. **Is a justification comment present?** If not → flag `❌ Unjustified`.
+2. **Is the justification valid?**
+    - _"Requires real HTTP I/O"_ — can it be replaced with a mock? (PHP: `GuzzleHttp\Handler\MockHandler`; JS: `vi.mock('node:https')` / `msw`)
+    - _"Requires real filesystem events / polling loop"_ — can the callback logic be extracted and unit-tested independently? (PHP: `vfsStream`; JS: `vi.spyOn(fs, ...)` + temp dir)
+    - _"Delegates to X"_ — is the delegation path itself covered by a test of X, or is the delegation completely untested?
+    - _PHPStan / linting workaround wrapped in a coverage ignore_ — the two concerns must be separated; the phpstan ignore must not suppress coverage.
+    - _Config-level exclusion of barrel/re-export files_ — acceptable only if the file truly contains no logic.
+3. **Is the excluded code security-sensitive?** If yes, escalate the finding to a `[CRIT-NNN]` entry.
+4. **Classify each item as:**
+    - ✅ **Justified** — genuinely untestable without a running external service, clear comment, no mock path exists
+    - ⚠️ **Questionable** — justification present but the code _could_ be covered with mocks; flag as improvement opportunity
+    - ❌ **Unjustified** — no justification comment, or the comment does not withstand scrutiny
+
+If a grep command returns **no results**, explicitly confirm in the report: _"No suppression annotations / skipped tests found in [package]."_ — do not silently omit the section.
+
+For every ⚠️ and ❌ item, produce a `[COV-NNN]` block in the report (see Step 3 format).
+
 ---
 
-## Step 5 — Deliver the audit report
+## Step 3 — Deliver the audit report
 
 Structure the full report using the exact sections below:
 
@@ -467,6 +340,50 @@ Example format:
 
 ---
 
+### 🧪 Test Coverage Suppression Audit
+
+#### Summary table
+
+List **every** suppression annotation, skipped test, and coverage-config exclusion found across all packages:
+
+| File                   | Line | Annotation / Config entry | Justification present? | Verdict      |
+| ---------------------- | ---- | ------------------------- | ---------------------- | ------------ |
+| `packages/php/src/...` | L... | `@codeCoverageIgnore`     | ✅ Yes / ❌ No         | ✅ / ⚠️ / ❌ |
+
+#### Issues
+
+For every ⚠️ **Questionable** or ❌ **Unjustified** entry in the table above, produce a block using this format. Prefix `[COV-NNN]`.
+
+#### [COV-001] Title
+
+- 📍 File: `path/to/file`, line X
+- ❌ Problem: Why the suppression is invalid or the justification does not hold
+- 💥 Impact: Coverage gap, false confidence in quality metrics, security-sensitive path left untested
+- ✅ Fix: Remove the suppression and add the test shown below:
+
+```php
+// BEFORE — coverage suppressed, no test
+/** @codeCoverageIgnore */
+public function fromUrl(string $url): static { ... }
+
+// AFTER — suppression removed; new test added in tests/Unit/SafeAccessTest.php
+it('fromUrl resolves a URL using a mocked HTTP client', function (): void {
+    $mock = new \GuzzleHttp\Handler\MockHandler([
+        new \GuzzleHttp\Psr7\Response(200, [], '{"key":"value"}'),
+    ]);
+    // ... assert SafeAccess::fromUrl(...) returns expected accessor
+});
+```
+
+#### Follow-up Checklist
+
+Add one checkbox per ⚠️ or ❌ item found during the audit:
+
+- [ ] `[COV-NNN]` — Remove `@codeCoverageIgnore` from `File.php:L` — replace with mock test
+- [ ] `[COV-NNN]` — ...
+
+---
+
 ### 🆚 Comparison with Industry References
 
 Compare this library against:
@@ -494,6 +411,8 @@ Write a paragraph on what this library does **better** and what needs improvemen
 ---
 
 ### 📋 Prioritised Refactoring Roadmap
+
+Consolidate **every** issue found across all prefixes (`CRIT`, `QUAL`, `ARCH`, `STYLE`, `PERF`, `COV`) into a single prioritised table. Every `[XXX-NNN]` block produced in the report above must have a corresponding row here — no issue may be omitted.
 
 | Priority | ID        | Title | Effort | Impact |
 | -------- | --------- | ----- | ------ | ------ |
