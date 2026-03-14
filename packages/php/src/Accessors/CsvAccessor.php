@@ -18,14 +18,14 @@ use SafeAccessInline\Exceptions\InvalidFormatException;
  */
 class CsvAccessor extends AbstractAccessor
 {
-    public static function from(mixed $data): static
+    public static function from(mixed $data, bool $readonly = false): static
     {
         if (!is_string($data)) {
             throw new InvalidFormatException(
                 'CsvAccessor expects a CSV string, got ' . gettype($data)
             );
         }
-        return new static($data); // @phpstan-ignore new.static
+        return new static($data, $readonly); // @phpstan-ignore new.static
     }
 
     protected function parse(mixed $raw): array
