@@ -10,6 +10,7 @@ import {
     PERMISSIVE_POLICY,
     setGlobalPolicy,
     clearGlobalPolicy,
+    getGlobalPolicy,
 } from '../../../src/core/security-policy';
 import type { SecurityPolicy } from '../../../src/core/security-policy';
 import { onAudit, emitAudit, clearAuditListeners } from '../../../src/core/audit-emitter';
@@ -85,6 +86,14 @@ describe('SecurityPolicy', () => {
         clearGlobalPolicy();
         const policy = defaultPolicy();
         expect(policy.maxDepth).toBe(512);
+    });
+
+    it('getGlobalPolicy returns the currently set policy', () => {
+        expect(getGlobalPolicy()).toBeNull();
+        setGlobalPolicy({ maxDepth: 99 });
+        expect(getGlobalPolicy()).toMatchObject({ maxDepth: 99 });
+        clearGlobalPolicy();
+        expect(getGlobalPolicy()).toBeNull();
     });
 
     it('SafeAccess.setGlobalPolicy delegates to security-policy', () => {

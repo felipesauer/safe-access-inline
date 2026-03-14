@@ -239,4 +239,95 @@ describe(AbstractAccessor.name, () => {
         const merged = accessor.merge({ b: 2 });
         expect(merged).toBeInstanceOf(ArrayAccessor);
     });
+
+    // ── getTemplate() ──
+
+    it('getTemplate — resolves bindings in template string', () => {
+        const accessor = ArrayAccessor.from({ user: { name: 'Ana', age: 25 } });
+        expect(accessor.getTemplate('user.{key}', { key: 'name' })).toBe('Ana');
+    });
+
+    it('getTemplate — returns default when resolved path is missing', () => {
+        const accessor = ArrayAccessor.from({ user: {} });
+        expect(accessor.getTemplate('user.{key}', { key: 'missing' }, 'fallback')).toBe('fallback');
+    });
+
+    it('get — resolves template path when second arg is bindings object', () => {
+        const accessor = ArrayAccessor.from({ user: { name: 'Ana', age: 25 } });
+        expect(accessor.get('user.{field}', { field: 'name' }, null)).toBe('Ana');
+    });
+
+    it('get — template get returns default when resolved path is missing', () => {
+        const accessor = ArrayAccessor.from({ user: {} });
+        expect(accessor.get('user.{field}', { field: 'missing' }, 'fallback')).toBe('fallback');
+    });
+
+    it('cloneWithState — readonly flag is propagated and data is frozen', () => {
+        const accessor = new ArrayAccessor({ password: 'secret', name: 'Ana' }, { readonly: true });
+        const masked = accessor.masked();
+        // The masked accessor is also readonly
+        expect(() => masked.set('name', 'Bob')).toThrow();
+    });
+
+    // ── toCsv() ──
+
+    it('toCsv — returns empty string when data has no rows', () => {
+        const accessor = ArrayAccessor.from({});
+        expect(accessor.toCsv()).toBe('');
+    });
+
+    it('toCsv — returns CSV with headers and rows', () => {
+        const accessor = ArrayAccessor.from({
+            r1: { name: 'Ana', age: 25 },
+            r2: { name: 'Bob', age: 30 },
+        });
+        const csv = accessor.toCsv();
+        expect(csv).toContain('name,age');
+        expect(csv).toContain('Ana,25');
+        expect(csv).toContain('Bob,30');
+    });
+
+    it('toCsv — escapes cells containing commas and quotes', () => {
+        const accessor = ArrayAccessor.from({
+            r1: { note: 'hello, world', other: 'plain' },
+        });
+        const csv = accessor.toCsv();
+        expect(csv).toContain('"hello, world"');
+    });
+
+    it('toCsv — escapes cells containing double-quotes', () => {
+        const accessor = ArrayAccessor.from({
+            r1: { text: 'say "hello"', other: 'x' },
+        });
+        const csv = accessor.toCsv();
+        expect(csv).toContain('"say ""hello"""');
+    });
+
+    it('toCsv — escapes cells containing newlines', () => {
+        const accessor = ArrayAccessor.from({
+            r1: { text: 'line1\nline2', other: 'x' },
+        });
+        const csv = accessor.toCsv();
+        expect(csv).toContain('"line1\nline2"');
+    });
+
+    it('toCsv — fills missing row values with empty string', () => {
+        const accessor = ArrayAccessor.from({
+            r1: { name: 'Ana', age: 25 },
+            r2: { name: 'Bob' },
+        });
+        const csv = accessor.toCsv();
+        // r2 has no age — should produce empty cell
+        const lines = csv.split('\n');
+        expect(lines[2]).toBe('Bob,');
+    });
+
+    it('transform — falls back to toCsv for csv format', () => {
+        const accessor = ArrayAccessor.from({
+            r1: { name: 'Ana', age: 25 },
+        });
+        const result = accessor.transform('csv');
+        expect(result).toContain('name,age');
+        expect(result).toContain('Ana,25');
+    });
 });

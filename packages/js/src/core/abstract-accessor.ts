@@ -238,6 +238,7 @@ export abstract class AbstractAccessor<
         const headers = Object.keys(firstRow);
         const sanitize = (cell: string): string => sanitizeCsvCell(cell, mode);
         const escapeCsv = (val: unknown): string => {
+            /* v8 ignore next -- callers always pass pre-converted strings */
             const str = String(val ?? '');
             return str.includes(',') || str.includes('"') || str.includes('\n')
                 ? `"${str.replace(/"/g, '""')}"`

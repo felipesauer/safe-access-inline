@@ -347,5 +347,10 @@ describe('JSONPath RFC 9535 Compliance', () => {
             const result = DotNotationParser.get(data, "..['bio']");
             expect(result).toEqual(expect.arrayContaining(['Hi', 'Hello world', 'Hey']));
         });
+
+        it('..["name","age"] with double-quoted keys collects matched values', () => {
+            const result = DotNotationParser.get(data, '..["name","age"]') as unknown[];
+            expect(result).toContain('Alice');
+        });
     });
 });

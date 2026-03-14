@@ -59,4 +59,22 @@ describe('PathCache', () => {
         const result = DotNotationParser.get(data, 'a.b');
         expect(result).toBe(1);
     });
+
+    it('disable() prevents caching and get returns undefined', () => {
+        PathCache.disable();
+        expect(PathCache.isEnabled).toBe(false);
+        PathCache.set('x', [{ type: 'key' as const, value: 'x' }]);
+        expect(PathCache.get('x')).toBeUndefined();
+        expect(PathCache.size).toBe(0);
+        PathCache.enable();
+    });
+
+    it('enable() re-enables caching after disable', () => {
+        PathCache.disable();
+        PathCache.enable();
+        expect(PathCache.isEnabled).toBe(true);
+        PathCache.set('y', [{ type: 'key' as const, value: 'y' }]);
+        expect(PathCache.get('y')).toBeDefined();
+        PathCache.clear();
+    });
 });

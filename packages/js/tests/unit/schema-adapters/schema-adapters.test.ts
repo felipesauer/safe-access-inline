@@ -6,6 +6,13 @@ import { YupSchemaAdapter } from '../../../src/schema-adapters/yup.adapter';
 describe('ZodSchemaAdapter', () => {
     const adapter = new ZodSchemaAdapter();
 
+    it('returns empty errors when result.error is undefined', () => {
+        const schema = { safeParse: () => ({ success: false as const }) };
+        const result = adapter.validate({}, schema);
+        expect(result.valid).toBe(false);
+        expect(result.errors).toEqual([]);
+    });
+
     it('returns valid for passing data', () => {
         const schema = {
             safeParse: (data: unknown) => ({ success: true, data }),
@@ -48,6 +55,14 @@ describe('ZodSchemaAdapter', () => {
 });
 
 describe('ValibotSchemaAdapter', () => {
+    it('returns empty errors when issues is undefined on failure', () => {
+        const safeParse = () => ({ success: false as const });
+        const adapter = new ValibotSchemaAdapter(safeParse);
+        const result = adapter.validate({}, {});
+        expect(result.valid).toBe(false);
+        expect(result.errors).toEqual([]);
+    });
+
     it('returns valid for passing data', () => {
         const safeParse = (_schema: unknown, _data: unknown) => ({ success: true as const });
         const adapter = new ValibotSchemaAdapter(safeParse);
@@ -86,6 +101,52 @@ describe('ValibotSchemaAdapter', () => {
 
 describe('YupSchemaAdapter', () => {
     const adapter = new YupSchemaAdapter();
+
+    it('uses $ path for inner errors with no path set', () => {
+        const validationError = Object.assign(new Error('invalid'), {
+            name: 'ValidationError',
+            path: 'root',
+            inner: [{ path: '', message: 'field required' }],
+        });
+        const schema = {
+            validateSync: () => {
+                throw validationError;
+            },
+        };
+        const result = adapter.validate({}, schema);
+        expect(result.errors[0].path).toBe('$');
+    });
+
+    it('uses $ for top-level path when err.path is empty', () => {
+        const validationError = Object.assign(new Error('bad'), {
+            name: 'ValidationError',
+            path: '',
+            inner: [],
+        });
+        const schema = {
+            validateSync: () => {
+                throw validationError;
+            },
+        };
+        const result = adapter.validate({}, schema);
+        expect(result.errors[0].path).toBe('$');
+    });
+
+    it('falls back to empty inner array when inner is undefined', () => {
+        const validationError = Object.assign(new Error('bad'), {
+            name: 'ValidationError',
+            path: 'field',
+            // inner is intentionally NOT set
+        });
+        const schema = {
+            validateSync: () => {
+                throw validationError;
+            },
+        };
+        const result = adapter.validate({}, schema);
+        expect(result.valid).toBe(false);
+        expect(result.errors[0].path).toBe('field');
+    });
 
     it('returns valid for passing data', () => {
         const schema = {
