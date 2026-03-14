@@ -60,4 +60,16 @@ describe(SecurityOptions::class, function () {
             expect(fn () => SecurityOptions::assertMaxDepth(512))->not->toThrow(SecurityException::class);
         });
     });
+
+    describe('assertMaxKeys with deep nesting', function () {
+        it('stops counting keys beyond depth 100', function () {
+            // Build nested structure >100 levels deep
+            $data = ['inner' => 'leaf'];
+            for ($i = 0; $i < 105; $i++) {
+                $data = ['k' . $i => $data];
+            }
+            // Should not throw — countKeys bails at depth > 100
+            expect(fn () => SecurityOptions::assertMaxKeys($data, 200))->not->toThrow(SecurityException::class);
+        });
+    });
 });

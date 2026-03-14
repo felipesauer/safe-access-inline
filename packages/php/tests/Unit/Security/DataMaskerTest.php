@@ -90,4 +90,20 @@ describe('AbstractAccessor::masked()', function () {
         expect($masked->get('my_field'))->toBe('[REDACTED]');
         expect($masked->get('other'))->toBe('keep');
     });
+
+    it('stops recursion at depth > 100', function () {
+        // Build a deeply nested structure (>100 levels)
+        $data = ['password' => 'secret'];
+        for ($i = 0; $i < 105; $i++) {
+            $data = ['level' . $i => $data];
+        }
+        // The deeply nested 'password' should NOT be masked (depth > 100 guard)
+        $result = DataMasker::mask($data, ['password']);
+        // Traverse to the bottom
+        $current = $result;
+        for ($i = 104; $i >= 0; $i--) {
+            $current = $current['level' . $i];
+        }
+        expect($current['password'])->toBe('secret');
+    });
 });
