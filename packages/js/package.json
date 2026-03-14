@@ -4,12 +4,12 @@
     "description": "Safe nested data access with dot notation — supports Object, Array, JSON, XML, YAML and more.",
     "type": "module",
     "main": "./dist/index.cjs",
-    "module": "./dist/index.mjs",
+    "module": "./dist/index.js",
     "types": "./dist/index.d.ts",
     "exports": {
         ".": {
             "types": "./dist/index.d.ts",
-            "import": "./dist/index.mjs",
+            "import": "./dist/index.js",
             "require": "./dist/index.cjs"
         }
     },
@@ -56,6 +56,7 @@
     },
     "devDependencies": {
         "@types/js-yaml": "^4.0.0",
+        "@types/node": "^22.0.0",
         "@eslint/js": "^10.0.1",
         "@vitest/coverage-v8": "^4.1.0",
         "eslint": "^10.0",

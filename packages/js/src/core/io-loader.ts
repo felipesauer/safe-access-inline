@@ -1,0 +1,87 @@
+import * as fs from 'node:fs';
+import * as fsp from 'node:fs/promises';
+import * as path from 'node:path';
+import { SecurityError } from '../exceptions/security.error';
+import { assertSafeUrl, assertResolvedIpNotPrivate } from './ip-range-checker';
+import { Format } from '../format.enum';
+import { emitAudit } from './audit-emitter';
+
+/**
+ * Maps file extensions to Format enum values.
+ */
+const EXTENSION_FORMAT_MAP: Record<string, Format> = {
+    '.json': Format.Json,
+    '.xml': Format.Xml,
+    '.yaml': Format.Yaml,
+    '.yml': Format.Yaml,
+    '.toml': Format.Toml,
+    '.ini': Format.Ini,
+    '.cfg': Format.Ini,
+    '.csv': Format.Csv,
+    '.env': Format.Env,
+    '.ndjson': Format.Ndjson,
+    '.jsonl': Format.Ndjson,
+};
+
+export function resolveFormatFromExtension(filePath: string): Format | null {
+    const ext = path.extname(filePath).toLowerCase();
+    return EXTENSION_FORMAT_MAP[ext] ?? null;
+}
+
+export function assertPathWithinAllowedDirs(filePath: string, allowedDirs?: string[]): void {
+    // Block null bytes
+    if (filePath.includes('\0')) {
+        throw new SecurityError('File path contains null bytes.');
+    }
+
+    if (!allowedDirs || allowedDirs.length === 0) return;
+
+    const resolved = path.resolve(filePath);
+    const allowed = allowedDirs.some((dir) => {
+        const resolvedDir = path.resolve(dir);
+        return resolved.startsWith(resolvedDir + path.sep) || resolved === resolvedDir;
+    });
+
+    if (!allowed) {
+        throw new SecurityError(`Path '${filePath}' is outside allowed directories.`);
+    }
+}
+
+export function readFileSync(filePath: string, options?: { allowedDirs?: string[] }): string {
+    assertPathWithinAllowedDirs(filePath, options?.allowedDirs);
+    emitAudit('file.read', { filePath });
+    return fs.readFileSync(filePath, 'utf-8');
+}
+
+export async function readFile(
+    filePath: string,
+    options?: { allowedDirs?: string[] },
+): Promise<string> {
+    assertPathWithinAllowedDirs(filePath, options?.allowedDirs);
+    emitAudit('file.read', { filePath });
+    return fsp.readFile(filePath, 'utf-8');
+}
+
+export async function fetchUrl(
+    url: string,
+    options?: {
+        allowPrivateIps?: boolean;
+        allowedHosts?: string[];
+        allowedPorts?: number[];
+    },
+): Promise<string> {
+    assertSafeUrl(url, options);
+
+    // DNS-level SSRF check: resolve hostname and verify it doesn't point to private IPs
+    const parsed = new URL(url);
+    await assertResolvedIpNotPrivate(parsed.hostname, {
+        allowPrivateIps: options?.allowPrivateIps,
+    });
+
+    emitAudit('url.fetch', { url });
+    const response = await fetch(url);
+    if (!response.ok) {
+        throw new SecurityError(`Failed to fetch URL '${url}': HTTP ${response.status}`);
+    }
+    return response.text();
+}

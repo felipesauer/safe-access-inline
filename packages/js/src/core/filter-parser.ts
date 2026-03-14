@@ -6,16 +6,22 @@
  *   [?field=='string']         — equality with string
  *   [?age>=18 && active==true] — logical AND
  *   [?env=='prod' || env=='staging'] — logical OR
+ *   [?length(@.name)>3]       — function: length
+ *   [?match(@.name,'Ana.*')]  — function: match
+ *   [?keys(@)>2]              — function: keys (count of keys)
  *
  * Operators: ==, !=, >, <, >=, <=
  * Logical:   &&, ||
  * Values:    number, 'string', "string", true, false, null
+ * Functions: length(@.field), match(@.field, 'pattern'), keys(@)
  */
 
 export interface FilterCondition {
     field: string;
     operator: '==' | '!=' | '>' | '<' | '>=' | '<=';
     value: unknown;
+    func?: string;
+    funcArgs?: string[];
 }
 
 export interface FilterExpression {
@@ -114,6 +120,32 @@ export class FilterParser {
     private static parseCondition(token: string): FilterCondition {
         const operators = ['>=', '<=', '!=', '==', '>', '<'] as const;
 
+        // Detect function call with operator: funcName(...) operator value
+        const funcWithOpMatch = token.match(/^(\w+)\(([^)]*)\)\s*(>=|<=|!=|==|>|<)\s*(.+)$/);
+        if (funcWithOpMatch) {
+            const func = funcWithOpMatch[1];
+            const argsRaw = funcWithOpMatch[2];
+            const operator = funcWithOpMatch[3] as FilterCondition['operator'];
+            const rawValue = funcWithOpMatch[4].trim();
+            const funcArgs = argsRaw.split(',').map((a) => a.trim());
+            return {
+                field: funcArgs[0] || '@',
+                operator,
+                value: FilterParser.parseValue(rawValue),
+                func,
+                funcArgs,
+            };
+        }
+
+        // Detect function call without operator (boolean return): funcName(...)
+        const funcBoolMatch = token.match(/^(\w+)\(([^)]*)\)$/);
+        if (funcBoolMatch) {
+            const func = funcBoolMatch[1];
+            const argsRaw = funcBoolMatch[2];
+            const funcArgs = argsRaw.split(',').map((a) => a.trim());
+            return { field: funcArgs[0] || '@', operator: '==', value: true, func, funcArgs };
+        }
+
         for (const op of operators) {
             const idx = token.indexOf(op);
             if (idx !== -1) {
@@ -148,7 +180,19 @@ export class FilterParser {
         item: Record<string, unknown>,
         condition: FilterCondition,
     ): boolean {
-        const fieldValue = FilterParser.resolveField(item, condition.field);
+        let fieldValue: unknown;
+
+        if (condition.func) {
+            fieldValue = FilterParser.evaluateFunction(
+                item,
+                condition.func,
+                /* v8 ignore next -- funcArgs is always set alongside func */
+                condition.funcArgs ?? [],
+            );
+        } else {
+            fieldValue = FilterParser.resolveField(item, condition.field);
+        }
+
         const expected = condition.value;
 
         switch (condition.operator) {
@@ -165,6 +209,54 @@ export class FilterParser {
             case '<=':
                 return (fieldValue as number) <= (expected as number);
         }
+    }
+
+    private static evaluateFunction(
+        item: Record<string, unknown>,
+        func: string,
+        funcArgs: string[],
+    ): unknown {
+        switch (func) {
+            case 'length': {
+                const val = FilterParser.resolveFilterArg(item, funcArgs[0]);
+                if (typeof val === 'string') return val.length;
+                if (Array.isArray(val)) return val.length;
+                if (typeof val === 'object' && val !== null) return Object.keys(val).length;
+                return 0;
+            }
+            case 'match': {
+                const val = FilterParser.resolveFilterArg(item, funcArgs[0]);
+                if (typeof val !== 'string') return false;
+                /* v8 ignore next -- trim() never returns nullish */
+                let pattern = funcArgs[1]?.trim() ?? '';
+                // Strip quotes from pattern
+                if (
+                    (pattern.startsWith("'") && pattern.endsWith("'")) ||
+                    (pattern.startsWith('"') && pattern.endsWith('"'))
+                ) {
+                    pattern = pattern.slice(1, -1);
+                }
+                return new RegExp(pattern).test(val);
+            }
+            case 'keys': {
+                const val = FilterParser.resolveFilterArg(item, funcArgs[0]);
+                if (typeof val === 'object' && val !== null && !Array.isArray(val)) {
+                    return Object.keys(val).length;
+                }
+                return 0;
+            }
+            default:
+                throw new Error(`Unknown filter function: "${func}"`);
+        }
+    }
+
+    private static resolveFilterArg(item: Record<string, unknown>, arg: string): unknown {
+        if (!arg || arg === '@') return item;
+        // @.field.sub → resolve from item
+        if (arg.startsWith('@.')) {
+            return FilterParser.resolveField(item, arg.substring(2));
+        }
+        return FilterParser.resolveField(item, arg);
     }
 
     private static resolveField(item: Record<string, unknown>, field: string): unknown {

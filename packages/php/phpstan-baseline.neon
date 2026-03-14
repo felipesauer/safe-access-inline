@@ -1,0 +1,145 @@
+parameters:
+	ignoreErrors:
+		-
+			rawMessage: Cannot access offset string on mixed.
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: src/Core/AbstractAccessor.php
+
+		-
+			rawMessage: 'Parameter #1 $array (list) of array_values is already a list, call has no effect.'
+			identifier: arrayValues.list
+			count: 1
+			path: src/Core/AbstractAccessor.php
+
+		-
+			rawMessage: While loop condition is always true.
+			identifier: while.alwaysTrue
+			count: 1
+			path: src/Core/FileWatcher.php
+
+		-
+			rawMessage: Offset 0 on non-empty-list<string> on left side of ?? always exists and is not nullable.
+			identifier: nullCoalesce.offset
+			count: 2
+			path: src/Core/FilterParser.php
+
+		-
+			rawMessage: Cannot access offset int|string on mixed.
+			identifier: offsetAccess.nonOffsetAccessible
+			count: 2
+			path: src/Core/JsonPatch.php
+
+		-
+			rawMessage: 'Comparison operation ">" between int<1, max> and 0 is always true.'
+			identifier: greater.alwaysTrue
+			count: 1
+			path: src/Core/JsonPatch.php
+
+		-
+			rawMessage: 'Strict comparison using !== between string and null will always evaluate to true.'
+			identifier: notIdentical.alwaysTrue
+			count: 1
+			path: src/Core/PathCache.php
+
+		-
+			rawMessage: 'Method SafeAccessInline\SafeAccess::fromUrl() has parameter $options with no value type specified in iterable type array.'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/SafeAccess.php
+
+		-
+			rawMessage: 'Method SafeAccessInline\SafeAccess::watchFile() has parameter $allowedDirs with no value type specified in iterable type array.'
+			identifier: missingType.iterableValue
+			count: 1
+			path: src/SafeAccess.php
+
+		-
+			rawMessage: 'Argument of an invalid type mixed supplied for foreach, only iterables are supported.'
+			identifier: foreach.nonIterable
+			count: 1
+			path: src/SchemaAdapters/JsonSchemaAdapter.php
+
+		-
+			rawMessage: 'Parameter #1 $key of function array_key_exists expects int|string, mixed given.'
+			identifier: argument.type
+			count: 1
+			path: src/SchemaAdapters/JsonSchemaAdapter.php
+
+		-
+			rawMessage: 'Parameter #3 $subject of function str_replace expects array<string>|string, mixed given.'
+			identifier: argument.type
+			count: 1
+			path: src/SchemaAdapters/JsonSchemaAdapter.php
+
+		-
+			rawMessage: 'Part $key (mixed) of encapsed string cannot be cast to string.'
+			identifier: encapsedStringPart.nonString
+			count: 1
+			path: src/SchemaAdapters/JsonSchemaAdapter.php
+
+		-
+			rawMessage: 'Part $schema[''maxLength''] (mixed) of encapsed string cannot be cast to string.'
+			identifier: encapsedStringPart.nonString
+			count: 1
+			path: src/SchemaAdapters/JsonSchemaAdapter.php
+
+		-
+			rawMessage: 'Part $schema[''maximum''] (mixed) of encapsed string cannot be cast to string.'
+			identifier: encapsedStringPart.nonString
+			count: 1
+			path: src/SchemaAdapters/JsonSchemaAdapter.php
+
+		-
+			rawMessage: 'Part $schema[''minLength''] (mixed) of encapsed string cannot be cast to string.'
+			identifier: encapsedStringPart.nonString
+			count: 1
+			path: src/SchemaAdapters/JsonSchemaAdapter.php
+
+		-
+			rawMessage: 'Part $schema[''minimum''] (mixed) of encapsed string cannot be cast to string.'
+			identifier: encapsedStringPart.nonString
+			count: 1
+			path: src/SchemaAdapters/JsonSchemaAdapter.php
+
+		-
+			rawMessage: 'Part $schema[''pattern''] (mixed) of encapsed string cannot be cast to string.'
+			identifier: encapsedStringPart.nonString
+			count: 1
+			path: src/SchemaAdapters/JsonSchemaAdapter.php
+
+		-
+			rawMessage: 'Call to method getMessage() on an unknown class Symfony\Component\Validator\ConstraintViolationInterface.'
+			identifier: class.notFound
+			count: 1
+			path: src/SchemaAdapters/SymfonyValidatorAdapter.php
+
+		-
+			rawMessage: 'Call to method getPropertyPath() on an unknown class Symfony\Component\Validator\ConstraintViolationInterface.'
+			identifier: class.notFound
+			count: 1
+			path: src/SchemaAdapters/SymfonyValidatorAdapter.php
+
+		-
+			rawMessage: 'Call to method validate() on an unknown class Symfony\Component\Validator\Validator\ValidatorInterface.'
+			identifier: class.notFound
+			count: 1
+			path: src/SchemaAdapters/SymfonyValidatorAdapter.php
+
+		-
+			rawMessage: PHPDoc tag @var for variable $validator contains unknown class Symfony\Component\Validator\Validator\ValidatorInterface.
+			identifier: class.notFound
+			count: 1
+			path: src/SchemaAdapters/SymfonyValidatorAdapter.php
+
+		-
+			rawMessage: PHPDoc tag @var for variable $violation contains unknown class Symfony\Component\Validator\ConstraintViolationInterface.
+			identifier: class.notFound
+			count: 1
+			path: src/SchemaAdapters/SymfonyValidatorAdapter.php
+
+		-
+			rawMessage: Match arm comparison between 'error' and 'error' is always true.
+			identifier: match.alwaysTrue
+			count: 1
+			path: src/Security/CsvSanitizer.php

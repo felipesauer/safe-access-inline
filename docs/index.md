@@ -2,7 +2,7 @@
 layout: home
 title: Home
 nav_order: 1
-description: Safely access deeply nested data with dot notation — one API, 9 formats, PHP + JS/TS.
+description: Safely access deeply nested data with dot notation — one API, 10 formats, PHP + JS/TS.
 permalink: /
 ---
 
@@ -10,7 +10,7 @@ permalink: /
 
 {: .fs-9 }
 
-Safely access deeply nested data with dot notation — one API, 9 formats, PHP + JS/TS.
+Safely access deeply nested data with dot notation — one API, 10 formats, PHP + JS/TS.
 {: .fs-6 .fw-300 }
 
 [![PHP CI](https://github.com/felipesauer/safe-access-inline/actions/workflows/php-ci.yml/badge.svg)](https://github.com/felipesauer/safe-access-inline/actions/workflows/php-ci.yml)
@@ -35,19 +35,25 @@ $accessor->get('user.profile.name', 'N/A');  // Works with JSON, XML, YAML, TOML
 accessor.get("user.profile.name", "N/A"); // Same API, same result
 ```
 
-No exceptions. No surprises. One API, 9 formats.
+No exceptions. No surprises. One API, 10 formats.
 
 ---
 
 ## Features
 
 - **Zero surprises** — `get()` never throws; always returns a default value for missing paths
-- **Format-agnostic** — same API across 9 data formats
+- **Format-agnostic** — same API across 10 data formats (JSON, XML, YAML, TOML, INI, CSV, ENV, NDJSON + Array/Object)
 - **Immutable** — `set()` and `remove()` return new instances
 - **Dot notation** — access nested data with `user.profile.name`
-- **Wildcard** — `users.*.email` returns an array of all emails
+- **Wildcard & filter** — `users.*.email`, `items[?price>20].name`, `..name` recursive descent
+- **Array operations** — `push`, `pop`, `shift`, `insert`, `filterAt`, `mapAt`, `sortAt`, `unique`, `flatten`
+- **JSON Patch** — RFC 6902 `diff()` and `applyPatch()` for change tracking
+- **Security** — SSRF protection, path-traversal guards, data masking, CSV sanitization, readonly mode
+- **Schema validation** — adapter-based validation with any library (Zod, Joi, JSON Schema, etc.)
+- **I/O** — `fromFile()`, `fromUrl()`, `layer()`, `watchFile()` with audit logging
 - **Plugin system** — extend parsing and serialization with custom plugins via `PluginRegistry`
-- **Real dependencies for YAML/TOML** — `js-yaml`/`smol-toml` (JS) and `symfony/yaml`/`devium/toml` (PHP) work out of the box
+- **CLI** — `@safe-access-inline/cli` for command-line access to all features
+- **Framework integrations** — NestJS, Vite (JS) · Laravel, Symfony (PHP)
 - **PHP ↔ JS parity** — identical API in both languages
 
 ---
@@ -65,6 +71,7 @@ No exceptions. No surprises. One API, 9 formats.
 | INI    | ✅  |  ✅   | Native                                                                         |
 | CSV    | ✅  |  ✅   | Native                                                                         |
 | ENV    | ✅  |  ✅   | Native                                                                         |
+| NDJSON | ✅  |  ✅   | Native                                                                         |
 
 ---
 

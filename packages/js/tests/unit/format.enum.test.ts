@@ -14,7 +14,7 @@ describe('Format enum', () => {
         expect(Format.Env).toBe('env');
     });
 
-    it('contains exactly 9 members', () => {
-        expect(Object.keys(Format)).toHaveLength(9);
+    it('contains exactly 10 members', () => {
+        expect(Object.keys(Format)).toHaveLength(10);
     });
 });

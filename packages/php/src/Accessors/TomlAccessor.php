@@ -16,7 +16,7 @@ use SafeAccessInline\Exceptions\InvalidFormatException;
  */
 class TomlAccessor extends AbstractAccessor
 {
-    public static function from(mixed $data): static
+    public static function from(mixed $data, bool $readonly = false): static
     {
         if (!is_string($data)) {
             throw new InvalidFormatException(
@@ -24,7 +24,7 @@ class TomlAccessor extends AbstractAccessor
             );
         }
 
-        return new static($data); // @phpstan-ignore new.static
+        return new static($data, $readonly); // @phpstan-ignore new.static
     }
 
     protected function parse(mixed $raw): array

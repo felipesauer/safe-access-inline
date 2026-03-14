@@ -2,7 +2,7 @@
 layout: default
 title: Início
 nav_exclude: true
-description: Acesse dados profundamente aninhados com notação de ponto — uma API, 9 formatos, PHP + JS/TS.
+description: Acesse dados profundamente aninhados com notação de ponto — uma API, 10 formatos, PHP + JS/TS.
 permalink: /pt-br/
 lang: pt-br
 ---
@@ -11,7 +11,7 @@ lang: pt-br
 
 {: .fs-9 }
 
-Acesse dados profundamente aninhados com notação de ponto — uma API, 9 formatos, PHP + JS/TS.
+Acesse dados profundamente aninhados com notação de ponto — uma API, 10 formatos, PHP + JS/TS.
 {: .fs-6 .fw-300 }
 
 [![PHP CI](https://github.com/felipesauer/safe-access-inline/actions/workflows/php-ci.yml/badge.svg)](https://github.com/felipesauer/safe-access-inline/actions/workflows/php-ci.yml)
@@ -36,19 +36,25 @@ $accessor->get('user.profile.name', 'N/A');  // Funciona com JSON, XML, YAML, TO
 accessor.get("user.profile.name", "N/A"); // Mesma API, mesmo resultado
 ```
 
-Sem exceções. Sem surpresas. Uma API, 9 formatos.
+Sem exceções. Sem surpresas. Uma API, 10 formatos.
 
 ---
 
 ## Funcionalidades
 
 - **Zero surpresas** — `get()` nunca lança exceções; sempre retorna um valor padrão para caminhos não encontrados
-- **Agnóstico de formato** — mesma API para 9 formatos de dados
+- **Agnóstico de formato** — mesma API para 10 formatos de dados (JSON, XML, YAML, TOML, INI, CSV, ENV, NDJSON + Array/Object)
 - **Imutável** — `set()` e `remove()` retornam novas instâncias
 - **Notação de ponto** — acesse dados aninhados com `user.profile.name`
-- **Wildcard** — `users.*.email` retorna um array com todos os emails
+- **Wildcard & filtro** — `users.*.email`, `items[?price>20].name`, `..name` descida recursiva
+- **Operações de array** — `push`, `pop`, `shift`, `insert`, `filterAt`, `mapAt`, `sortAt`, `unique`, `flatten`
+- **JSON Patch** — RFC 6902 `diff()` e `applyPatch()` para rastreamento de mudanças
+- **Segurança** — proteção SSRF, proteção contra path-traversal, mascaramento de dados, sanitização CSV, modo readonly
+- **Validação de schema** — validação baseada em adapter com qualquer biblioteca (Zod, Joi, JSON Schema, etc.)
+- **I/O** — `fromFile()`, `fromUrl()`, `layer()`, `watchFile()` com log de auditoria
 - **Sistema de plugins** — estenda parsing e serialização com plugins customizados via `PluginRegistry`
-- **Dependências reais para YAML/TOML** — `js-yaml`/`smol-toml` (JS) e `symfony/yaml`/`devium/toml` (PHP) funcionam sem configuração
+- **CLI** — `@safe-access-inline/cli` para acesso via linha de comando a todas as funcionalidades
+- **Integrações com frameworks** — NestJS, Vite (JS) · Laravel, Symfony (PHP)
 - **Paridade PHP ↔ JS** — API idêntica em ambas linguagens
 
 ---
@@ -66,6 +72,7 @@ Sem exceções. Sem surpresas. Uma API, 9 formatos.
 | INI     | ✅  |  ✅   | Nativo                                                                             |
 | CSV     | ✅  |  ✅   | Nativo                                                                             |
 | ENV     | ✅  |  ✅   | Nativo                                                                             |
+| NDJSON  | ✅  |  ✅   | Nativo                                                                             |
 
 ---
 

@@ -300,4 +300,50 @@ describe(DotNotationParser::class, function () {
         expect($result)->toBe(['Ana', 'Carlos']);
     });
 
+    // ── Recursive descent multi-key ─────────────────────
+
+    it("get — descent multi-key ..['name','age'] collects from nested", function () {
+        $data = [
+            'users' => [
+                ['name' => 'Alice', 'age' => 25],
+                ['name' => 'Bob', 'age' => 17],
+            ],
+        ];
+        $result = DotNotationParser::get($data, "..['name','age']");
+        expect($result)->toContain('Alice');
+        expect($result)->toContain('Bob');
+        expect($result)->toContain(25);
+        expect($result)->toContain(17);
+    });
+
+    it("get — descent multi-key ..['title','price'] from array of objects", function () {
+        $data = [
+            'store' => [
+                'books' => [
+                    ['title' => 'A', 'price' => 10],
+                    ['title' => 'B', 'price' => 20],
+                ],
+            ],
+        ];
+        $result = DotNotationParser::get($data, "..['title','price']");
+        expect($result)->toContain('A');
+        expect($result)->toContain('B');
+        expect($result)->toContain(10);
+        expect($result)->toContain(20);
+        expect($result)->toHaveCount(4);
+    });
+
+    it("get — descent single-key in brackets ..['name'] acts as descent", function () {
+        $data = ['name' => 'Root', 'child' => ['name' => 'Child']];
+        $result = DotNotationParser::get($data, "..['name']");
+        expect($result)->toContain('Root');
+        expect($result)->toContain('Child');
+    });
+
+    it("get — descent multi-key returns default when no keys found", function () {
+        $data = ['a' => 1];
+        $result = DotNotationParser::get($data, "..['x','y']", 'fallback');
+        expect($result)->toBe('fallback');
+    });
+
 });

@@ -7,6 +7,7 @@ import { YamlAccessor } from '../accessors/yaml.accessor';
 import { TomlAccessor } from '../accessors/toml.accessor';
 import { IniAccessor } from '../accessors/ini.accessor';
 import { EnvAccessor } from '../accessors/env.accessor';
+import { NdjsonAccessor } from '../accessors/ndjson.accessor';
 import { UnsupportedTypeError } from '../exceptions/unsupported-type.error';
 
 /**
@@ -34,7 +35,20 @@ export class TypeDetector {
                 try {
                     return JsonAccessor.from(data);
                 } catch {
-                    /* not JSON */
+                    /* not JSON — check NDJSON */
+                    if (
+                        trimmed.includes('\n') &&
+                        trimmed.split('\n').every((l) => {
+                            const t = l.trim();
+                            return t === '' || t.startsWith('{');
+                        })
+                    ) {
+                        try {
+                            return NdjsonAccessor.from(data);
+                        } catch {
+                            /* not NDJSON */
+                        }
+                    }
                 }
             }
 

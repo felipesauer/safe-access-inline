@@ -4,6 +4,7 @@ namespace SafeAccessInline\Accessors;
 
 use SafeAccessInline\Core\AbstractAccessor;
 use SafeAccessInline\Exceptions\InvalidFormatException;
+use SafeAccessInline\Exceptions\SecurityException;
 
 /**
  * Accessor for XML data.
@@ -14,14 +15,14 @@ class XmlAccessor extends AbstractAccessor
 {
     private \SimpleXMLElement|string $originalXml;
 
-    public static function from(mixed $data): static
+    public static function from(mixed $data, bool $readonly = false): static
     {
         if (!is_string($data) && !$data instanceof \SimpleXMLElement) {
             throw new InvalidFormatException(
                 'XmlAccessor expects a string or SimpleXMLElement, got ' . gettype($data)
             );
         }
-        return new static($data); // @phpstan-ignore new.static
+        return new static($data, $readonly); // @phpstan-ignore new.static
     }
 
     protected function parse(mixed $raw): array
@@ -30,6 +31,7 @@ class XmlAccessor extends AbstractAccessor
         $this->originalXml = $raw;
 
         if (is_string($raw)) {
+            self::assertSafeXml($raw);
             $previous = libxml_use_internal_errors(true);
             try {
                 $xml = simplexml_load_string($raw, options: LIBXML_NONET | LIBXML_NOCDATA);
@@ -55,6 +57,16 @@ class XmlAccessor extends AbstractAccessor
     public function getOriginalXml(): \SimpleXMLElement|string
     {
         return $this->originalXml;
+    }
+
+    private static function assertSafeXml(string $xml): void
+    {
+        if (preg_match('/<!DOCTYPE/i', $xml)) {
+            throw new SecurityException('XML DOCTYPE declarations are blocked for security.');
+        }
+        if (preg_match('/<!ENTITY/i', $xml)) {
+            throw new SecurityException('XML ENTITY declarations are blocked for security.');
+        }
     }
 
     /** {@inheritDoc} */

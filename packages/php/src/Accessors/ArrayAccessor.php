@@ -11,14 +11,14 @@ use SafeAccessInline\Exceptions\InvalidFormatException;
  */
 class ArrayAccessor extends AbstractAccessor
 {
-    public static function from(mixed $data): static
+    public static function from(mixed $data, bool $readonly = false): static
     {
         if (!is_array($data)) {
             throw new InvalidFormatException(
                 'ArrayAccessor expects an array, got ' . gettype($data)
             );
         }
-        return new static($data); // @phpstan-ignore new.static
+        return new static($data, $readonly); // @phpstan-ignore new.static
     }
 
     protected function parse(mixed $raw): array

@@ -17,7 +17,7 @@ class SymfonyYamlParser implements ParserPluginInterface
 {
     public function parse(string $raw): array
     {
-        $parsed = \Symfony\Component\Yaml\Yaml::parse($raw);
+        $parsed = \Symfony\Component\Yaml\Yaml::parse($raw, \Symfony\Component\Yaml\Yaml::PARSE_EXCEPTION_ON_INVALID_TYPE);
 
         return is_array($parsed) ? $parsed : [];
     }

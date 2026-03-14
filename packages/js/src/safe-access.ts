@@ -8,9 +8,21 @@ import { TomlAccessor } from './accessors/toml.accessor';
 import { IniAccessor } from './accessors/ini.accessor';
 import { CsvAccessor } from './accessors/csv.accessor';
 import { EnvAccessor } from './accessors/env.accessor';
+import { NdjsonAccessor } from './accessors/ndjson.accessor';
 import { TypeDetector } from './core/type-detector';
 import { InvalidFormatError } from './exceptions/invalid-format.error';
 import { Format } from './format.enum';
+import { readFileSync, readFile, fetchUrl, resolveFormatFromExtension } from './core/io-loader';
+import { deepMerge } from './core/deep-merger';
+import { watchFile } from './core/file-watcher';
+import type { SecurityPolicy } from './core/security-policy';
+import {
+    setGlobalPolicy as _setGlobalPolicy,
+    clearGlobalPolicy as _clearGlobalPolicy,
+} from './core/security-policy';
+import { assertPayloadSize, assertMaxKeys } from './core/security-options';
+import { onAudit, clearAuditListeners } from './core/audit-emitter';
+import type { AuditListener } from './core/audit-emitter';
 
 export class SafeAccess {
     private static customAccessors = new Map<string, new (data: unknown) => AbstractAccessor>();
@@ -26,6 +38,7 @@ export class SafeAccess {
     static from(data: string, format: 'ini'): IniAccessor;
     static from(data: string, format: 'csv'): CsvAccessor;
     static from(data: string, format: 'env'): EnvAccessor;
+    static from(data: string, format: 'ndjson'): NdjsonAccessor;
     static from(data: unknown, format: string): AbstractAccessor;
     static from(data: unknown): AbstractAccessor;
     static from(data: unknown[], format: Format.Array): ArrayAccessor;
@@ -37,6 +50,7 @@ export class SafeAccess {
     static from(data: string, format: Format.Ini): IniAccessor;
     static from(data: string, format: Format.Csv): CsvAccessor;
     static from(data: string, format: Format.Env): EnvAccessor;
+    static from(data: string, format: Format.Ndjson): NdjsonAccessor;
     static from(data: unknown, format?: string | Format): AbstractAccessor {
         if (!format) {
             return TypeDetector.resolve(data);
@@ -61,6 +75,8 @@ export class SafeAccess {
                 return CsvAccessor.from(data as string);
             case 'env':
                 return EnvAccessor.from(data as string);
+            case 'ndjson':
+                return NdjsonAccessor.from(data as string);
             default: {
                 const Cls = SafeAccess.customAccessors.get(format);
                 if (Cls) return new Cls(data);
@@ -75,56 +91,72 @@ export class SafeAccess {
 
     static fromArray<T extends Record<string, unknown> = Record<string, unknown>>(
         data: unknown[],
+        options?: { readonly?: boolean },
     ): ArrayAccessor<T> {
-        return ArrayAccessor.from(data) as ArrayAccessor<T>;
+        return new ArrayAccessor(data, options) as ArrayAccessor<T>;
     }
 
     static fromObject<T extends Record<string, unknown> = Record<string, unknown>>(
         data: Record<string, unknown>,
+        options?: { readonly?: boolean },
     ): ObjectAccessor<T> {
-        return ObjectAccessor.from(data) as ObjectAccessor<T>;
+        return new ObjectAccessor(data, options) as ObjectAccessor<T>;
     }
 
     static fromJson<T extends Record<string, unknown> = Record<string, unknown>>(
         data: string,
+        options?: { readonly?: boolean },
     ): JsonAccessor<T> {
-        return JsonAccessor.from(data) as JsonAccessor<T>;
+        return new JsonAccessor(data, options) as JsonAccessor<T>;
     }
 
     static fromXml<T extends Record<string, unknown> = Record<string, unknown>>(
         data: string,
+        options?: { readonly?: boolean },
     ): XmlAccessor<T> {
-        return XmlAccessor.from(data) as XmlAccessor<T>;
+        return new XmlAccessor(data, options) as XmlAccessor<T>;
     }
 
     static fromYaml<T extends Record<string, unknown> = Record<string, unknown>>(
         data: string,
+        options?: { readonly?: boolean },
     ): YamlAccessor<T> {
-        return YamlAccessor.from(data) as YamlAccessor<T>;
+        return new YamlAccessor(data, options) as YamlAccessor<T>;
     }
 
     static fromToml<T extends Record<string, unknown> = Record<string, unknown>>(
         data: string,
+        options?: { readonly?: boolean },
     ): TomlAccessor<T> {
-        return TomlAccessor.from(data) as TomlAccessor<T>;
+        return new TomlAccessor(data, options) as TomlAccessor<T>;
     }
 
     static fromIni<T extends Record<string, unknown> = Record<string, unknown>>(
         data: string,
+        options?: { readonly?: boolean },
     ): IniAccessor<T> {
-        return IniAccessor.from(data) as IniAccessor<T>;
+        return new IniAccessor(data, options) as IniAccessor<T>;
     }
 
     static fromCsv<T extends Record<string, unknown> = Record<string, unknown>>(
         data: string,
+        options?: { readonly?: boolean },
     ): CsvAccessor<T> {
-        return CsvAccessor.from(data) as CsvAccessor<T>;
+        return new CsvAccessor(data, options) as CsvAccessor<T>;
     }
 
     static fromEnv<T extends Record<string, unknown> = Record<string, unknown>>(
         data: string,
+        options?: { readonly?: boolean },
     ): EnvAccessor<T> {
-        return EnvAccessor.from(data) as EnvAccessor<T>;
+        return new EnvAccessor(data, options) as EnvAccessor<T>;
+    }
+
+    static fromNdjson<T extends Record<string, unknown> = Record<string, unknown>>(
+        data: string,
+        options?: { readonly?: boolean },
+    ): NdjsonAccessor<T> {
+        return new NdjsonAccessor(data, options) as NdjsonAccessor<T>;
     }
 
     static detect(data: unknown): AbstractAccessor {
@@ -139,6 +171,170 @@ export class SafeAccess {
         const Cls = SafeAccess.customAccessors.get(name);
         if (!Cls) throw new Error(`Custom accessor '${name}' is not registered.`);
         return new Cls(data);
+    }
+
+    // ── File/URL I/O ─────────────────────────────────
+
+    static fromFileSync(
+        filePath: string,
+        options?: { format?: string | Format; allowedDirs?: string[] },
+    ): AbstractAccessor {
+        const content = readFileSync(filePath, { allowedDirs: options?.allowedDirs });
+        const format = options?.format ?? resolveFormatFromExtension(filePath);
+        if (!format) {
+            return TypeDetector.resolve(content);
+        }
+        return SafeAccess.from(content, format as string);
+    }
+
+    static async fromFile(
+        filePath: string,
+        options?: { format?: string | Format; allowedDirs?: string[] },
+    ): Promise<AbstractAccessor> {
+        const content = await readFile(filePath, { allowedDirs: options?.allowedDirs });
+        const format = options?.format ?? resolveFormatFromExtension(filePath);
+        if (!format) {
+            return TypeDetector.resolve(content);
+        }
+        return SafeAccess.from(content, format as string);
+    }
+
+    static async fromUrl(
+        url: string,
+        options?: {
+            format?: string | Format;
+            allowPrivateIps?: boolean;
+            allowedHosts?: string[];
+            allowedPorts?: number[];
+        },
+    ): Promise<AbstractAccessor> {
+        const { format, ...fetchOpts } = options ?? {};
+        const content = await fetchUrl(url, fetchOpts);
+        if (format) {
+            return SafeAccess.from(content, format as string);
+        }
+        // Try to resolve format from URL path
+        const urlPath = new URL(url).pathname;
+        const detectedFormat = resolveFormatFromExtension(urlPath);
+        if (detectedFormat) {
+            return SafeAccess.from(content, detectedFormat as string);
+        }
+        return TypeDetector.resolve(content);
+    }
+
+    // ── Layered Config ───────────────────────────────
+
+    static layer(sources: AbstractAccessor[]): AbstractAccessor {
+        if (sources.length === 0) {
+            return ObjectAccessor.from({});
+        }
+        const merged = deepMerge(
+            sources[0].toObject(),
+            ...sources.slice(1).map((s) => s.toObject()),
+        );
+        return ObjectAccessor.from(merged);
+    }
+
+    static async layerFiles(
+        paths: string[],
+        options?: { allowedDirs?: string[] },
+    ): Promise<AbstractAccessor> {
+        const accessors = await Promise.all(
+            paths.map((p) => SafeAccess.fromFile(p, { allowedDirs: options?.allowedDirs })),
+        );
+        return SafeAccess.layer(accessors);
+    }
+
+    // ── File Watcher ─────────────────────────────────
+
+    static watchFile(
+        filePath: string,
+        onChange: (accessor: AbstractAccessor) => void,
+        options?: { format?: string | Format; allowedDirs?: string[] },
+    ): () => void {
+        return watchFile(filePath, () => {
+            const accessor = SafeAccess.fromFileSync(filePath, options);
+            onChange(accessor);
+        });
+    }
+
+    // ── SecurityPolicy ───────────────────────────────
+
+    static setGlobalPolicy(policy: SecurityPolicy): void {
+        _setGlobalPolicy(policy);
+    }
+
+    static clearGlobalPolicy(): void {
+        _clearGlobalPolicy();
+    }
+
+    static withPolicy(data: unknown, policy: SecurityPolicy): AbstractAccessor {
+        if (typeof data === 'string' && policy.maxPayloadBytes) {
+            assertPayloadSize(data, policy.maxPayloadBytes);
+        }
+
+        let accessor = TypeDetector.resolve(data);
+
+        if (policy.maxKeys) {
+            assertMaxKeys(accessor.toObject(), policy.maxKeys);
+        }
+
+        if (policy.maskPatterns && policy.maskPatterns.length > 0) {
+            accessor = accessor.masked(policy.maskPatterns);
+        }
+
+        return accessor;
+    }
+
+    static async fromFileWithPolicy(
+        filePath: string,
+        policy: SecurityPolicy,
+    ): Promise<AbstractAccessor> {
+        let accessor = await SafeAccess.fromFile(filePath, {
+            allowedDirs: policy.allowedDirs,
+        });
+
+        if (policy.maxKeys) {
+            assertMaxKeys(accessor.toObject(), policy.maxKeys);
+        }
+
+        if (policy.maskPatterns && policy.maskPatterns.length > 0) {
+            accessor = accessor.masked(policy.maskPatterns);
+        }
+
+        return accessor;
+    }
+
+    static async fromUrlWithPolicy(url: string, policy: SecurityPolicy): Promise<AbstractAccessor> {
+        let accessor = await SafeAccess.fromUrl(url, {
+            allowPrivateIps: policy.url?.allowPrivateIps,
+            allowedHosts: policy.url?.allowedHosts,
+            allowedPorts: policy.url?.allowedPorts,
+        });
+
+        if (policy.maxPayloadBytes) {
+            assertPayloadSize(accessor.toJson(), policy.maxPayloadBytes);
+        }
+
+        if (policy.maxKeys) {
+            assertMaxKeys(accessor.toObject(), policy.maxKeys);
+        }
+
+        if (policy.maskPatterns && policy.maskPatterns.length > 0) {
+            accessor = accessor.masked(policy.maskPatterns);
+        }
+
+        return accessor;
+    }
+
+    // ── Audit ────────────────────────────────────────
+
+    static onAudit(listener: AuditListener): () => void {
+        return onAudit(listener);
+    }
+
+    static clearAuditListeners(): void {
+        clearAuditListeners();
     }
 
     /* v8 ignore next */

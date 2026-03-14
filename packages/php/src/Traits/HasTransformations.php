@@ -17,6 +17,16 @@ trait HasTransformations
         return json_encode($this->data, $flags | JSON_THROW_ON_ERROR);
     }
 
+    public function toNdjson(): string
+    {
+        $items = array_values($this->data);
+        $lines = array_map(
+            fn (mixed $item): string => json_encode($item, JSON_THROW_ON_ERROR),
+            $items,
+        );
+        return implode("\n", $lines);
+    }
+
     public function toObject(): object
     {
         /** @var object */

@@ -1,0 +1,54 @@
+{
+    "name": "@safe-access-inline/cli",
+    "version": "0.1.0",
+    "description": "CLI for safe-access-inline — query, transform, and manipulate data files from the terminal.",
+    "type": "module",
+    "bin": {
+        "safe-access": "./dist/cli.mjs"
+    },
+    "files": [
+        "dist",
+        "README.md"
+    ],
+    "scripts": {
+        "build": "tsup src/cli.ts --format esm --out-dir dist --banner.js '#!/usr/bin/env node'",
+        "test": "vitest run",
+        "test:watch": "vitest",
+        "lint": "eslint src/ tests/"
+    },
+    "keywords": [
+        "safe-access",
+        "cli",
+        "dot-notation",
+        "json",
+        "yaml",
+        "toml",
+        "xml",
+        "query"
+    ],
+    "license": "MIT",
+    "author": "Felipe Sauer (https://github.com/felipesauer)",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/felipesauer/safe-access-inline.git",
+        "directory": "packages/cli"
+    },
+    "homepage": "https://github.com/felipesauer/safe-access-inline#readme",
+    "bugs": {
+        "url": "https://github.com/felipesauer/safe-access-inline/issues"
+    },
+    "publishConfig": {
+        "access": "public"
+    },
+    "engines": {
+        "node": ">=22"
+    },
+    "dependencies": {
+        "@safe-access-inline/safe-access-inline": "^0.2.1"
+    },
+    "devDependencies": {
+        "tsup": "^8.0.0",
+        "typescript": "^5.5.0",
+        "vitest": "^4.1.0"
+    }
+}
