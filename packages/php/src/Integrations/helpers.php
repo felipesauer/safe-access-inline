@@ -6,6 +6,8 @@ if (!function_exists('safe_access')) {
     /**
      * Get the safe-access accessor instance from the Laravel container.
      *
+     * @codeCoverageIgnore
+     *
      * @return \SafeAccessInline\Core\AbstractAccessor
      */
     function safe_access(): \SafeAccessInline\Core\AbstractAccessor

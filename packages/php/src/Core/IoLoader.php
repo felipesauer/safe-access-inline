@@ -85,6 +85,8 @@ final class IoLoader
     }
 
     /**
+     * @codeCoverageIgnore Requires real HTTP I/O.
+     *
      * @param array{allowPrivateIps?: bool, allowedHosts?: string[], allowedPorts?: int[]} $options
      * @throws SecurityException
      */

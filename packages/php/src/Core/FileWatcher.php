@@ -8,6 +8,8 @@ final class FileWatcher
      * Watches a file for changes using polling (filemtime).
      * Returns a callable to stop watching.
      *
+     * @codeCoverageIgnore Requires real filesystem polling loop.
+     *
      * @param int $intervalMs Polling interval in milliseconds (default: 1000)
      * @return callable(): void Stop function
      */

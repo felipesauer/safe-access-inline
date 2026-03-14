@@ -186,6 +186,9 @@ final class SafeAccess
     /**
      * @param array{allowPrivateIps?: bool, allowedHosts?: string[], allowedPorts?: int[]} $options
      */
+    /**
+     * @codeCoverageIgnore Requires real HTTP I/O — tested manually / via integration tests.
+     */
     public static function fromUrl(
         string $url,
         ?string $format = null,
@@ -241,6 +244,9 @@ final class SafeAccess
      * @param string[] $allowedDirs
      * @return callable(): void
      */
+    /**
+     * @codeCoverageIgnore Requires real filesystem events — tested via integration.
+     */
     public static function watchFile(
         string $filePath,
         callable $onChange,
@@ -269,6 +275,9 @@ final class SafeAccess
         return self::fromFile($filePath, allowedDirs: $policy->allowedDirs);
     }
 
+    /**
+     * @codeCoverageIgnore Delegates to fromUrl() which requires real HTTP I/O.
+     */
     public static function fromUrlWithPolicy(string $url, SecurityPolicy $policy): AbstractAccessor
     {
         return self::fromUrl($url, options: $policy->url ?? []);
