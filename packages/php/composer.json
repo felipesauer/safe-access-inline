@@ -58,6 +58,16 @@
         "format": "php-cs-fixer fix",
         "bench": "php benchmarks/dot-notation.php"
     },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "SafeAccessInline\\Integrations\\LaravelServiceProvider"
+            ],
+            "aliases": {
+                "SafeAccess": "SafeAccessInline\\Integrations\\LaravelFacade"
+            }
+        }
+    },
     "minimum-stability": "stable",
     "config": {
         "allow-plugins": {
