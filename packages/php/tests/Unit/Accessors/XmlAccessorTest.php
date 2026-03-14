@@ -2,6 +2,7 @@
 
 use SafeAccessInline\Accessors\XmlAccessor;
 use SafeAccessInline\Exceptions\InvalidFormatException;
+use SafeAccessInline\Exceptions\SecurityException;
 
 describe(XmlAccessor::class, function () {
 
@@ -112,6 +113,23 @@ describe(XmlAccessor::class, function () {
         $accessor = XmlAccessor::from($xml);
         $result = $accessor->toXml();
         expect($result)->toContain('<name>Ana</name>');
+    });
+
+    // ── XML Hardening (XXE Prevention) ──────────────
+
+    it('rejects XML with DOCTYPE declaration', function () {
+        $xxeXml = '<!DOCTYPE foo [<!ENTITY xxe SYSTEM "file:///etc/passwd">]><root><name>&xxe;</name></root>';
+        expect(fn () => XmlAccessor::from($xxeXml))->toThrow(SecurityException::class);
+    });
+
+    it('rejects XML with ENTITY declaration', function () {
+        $entityXml = '<?xml version="1.0"?><!DOCTYPE test [<!ENTITY test "value">]><root><a>1</a></root>';
+        expect(fn () => XmlAccessor::from($entityXml))->toThrow(SecurityException::class);
+    });
+
+    it('rejects XML with DOCTYPE even without entities', function () {
+        $doctypeXml = '<!DOCTYPE root SYSTEM "test.dtd"><root><a>1</a></root>';
+        expect(fn () => XmlAccessor::from($doctypeXml))->toThrow(SecurityException::class);
     });
 
 });
