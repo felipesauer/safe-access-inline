@@ -1,0 +1,12 @@
+{
+    "type": "object",
+    "required": ["app", "database", "missing_field"],
+    "properties": {
+        "app": {
+            "type": "object",
+            "properties": {
+                "name": { "type": "number" }
+            }
+        }
+    }
+}
