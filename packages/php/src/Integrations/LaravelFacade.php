@@ -63,11 +63,8 @@ class LaravelFacade
         /**
          * Uses the global app() helper when available (Laravel runtime).
          * Falls back to Container::getInstance() for testing/standalone.
-         *
-         * @phpstan-ignore function.notFound
          */
         if (function_exists('app')) {
-            /** @phpstan-ignore function.notFound */
             return app();
         }
 
