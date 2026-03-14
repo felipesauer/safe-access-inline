@@ -8,4 +8,5 @@ export enum Format {
     Ini = 'ini',
     Csv = 'csv',
     Env = 'env',
+    Ndjson = 'ndjson',
 }
