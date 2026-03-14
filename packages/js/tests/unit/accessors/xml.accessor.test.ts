@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { XmlAccessor } from '../../../src/accessors/xml.accessor';
 import { InvalidFormatError } from '../../../src/exceptions/invalid-format.error';
+import { SecurityError } from '../../../src/exceptions/security.error';
 
 describe(XmlAccessor.name, () => {
     const xml = `<root><user><name>Ana</name><age>30</age></user><title>Test</title></root>`;
@@ -115,5 +116,22 @@ describe(XmlAccessor.name, () => {
         const xmlDecl = `<?xml version="1.0" encoding="UTF-8"?><root><name>Ana</name></root>`;
         const accessor = XmlAccessor.from(xmlDecl);
         expect(accessor.get('name')).toBe('Ana');
+    });
+
+    // ── XML Hardening (XXE Prevention) ──────────────
+
+    it('rejects XML with DOCTYPE declaration', () => {
+        const xxeXml = `<!DOCTYPE foo [<!ENTITY xxe SYSTEM "file:///etc/passwd">]><root><name>&xxe;</name></root>`;
+        expect(() => XmlAccessor.from(xxeXml)).toThrow(SecurityError);
+    });
+
+    it('rejects XML with ENTITY declaration', () => {
+        const entityXml = `<?xml version="1.0"?><!DOCTYPE test [<!ENTITY test "value">]><root><a>1</a></root>`;
+        expect(() => XmlAccessor.from(entityXml)).toThrow(SecurityError);
+    });
+
+    it('rejects XML with DOCTYPE even without entities', () => {
+        const doctypeXml = `<!DOCTYPE root SYSTEM "test.dtd"><root><a>1</a></root>`;
+        expect(() => XmlAccessor.from(doctypeXml)).toThrow(SecurityError);
     });
 });

@@ -1,5 +1,6 @@
 import { AbstractAccessor } from '../core/abstract-accessor';
 import { InvalidFormatError } from '../exceptions/invalid-format.error';
+import { SecurityError } from '../exceptions/security.error';
 
 /**
  * Accessor for XML strings.
@@ -11,8 +12,8 @@ export class XmlAccessor<
 > extends AbstractAccessor<T> {
     private originalXml: string;
 
-    constructor(raw: unknown) {
-        super(raw);
+    constructor(raw: unknown, options?: { readonly?: boolean }) {
+        super(raw, options);
         this.originalXml = raw as string;
     }
 
@@ -25,9 +26,12 @@ export class XmlAccessor<
 
     protected parse(raw: unknown): Record<string, unknown> {
         const xml = raw as string;
+        XmlAccessor.assertSafeXml(xml);
         try {
             return XmlAccessor.parseXmlToObject(xml);
-        } catch {
+        } catch (e) {
+            /* v8 ignore next -- assertSafeXml catches SecurityErrors before parse */
+            if (e instanceof SecurityError) throw e;
             throw new InvalidFormatError('XmlAccessor failed to parse XML string.');
         }
     }
@@ -43,6 +47,18 @@ export class XmlAccessor<
 
     getOriginalXml(): string {
         return this.originalXml;
+    }
+
+    /**
+     * Rejects XML with DOCTYPE or ENTITY declarations (XXE prevention).
+     */
+    private static assertSafeXml(xml: string): void {
+        if (/<!DOCTYPE/i.test(xml)) {
+            throw new SecurityError('XML DOCTYPE declarations are blocked for security.');
+        }
+        if (/<!ENTITY/i.test(xml)) {
+            throw new SecurityError('XML ENTITY declarations are blocked for security.');
+        }
     }
 
     /**
