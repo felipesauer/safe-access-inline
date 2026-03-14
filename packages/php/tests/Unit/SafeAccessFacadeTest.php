@@ -7,8 +7,10 @@ use SafeAccessInline\Accessors\IniAccessor;
 use SafeAccessInline\Accessors\JsonAccessor;
 use SafeAccessInline\Accessors\ObjectAccessor;
 use SafeAccessInline\Accessors\XmlAccessor;
+use SafeAccessInline\Enums\AccessorFormat;
 use SafeAccessInline\Exceptions\InvalidFormatException;
 use SafeAccessInline\SafeAccess;
+use SafeAccessInline\Security\SecurityPolicy;
 
 describe(SafeAccess::class, function () {
 
@@ -153,4 +155,35 @@ describe(SafeAccess::class, function () {
         SafeAccess::from('data', 'unknown_xyz');
     })->throws(InvalidFormatException::class, "Unknown format 'unknown_xyz'");
 
+    // ── from() with AccessorFormat enum ─────────────
+
+    it('from() with AccessorFormat enum', function () {
+        $accessor = SafeAccess::from(['name' => 'Ana'], AccessorFormat::Array);
+        expect($accessor)->toBeInstanceOf(ArrayAccessor::class);
+        expect($accessor->get('name'))->toBe('Ana');
+    });
+
+    // ── fromFile with extensionless path ────────────
+
+    it('fromFile auto-detects format for extensionless file', function () {
+        $tmp = tempnam(sys_get_temp_dir(), 'sa-ext-');
+        file_put_contents($tmp, '{"key":"value"}');
+        try {
+            $accessor = SafeAccess::fromFile($tmp);
+            expect($accessor)->toBeInstanceOf(JsonAccessor::class);
+            expect($accessor->get('key'))->toBe('value');
+        } finally {
+            unlink($tmp);
+        }
+    });
+
+    // ── setGlobalPolicy / clearGlobalPolicy ─────────
+
+    it('setGlobalPolicy and clearGlobalPolicy delegate to SecurityPolicy', function () {
+        $policy = new SecurityPolicy(maxDepth: 99);
+        SafeAccess::setGlobalPolicy($policy);
+        expect(SecurityPolicy::getGlobal())->toBe($policy);
+        SafeAccess::clearGlobalPolicy();
+        expect(SecurityPolicy::getGlobal())->toBeNull();
+    });
 });
