@@ -165,4 +165,32 @@ describe('Array Operations', function () use (&$data) {
         $acc = SafeAccess::fromJson($data);
         $acc->push('users.0.name', 'item');
     })->throws(InvalidFormatException::class);
+
+    // ── sort with null values ──────────────────────
+
+    it('sort places null values last in asc', function () {
+        $acc = SafeAccess::fromArray([
+            'items' => [
+                ['name' => 'Bob', 'score' => 10],
+                ['name' => 'Ana', 'score' => null],
+                ['name' => 'Carlos', 'score' => 5],
+            ],
+        ]);
+        $sorted = $acc->sortAt('items', 'score', 'asc');
+        $scores = array_column($sorted->get('items'), 'score');
+        expect($scores)->toBe([5, 10, null]);
+    });
+
+    it('sort places null values first in desc', function () {
+        $acc = SafeAccess::fromArray([
+            'items' => [
+                ['name' => 'Bob', 'score' => null],
+                ['name' => 'Ana', 'score' => 20],
+                ['name' => 'Carlos', 'score' => 5],
+            ],
+        ]);
+        $sorted = $acc->sortAt('items', 'score', 'desc');
+        $scores = array_column($sorted->get('items'), 'score');
+        expect($scores)->toBe([null, 20, 5]);
+    });
 });
