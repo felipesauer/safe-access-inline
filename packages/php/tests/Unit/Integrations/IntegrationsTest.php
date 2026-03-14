@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace Tests\Unit\Integrations;
 
 use SafeAccessInline\Core\AbstractAccessor;
+use SafeAccessInline\Integrations\LaravelFacade;
 use SafeAccessInline\Integrations\LaravelServiceProvider;
+use SafeAccessInline\Integrations\SafeAccessBundle;
 use SafeAccessInline\Integrations\SymfonyIntegration;
+use SafeAccessInline\SafeAccess;
 
 beforeEach(function (): void {
     $this->fixturesDir = realpath(__DIR__ . '/../../fixtures');
@@ -130,5 +133,146 @@ describe('SymfonyIntegration', function (): void {
         $accessor = SymfonyIntegration::fromYamlFile($this->fixturesDir . '/config.yaml');
         expect($accessor)->toBeInstanceOf(AbstractAccessor::class);
         expect($accessor->get('app.name'))->toBe('test-app');
+    });
+});
+
+// ── LaravelFacade ───────────────────────────────
+
+describe('LaravelFacade', function (): void {
+    it('resolve returns accessor from container', function (): void {
+        $mockApp = new class () {
+            public function make(string $abstract): AbstractAccessor
+            {
+                return SafeAccess::fromArray(['resolved' => true]);
+            }
+        };
+
+        $accessor = LaravelFacade::resolve($mockApp);
+        expect($accessor)->toBeInstanceOf(AbstractAccessor::class);
+        expect($accessor->get('resolved'))->toBeTrue();
+    });
+
+    it('getFacadeAccessor returns safe-access', function (): void {
+        // Use reflection to test protected method
+        $ref = new \ReflectionMethod(LaravelFacade::class, 'getFacadeAccessor');
+        $result = $ref->invoke(null);
+        expect($result)->toBe('safe-access');
+    });
+});
+
+// ── SafeAccessBundle ────────────────────────────
+
+describe('SafeAccessBundle', function (): void {
+    it('getName returns bundle name', function (): void {
+        $bundle = new SafeAccessBundle();
+        expect($bundle->getName())->toBe('SafeAccessBundle');
+    });
+
+    it('loadExtension registers service from config_file', function (): void {
+        $registered = new \ArrayObject();
+        $mockDefinition = new class ($registered) {
+            public function __construct(private \ArrayObject $reg)
+            {
+            }
+
+            public function setFactory(array $factory): static
+            {
+                $this->reg['factory'] = $factory;
+                return $this;
+            }
+
+            public function setArguments(array $args): static
+            {
+                $this->reg['arguments'] = $args;
+                return $this;
+            }
+
+            public function setPublic(bool $public): static
+            {
+                $this->reg['public'] = $public;
+                return $this;
+            }
+        };
+
+        $mockContainer = new class ($mockDefinition) {
+            public function __construct(private readonly object $definition)
+            {
+            }
+
+            public function register(string $id, string $class): object
+            {
+                return $this->definition;
+            }
+        };
+
+        $bundle = new SafeAccessBundle();
+        $bundle->loadExtension(['config_file' => '/tmp/config.json'], $mockContainer);
+        expect($registered['arguments'])->toBe(['/tmp/config.json']);
+        expect($registered['public'])->toBeTrue();
+    });
+
+    it('loadExtension registers service from data array', function (): void {
+        $registered = new \ArrayObject();
+        $mockDefinition = new class ($registered) {
+            public function __construct(private \ArrayObject $reg)
+            {
+            }
+
+            public function setFactory(array $factory): static
+            {
+                $this->reg['factory'] = $factory;
+                return $this;
+            }
+
+            public function setArguments(array $args): static
+            {
+                $this->reg['arguments'] = $args;
+                return $this;
+            }
+
+            public function setPublic(bool $public): static
+            {
+                $this->reg['public'] = $public;
+                return $this;
+            }
+        };
+
+        $mockContainer = new class ($mockDefinition) {
+            public function __construct(private readonly object $definition)
+            {
+            }
+
+            public function register(string $id, string $class): object
+            {
+                return $this->definition;
+            }
+        };
+
+        $bundle = new SafeAccessBundle();
+        $bundle->loadExtension(['data' => ['key' => 'value']], $mockContainer);
+        expect($registered['arguments'])->toBe([['key' => 'value'], 'array']);
+        expect($registered['public'])->toBeTrue();
+    });
+});
+
+// ── LaravelServiceProvider::boot ────────────────
+
+describe('LaravelServiceProvider::boot', function (): void {
+    it('boot registers facade alias', function (): void {
+        $aliases = new \ArrayObject();
+        $mockApp = new class ($aliases) {
+            public function __construct(private \ArrayObject $aliases)
+            {
+            }
+
+            public function alias(string $abstract, string $alias): void
+            {
+                $this->aliases[$abstract] = $alias;
+            }
+        };
+
+        LaravelServiceProvider::boot($mockApp);
+        expect($aliases->offsetExists(LaravelFacade::class))->toBeTrue();
+        expect($aliases[LaravelFacade::class])->toBe('SafeAccess');
     });
 });
