@@ -35,6 +35,61 @@ describe(JsonPatch::class, function () {
         expect($ops)->toBe([]);
     });
 
+    // ── list-array diffs (diffArrays) ───────────
+
+    it('diffs list arrays - added elements', function () {
+        $a = ['items' => [1, 2]];
+        $b = ['items' => [1, 2, 3]];
+        $ops = JsonPatch::diff($a, $b);
+        expect($ops)->toBe([['op' => 'add', 'path' => '/items/2', 'value' => 3]]);
+    });
+
+    it('diffs list arrays - removed elements', function () {
+        $a = ['items' => [1, 2, 3]];
+        $b = ['items' => [1, 2]];
+        $ops = JsonPatch::diff($a, $b);
+        expect($ops)->toHaveCount(1);
+        expect($ops[0]['op'])->toBe('remove');
+    });
+
+    it('diffs list arrays - replaced elements', function () {
+        $a = ['items' => ['a', 'b']];
+        $b = ['items' => ['a', 'c']];
+        $ops = JsonPatch::diff($a, $b);
+        expect($ops)->toBe([['op' => 'replace', 'path' => '/items/1', 'value' => 'c']]);
+    });
+
+    it('diffs nested objects inside list arrays', function () {
+        $a = ['users' => [['name' => 'Ana'], ['name' => 'Bob']]];
+        $b = ['users' => [['name' => 'Ana'], ['name' => 'Carlos']]];
+        $ops = JsonPatch::diff($a, $b);
+        expect($ops)->toBe([['op' => 'replace', 'path' => '/users/1/name', 'value' => 'Carlos']]);
+    });
+
+    // ── pointer escaping ────────────────────────
+
+    it('escapes tilde in key names', function () {
+        $a = ['a~b' => 1];
+        $b = ['a~b' => 2];
+        $ops = JsonPatch::diff($a, $b);
+        expect($ops)->toBe([['op' => 'replace', 'path' => '/a~0b', 'value' => 2]]);
+    });
+
+    it('escapes slash in key names', function () {
+        $a = ['a/b' => 1];
+        $b = ['a/b' => 2];
+        $ops = JsonPatch::diff($a, $b);
+        expect($ops)->toBe([['op' => 'replace', 'path' => '/a~1b', 'value' => 2]]);
+    });
+
+    it('apply patch with pointer-escaped keys', function () {
+        $result = JsonPatch::applyPatch(
+            ['a/b' => 1],
+            [['op' => 'replace', 'path' => '/a~1b', 'value' => 99]]
+        );
+        expect($result)->toBe(['a/b' => 99]);
+    });
+
     // ── applyPatch() ─────────────────────────────
 
     it('applies add operation', function () {
@@ -150,5 +205,35 @@ describe('AbstractAccessor diff/applyPatch', function () {
         $ops = $a->diff($b);
         $result = $a->applyPatch($ops);
         expect($result->all())->toBe($b->all());
+    });
+});
+
+// ── AbstractAccessor extra methods ──────────────────
+
+describe('AbstractAccessor getTemplate and merge(array)', function () {
+
+    it('getTemplate resolves template path with bindings', function () {
+        $acc = SafeAccess::fromArray([
+            'users' => [
+                ['name' => 'Ana'],
+                ['name' => 'Bob'],
+            ],
+        ]);
+        $result = $acc->getTemplate('users.{idx}.name', ['idx' => '1']);
+        expect($result)->toBe('Bob');
+    });
+
+    it('getTemplate returns default when path not found', function () {
+        $acc = SafeAccess::fromArray(['users' => []]);
+        $result = $acc->getTemplate('users.{idx}.name', ['idx' => '99'], 'unknown');
+        expect($result)->toBe('unknown');
+    });
+
+    it('merge(array) merges data at root', function () {
+        $acc = SafeAccess::fromArray(['a' => 1, 'b' => 2]);
+        $merged = $acc->merge(['c' => 3, 'b' => 99]);
+        expect($merged->get('a'))->toBe(1);
+        expect($merged->get('b'))->toBe(99);
+        expect($merged->get('c'))->toBe(3);
     });
 });
