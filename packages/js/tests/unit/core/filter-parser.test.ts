@@ -195,4 +195,74 @@ describe(FilterParser.name, () => {
         expect(expr.conditions).toHaveLength(1);
         expect(expr.conditions[0].value).toBe('x || y');
     });
+
+    // ── Function support edge cases ───────
+
+    it('parse — function with empty args defaults field to @', () => {
+        const expr = FilterParser.parse('length()>0');
+        expect(expr.conditions[0].func).toBe('length');
+        expect(expr.conditions[0].field).toBe('@');
+    });
+
+    it('parse — boolean function with empty args defaults field to @', () => {
+        const expr = FilterParser.parse('match()');
+        expect(expr.conditions[0].func).toBe('match');
+        expect(expr.conditions[0].field).toBe('@');
+        expect(expr.conditions[0].value).toBe(true);
+    });
+
+    it('evaluate — match with double-quoted pattern', () => {
+        const expr = FilterParser.parse('match(@.name,"Al.*")');
+        expect(FilterParser.evaluate({ name: 'Alice' }, expr)).toBe(true);
+        expect(FilterParser.evaluate({ name: 'Bob' }, expr)).toBe(false);
+    });
+
+    it('evaluate — match on non-string returns false', () => {
+        const expr = FilterParser.parse("match(@.val,'.*')");
+        expect(FilterParser.evaluate({ val: 42 } as Record<string, unknown>, expr)).toBe(false);
+    });
+
+    it('evaluate — keys on array returns 0', () => {
+        const expr = FilterParser.parse('keys(@)>0');
+        expect(
+            FilterParser.evaluate({ items: [1, 2] } as unknown as Record<string, unknown>, expr),
+        ).toBe(true);
+        expect(FilterParser.evaluate([1, 2] as unknown as Record<string, unknown>, expr)).toBe(
+            false,
+        );
+    });
+
+    it('evaluate — resolveFilterArg with @.nested.path', () => {
+        const expr = FilterParser.parse('length(@.profile.bio)>2');
+        expect(FilterParser.evaluate({ profile: { bio: 'Hello world' } }, expr)).toBe(true);
+        expect(FilterParser.evaluate({ profile: { bio: 'Hi' } }, expr)).toBe(false);
+    });
+
+    it('evaluate — resolveFilterArg with plain field (no @)', () => {
+        const expr = FilterParser.parse('length(name)>3');
+        expect(FilterParser.evaluate({ name: 'Alice' }, expr)).toBe(true);
+        expect(FilterParser.evaluate({ name: 'Bob' }, expr)).toBe(false);
+    });
+
+    it('evaluate — <= operator', () => {
+        const expr = FilterParser.parse('age<=18');
+        expect(FilterParser.evaluate({ age: 18 }, expr)).toBe(true);
+        expect(FilterParser.evaluate({ age: 19 }, expr)).toBe(false);
+    });
+
+    it('evaluate — < operator', () => {
+        const expr = FilterParser.parse('age<18');
+        expect(FilterParser.evaluate({ age: 17 }, expr)).toBe(true);
+        expect(FilterParser.evaluate({ age: 18 }, expr)).toBe(false);
+    });
+
+    it('evaluate — unknown function throws', () => {
+        const expr = FilterParser.parse('unknown(@)>0');
+        expect(() => FilterParser.evaluate({ x: 1 }, expr)).toThrow('Unknown filter function');
+    });
+
+    it('evaluate — length on primitive returns 0', () => {
+        const expr = FilterParser.parse('length(@.val)>0');
+        expect(FilterParser.evaluate({ val: 42 } as Record<string, unknown>, expr)).toBe(false);
+    });
 });
