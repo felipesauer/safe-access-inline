@@ -193,15 +193,6 @@ abstract class AbstractAccessor implements AccessorInterface, WritableInterface
         return $this->data;
     }
 
-    public function toNdjson(): string
-    {
-        $lines = [];
-        foreach (array_values($this->data) as $item) {
-            $lines[] = json_encode($item, JSON_THROW_ON_ERROR);
-        }
-        return implode("\n", $lines);
-    }
-
     /**
      * @param array<string> $patterns
      */
