@@ -25,7 +25,9 @@ export class YamlAccessor<
         }
 
         try {
-            return (yaml.load(input) as Record<string, unknown>) ?? {};
+            return (
+                (yaml.load(input, { schema: yaml.JSON_SCHEMA }) as Record<string, unknown>) ?? {}
+            );
         } catch {
             /* v8 ignore next */
             throw new InvalidFormatError('YamlAccessor failed to parse YAML string.');
