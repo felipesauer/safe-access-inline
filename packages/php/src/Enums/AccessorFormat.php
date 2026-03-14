@@ -13,4 +13,5 @@ enum AccessorFormat: string
     case Ini = 'ini';
     case Csv = 'csv';
     case Env = 'env';
+    case Ndjson = 'ndjson';
 }
