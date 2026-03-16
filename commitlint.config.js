@@ -4,7 +4,7 @@ export default {
     'scope-enum': [
       2,
       'always',
-      ['js', 'php', 'docs', 'ci', 'deps'],
+      ['js', 'php', 'cli', 'docs', 'ci', 'deps'],
     ],
     'scope-empty': [1, 'never'],
   },
