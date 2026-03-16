@@ -69,7 +69,6 @@ export function defaultGetVersion(): string {
         );
         return pkg.version ?? "0.0.0";
     } catch {
-        /* v8 ignore next */
         return "0.0.0";
     }
 }
@@ -518,20 +517,3 @@ export function run(args: string[], io: CliIO): number {
         return 1;
     }
 }
-
-/* v8 ignore start */
-function main(): void {
-    const io: CliIO = {
-        stdout: process.stdout,
-        stderr: process.stderr,
-        readFileSync,
-        getVersion: defaultGetVersion,
-    };
-    const code = run(process.argv.slice(2), io);
-    if (code !== 0) {
-        process.exit(code);
-    }
-}
-
-main();
-/* v8 ignore stop */
