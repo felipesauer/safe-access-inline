@@ -5,7 +5,8 @@ import { resolve } from "path";
 import {
   SafeAccess,
   diff,
-  mask
+  mask,
+  JsonSchemaAdapter
 } from "@safe-access-inline/safe-access-inline";
 var HELP = `
 safe-access \u2014 query, transform, and manipulate data files from the terminal.
@@ -51,7 +52,7 @@ Examples:
   safe-access layer defaults.yaml overrides.json --to json
   safe-access keys config.json "user"
 `.trim();
-function getVersion() {
+function defaultGetVersion() {
   try {
     const pkg = JSON.parse(
       readFileSync(new URL("../package.json", import.meta.url), "utf-8")
@@ -61,17 +62,16 @@ function getVersion() {
     return "0.0.0";
   }
 }
-function loadFromStdinOrFile(fileArg, fromFormat) {
+function loadFromStdinOrFile(fileArg, fromFormat, readFileFn = readFileSync) {
   if (fileArg === "-") {
-    const buf = readFileSync(0, "utf-8");
+    const buf = readFileFn(0, "utf-8");
     if (fromFormat) {
       return SafeAccess.from(buf, fromFormat);
     }
     return SafeAccess.detect(buf);
   }
   if (fromFormat) {
-    const buf = readFileSync(resolve(fileArg), "utf-8");
-    return SafeAccess.from(buf, fromFormat);
+    return SafeAccess.fromFileSync(resolve(fileArg), { format: fromFormat });
   }
   return SafeAccess.fromFileSync(resolve(fileArg));
 }
@@ -92,13 +92,13 @@ function formatOutput(accessor, format, pretty) {
   }
   return accessor.toJson(pretty ?? true);
 }
-function printValue(value) {
+function printValue(value, stdout) {
   if (value === null || value === void 0) {
-    process.stdout.write("null\n");
+    stdout.write("null\n");
   } else if (typeof value === "string") {
-    process.stdout.write(value + "\n");
+    stdout.write(value + "\n");
   } else {
-    process.stdout.write(JSON.stringify(value, null, 2) + "\n");
+    stdout.write(JSON.stringify(value, null, 2) + "\n");
   }
 }
 function parseMaskPatterns(raw) {
@@ -111,77 +111,14 @@ function parseJsonValue(raw) {
     return raw;
   }
 }
-function validateJsonSchema(data, schema, path = "$") {
-  const errors = [];
-  if (schema.type !== void 0) {
-    const expectedType = schema.type;
-    const actualType = Array.isArray(data) ? "array" : data === null ? "null" : typeof data;
-    const typeList = Array.isArray(expectedType) ? expectedType : [expectedType];
-    if (!typeList.includes(actualType)) {
-      errors.push({ path, message: `expected type '${typeList.join("|")}' but got '${actualType}'` });
-      return errors;
-    }
-  }
-  if (schema.required !== void 0 && typeof data === "object" && data !== null && !Array.isArray(data)) {
-    const obj = data;
-    for (const key of schema.required) {
-      if (!(key in obj)) {
-        errors.push({ path: `${path}.${key}`, message: "required field missing" });
-      }
-    }
-  }
-  if (schema.properties !== void 0 && typeof data === "object" && data !== null && !Array.isArray(data)) {
-    const obj = data;
-    const props = schema.properties;
-    for (const [key, subSchema] of Object.entries(props)) {
-      if (key in obj) {
-        errors.push(...validateJsonSchema(obj[key], subSchema, `${path}.${key}`));
-      }
-    }
-  }
-  if (schema.items !== void 0 && Array.isArray(data)) {
-    const itemSchema = schema.items;
-    data.forEach((item, i) => {
-      errors.push(...validateJsonSchema(item, itemSchema, `${path}[${i}]`));
-    });
-  }
-  if (schema.minimum !== void 0 && typeof data === "number") {
-    if (data < schema.minimum) {
-      errors.push({ path, message: `value ${data} is less than minimum ${schema.minimum}` });
-    }
-  }
-  if (schema.maximum !== void 0 && typeof data === "number") {
-    if (data > schema.maximum) {
-      errors.push({ path, message: `value ${data} exceeds maximum ${schema.maximum}` });
-    }
-  }
-  if (schema.minLength !== void 0 && typeof data === "string") {
-    if (data.length < schema.minLength) {
-      errors.push({ path, message: `string length ${data.length} is less than minLength ${schema.minLength}` });
-    }
-  }
-  if (schema.maxLength !== void 0 && typeof data === "string") {
-    if (data.length > schema.maxLength) {
-      errors.push({ path, message: `string length ${data.length} exceeds maxLength ${schema.maxLength}` });
-    }
-  }
-  if (schema.enum !== void 0) {
-    const enumVals = schema.enum;
-    if (!enumVals.some((v) => JSON.stringify(v) === JSON.stringify(data))) {
-      errors.push({ path, message: `value must be one of: ${enumVals.map((v) => JSON.stringify(v)).join(", ")}` });
-    }
-  }
-  return errors;
-}
-function main() {
-  const args = process.argv.slice(2);
+function run(args, io) {
   if (args.length === 0 || args.includes("--help") || args.includes("-h")) {
-    process.stdout.write(HELP + "\n");
-    return;
+    io.stdout.write(HELP + "\n");
+    return 0;
   }
   if (args.includes("--version") || args.includes("-v")) {
-    process.stdout.write(getVersion() + "\n");
-    return;
+    io.stdout.write(io.getVersion() + "\n");
+    return 0;
   }
   const command = args[0];
   const rest = args.slice(1);
@@ -197,14 +134,14 @@ function main() {
           strict: false
         });
         if (positionals.length < 2) {
-          process.stderr.write("Usage: safe-access get <file> <path> [--default <value>]\n");
-          process.exit(1);
+          io.stderr.write("Usage: safe-access get <file> <path> [--default <value>]\n");
+          return 1;
         }
-        const accessor = loadFromStdinOrFile(positionals[0]);
+        const accessor = loadFromStdinOrFile(positionals[0], void 0, io.readFileSync);
         const defaultVal = values.default !== void 0 ? parseJsonValue(values.default) : null;
         const result = accessor.get(positionals[1], defaultVal);
-        printValue(result);
-        break;
+        printValue(result, io.stdout);
+        return 0;
       }
       case "set": {
         const { values, positionals } = parseArgs({
@@ -217,14 +154,14 @@ function main() {
           strict: false
         });
         if (positionals.length < 3) {
-          process.stderr.write("Usage: safe-access set <file> <path> <value> [--to <format>]\n");
-          process.exit(1);
+          io.stderr.write("Usage: safe-access set <file> <path> <value> [--to <format>]\n");
+          return 1;
         }
-        const accessor = loadFromStdinOrFile(positionals[0]);
+        const accessor = loadFromStdinOrFile(positionals[0], void 0, io.readFileSync);
         const newVal = parseJsonValue(positionals[2]);
         const updated = accessor.set(positionals[1], newVal);
-        process.stdout.write(formatOutput(updated, values.to, values.pretty) + "\n");
-        break;
+        io.stdout.write(formatOutput(updated, values.to, values.pretty) + "\n");
+        return 0;
       }
       case "remove": {
         const { values, positionals } = parseArgs({
@@ -237,13 +174,13 @@ function main() {
           strict: false
         });
         if (positionals.length < 2) {
-          process.stderr.write("Usage: safe-access remove <file> <path> [--to <format>]\n");
-          process.exit(1);
+          io.stderr.write("Usage: safe-access remove <file> <path> [--to <format>]\n");
+          return 1;
         }
-        const accessor = loadFromStdinOrFile(positionals[0]);
+        const accessor = loadFromStdinOrFile(positionals[0], void 0, io.readFileSync);
         const updated = accessor.remove(positionals[1]);
-        process.stdout.write(formatOutput(updated, values.to, values.pretty) + "\n");
-        break;
+        io.stdout.write(formatOutput(updated, values.to, values.pretty) + "\n");
+        return 0;
       }
       case "convert":
       case "transform": {
@@ -260,24 +197,24 @@ function main() {
         });
         const hasFile = positionals.length > 0 || typeof values.file === "string";
         if (!hasFile || !values.to) {
-          process.stderr.write("Usage: safe-access transform <file> --to <format>\n       safe-access convert --file <file> --to <format>\n       safe-access convert --from <format> --to <format> < input\n");
-          process.exit(1);
+          io.stderr.write("Usage: safe-access transform <file> --to <format>\n       safe-access convert --file <file> --to <format>\n       safe-access convert --from <format> --to <format> < input\n");
+          return 1;
         }
         const filePath = values.file ?? positionals[0];
-        const accessor = loadFromStdinOrFile(filePath, values.from);
-        process.stdout.write(formatOutput(accessor, values.to, values.pretty) + "\n");
-        break;
+        const accessor = loadFromStdinOrFile(filePath, values.from, io.readFileSync);
+        io.stdout.write(formatOutput(accessor, values.to, values.pretty) + "\n");
+        return 0;
       }
       case "diff": {
         if (rest.length < 2) {
-          process.stderr.write("Usage: safe-access diff <file1> <file2>\n");
-          process.exit(1);
+          io.stderr.write("Usage: safe-access diff <file1> <file2>\n");
+          return 1;
         }
-        const a = loadFromStdinOrFile(rest[0]);
-        const b = loadFromStdinOrFile(rest[1]);
+        const a = loadFromStdinOrFile(rest[0], void 0, io.readFileSync);
+        const b = loadFromStdinOrFile(rest[1], void 0, io.readFileSync);
         const patches = diff(a.toObject(), b.toObject());
-        process.stdout.write(JSON.stringify(patches, null, 2) + "\n");
-        break;
+        io.stdout.write(JSON.stringify(patches, null, 2) + "\n");
+        return 0;
       }
       case "mask": {
         const { values, positionals } = parseArgs({
@@ -291,16 +228,16 @@ function main() {
           strict: false
         });
         if (positionals.length < 1 || !values.patterns) {
-          process.stderr.write("Usage: safe-access mask <file> --patterns <pattern,...>\n");
-          process.exit(1);
+          io.stderr.write("Usage: safe-access mask <file> --patterns <pattern,...>\n");
+          return 1;
         }
-        const accessor = loadFromStdinOrFile(positionals[0]);
+        const accessor = loadFromStdinOrFile(positionals[0], void 0, io.readFileSync);
         const patterns = parseMaskPatterns(values.patterns);
         const data = accessor.toObject();
         const masked = mask(data, patterns);
         const maskedAccessor = SafeAccess.from(masked, "object");
-        process.stdout.write(formatOutput(maskedAccessor, values.to, values.pretty) + "\n");
-        break;
+        io.stdout.write(formatOutput(maskedAccessor, values.to, values.pretty) + "\n");
+        return 0;
       }
       case "layer": {
         const { values, positionals } = parseArgs({
@@ -313,54 +250,53 @@ function main() {
           strict: false
         });
         if (positionals.length < 1) {
-          process.stderr.write("Usage: safe-access layer <file1> [file2...] [--to <format>]\n");
-          process.exit(1);
+          io.stderr.write("Usage: safe-access layer <file1> [file2...] [--to <format>]\n");
+          return 1;
         }
-        const accessors = positionals.map((f) => loadFromStdinOrFile(f));
+        const accessors = positionals.map((f) => loadFromStdinOrFile(f, void 0, io.readFileSync));
         const layered = SafeAccess.layer(accessors);
-        process.stdout.write(formatOutput(layered, values.to, values.pretty) + "\n");
-        break;
+        io.stdout.write(formatOutput(layered, values.to, values.pretty) + "\n");
+        return 0;
       }
       case "keys": {
         if (rest.length < 1) {
-          process.stderr.write("Usage: safe-access keys <file> [path]\n");
-          process.exit(1);
+          io.stderr.write("Usage: safe-access keys <file> [path]\n");
+          return 1;
         }
-        const accessor = loadFromStdinOrFile(rest[0]);
+        const accessor = loadFromStdinOrFile(rest[0], void 0, io.readFileSync);
         const keys = rest.length >= 2 ? accessor.keys(rest[1]) : accessor.keys();
-        process.stdout.write(keys.join("\n") + "\n");
-        break;
+        io.stdout.write(keys.join("\n") + "\n");
+        return 0;
       }
       case "type": {
         if (rest.length < 2) {
-          process.stderr.write("Usage: safe-access type <file> <path>\n");
-          process.exit(1);
+          io.stderr.write("Usage: safe-access type <file> <path>\n");
+          return 1;
         }
-        const accessor = loadFromStdinOrFile(rest[0]);
+        const accessor = loadFromStdinOrFile(rest[0], void 0, io.readFileSync);
         const t = accessor.type(rest[1]);
-        process.stdout.write((t ?? "null") + "\n");
-        break;
+        io.stdout.write((t ?? "null") + "\n");
+        return 0;
       }
       case "has": {
         if (rest.length < 2) {
-          process.stderr.write("Usage: safe-access has <file> <path>\n");
-          process.exit(1);
+          io.stderr.write("Usage: safe-access has <file> <path>\n");
+          return 1;
         }
-        const accessor = loadFromStdinOrFile(rest[0]);
+        const accessor = loadFromStdinOrFile(rest[0], void 0, io.readFileSync);
         const exists = accessor.has(rest[1]);
-        process.stdout.write(exists ? "true\n" : "false\n");
-        process.exit(exists ? 0 : 1);
-        break;
+        io.stdout.write(exists ? "true\n" : "false\n");
+        return exists ? 0 : 1;
       }
       case "count": {
         if (rest.length < 1) {
-          process.stderr.write("Usage: safe-access count <file> [path]\n");
-          process.exit(1);
+          io.stderr.write("Usage: safe-access count <file> [path]\n");
+          return 1;
         }
-        const accessor = loadFromStdinOrFile(rest[0]);
+        const accessor = loadFromStdinOrFile(rest[0], void 0, io.readFileSync);
         const c = rest.length >= 2 ? accessor.count(rest[1]) : accessor.count();
-        process.stdout.write(c.toString() + "\n");
-        break;
+        io.stdout.write(c.toString() + "\n");
+        return 0;
       }
       case "validate": {
         const { values, positionals } = parseArgs({
@@ -373,45 +309,67 @@ function main() {
           strict: false
         });
         if (positionals.length < 1 || !values.schema) {
-          process.stderr.write("Usage: safe-access validate <file> --schema <schema.json>\n");
-          process.exit(1);
+          io.stderr.write("Usage: safe-access validate <file> --schema <schema.json>\n");
+          return 1;
         }
-        const accessor = loadFromStdinOrFile(positionals[0]);
-        const schemaContent = readFileSync(resolve(values.schema), "utf-8");
+        const accessor = loadFromStdinOrFile(positionals[0], void 0, io.readFileSync);
+        const schemaContent = io.readFileSync(resolve(values.schema), "utf-8");
         const schema = JSON.parse(schemaContent);
         const data = accessor.toObject();
-        const validationErrors = validateJsonSchema(data, schema);
-        if (validationErrors.length === 0) {
+        const adapter = new JsonSchemaAdapter();
+        const result = adapter.validate(data, schema);
+        if (result.valid) {
           if (values.format === "json") {
-            process.stdout.write(JSON.stringify({ valid: true, errors: [] }, null, 2) + "\n");
+            io.stdout.write(JSON.stringify({ valid: true, errors: [] }, null, 2) + "\n");
           } else {
-            process.stdout.write("valid\n");
+            io.stdout.write("valid\n");
           }
-          process.exit(0);
+          return 0;
         } else {
           if (values.format === "json") {
-            process.stdout.write(JSON.stringify({ valid: false, errors: validationErrors }, null, 2) + "\n");
+            io.stdout.write(JSON.stringify({ valid: false, errors: result.errors }, null, 2) + "\n");
           } else {
-            for (const e of validationErrors) {
-              process.stderr.write(`  ${e.path}: ${e.message}
+            for (const e of result.errors) {
+              io.stderr.write(`  ${e.path}: ${e.message}
 `);
             }
           }
-          process.exit(1);
+          return 1;
         }
-        break;
       }
       default:
-        process.stderr.write(`Unknown command: ${command}
+        io.stderr.write(`Unknown command: ${command}
 Run safe-access --help for usage.
 `);
-        process.exit(1);
+        return 1;
     }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    process.stderr.write(`Error: ${message}
+    io.stderr.write(`Error: ${message}
 `);
-    process.exit(1);
+    return 1;
+  }
+}
+function main() {
+  const io = {
+    stdout: process.stdout,
+    stderr: process.stderr,
+    readFileSync,
+    getVersion: defaultGetVersion
+  };
+  const code = run(process.argv.slice(2), io);
+  if (code !== 0) {
+    process.exit(code);
   }
 }
 main();
+export {
+  HELP,
+  defaultGetVersion,
+  formatOutput,
+  loadFromStdinOrFile,
+  parseJsonValue,
+  parseMaskPatterns,
+  printValue,
+  run
+};

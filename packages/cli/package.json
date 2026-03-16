@@ -44,9 +44,12 @@
         "node": ">=22"
     },
     "dependencies": {
-        "@safe-access-inline/safe-access-inline": "^0.2.1"
+        "@safe-access-inline/safe-access-inline": "^0.2.1",
+        "js-yaml": "^4.0.0",
+        "smol-toml": "^1.0.0"
     },
     "devDependencies": {
+        "@vitest/coverage-v8": "^4.1.0",
         "tsup": "^8.0.0",
         "typescript": "^5.5.0",
         "vitest": "^4.1.0"
