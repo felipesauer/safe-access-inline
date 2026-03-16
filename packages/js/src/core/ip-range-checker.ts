@@ -88,16 +88,12 @@ export function assertSafeUrl(
         const cleanedHost = hostname.replace(/^\[|\]$/g, '');
         if (cleanedHost.toLowerCase().startsWith('::ffff:')) {
             const mappedPart = cleanedHost.substring(7);
-            // URL parser may normalize to hex pairs (e.g., ::ffff:808:808 for 8.8.8.8)
-            let mappedIp: string;
-            const hexMatch = mappedPart.match(/^([0-9a-f]{1,4}):([0-9a-f]{1,4})$/i);
-            if (hexMatch) {
-                const hi = parseInt(hexMatch[1], 16);
-                const lo = parseInt(hexMatch[2], 16);
-                mappedIp = `${(hi >> 8) & 0xff}.${hi & 0xff}.${(lo >> 8) & 0xff}.${lo & 0xff}`;
-            } else {
-                mappedIp = mappedPart;
-            }
+            // Node's URL parser normalizes ::ffff: mapped addresses to hex pairs
+            // (e.g., ::ffff:127.0.0.1 → ::ffff:7f00:1), so we always parse hex.
+            const hexMatch = mappedPart.match(
+                /^([0-9a-f]{1,4}):([0-9a-f]{1,4})$/i,
+            ) as RegExpMatchArray;
+            const mappedIp = `${(parseInt(hexMatch[1], 16) >> 8) & 0xff}.${parseInt(hexMatch[1], 16) & 0xff}.${(parseInt(hexMatch[2], 16) >> 8) & 0xff}.${parseInt(hexMatch[2], 16) & 0xff}`;
             if (isPrivateIp(mappedIp)) {
                 throw new SecurityError(
                     `Access to private/internal IP '${cleanedHost}' is blocked (SSRF protection).`,

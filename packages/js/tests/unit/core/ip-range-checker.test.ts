@@ -142,5 +142,15 @@ describe('ip-range-checker', () => {
         it('allows ::ffff: IPv4-mapped IPv6 with public IP', () => {
             expect(() => assertSafeUrl('https://[::ffff:8.8.8.8]')).not.toThrow();
         });
+
+        it('blocks ::ffff: IPv4-mapped IPv6 in hex pair format with private IP', () => {
+            // ::ffff:7f00:1 is hex for 127.0.0.1
+            expect(() => assertSafeUrl('https://[::ffff:7f00:1]')).toThrow('SSRF protection');
+        });
+
+        it('allows ::ffff: IPv4-mapped IPv6 in hex pair format with public IP', () => {
+            // ::ffff:808:808 is hex for 8.8.8.8
+            expect(() => assertSafeUrl('https://[::ffff:808:808]')).not.toThrow();
+        });
     });
 });
