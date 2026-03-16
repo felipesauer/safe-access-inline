@@ -31,10 +31,11 @@
         "safe-access",
         "dot-notation",
         "nested-data",
+        "typescript",
         "json",
-        "xml",
         "yaml",
-        "accessor"
+        "schema",
+        "plugins"
     ],
     "license": "MIT",
     "author": "Felipe Sauer (https://github.com/felipesauer)",

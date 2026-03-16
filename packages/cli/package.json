@@ -20,10 +20,9 @@
         "safe-access",
         "cli",
         "dot-notation",
+        "nested-data",
         "json",
         "yaml",
-        "toml",
-        "xml",
         "query"
     ],
     "license": "MIT",

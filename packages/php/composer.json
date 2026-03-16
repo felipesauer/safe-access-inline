@@ -8,11 +8,11 @@
         "safe-access",
         "dot-notation",
         "nested-data",
+        "laravel",
         "json",
-        "xml",
         "yaml",
-        "array",
-        "accessor"
+        "schema",
+        "plugins"
     ],
     "homepage": "https://github.com/felipesauer/safe-access-inline",
     "authors": [
