@@ -1,10 +1,3 @@
----
-title: PHP
-nav_exclude: true
-permalink: /pt-br/php/
-lang: pt-br
----
-
 # PHP
 
 Documentação do pacote PHP (`safe-access-inline/safe-access-inline`).
