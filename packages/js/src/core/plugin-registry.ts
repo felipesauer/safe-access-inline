@@ -27,6 +27,12 @@ export class PluginRegistry {
     // ── Parsers ──
 
     static registerParser(format: string, parser: ParserPlugin): void {
+        if (PluginRegistry.parsers.has(format)) {
+            console.warn(
+                `[PluginRegistry] Parser for format '${format}' is being overwritten. ` +
+                    `Use PluginRegistry.reset() to clear all plugins first.`,
+            );
+        }
         PluginRegistry.parsers.set(format, parser);
     }
 
@@ -48,6 +54,12 @@ export class PluginRegistry {
     // ── Serializers ──
 
     static registerSerializer(format: string, serializer: SerializerPlugin): void {
+        if (PluginRegistry.serializers.has(format)) {
+            console.warn(
+                `[PluginRegistry] Serializer for format '${format}' is being overwritten. ` +
+                    `Use PluginRegistry.reset() to clear all plugins first.`,
+            );
+        }
         PluginRegistry.serializers.set(format, serializer);
     }
 

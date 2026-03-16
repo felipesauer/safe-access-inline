@@ -506,8 +506,9 @@ export class DotNotationParser {
                     i++;
                 }
             }
-            /* v8 ignore next */
-            if (key) segments.push({ type: 'key', value: key });
+            // key is always non-empty here: the outer loop only falls through to this section
+            // when path[i] is not '.', '[', or '*', guaranteeing at least one iteration above.
+            segments.push({ type: 'key', value: key });
         }
 
         return segments;

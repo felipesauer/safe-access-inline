@@ -50,11 +50,22 @@
     "publishConfig": {
         "access": "public"
     },
-    "dependencies": {
+    "sideEffects": false,
+    "peerDependencies": {
         "js-yaml": "^4.0.0",
         "smol-toml": "^1.0.0"
     },
+    "peerDependenciesMeta": {
+        "js-yaml": {
+            "optional": true
+        },
+        "smol-toml": {
+            "optional": true
+        }
+    },
     "devDependencies": {
+        "js-yaml": "^4.0.0",
+        "smol-toml": "^1.0.0",
         "@types/js-yaml": "^4.0.0",
         "@types/node": "^22.0.0",
         "@eslint/js": "^10.0.1",

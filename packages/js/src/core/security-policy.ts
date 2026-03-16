@@ -21,19 +21,19 @@ const DEFAULT_POLICY: SecurityPolicy = {
     csvMode: 'none',
 };
 
-export const STRICT_POLICY: SecurityPolicy = {
+export const STRICT_POLICY: Readonly<SecurityPolicy> = Object.freeze({
     maxDepth: 20,
     maxPayloadBytes: 1_048_576,
     maxKeys: 1_000,
     csvMode: 'strip',
-};
+});
 
-export const PERMISSIVE_POLICY: SecurityPolicy = {
+export const PERMISSIVE_POLICY: Readonly<SecurityPolicy> = Object.freeze({
     maxDepth: 1_024,
     maxPayloadBytes: 104_857_600,
     maxKeys: 100_000,
     csvMode: 'none',
-};
+});
 
 let globalPolicy: SecurityPolicy | null = null;
 

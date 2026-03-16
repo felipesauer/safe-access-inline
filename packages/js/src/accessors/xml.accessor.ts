@@ -1,6 +1,7 @@
 import { AbstractAccessor } from '../core/abstract-accessor';
 import { InvalidFormatError } from '../exceptions/invalid-format.error';
 import { SecurityError } from '../exceptions/security.error';
+import { SecurityGuard } from '../core/security-guard';
 
 /**
  * Accessor for XML strings.
@@ -90,7 +91,16 @@ export class XmlAccessor<
 
         while ((match = tagRegex.exec(content)) !== null) {
             const tagName = match[1] || match[4];
+            SecurityGuard.assertSafeKey(tagName);
+            const attrs = match[2] || match[5] || '';
             const innerContent = match[3] ?? '';
+
+            // Check attribute names for forbidden keys
+            const attrRegex = /(\w+)\s*=/g;
+            let attrMatch: RegExpExecArray | null;
+            while ((attrMatch = attrRegex.exec(attrs)) !== null) {
+                SecurityGuard.assertSafeKey(attrMatch[1]);
+            }
 
             // Check if inner content has child elements
             const hasChildElements = /<\w+[^>]*>/.test(innerContent);

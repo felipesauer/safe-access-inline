@@ -25,6 +25,7 @@ export { InvalidFormatError } from './exceptions/invalid-format.error';
 export { PathNotFoundError } from './exceptions/path-not-found.error';
 export { UnsupportedTypeError } from './exceptions/unsupported-type.error';
 export { SecurityError } from './exceptions/security.error';
+export { JsonPatchTestFailedError } from './exceptions/json-patch-test-failed.error';
 export { SecurityGuard } from './core/security-guard';
 export { deepFreeze } from './core/deep-freeze';
 export { diff, applyPatch } from './core/json-patch';
@@ -69,6 +70,7 @@ export { SchemaRegistry } from './core/schema-registry';
 export { ZodSchemaAdapter } from './schema-adapters/zod.adapter';
 export { ValibotSchemaAdapter } from './schema-adapters/valibot.adapter';
 export { YupSchemaAdapter } from './schema-adapters/yup.adapter';
+export { JsonSchemaAdapter } from './schema-adapters/json-schema.adapter';
 export type { SecurityPolicy, UrlPolicy } from './core/security-policy';
 export {
     mergePolicy,

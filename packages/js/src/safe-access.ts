@@ -20,9 +20,16 @@ import {
     setGlobalPolicy as _setGlobalPolicy,
     clearGlobalPolicy as _clearGlobalPolicy,
 } from './core/security-policy';
-import { assertPayloadSize, assertMaxKeys } from './core/security-options';
+import {
+    assertPayloadSize,
+    assertMaxKeys,
+    assertMaxStructuralDepth,
+} from './core/security-options';
 import { onAudit, clearAuditListeners } from './core/audit-emitter';
 import type { AuditListener } from './core/audit-emitter';
+import { PathCache } from './core/path-cache';
+import { PluginRegistry } from './core/plugin-registry';
+import { SchemaRegistry } from './core/schema-registry';
 
 export class SafeAccess {
     private static customAccessors = new Map<string, new (data: unknown) => AbstractAccessor>();
@@ -279,6 +286,10 @@ export class SafeAccess {
             assertMaxKeys(accessor.toObject(), policy.maxKeys);
         }
 
+        if (policy.maxDepth) {
+            assertMaxStructuralDepth(accessor.toObject(), policy.maxDepth);
+        }
+
         if (policy.maskPatterns && policy.maskPatterns.length > 0) {
             accessor = accessor.masked(policy.maskPatterns);
         }
@@ -306,15 +317,23 @@ export class SafeAccess {
     }
 
     static async fromUrlWithPolicy(url: string, policy: SecurityPolicy): Promise<AbstractAccessor> {
-        let accessor = await SafeAccess.fromUrl(url, {
+        // Fetch raw text first so payload size is checked against actual HTTP bytes, not re-serialized JSON
+        const rawText = await fetchUrl(url, {
             allowPrivateIps: policy.url?.allowPrivateIps,
             allowedHosts: policy.url?.allowedHosts,
             allowedPorts: policy.url?.allowedPorts,
         });
 
         if (policy.maxPayloadBytes) {
-            assertPayloadSize(accessor.toJson(), policy.maxPayloadBytes);
+            assertPayloadSize(rawText, policy.maxPayloadBytes);
         }
+
+        // Resolve format from URL path extension, then parse
+        const urlPath = new URL(url).pathname;
+        const detectedFormat = resolveFormatFromExtension(urlPath);
+        let accessor = detectedFormat
+            ? SafeAccess.from(rawText, detectedFormat as string)
+            : TypeDetector.resolve(rawText);
 
         if (policy.maxKeys) {
             assertMaxKeys(accessor.toObject(), policy.maxKeys);
@@ -335,6 +354,19 @@ export class SafeAccess {
 
     static clearAuditListeners(): void {
         clearAuditListeners();
+    }
+
+    // ── Reset All ────────────────────────────────────
+
+    /**
+     * Resets all global/static state. Intended for test teardown.
+     */
+    static resetAll(): void {
+        PathCache.clear();
+        clearAuditListeners();
+        _clearGlobalPolicy();
+        PluginRegistry.reset();
+        SchemaRegistry.clearDefaultAdapter();
     }
 
     /* v8 ignore next */

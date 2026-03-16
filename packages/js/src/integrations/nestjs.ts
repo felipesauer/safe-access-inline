@@ -114,15 +114,18 @@ export function createSafeAccessServiceProvider(options: SafeAccessModuleOptions
  * })
  * export class AppModule {}
  * ```
+ *
+ * Note: add `@Module({})` from `@nestjs/common` once it is declared as a peerDependency
+ * to ensure full NestJS module-graph compatibility with stricter runtime validation.
  */
-export const SafeAccessModule = {
-    register(options: SafeAccessModuleOptions) {
+export class SafeAccessModule {
+    static register(options: SafeAccessModuleOptions) {
         const provider = createSafeAccessProvider(options);
         const serviceProvider = createSafeAccessServiceProvider(options);
         return {
-            module: class SafeAccessModule {},
+            module: SafeAccessModule,
             providers: [provider, serviceProvider],
             exports: [SAFE_ACCESS, SafeAccessService],
         };
-    },
-};
+    }
+}

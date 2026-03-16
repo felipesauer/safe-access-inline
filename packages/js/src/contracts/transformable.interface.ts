@@ -5,5 +5,7 @@ export interface TransformableInterface {
     toToml(): string;
     toYaml(): string;
     toXml(rootElement?: string): string;
+    toCsv(csvMode?: 'none' | 'prefix' | 'strip' | 'error'): string;
+    toNdjson(): string;
     transform(format: string): string;
 }

@@ -1,13 +1,16 @@
-import yaml from 'js-yaml';
-import { stringify as tomlStringify } from 'smol-toml';
+import type yaml from 'js-yaml';
+import type { stringify as tomlStringify } from 'smol-toml';
+import { optionalRequire } from './optional-require';
 import { DotNotationParser } from './dot-notation-parser';
 import { PluginRegistry } from './plugin-registry';
 import { deepFreeze } from './deep-freeze';
+
+const getYaml = optionalRequire<typeof yaml>('js-yaml', 'YAML');
+const getSmolToml = optionalRequire<{ stringify: typeof tomlStringify }>('smol-toml', 'TOML');
 import { diff as jsonDiff, applyPatch as jsonApplyPatch } from './json-patch';
 import type { JsonPatchOp } from './json-patch';
 import type { AccessorInterface } from '../contracts/accessor.interface';
 import { InvalidFormatError } from '../exceptions/invalid-format.error';
-import { UnsupportedTypeError } from '../exceptions/unsupported-type.error';
 import { ReadonlyViolationError } from '../exceptions/readonly-violation.error';
 import { mask } from './data-masker';
 import type { MaskPattern } from './data-masker';
@@ -184,7 +187,7 @@ export abstract class AbstractAccessor<
         }
 
         try {
-            return tomlStringify(this.data);
+            return getSmolToml().stringify(this.data);
         } catch (e) {
             throw new InvalidFormatError(
                 /* v8 ignore next */
@@ -198,7 +201,7 @@ export abstract class AbstractAccessor<
             return PluginRegistry.getSerializer('yaml').serialize(this.data);
         }
 
-        return yaml.dump(this.data);
+        return getYaml().dump(this.data);
     }
 
     toXml(rootElement = 'root'): string {
@@ -210,10 +213,36 @@ export abstract class AbstractAccessor<
             return PluginRegistry.getSerializer('xml').serialize(this.data);
         }
 
-        throw new UnsupportedTypeError(
-            'toXml() requires an XML serializer plugin. ' +
-                "Register with: PluginRegistry.registerSerializer('xml', { serialize: (data) => ... })",
-        );
+        return `<?xml version="1.0"?>\n<${rootElement}>${AbstractAccessor.objectToXml(this.data)}</${rootElement}>\n`;
+    }
+
+    private static escapeXml(value: string): string {
+        return value
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&apos;');
+    }
+
+    private static objectToXml(data: Record<string, unknown>): string {
+        let xml = '';
+        for (const [key, value] of Object.entries(data)) {
+            const safeKey = /^\d+$/.test(key) ? `item_${key}` : key;
+            if (value !== null && typeof value === 'object') {
+                xml += `<${safeKey}>${AbstractAccessor.objectToXml(value as Record<string, unknown>)}</${safeKey}>`;
+            } else {
+                const strValue =
+                    value != null &&
+                    (typeof value === 'string' ||
+                        typeof value === 'number' ||
+                        typeof value === 'boolean')
+                        ? String(value)
+                        : '';
+                xml += `<${safeKey}>${AbstractAccessor.escapeXml(strValue)}</${safeKey}>`;
+            }
+        }
+        return xml;
     }
 
     transform(format: string): string {

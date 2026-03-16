@@ -1,7 +1,10 @@
-import yaml from 'js-yaml';
+import type yaml from 'js-yaml';
+import { optionalRequire } from '../core/optional-require';
 import { AbstractAccessor } from '../core/abstract-accessor';
 import { PluginRegistry } from '../core/plugin-registry';
 import { InvalidFormatError } from '../exceptions/invalid-format.error';
+
+const getYaml = optionalRequire<typeof yaml>('js-yaml', 'YAML');
 
 /**
  * Accessor for YAML strings.
@@ -26,7 +29,10 @@ export class YamlAccessor<
 
         try {
             return (
-                (yaml.load(input, { schema: yaml.JSON_SCHEMA }) as Record<string, unknown>) ?? {}
+                (getYaml().load(input, { schema: getYaml().JSON_SCHEMA }) as Record<
+                    string,
+                    unknown
+                >) ?? {}
             );
         } catch {
             /* v8 ignore next */

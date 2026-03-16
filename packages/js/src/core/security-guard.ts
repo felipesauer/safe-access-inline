@@ -1,7 +1,19 @@
 import { SecurityError } from '../exceptions/security.error';
 import { emitAudit } from './audit-emitter';
 
-const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+const FORBIDDEN_KEYS = new Set([
+    '__proto__',
+    'constructor',
+    'prototype',
+    '__defineGetter__',
+    '__defineSetter__',
+    '__lookupGetter__',
+    '__lookupSetter__',
+    'valueOf',
+    'toString',
+    'hasOwnProperty',
+    'isPrototypeOf',
+]);
 
 export class SecurityGuard {
     static assertSafeKey(key: string): void {

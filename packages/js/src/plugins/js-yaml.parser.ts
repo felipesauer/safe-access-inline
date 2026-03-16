@@ -1,5 +1,8 @@
-import yaml from 'js-yaml';
+import type yaml from 'js-yaml';
+import { optionalRequire } from '../core/optional-require';
 import type { ParserPlugin } from '../core/plugin-registry';
+
+const getYaml = optionalRequire<typeof yaml>('js-yaml', 'YAML');
 
 /**
  * YAML parser plugin using js-yaml.
@@ -11,6 +14,6 @@ import type { ParserPlugin } from '../core/plugin-registry';
  */
 export class JsYamlParser implements ParserPlugin {
     parse(raw: string): Record<string, unknown> {
-        return (yaml.load(raw) as Record<string, unknown>) ?? {};
+        return (getYaml().load(raw) as Record<string, unknown>) ?? {};
     }
 }
