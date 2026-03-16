@@ -56,6 +56,18 @@ describe('ip-range-checker', () => {
             expect(isIpv6Loopback('0:0:0:0:0:0:0:1')).toBe(true);
         });
 
+        it('detects ULA range fc00::/7 (fc prefix)', () => {
+            expect(isIpv6Loopback('fc00:db8::1')).toBe(true);
+        });
+
+        it('detects ULA range fc00::/7 (fd prefix)', () => {
+            expect(isIpv6Loopback('fd12:3456:789a::1')).toBe(true);
+        });
+
+        it('detects link-local fe80::/10 range', () => {
+            expect(isIpv6Loopback('fe80::1')).toBe(true);
+        });
+
         it('rejects non-loopback', () => {
             expect(isIpv6Loopback('::2')).toBe(false);
         });
@@ -119,6 +131,16 @@ describe('ip-range-checker', () => {
                 'cloud metadata',
             );
             expect(() => assertSafeUrl('https://instance-data')).toThrow('cloud metadata');
+        });
+
+        it('blocks ::ffff: IPv4-mapped IPv6 with private IP', () => {
+            expect(() => assertSafeUrl('https://[::ffff:127.0.0.1]')).toThrow('SSRF protection');
+            expect(() => assertSafeUrl('https://[::ffff:10.0.0.1]')).toThrow('SSRF protection');
+            expect(() => assertSafeUrl('https://[::ffff:192.168.1.1]')).toThrow('SSRF protection');
+        });
+
+        it('allows ::ffff: IPv4-mapped IPv6 with public IP', () => {
+            expect(() => assertSafeUrl('https://[::ffff:8.8.8.8]')).not.toThrow();
         });
     });
 });

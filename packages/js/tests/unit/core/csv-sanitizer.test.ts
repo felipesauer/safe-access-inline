@@ -37,6 +37,18 @@ describe('CsvSanitizer', () => {
             expect(sanitizeCsvCell('\rcmd', 'prefix')).toBe("'\rcmd");
         });
 
+        it('handles newline prefix in prefix mode', () => {
+            expect(sanitizeCsvCell('\ncmd', 'prefix')).toBe("'\ncmd");
+        });
+
+        it('strips newline prefix in strip mode', () => {
+            expect(sanitizeCsvCell('\ncmd', 'strip')).toBe('cmd');
+        });
+
+        it('throws on newline prefix in error mode', () => {
+            expect(() => sanitizeCsvCell('\ncmd', 'error')).toThrow(SecurityError);
+        });
+
         it('defaults to none mode', () => {
             expect(sanitizeCsvCell('=SUM(A1)')).toBe('=SUM(A1)');
         });

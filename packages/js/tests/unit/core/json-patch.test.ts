@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { diff, applyPatch } from '../../../src/core/json-patch';
 import type { JsonPatchOp } from '../../../src/core/json-patch';
 import { SafeAccess } from '../../../src/safe-access';
+import { JsonPatchTestFailedError } from '../../../src/exceptions/json-patch-test-failed.error';
 
 describe('JSON Patch — diff()', () => {
     it('detects added keys', () => {
@@ -86,6 +87,17 @@ describe('JSON Patch — applyPatch()', () => {
     it('test operation fails for non-matching value', () => {
         const ops: JsonPatchOp[] = [{ op: 'test', path: '/a', value: 999 }];
         expect(() => applyPatch({ a: 1 }, ops)).toThrow('Test operation failed');
+    });
+
+    it('test operation throws JsonPatchTestFailedError', () => {
+        const ops: JsonPatchOp[] = [{ op: 'test', path: '/a', value: 999 }];
+        try {
+            applyPatch({ a: 1 }, ops);
+            expect.unreachable('should throw');
+        } catch (err) {
+            expect(err).toBeInstanceOf(JsonPatchTestFailedError);
+            expect(err).toBeInstanceOf(Error);
+        }
     });
 
     it('applies multiple operations sequentially', () => {
