@@ -35,7 +35,6 @@ export class YamlAccessor<
                 >) ?? {}
             );
         } catch {
-            /* v8 ignore next */
             throw new InvalidFormatError('YamlAccessor failed to parse YAML string.');
         }
     }

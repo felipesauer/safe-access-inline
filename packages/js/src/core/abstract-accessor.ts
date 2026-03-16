@@ -189,10 +189,7 @@ export abstract class AbstractAccessor<
         try {
             return getSmolToml().stringify(this.data);
         } catch (e) {
-            throw new InvalidFormatError(
-                /* v8 ignore next */
-                `toToml() failed to serialize data: ${e instanceof Error ? e.message : String(e)}`,
-            );
+            throw new InvalidFormatError(`toToml() failed to serialize data: ${String(e)}`);
         }
     }
 
@@ -267,8 +264,7 @@ export abstract class AbstractAccessor<
         const headers = Object.keys(firstRow);
         const sanitize = (cell: string): string => sanitizeCsvCell(cell, mode);
         const escapeCsv = (val: unknown): string => {
-            /* v8 ignore next -- callers always pass pre-converted strings */
-            const str = String(val ?? '');
+            const str = String(val);
             return str.includes(',') || str.includes('"') || str.includes('\n')
                 ? `"${str.replace(/"/g, '""')}"`
                 : str;

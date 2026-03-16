@@ -31,7 +31,6 @@ export class XmlAccessor<
         try {
             return XmlAccessor.parseXmlToObject(xml);
         } catch (e) {
-            /* v8 ignore next -- assertSafeXml catches SecurityErrors before parse */
             if (e instanceof SecurityError) throw e;
             throw new InvalidFormatError('XmlAccessor failed to parse XML string.');
         }

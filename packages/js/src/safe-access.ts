@@ -369,6 +369,5 @@ export class SafeAccess {
         SchemaRegistry.clearDefaultAdapter();
     }
 
-    /* v8 ignore next */
     private constructor() {}
 }

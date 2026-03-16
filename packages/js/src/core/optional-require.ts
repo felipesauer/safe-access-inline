@@ -1,11 +1,10 @@
 import { createRequire } from 'node:module';
 
-// In CJS (tsup/esbuild output), `import.meta` becomes `{}` (url is undefined);
-// native `require` is available. In ESM, `import.meta.url` is a real file URL
-// and we must use `createRequire` to obtain a synchronous require function.
-const _require: NodeRequire = import.meta.url
-    ? createRequire(import.meta.url)
-    : /* v8 ignore next */ require;
+// In CJS (tsup/esbuild output), `import.meta` becomes `{}` (url is undefined)
+// and the native `require` is available. In ESM, `import.meta.url` is a real
+// file URL and we must use `createRequire` to obtain a synchronous require.
+/* v8 ignore next -- CJS fallback: test environment is always ESM */
+const _require = import.meta.url ? createRequire(import.meta.url) : require;
 
 /**
  * Lazily loads an optional peer dependency.
@@ -21,17 +20,14 @@ export function optionalRequire<T>(moduleId: string, featureName: string): () =>
             try {
                 mod = _require(moduleId) as T;
             } catch {
-                /* v8 ignore next */
                 // Not installed — will throw below
             }
         }
-        /* v8 ignore start */
         if (mod === undefined) {
             throw new Error(
                 `${moduleId} is required for ${featureName} support. Install it with: npm install ${moduleId}`,
             );
         }
-        /* v8 ignore stop */
         return mod;
     };
 }

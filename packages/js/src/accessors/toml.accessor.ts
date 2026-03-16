@@ -30,7 +30,6 @@ export class TomlAccessor<
         try {
             return getSmolToml().parse(input) as Record<string, unknown>;
         } catch {
-            /* v8 ignore next */
             throw new InvalidFormatError('TomlAccessor failed to parse TOML string.');
         }
     }
