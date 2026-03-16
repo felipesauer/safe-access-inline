@@ -1,8 +1,5 @@
 ---
-title: Primeiros Passos — JS/TS
-nav_exclude: true
-permalink: /pt-br/js/getting-started/
-lang: pt-br
+outline: deep
 ---
 
 # Primeiros Passos — JavaScript / TypeScript
@@ -10,8 +7,8 @@ lang: pt-br
 ## Índice
 
 - [Requisitos](#requisitos)
-- [Instalação](#instalação)
-- [Uso Básico](#uso-básico)
+- [Instalação](#instalacao)
+- [Uso Básico](#uso-basico)
 - [Sistema de Plugins](#sistema-de-plugins)
 - [Filtragem e Descida Recursiva](#filtragem-e-descida-recursiva)
 - [Deep Merge](#deep-merge)
@@ -20,14 +17,14 @@ lang: pt-br
 - [Accessors Customizados](#accessors-customizados)
 - [ESM e CommonJS](#esm-e-commonjs)
 - [Suporte TypeScript](#suporte-typescript)
-- [Operações de Array](#operações-de-array)
-- [JSON Patch & Diff](#json-patch--diff)
-- [I/O & Carregamento de Arquivos](#io--carregamento-de-arquivos)
-- [Configuração em Camadas](#configuração-em-camadas)
-- [Segurança](#segurança)
-- [Validação de Schema](#validação-de-schema)
+- [Operações de Array](#operacoes-de-array)
+- [JSON Patch & Diff](#json-patch-diff)
+- [I/O & Carregamento de Arquivos](#i-o-carregamento-de-arquivos)
+- [Configuração em Camadas](#configuracao-em-camadas)
+- [Segurança](#seguranca)
+- [Validação de Schema](#validacao-de-schema)
 - [Log de Auditoria](#log-de-auditoria)
-- [Integrações de Framework](#integrações-de-framework)
+- [Integrações de Framework](#integracoes-de-framework)
 
 ---
 

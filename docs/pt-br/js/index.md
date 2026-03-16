@@ -1,10 +1,3 @@
----
-title: JavaScript / TypeScript
-nav_exclude: true
-permalink: /pt-br/js/
-lang: pt-br
----
-
 # JavaScript / TypeScript
 
 Documentação do pacote JavaScript / TypeScript (`@safe-access-inline/safe-access-inline`).

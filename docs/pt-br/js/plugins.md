@@ -1,8 +1,5 @@
 ---
-title: Plugins
-nav_exclude: true
-permalink: /pt-br/js/plugins/
-lang: pt-br
+outline: deep
 ---
 
 # Sistema de Plugins — JavaScript / TypeScript
