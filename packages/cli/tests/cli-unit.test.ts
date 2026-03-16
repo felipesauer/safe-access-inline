@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve, join } from "node:path";
 import {
@@ -62,9 +62,35 @@ function runCli(args: string[]): {
 // ── Helper functions ──
 
 describe("defaultGetVersion", () => {
+    afterEach(() => {
+        vi.restoreAllMocks();
+    });
+
     it("returns a version string", () => {
         const version = defaultGetVersion();
         expect(version).toMatch(/^\d+\.\d+\.\d+$/);
+    });
+
+    it("returns '0.0.0' when package.json cannot be read", async () => {
+        // Clear module cache and re-import with mocked fs to trigger the catch branch
+        vi.resetModules();
+        vi.doMock("node:fs", async (importOriginal) => {
+            const original = await importOriginal<typeof import("node:fs")>();
+            return {
+                ...original,
+                readFileSync: (...args: Parameters<typeof readFileSync>) => {
+                    const pathArg = String(args[0]);
+                    if (pathArg.includes("package.json")) {
+                        throw new Error("mocked fs failure");
+                    }
+                    return original.readFileSync(...args);
+                },
+            };
+        });
+        const { defaultGetVersion: freshGetVersion } =
+            await import("../src/cli.js");
+        expect(freshGetVersion()).toBe("0.0.0");
+        vi.doUnmock("node:fs");
     });
 });
 
