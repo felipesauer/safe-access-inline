@@ -52,6 +52,9 @@ jobs:
             - name: Install CLI dependencies
               run: npm install
 
+            - name: Link local JS build
+              run: npm install ../js
+
             - name: Build
               run: npm run build
 
