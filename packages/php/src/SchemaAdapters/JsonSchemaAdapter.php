@@ -44,7 +44,7 @@ final class JsonSchemaAdapter implements SchemaAdapterInterface
             if (!in_array($actualType, $expectedTypes, true)) {
                 $errors[] = new SchemaValidationIssue(
                     $path,
-                    "Expected type '" . implode('|', $expectedTypes) . "' but got '{$actualType}'"
+                    "Expected type '" . implode('|', array_map(static fn (mixed $t): string => (string) $t, $expectedTypes)) . "' but got '{$actualType}'"
                 );
                 return $errors;
             }
