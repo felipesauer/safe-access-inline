@@ -1,5 +1,6 @@
 <?php
 
+use SafeAccessInline\Contracts\HttpClientInterface;
 use SafeAccessInline\Core\IoLoader;
 use SafeAccessInline\Enums\AccessorFormat;
 use SafeAccessInline\Exceptions\SecurityException;
@@ -113,5 +114,122 @@ describe(IoLoader::class, function () use (&$fixturesDir) {
 
     it('treats invalid IPs as private', function () {
         expect(IoLoader::isPrivateIp('invalid'))->toBeTrue();
+    });
+
+    // ── IPv6 link-local and mapped blocking ─────
+
+    it('blocks IPv6 link-local addresses', function () {
+        IoLoader::assertSafeUrl('https://[fe80::1]');
+    })->throws(SecurityException::class, 'link-local');
+
+    it('blocks IPv4-mapped IPv6 with private IP', function () {
+        IoLoader::assertSafeUrl('https://[::ffff:127.0.0.1]');
+    })->throws(SecurityException::class, 'private/internal');
+
+    it('blocks IPv6 loopback ::1', function () {
+        IoLoader::assertSafeUrl('https://[::1]');
+    })->throws(SecurityException::class, 'loopback');
+
+    it('blocks IPv6 loopback long form', function () {
+        IoLoader::assertSafeUrl('https://[0:0:0:0:0:0:0:1]');
+    })->throws(SecurityException::class, 'loopback');
+
+    it('blocks IPv6 ULA fc00::/7 (fc prefix)', function () {
+        IoLoader::assertSafeUrl('https://[fc00:db8::1]');
+    })->throws(SecurityException::class, 'unique local');
+
+    it('blocks IPv6 ULA fc00::/7 (fd prefix)', function () {
+        IoLoader::assertSafeUrl('https://[fd12:3456:789a::1]');
+    })->throws(SecurityException::class, 'unique local');
+
+    // ── assertSafeUrl returns resolved IP ───────
+
+    it('returns the resolved IP address', function () {
+        $ip = IoLoader::assertSafeUrl('https://example.com');
+        expect($ip)->toBeString();
+        expect(filter_var($ip, FILTER_VALIDATE_IP))->not->toBeFalse();
+    });
+
+    // ── fetchUrl ────────────────────────────────
+
+    it('rejects fetchUrl with private IP host', function () {
+        IoLoader::fetchUrl('https://127.0.0.1/secret');
+    })->throws(SecurityException::class, 'private/internal');
+
+    it('rejects fetchUrl with HTTP scheme', function () {
+        IoLoader::fetchUrl('http://example.com');
+    })->throws(SecurityException::class, 'Only HTTPS');
+
+    it('rejects fetchUrl with IPv6 loopback', function () {
+        IoLoader::fetchUrl('https://[::1]/path');
+    })->throws(SecurityException::class, 'loopback');
+
+    it('rejects fetchUrl with link-local IPv6', function () {
+        IoLoader::fetchUrl('https://[fe80::1]/path');
+    })->throws(SecurityException::class, 'link-local');
+
+    it('rejects fetchUrl with metadata hostname', function () {
+        IoLoader::fetchUrl('https://metadata.google.internal/computeMetadata/v1/');
+    })->throws(SecurityException::class, 'cloud metadata');
+
+    it('fetchUrl exercises cURL path for unreachable host', function () {
+        // Uses a non-routable IP to trigger a cURL connection error,
+        // exercising the full cURL code path including CURLOPT_RESOLVE.
+        IoLoader::fetchUrl('https://unreachable-test.invalid', ['allowPrivateIps' => true]);
+    })->throws(SecurityException::class, 'Failed to fetch URL');
+
+    // ── COV-001: assertPathWithinAllowedDirs — both file and parent dir missing
+
+    it('rejects path where both file and parent directory do not exist', function () use (&$fixturesDir) {
+        // Neither the file nor the directory can be resolved by realpath
+        IoLoader::assertPathWithinAllowedDirs('/nonexistent_dir_abc/deep/file.json', [$fixturesDir]);
+    })->throws(SecurityException::class, 'outside allowed directories');
+
+    // ── COV-002 + COV-004: fetchUrl with MockHttpClient ─────────
+
+    it('fetchUrl returns content via mock HTTP client', function () {
+        $mock = new class () implements HttpClientInterface {
+            public function fetch(string $url, array $curlOptions): string
+            {
+                return '{"mocked": true}';
+            }
+        };
+        IoLoader::setHttpClient($mock);
+
+        $content = IoLoader::fetchUrl('https://example.com/data.json');
+        expect($content)->toBe('{"mocked": true}');
+
+        IoLoader::resetHttpClient();
+    });
+
+    it('fetchUrl propagates SecurityException from HTTP client (COV-004)', function () {
+        $mock = new class () implements HttpClientInterface {
+            public function fetch(string $url, array $curlOptions): string
+            {
+                throw new SecurityException("Failed to initialize cURL for URL: '{$url}'");
+            }
+        };
+        IoLoader::setHttpClient($mock);
+
+        try {
+            IoLoader::fetchUrl('https://example.com/data.json');
+        } finally {
+            IoLoader::resetHttpClient();
+        }
+    })->throws(SecurityException::class, 'Failed to initialize cURL');
+
+    it('resetHttpClient restores default client', function () {
+        $mock = new class () implements HttpClientInterface {
+            public function fetch(string $url, array $curlOptions): string
+            {
+                return 'mock';
+            }
+        };
+        IoLoader::setHttpClient($mock);
+        IoLoader::resetHttpClient();
+
+        // After reset, the default CurlHttpClient is used, which will fail for unreachable hosts
+        expect(fn () => IoLoader::fetchUrl('https://unreachable-test.invalid', ['allowPrivateIps' => true]))
+            ->toThrow(SecurityException::class, 'Failed to fetch URL');
     });
 });

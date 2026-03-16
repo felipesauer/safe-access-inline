@@ -59,6 +59,7 @@ describe(TypeDetector::class, function () {
     })->throws(UnsupportedTypeException::class);
 
     it('detects YAML string when parser plugin registered', function () {
+        PluginRegistry::reset();
         $parser = new class () implements ParserPluginInterface {
             public function parse(string $raw): array
             {

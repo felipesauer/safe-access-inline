@@ -51,7 +51,10 @@ describe(PluginRegistry::class, function () {
         };
 
         PluginRegistry::registerParser('yaml', $parser1);
+
+        set_error_handler(static fn () => true, E_USER_WARNING);
         PluginRegistry::registerParser('yaml', $parser2);
+        restore_error_handler();
 
         expect(PluginRegistry::getParser('yaml'))->toBe($parser2);
     });

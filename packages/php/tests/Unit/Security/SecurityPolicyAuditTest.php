@@ -237,4 +237,35 @@ describe('SafeAccess + SecurityPolicy/Audit', function () {
             unlink($tmp);
         }
     });
+
+    it('fromFileWithPolicy enforces maxKeys', function () {
+        $data = [];
+        for ($i = 0; $i < 20; $i++) {
+            $data["key{$i}"] = $i;
+        }
+        $tmp = tempnam(sys_get_temp_dir(), 'sa-policy-') . '.json';
+        file_put_contents($tmp, json_encode($data));
+        try {
+            $policy = new SecurityPolicy(maxKeys: 5, allowedDirs: [sys_get_temp_dir()]);
+            SafeAccess::fromFileWithPolicy($tmp, $policy);
+        } finally {
+            unlink($tmp);
+        }
+    })->throws(SecurityException::class, 'exceeding maximum');
+
+    it('fromFileWithPolicy applies maskPatterns', function () {
+        $tmp = tempnam(sys_get_temp_dir(), 'sa-policy-') . '.json';
+        file_put_contents($tmp, '{"user":"john","password":"secret"}');
+        try {
+            $policy = new SecurityPolicy(
+                maskPatterns: ['password'],
+                allowedDirs: [sys_get_temp_dir()],
+            );
+            $acc = SafeAccess::fromFileWithPolicy($tmp, $policy);
+            expect($acc->get('user'))->toBe('john');
+            expect($acc->get('password'))->toBe('[REDACTED]');
+        } finally {
+            unlink($tmp);
+        }
+    });
 });

@@ -7,8 +7,11 @@ use SafeAccessInline\Accessors\IniAccessor;
 use SafeAccessInline\Accessors\JsonAccessor;
 use SafeAccessInline\Accessors\ObjectAccessor;
 use SafeAccessInline\Accessors\XmlAccessor;
+use SafeAccessInline\Contracts\HttpClientInterface;
+use SafeAccessInline\Core\IoLoader;
 use SafeAccessInline\Enums\AccessorFormat;
 use SafeAccessInline\Exceptions\InvalidFormatException;
+use SafeAccessInline\Exceptions\SecurityException;
 use SafeAccessInline\SafeAccess;
 use SafeAccessInline\Security\SecurityPolicy;
 
@@ -185,5 +188,125 @@ describe(SafeAccess::class, function () {
         expect(SecurityPolicy::getGlobal())->toBe($policy);
         SafeAccess::clearGlobalPolicy();
         expect(SecurityPolicy::getGlobal())->toBeNull();
+    });
+
+    // ── withPolicy enforcement ──────────────────────
+
+    it('withPolicy enforces maxPayloadBytes', function () {
+        $bigString = str_repeat('x', 2000);
+        $policy = new SecurityPolicy(maxPayloadBytes: 100);
+        SafeAccess::withPolicy($bigString, $policy);
+    })->throws(SecurityException::class, 'Payload size');
+
+    it('withPolicy enforces maxKeys', function () {
+        $data = [];
+        for ($i = 0; $i < 50; $i++) {
+            $data["key{$i}"] = $i;
+        }
+        $policy = new SecurityPolicy(maxKeys: 10);
+        SafeAccess::withPolicy($data, $policy);
+    })->throws(SecurityException::class, 'exceeding maximum');
+
+    it('withPolicy enforces maxDepth', function () {
+        $data = ['a' => ['b' => ['c' => ['d' => ['e' => 'deep']]]]];
+        $policy = new SecurityPolicy(maxDepth: 2);
+        SafeAccess::withPolicy($data, $policy);
+    })->throws(SecurityException::class, 'structural depth');
+
+    it('withPolicy applies maskPatterns', function () {
+        $data = ['password' => 'secret123', 'name' => 'Ana'];
+        $policy = new SecurityPolicy(maskPatterns: ['password']);
+        $accessor = SafeAccess::withPolicy($data, $policy);
+        expect($accessor->get('password'))->toBe('[REDACTED]');
+        expect($accessor->get('name'))->toBe('Ana');
+    });
+
+    it('withPolicy passes through when all limits are satisfied', function () {
+        $data = ['key' => 'value'];
+        $policy = SecurityPolicy::permissive();
+        $accessor = SafeAccess::withPolicy($data, $policy);
+        expect($accessor->get('key'))->toBe('value');
+    });
+
+    // ── resetAll ────────────────────────────────────
+
+    it('resetAll clears all global state', function () {
+        $policy = new SecurityPolicy(maxDepth: 99);
+        SafeAccess::setGlobalPolicy($policy);
+        SafeAccess::resetAll();
+        expect(SecurityPolicy::getGlobal())->toBeNull();
+    });
+
+    // ── fromUrl with mock HTTP client ───────────────
+
+    it('fromUrl returns accessor from mock HTTP response', function () {
+        $mock = new class () implements HttpClientInterface {
+            public function fetch(string $url, array $curlOptions): string
+            {
+                return '{"status":"ok"}';
+            }
+        };
+        IoLoader::setHttpClient($mock);
+
+        try {
+            $accessor = SafeAccess::fromUrl('https://example.com/data.json');
+            expect($accessor)->toBeInstanceOf(JsonAccessor::class);
+            expect($accessor->get('status'))->toBe('ok');
+        } finally {
+            IoLoader::resetHttpClient();
+        }
+    });
+
+    it('fromUrl auto-detects format from URL extension', function () {
+        $mock = new class () implements HttpClientInterface {
+            public function fetch(string $url, array $curlOptions): string
+            {
+                return '{"auto":"detected"}';
+            }
+        };
+        IoLoader::setHttpClient($mock);
+
+        try {
+            $accessor = SafeAccess::fromUrl('https://example.com/config.json');
+            expect($accessor)->toBeInstanceOf(JsonAccessor::class);
+            expect($accessor->get('auto'))->toBe('detected');
+        } finally {
+            IoLoader::resetHttpClient();
+        }
+    });
+
+    it('fromUrl falls back to type detection when no extension', function () {
+        $mock = new class () implements HttpClientInterface {
+            public function fetch(string $url, array $curlOptions): string
+            {
+                return '{"fallback":"yes"}';
+            }
+        };
+        IoLoader::setHttpClient($mock);
+
+        try {
+            $accessor = SafeAccess::fromUrl('https://example.com/api/data');
+            expect($accessor->get('fallback'))->toBe('yes');
+        } finally {
+            IoLoader::resetHttpClient();
+        }
+    });
+
+    it('fromUrlWithPolicy fetches and applies policy', function () {
+        $mock = new class () implements HttpClientInterface {
+            public function fetch(string $url, array $curlOptions): string
+            {
+                return '{"secret":"value","name":"test"}';
+            }
+        };
+        IoLoader::setHttpClient($mock);
+
+        try {
+            $policy = new SecurityPolicy(url: ['allowedHosts' => ['example.com']]);
+            $accessor = SafeAccess::fromUrlWithPolicy('https://example.com/data.json', $policy);
+            expect($accessor->get('name'))->toBe('test');
+        } finally {
+            IoLoader::resetHttpClient();
+        }
     });
 });
