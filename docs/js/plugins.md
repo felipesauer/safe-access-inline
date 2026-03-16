@@ -1,8 +1,5 @@
 ---
-title: Plugins
-parent: JavaScript / TypeScript
-nav_order: 3
-permalink: /js/plugins/
+outline: deep
 ---
 
 # Plugin System — JavaScript / TypeScript

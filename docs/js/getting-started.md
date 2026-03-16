@@ -1,8 +1,5 @@
 ---
-title: Getting Started
-parent: JavaScript / TypeScript
-nav_order: 1
-permalink: /js/getting-started/
+outline: deep
 ---
 
 # Getting Started — JavaScript / TypeScript

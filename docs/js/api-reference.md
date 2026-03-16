@@ -1,8 +1,5 @@
 ---
-title: API Reference
-parent: JavaScript / TypeScript
-nav_order: 2
-permalink: /js/api-reference/
+outline: deep
 ---
 
 # API Reference — JavaScript / TypeScript
@@ -637,7 +634,7 @@ Protects against CSV formula injection.
 - `sanitizeCsvCell(cell: string, mode?: CsvSanitizeMode): string`
 - `sanitizeCsvRow(row: string[], mode?: CsvSanitizeMode): string[]`
 
-Modes: `'prefix'` (prefix with `'`), `'strip'` (remove leading `=+-@`), `'error'` (throw), `'none'` (passthrough).
+Modes: `'prefix'` (prefix with `'`), `'strip'` (removes all CSV injection prefix characters: `=`, `+`, `-`, `@`, `\t`, `\r`, `\n` per OWASP CSV Injection guidance), `'error'` (throw), `'none'` (passthrough).
 
 ### Deep Freeze
 
