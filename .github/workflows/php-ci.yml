@@ -59,12 +59,13 @@ jobs:
               run: composer require symfony/yaml devium/toml --dev --no-progress
 
             - name: Run tests
-              run: vendor/bin/pest --coverage --min=95
+              run: vendor/bin/pest --coverage --coverage-clover coverage.xml --min=95
 
             - name: Upload coverage to Codecov
               if: matrix.php == '8.4' && matrix.deps == 'core'
               uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5
               with:
+                  token: ${{ secrets.CODECOV_TOKEN }}
                   flags: php
                   files: packages/php/coverage.xml
                   fail_ci_if_error: false
