@@ -1,8 +1,5 @@
 ---
-title: API Reference
-parent: PHP
-nav_order: 2
-permalink: /php/api-reference/
+outline: deep
 ---
 
 # API Reference — PHP
@@ -208,7 +205,7 @@ Throws `SecurityException` on SSRF attempts, private IPs, non-HTTPS, or disallow
 
 #### `SafeAccess::withPolicy(mixed $data, SecurityPolicy $policy): AbstractAccessor`
 
-Auto-detects format and optionally applies mask patterns from the policy.
+Auto-detects format and enforces security limits from the policy (`maxPayloadBytes`, `maxKeys`, `maxDepth`). Also applies mask patterns if present.
 
 ```php
 use SafeAccessInline\Security\SecurityPolicy;
@@ -769,7 +766,7 @@ Throws `SecurityException` if nesting exceeds max depth.
 
 #### `SecurityGuard::assertSafeKey(string $key): void`
 
-Blocks prototype pollution keys: `__proto__`, `constructor`, `prototype`. Throws `SecurityException`.
+Blocks prototype pollution keys: `__proto__`, `constructor`, `prototype`, `__defineGetter__`, `__defineSetter__`, `__lookupGetter__`, `__lookupSetter__`, `valueOf`, `toString`, `hasOwnProperty`, `isPrototypeOf`. Throws `SecurityException`.
 
 #### `SecurityGuard::sanitizeObject(array $data): array`
 
@@ -779,16 +776,16 @@ Recursively removes forbidden keys from data.
 
 **Namespace:** `SafeAccessInline\Security\CsvSanitizer`
 
-Guards against CSV injection attacks (`=`, `+`, `-`, `@`, `\t`, `\r`).
+Guards against CSV injection attacks (`=`, `+`, `-`, `@`, `\t`, `\r`, `\n`).
 
 #### `CsvSanitizer::sanitizeCell(string $cell, string $mode = 'none'): string`
 
-| Mode       | Behavior                             |
-| ---------- | ------------------------------------ |
-| `'none'`   | No sanitization                      |
-| `'prefix'` | Prepends `'` to dangerous cells      |
-| `'strip'`  | Removes leading dangerous characters |
-| `'error'`  | Throws `SecurityException`           |
+| Mode       | Behavior                                                                                              |
+| ---------- | ----------------------------------------------------------------------------------------------------- |
+| `'none'`   | No sanitization                                                                                       |
+| `'prefix'` | Prepends `'` to dangerous cells                                                                       |
+| `'strip'`  | Removes all CSV injection prefix characters (`=`, `+`, `-`, `@`, `\t`, `\r`, `\n`) per OWASP guidance |
+| `'error'`  | Throws `SecurityException`                                                                            |
 
 #### `CsvSanitizer::sanitizeRow(array $row, string $mode = 'none'): array`
 
@@ -1083,15 +1080,16 @@ DotNotationParser::renderTemplate('users.{id}.name', ['id' => '42']);
 
 ## Exceptions
 
-| Exception                    | When                                                                                                                     |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `AccessorException`          | Base exception class                                                                                                     |
-| `InvalidFormatException`     | Invalid input format (e.g., malformed JSON, missing parser plugin at accessor level)                                     |
-| `UnsupportedTypeException`   | `detect()` cannot determine format; `PluginRegistry` has no registered plugin; `toXml()`/`transform()` has no serializer |
-| `PathNotFoundException`      | Reserved (not thrown by `get()`)                                                                                         |
-| `SecurityException`          | SSRF attempt, path traversal, payload too large, forbidden keys, CSV injection (`error` mode)                            |
-| `ReadonlyViolationException` | Modifying a readonly accessor (`set`, `remove`, `merge`, `push`, etc.)                                                   |
-| `SchemaValidationException`  | Schema validation failed — has `getIssues(): SchemaValidationIssue[]` for detailed error info                            |
+| Exception                      | When                                                                                                                     |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| `AccessorException`            | Base exception class                                                                                                     |
+| `InvalidFormatException`       | Invalid input format (e.g., malformed JSON, missing parser plugin at accessor level)                                     |
+| `UnsupportedTypeException`     | `detect()` cannot determine format; `PluginRegistry` has no registered plugin; `toXml()`/`transform()` has no serializer |
+| `PathNotFoundException`        | Reserved (not thrown by `get()`)                                                                                         |
+| `SecurityException`            | SSRF attempt, path traversal, payload too large, forbidden keys, CSV injection (`error` mode)                            |
+| `ReadonlyViolationException`   | Modifying a readonly accessor (`set`, `remove`, `merge`, `push`, etc.)                                                   |
+| `SchemaValidationException`    | Schema validation failed — has `getIssues(): SchemaValidationIssue[]` for detailed error info                            |
+| `JsonPatchTestFailedException` | JSON Patch `test` operation failed — value at path does not match expected value                                         |
 
 ---
 
