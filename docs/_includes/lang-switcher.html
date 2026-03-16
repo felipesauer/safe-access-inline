@@ -1,9 +1,0 @@
-{% assign current_path = page.url | remove_first: "/" %}
-{% assign is_ptbr = current_path | slice: 0, 5 %}
-
-{% if is_ptbr == "pt-br" %}
-  {% assign en_path = current_path | remove_first: "pt-br/" %}
-  <a href="{{ site.baseurl }}/{{ en_path }}" title="Switch to English" class="lang-switcher__link">🇺🇸 English</a>
-{% else %}
-  <a href="{{ site.baseurl }}/pt-br/{{ current_path }}" title="Mudar para Português" class="lang-switcher__link">🇧🇷 Português</a>
-{% endif %}
