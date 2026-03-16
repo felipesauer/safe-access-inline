@@ -42,3 +42,6 @@ package-lock.json
 # OS
 .DS_Store
 Thumbs.db
+
+# VitePress
+docs/.vitepress/cache/
