@@ -19,6 +19,12 @@ interface TransformableInterface
     /** @return string Formatted YAML */
     public function toYaml(): string;
 
+    /** @return string CSV formatted output */
+    public function toCsv(?string $csvMode = null): string;
+
+    /** @return string NDJSON formatted output */
+    public function toNdjson(): string;
+
     /** @return object stdClass representing the data structure */
     public function toObject(): object;
 

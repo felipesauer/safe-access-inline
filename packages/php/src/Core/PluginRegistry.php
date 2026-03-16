@@ -33,6 +33,13 @@ final class PluginRegistry
      */
     public static function registerParser(string $format, ParserPluginInterface $parser): void
     {
+        if (isset(self::$parsers[$format])) {
+            trigger_error(
+                "[PluginRegistry] Parser for format '{$format}' is being overwritten. "
+                . 'Use PluginRegistry::reset() to clear all plugins first.',
+                E_USER_WARNING
+            );
+        }
         self::$parsers[$format] = $parser;
     }
 
@@ -71,6 +78,13 @@ final class PluginRegistry
      */
     public static function registerSerializer(string $format, SerializerPluginInterface $serializer): void
     {
+        if (isset(self::$serializers[$format])) {
+            trigger_error(
+                "[PluginRegistry] Serializer for format '{$format}' is being overwritten. "
+                . 'Use PluginRegistry::reset() to clear all plugins first.',
+                E_USER_WARNING
+            );
+        }
         self::$serializers[$format] = $serializer;
     }
 

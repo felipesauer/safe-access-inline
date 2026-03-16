@@ -6,7 +6,19 @@ use SafeAccessInline\Exceptions\SecurityException;
 
 final class SecurityGuard
 {
-    private const FORBIDDEN_KEYS = ['__proto__', 'constructor', 'prototype'];
+    private const FORBIDDEN_KEYS = [
+        '__proto__',
+        'constructor',
+        'prototype',
+        '__defineGetter__',
+        '__defineSetter__',
+        '__lookupGetter__',
+        '__lookupSetter__',
+        'valueOf',
+        'toString',
+        'hasOwnProperty',
+        'isPrototypeOf',
+    ];
 
     /**
      * @throws SecurityException

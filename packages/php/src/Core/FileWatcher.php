@@ -8,19 +8,21 @@ final class FileWatcher
      * Watches a file for changes using polling (filemtime).
      * Returns a callable to stop watching.
      *
-     * @codeCoverageIgnore Requires real filesystem polling loop.
-     *
      * @param int $intervalMs Polling interval in milliseconds (default: 1000)
+     * @param callable(int): void|null $sleepFn Custom sleep function for testing (receives microseconds)
      * @return callable(): void Stop function
      */
-    public static function watch(string $filePath, callable $onChange, int $intervalMs = 1000): callable
+    public static function watch(string $filePath, callable $onChange, int $intervalMs = 1000, ?callable $sleepFn = null): callable
     {
+        $sleep = $sleepFn ?? static function (int $us): void {
+            usleep($us);
+        };
         clearstatcache(true, $filePath);
         $lastMtime = file_exists($filePath) ? filemtime($filePath) : 0;
         $running = true;
 
         // Return a closure that polls
-        $poll = function () use ($filePath, $onChange, &$lastMtime, &$running, $intervalMs): void {
+        $poll = function () use ($filePath, $onChange, &$lastMtime, &$running, $intervalMs, $sleep): void {
             while ($running) {
                 clearstatcache(true, $filePath);
                 $currentMtime = file_exists($filePath) ? filemtime($filePath) : 0;
@@ -28,7 +30,7 @@ final class FileWatcher
                     $lastMtime = $currentMtime;
                     $onChange($filePath);
                 }
-                usleep($intervalMs * 1000);
+                $sleep($intervalMs * 1000);
             }
         };
 

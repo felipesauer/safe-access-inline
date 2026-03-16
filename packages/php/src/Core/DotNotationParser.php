@@ -360,7 +360,7 @@ final class DotNotationParser
         $current = &$result;
 
         $lastKey = array_pop($keys);
-        if ($lastKey === null) { // @codeCoverageIgnore
+        if ($lastKey === null) { // @codeCoverageIgnore — empty path is rejected before this call
             return $result; // @codeCoverageIgnore
         }
 

@@ -18,6 +18,7 @@
     "authors": [
         {
             "name": "Felipe Sauer",
+            "email": "felipesauer11@hotmail.com",
             "homepage": "https://github.com/felipesauer"
         }
     ],
@@ -27,6 +28,7 @@
     },
     "require": {
         "php": "^8.2",
+        "ext-curl": "*",
         "ext-json": "*",
         "ext-simplexml": "*",
         "ext-libxml": "*",

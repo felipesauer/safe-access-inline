@@ -7,8 +7,20 @@ parameters:
 			path: src/Core/AbstractAccessor.php
 
 		-
+			rawMessage: Cannot cast mixed to string.
+			identifier: cast.string
+			count: 1
+			path: src/Core/AbstractAccessor.php
+
+		-
 			rawMessage: 'Parameter #1 $array (list) of array_values is already a list, call has no effect.'
 			identifier: arrayValues.list
+			count: 1
+			path: src/Core/AbstractAccessor.php
+
+		-
+			rawMessage: Using nullsafe property access "?->csvMode" on left side of ?? is unnecessary. Use -> instead.
+			identifier: nullsafe.neverNull
 			count: 1
 			path: src/Core/AbstractAccessor.php
 
