@@ -213,6 +213,28 @@ describe(AbstractAccessor.name, () => {
         expect(xml).toContain('<item_1>second</item_1>');
     });
 
+    it('toXml — built-in handles null values as empty strings', () => {
+        const accessor = ArrayAccessor.from({ key: null } as unknown as Record<string, unknown>);
+        const xml = accessor.toXml();
+        expect(xml).toContain('<key></key>');
+    });
+
+    it('toXml — built-in handles boolean values', () => {
+        const accessor = ArrayAccessor.from({ active: true, deleted: false });
+        const xml = accessor.toXml();
+        expect(xml).toContain('<active>true</active>');
+        expect(xml).toContain('<deleted>false</deleted>');
+    });
+
+    it('toXml — built-in handles undefined values as empty strings', () => {
+        const accessor = ArrayAccessor.from({ key: undefined } as unknown as Record<
+            string,
+            unknown
+        >);
+        const xml = accessor.toXml();
+        expect(xml).toContain('<key></key>');
+    });
+
     it('toXml — custom root element', () => {
         const accessor = ArrayAccessor.from({ key: 'value' });
         const xml = accessor.toXml('data');

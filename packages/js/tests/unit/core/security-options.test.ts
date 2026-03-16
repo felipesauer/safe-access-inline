@@ -3,6 +3,7 @@ import {
     assertPayloadSize,
     assertMaxKeys,
     assertMaxDepth,
+    assertMaxStructuralDepth,
     DEFAULT_SECURITY_OPTIONS,
 } from '../../../src/core/security-options';
 import { SecurityError } from '../../../src/exceptions/security.error';
@@ -77,6 +78,29 @@ describe('SecurityOptions', () => {
             expect(DEFAULT_SECURITY_OPTIONS.maxDepth).toBe(512);
             expect(DEFAULT_SECURITY_OPTIONS.maxPayloadBytes).toBe(10 * 1024 * 1024);
             expect(DEFAULT_SECURITY_OPTIONS.maxKeys).toBe(10_000);
+        });
+    });
+
+    describe('assertMaxStructuralDepth', () => {
+        it('allows data within depth limit', () => {
+            expect(() => assertMaxStructuralDepth({ a: { b: 1 } }, 5)).not.toThrow();
+        });
+
+        it('throws when structural depth exceeds limit', () => {
+            const deep = { a: { b: { c: { d: 1 } } } };
+            expect(() => assertMaxStructuralDepth(deep, 2)).toThrow(SecurityError);
+            expect(() => assertMaxStructuralDepth(deep, 2)).toThrow('exceeds policy maximum');
+        });
+
+        it('handles circular references without infinite recursion', () => {
+            const obj: Record<string, unknown> = { a: 1 };
+            obj['self'] = obj;
+            expect(() => assertMaxStructuralDepth(obj, 100)).not.toThrow();
+        });
+
+        it('measures depth of arrays', () => {
+            const data = { items: [1, 2, [3, 4]] };
+            expect(() => assertMaxStructuralDepth(data, 10)).not.toThrow();
         });
     });
 });

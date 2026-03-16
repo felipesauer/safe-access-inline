@@ -284,4 +284,13 @@ describe('JsonSchemaAdapter', () => {
         const result = adapter.validate({ anything: true }, {});
         expect(result.valid).toBe(true);
     });
+
+    it('skips validation for optional properties absent from data', () => {
+        const schema = {
+            type: 'object',
+            properties: { name: { type: 'string' }, email: { type: 'string' } },
+        };
+        const result = adapter.validate({ name: 'Ana' }, schema);
+        expect(result.valid).toBe(true);
+    });
 });

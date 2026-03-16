@@ -434,8 +434,10 @@ describe('Audit Integration', () => {
             for (let i = 0; i < 100; i++) {
                 onAudit(() => {});
             }
-            onAudit(() => {}); // 101st — triggers warning
+            const noop = onAudit(() => {}); // 101st — triggers warning
             expect(warn).toHaveBeenCalledWith(expect.stringContaining('Max listener count'));
+            // Invoke the returned no-op unsubscriber to cover its body
+            noop();
         } finally {
             warn.mockRestore();
         }
