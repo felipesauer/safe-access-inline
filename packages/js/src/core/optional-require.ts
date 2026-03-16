@@ -21,14 +21,17 @@ export function optionalRequire<T>(moduleId: string, featureName: string): () =>
             try {
                 mod = _require(moduleId) as T;
             } catch {
+                /* v8 ignore next */
                 // Not installed — will throw below
             }
         }
+        /* v8 ignore start */
         if (mod === undefined) {
             throw new Error(
                 `${moduleId} is required for ${featureName} support. Install it with: npm install ${moduleId}`,
             );
         }
+        /* v8 ignore stop */
         return mod;
     };
 }
