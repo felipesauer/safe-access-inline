@@ -118,17 +118,18 @@ export function assertSafeUrl(
 }
 
 /**
- * Resolves a hostname to an IP address via DNS and checks if it's private.
- * Must be called in async context (e.g. fetchUrl) to catch hostname-based SSRF.
+ * Resolves a hostname to IPv4, validates it is not a private IP, and returns
+ * the resolved address for connection pinning. Returns null when skipped.
+ * @internal Not part of the public API — used by fetchUrl for DNS pinning.
  */
-export async function assertResolvedIpNotPrivate(
+export async function resolveAndValidateIp(
     hostname: string,
     options?: { allowPrivateIps?: boolean },
-): Promise<void> {
-    if (options?.allowPrivateIps) return;
+): Promise<string | null> {
+    if (options?.allowPrivateIps) return null;
 
-    // Skip if already a raw IP (already checked synchronously)
-    if (/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname)) return;
+    // Already a raw IPv4 — return directly (already checked synchronously by assertSafeUrl)
+    if (/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname)) return hostname;
 
     const { resolve4 } = await import('node:dns/promises');
     try {
@@ -141,8 +142,21 @@ export async function assertResolvedIpNotPrivate(
                 );
             }
         }
+        return addresses[0] ?? null;
     } catch (err) {
         if (err instanceof SecurityError) throw err;
         // DNS resolution failure — allow to proceed (fetch will fail anyway)
+        return null;
     }
+}
+
+/**
+ * Resolves a hostname to an IP address via DNS and checks if it's private.
+ * Must be called in async context (e.g. fetchUrl) to catch hostname-based SSRF.
+ */
+export async function assertResolvedIpNotPrivate(
+    hostname: string,
+    options?: { allowPrivateIps?: boolean },
+): Promise<void> {
+    await resolveAndValidateIp(hostname, options);
 }

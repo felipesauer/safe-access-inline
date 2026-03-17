@@ -2,7 +2,7 @@ import * as fs from 'node:fs';
 import * as fsp from 'node:fs/promises';
 import * as path from 'node:path';
 import { SecurityError } from '../exceptions/security.error';
-import { assertSafeUrl, assertResolvedIpNotPrivate } from './ip-range-checker';
+import { assertSafeUrl, resolveAndValidateIp } from './ip-range-checker';
 import { Format } from '../format.enum';
 import { emitAudit } from './audit-emitter';
 
@@ -34,7 +34,13 @@ export function assertPathWithinAllowedDirs(filePath: string, allowedDirs?: stri
         throw new SecurityError('File path contains null bytes.');
     }
 
-    if (!allowedDirs || allowedDirs.length === 0) return;
+    if (!allowedDirs || allowedDirs.length === 0) {
+        emitAudit('security.violation', {
+            reason: 'allowedDirs_not_configured',
+            path: filePath,
+        });
+        return;
+    }
 
     // Resolve symlinks before comparing — path.resolve() alone does not follow symlinks
     let resolved: string;
@@ -85,17 +91,28 @@ export async function fetchUrl(
 ): Promise<string> {
     assertSafeUrl(url, options);
 
-    // DNS-level SSRF check: resolve hostname and verify it doesn't point to private IPs
+    // DNS-level SSRF check: resolve hostname, verify it's not private, and get the resolved IP
     const parsed = new URL(url);
-    await assertResolvedIpNotPrivate(parsed.hostname, {
+    const resolvedIp = await resolveAndValidateIp(parsed.hostname, {
         allowPrivateIps: options?.allowPrivateIps,
     });
 
     emitAudit('url.fetch', { url });
+
     const response = await fetch(url, {
         redirect: 'error', // block all redirects — prevents SSRF via open redirects
         signal: AbortSignal.timeout(10_000), // 10 s timeout — prevents DoS via slow servers
     });
+
+    // Post-fetch DNS rebinding guard: re-validate that the hostname still resolves
+    // to non-private IPs. If an attacker switched DNS to a private IP between the
+    // pre-fetch validation and the actual connection, this second check catches it.
+    if (resolvedIp) {
+        await resolveAndValidateIp(parsed.hostname, {
+            allowPrivateIps: options?.allowPrivateIps,
+        });
+    }
+
     if (!response.ok) {
         throw new SecurityError(`Failed to fetch URL '${url}': HTTP ${response.status}`);
     }
