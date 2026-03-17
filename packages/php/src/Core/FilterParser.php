@@ -58,7 +58,8 @@ final class FilterParser
 
         $result = self::evaluateCondition($item, $expr['conditions'][0]);
 
-        for ($i = 0; $i < count($expr['logicals']); $i++) {
+        $logicalCount = count($expr['logicals']);
+        for ($i = 0; $i < $logicalCount; $i++) {
             $nextResult = self::evaluateCondition($item, $expr['conditions'][$i + 1]);
             if ($expr['logicals'][$i] === '&&') {
                 $result = $result && $nextResult;
@@ -280,7 +281,15 @@ final class FilterParser
         ) {
             $pattern = substr($pattern, 1, -1);
         }
-        return (bool) preg_match('/' . $pattern . '/', $val);
+        // Escape the PCRE delimiter to prevent flag injection (e.g. 'foo/i')
+        $safePattern = str_replace('/', '\\/', $pattern);
+        $prev = ini_set('pcre.backtrack_limit', '10000');
+        try {
+            $result = @preg_match('/' . $safePattern . '/u', $val);
+        } finally {
+            ini_set('pcre.backtrack_limit', (string) $prev);
+        }
+        return $result === 1;
     }
 
     /**
