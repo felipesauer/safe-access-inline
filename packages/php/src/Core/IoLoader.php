@@ -46,6 +46,10 @@ final class IoLoader
         }
 
         if (count($allowedDirs) === 0) {
+            AuditLogger::emit('security.violation', [
+                'reason' => 'allowedDirs_not_configured',
+                'path'   => $filePath,
+            ]);
             return;
         }
 
