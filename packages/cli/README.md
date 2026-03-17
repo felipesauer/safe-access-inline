@@ -11,7 +11,7 @@
 <p align="center">
   <a href="https://github.com/felipesauer/safe-access-inline/actions/workflows/cli-ci.yml"><img src="https://github.com/felipesauer/safe-access-inline/actions/workflows/cli-ci.yml/badge.svg" alt="CLI CI"></a>
   <a href="https://www.npmjs.com/package/@safe-access-inline/cli"><img src="https://img.shields.io/npm/v/@safe-access-inline/cli.svg" alt="npm"></a>
-  <a href="https://www.npmjs.com/package/@safe-access-inline/cli"><img src="https://img.shields.io/npm/dm/@safe-access-inline/cli" alt="downloads"></a>
+  <a href="https://www.npmjs.com/package/@safe-access-inline/cli"><img src="https://img.shields.io/node/v/@safe-access-inline/cli" alt="node"></a>
   <a href="../../LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT"></a>
 </p>
 

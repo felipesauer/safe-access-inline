@@ -9,11 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/felipesauer/safe-access-inline/actions/workflows/php-ci.yml"><img src="https://github.com/felipesauer/safe-access-inline/actions/workflows/php-ci.yml/badge.svg" alt="PHP CI"></a>
-  <a href="https://github.com/felipesauer/safe-access-inline/actions/workflows/js-ci.yml"><img src="https://github.com/felipesauer/safe-access-inline/actions/workflows/js-ci.yml/badge.svg" alt="JS CI"></a>
   <a href="https://codecov.io/gh/felipesauer/safe-access-inline"><img src="https://codecov.io/gh/felipesauer/safe-access-inline/graph/badge.svg" alt="codecov"></a>
-  <a href="https://www.npmjs.com/package/@safe-access-inline/safe-access-inline"><img src="https://img.shields.io/npm/v/@safe-access-inline/safe-access-inline.svg" alt="npm"></a>
-  <a href="https://packagist.org/packages/safe-access-inline/safe-access-inline"><img src="https://img.shields.io/packagist/v/safe-access-inline/safe-access-inline.svg" alt="packagist"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT"></a>
 </p>
 
@@ -51,11 +47,11 @@ $accessor->get('items[?price>20].price'); // [50] — filter
 
 ## Packages
 
-| Package                                                 | Version                                                                                                                                                            | Description   |
-| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------- |
-| [`@safe-access-inline/safe-access-inline`](packages/js) | [![npm](https://img.shields.io/npm/v/@safe-access-inline/safe-access-inline.svg)](https://www.npmjs.com/package/@safe-access-inline/safe-access-inline)            | JS/TS library |
-| [`safe-access-inline/safe-access-inline`](packages/php) | [![packagist](https://img.shields.io/packagist/v/safe-access-inline/safe-access-inline.svg)](https://packagist.org/packages/safe-access-inline/safe-access-inline) | PHP library   |
-| [`@safe-access-inline/cli`](packages/cli)               | [![npm](https://img.shields.io/npm/v/@safe-access-inline/cli.svg)](https://www.npmjs.com/package/@safe-access-inline/cli)                                          | CLI tool      |
+| Package                                                 | CI                                                                                                                                                                                    | Version                                                                                                                                                            |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [`@safe-access-inline/safe-access-inline`](packages/js) | [![JS CI](https://github.com/felipesauer/safe-access-inline/actions/workflows/js-ci.yml/badge.svg)](https://github.com/felipesauer/safe-access-inline/actions/workflows/js-ci.yml)    | [![npm](https://img.shields.io/npm/v/@safe-access-inline/safe-access-inline.svg)](https://www.npmjs.com/package/@safe-access-inline/safe-access-inline)            |
+| [`safe-access-inline/safe-access-inline`](packages/php) | [![PHP CI](https://github.com/felipesauer/safe-access-inline/actions/workflows/php-ci.yml/badge.svg)](https://github.com/felipesauer/safe-access-inline/actions/workflows/php-ci.yml) | [![packagist](https://img.shields.io/packagist/v/safe-access-inline/safe-access-inline.svg)](https://packagist.org/packages/safe-access-inline/safe-access-inline) |
+| [`@safe-access-inline/cli`](packages/cli)               | [![CLI CI](https://github.com/felipesauer/safe-access-inline/actions/workflows/cli-ci.yml/badge.svg)](https://github.com/felipesauer/safe-access-inline/actions/workflows/cli-ci.yml) | [![npm](https://img.shields.io/npm/v/@safe-access-inline/cli.svg)](https://www.npmjs.com/package/@safe-access-inline/cli)                                          |
 
 ## Contributing
 
