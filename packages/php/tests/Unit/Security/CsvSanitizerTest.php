@@ -38,6 +38,19 @@ describe(CsvSanitizer::class, function () {
             expect(CsvSanitizer::sanitizeCell("\rcmd", 'prefix'))->toBe("'\rcmd");
         });
 
+        it('handles newline prefix in prefix mode', function () {
+            expect(CsvSanitizer::sanitizeCell("\ncmd", 'prefix'))->toBe("'\ncmd");
+        });
+
+        it('strips newline prefix in strip mode', function () {
+            expect(CsvSanitizer::sanitizeCell("\ncmd", 'strip'))->toBe('cmd');
+        });
+
+        it('throws on newline prefix in error mode', function () {
+            expect(fn () => CsvSanitizer::sanitizeCell("\ncmd", 'error'))
+                ->toThrow(SecurityException::class);
+        });
+
         it('defaults to none mode', function () {
             expect(CsvSanitizer::sanitizeCell('=SUM(A1)'))->toBe('=SUM(A1)');
         });

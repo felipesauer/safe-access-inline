@@ -17,7 +17,16 @@ export type AuditListener = (event: AuditEvent) => void;
 
 const listeners: AuditListener[] = [];
 
+const MAX_LISTENERS = 100;
+
 export function onAudit(listener: AuditListener): () => void {
+    if (listeners.length >= MAX_LISTENERS) {
+        console.warn(
+            `[AuditEmitter] Max listener count (${MAX_LISTENERS}) reached. ` +
+                `Possible memory leak — ensure onAudit() unsubscribers are called.`,
+        );
+        return () => {};
+    }
     listeners.push(listener);
     return () => {
         const idx = listeners.indexOf(listener);

@@ -44,25 +44,23 @@ export class IniAccessor<
             if (eqPos === -1) continue;
 
             const key = line.substring(0, eqPos).trim();
-            let value: unknown = line.substring(eqPos + 1).trim();
+            let value: string = line.substring(eqPos + 1).trim();
 
             // Remove surrounding quotes
-            /* v8 ignore next -- typeof value is always string here */
-            if (typeof value === 'string') {
-                if (
-                    (value.startsWith('"') && value.endsWith('"')) ||
-                    (value.startsWith("'") && value.endsWith("'"))
-                ) {
-                    value = value.slice(1, -1);
-                }
-                // Type coercion
-                value = IniAccessor.coerceValue(value as string);
+            if (
+                (value.startsWith('"') && value.endsWith('"')) ||
+                (value.startsWith("'") && value.endsWith("'"))
+            ) {
+                value = value.slice(1, -1);
             }
 
+            // Type coercion
+            const coerced: unknown = IniAccessor.coerceValue(value);
+
             if (currentSection) {
-                (result[currentSection] as Record<string, unknown>)[key] = value;
+                (result[currentSection] as Record<string, unknown>)[key] = coerced;
             } else {
-                result[key] = value;
+                result[key] = coerced;
             }
         }
 

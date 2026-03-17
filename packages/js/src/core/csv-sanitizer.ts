@@ -2,7 +2,7 @@ import { SecurityError } from '../exceptions/security.error';
 
 type CsvSanitizeMode = 'prefix' | 'strip' | 'error' | 'none';
 
-const DANGEROUS_PREFIXES = ['=', '+', '-', '@', '\t', '\r'];
+const DANGEROUS_PREFIXES = ['=', '+', '-', '@', '\t', '\r', '\n'];
 
 export function sanitizeCsvCell(cell: string, mode: CsvSanitizeMode = 'none'): string {
     if (mode === 'none') return cell;
@@ -14,7 +14,7 @@ export function sanitizeCsvCell(cell: string, mode: CsvSanitizeMode = 'none'): s
         case 'prefix':
             return `'${cell}`;
         case 'strip':
-            return cell.replace(/^[=+\-@\t\r]+/, '');
+            return cell.replace(/^[=+\-@\t\r\n]+/, '');
         case 'error':
             throw new SecurityError(`CSV cell starts with dangerous character: '${cell[0]}'`);
         default:

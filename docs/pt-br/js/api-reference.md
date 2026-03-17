@@ -1,8 +1,5 @@
 ---
-title: Referência da API — JS/TS
-nav_exclude: true
-permalink: /pt-br/js/api-reference/
-lang: pt-br
+outline: deep
 ---
 
 # Referência da API — JavaScript / TypeScript
@@ -10,14 +7,14 @@ lang: pt-br
 ## Índice
 
 - [Facade SafeAccess](#facade-safeaccess)
-- [Métodos de Instância do Accessor](#métodos-de-instância-do-accessor)
-- [Operações de Array](#operações-de-array)
+- [Métodos de Instância do Accessor](#metodos-de-instancia-do-accessor)
+- [Operações de Array](#operacoes-de-array)
 - [JSON Patch](#json-patch)
-- [Validação de Schema](#validação-de-schema)
-- [Segurança](#segurança)
-- [I/O & Carregamento de Arquivos](#io--carregamento-de-arquivos)
+- [Validação de Schema](#validacao-de-schema)
+- [Segurança](#seguranca)
+- [I/O & Carregamento de Arquivos](#i-o-carregamento-de-arquivos)
 - [Log de Auditoria](#log-de-auditoria)
-- [Integrações de Framework](#integrações-de-framework)
+- [Integrações de Framework](#integracoes-de-framework)
 - [PluginRegistry](#pluginregistry)
 - [DotNotationParser](#dotnotationparser)
 - [Erros](#erros)
@@ -637,7 +634,7 @@ Protege contra injeção de fórmulas CSV.
 - `sanitizeCsvCell(cell: string, mode?: CsvSanitizeMode): string`
 - `sanitizeCsvRow(row: string[], mode?: CsvSanitizeMode): string[]`
 
-Modos: `'prefix'` (prefixa com `'`), `'strip'` (remove `=+-@` inicial), `'error'` (lança erro), `'none'` (passthrough).
+Modos: `'prefix'` (prefixa com `'`), `'strip'` (remove todos os caracteres de prefixo de injeção CSV: `=`, `+`, `-`, `@`, `\t`, `\r`, `\n` conforme orientação OWASP CSV Injection), `'error'` (lança erro), `'none'` (passthrough).
 
 ### Deep Freeze
 

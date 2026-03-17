@@ -39,7 +39,9 @@ final class JsonSchemaAdapter implements SchemaAdapterInterface
         $errors = [];
 
         if (isset($schema['type'])) {
-            $expectedTypes = is_array($schema['type']) ? $schema['type'] : [$schema['type']];
+            /** @var string|list<string> $type */
+            $type = $schema['type'];
+            $expectedTypes = is_array($type) ? $type : [$type];
             $actualType = $this->getJsonType($data);
             if (!in_array($actualType, $expectedTypes, true)) {
                 $errors[] = new SchemaValidationIssue(

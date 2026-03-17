@@ -181,9 +181,65 @@ describe(AbstractAccessor.name, () => {
         expect(accessor.toXml()).toBe('<root><a>1</a></root>');
     });
 
-    it('toXml — throws UnsupportedTypeError when no serializer registered', () => {
-        const accessor = ArrayAccessor.from({ a: 1 });
-        expect(() => accessor.toXml()).toThrow(UnsupportedTypeError);
+    it('toXml — uses built-in serializer when no plugin registered', () => {
+        const accessor = ArrayAccessor.from({ a: 1, b: 'hello' });
+        const xml = accessor.toXml();
+        expect(xml).toContain('<?xml version="1.0"?>');
+        expect(xml).toContain('<root>');
+        expect(xml).toContain('<a>1</a>');
+        expect(xml).toContain('<b>hello</b>');
+        expect(xml).toContain('</root>');
+    });
+
+    it('toXml — built-in handles nested objects', () => {
+        const accessor = ArrayAccessor.from({ user: { name: 'Ana', age: 30 } });
+        const xml = accessor.toXml();
+        expect(xml).toContain('<user>');
+        expect(xml).toContain('<name>Ana</name>');
+        expect(xml).toContain('<age>30</age>');
+    });
+
+    it('toXml — built-in escapes XML special characters', () => {
+        const accessor = ArrayAccessor.from({ message: '<script>alert("xss")</script>' });
+        const xml = accessor.toXml();
+        expect(xml).toContain('&lt;script&gt;');
+        expect(xml).not.toContain('<script>');
+    });
+
+    it('toXml — built-in uses item_ prefix for numeric keys', () => {
+        const accessor = ArrayAccessor.from({ 0: 'first', 1: 'second' });
+        const xml = accessor.toXml();
+        expect(xml).toContain('<item_0>first</item_0>');
+        expect(xml).toContain('<item_1>second</item_1>');
+    });
+
+    it('toXml — built-in handles null values as empty strings', () => {
+        const accessor = ArrayAccessor.from({ key: null } as unknown as Record<string, unknown>);
+        const xml = accessor.toXml();
+        expect(xml).toContain('<key></key>');
+    });
+
+    it('toXml — built-in handles boolean values', () => {
+        const accessor = ArrayAccessor.from({ active: true, deleted: false });
+        const xml = accessor.toXml();
+        expect(xml).toContain('<active>true</active>');
+        expect(xml).toContain('<deleted>false</deleted>');
+    });
+
+    it('toXml — built-in handles undefined values as empty strings', () => {
+        const accessor = ArrayAccessor.from({ key: undefined } as unknown as Record<
+            string,
+            unknown
+        >);
+        const xml = accessor.toXml();
+        expect(xml).toContain('<key></key>');
+    });
+
+    it('toXml — custom root element', () => {
+        const accessor = ArrayAccessor.from({ key: 'value' });
+        const xml = accessor.toXml('data');
+        expect(xml).toContain('<data>');
+        expect(xml).toContain('</data>');
     });
 
     // ── transform() ──

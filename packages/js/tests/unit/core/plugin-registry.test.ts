@@ -50,6 +50,16 @@ describe(PluginRegistry.name, () => {
         expect(PluginRegistry.getSerializer('yaml')).toBe(serializer);
     });
 
+    it('replaces serializer when registering same format twice', () => {
+        const ser1: SerializerPlugin = { serialize: () => 'v1' };
+        const ser2: SerializerPlugin = { serialize: () => 'v2' };
+
+        PluginRegistry.registerSerializer('yaml', ser1);
+        PluginRegistry.registerSerializer('yaml', ser2);
+
+        expect(PluginRegistry.getSerializer('yaml')).toBe(ser2);
+    });
+
     it('hasSerializer returns false for unregistered format', () => {
         expect(PluginRegistry.hasSerializer('yaml')).toBe(false);
     });
@@ -100,10 +110,11 @@ describe(PluginRegistry.name, () => {
         expect(typeof result).toBe('string');
     });
 
-    it('toXml throws when no serializer registered', () => {
+    it('toXml uses built-in serializer when no plugin registered', () => {
         const accessor = SafeAccess.fromArray([1, 2]);
-        expect(() => accessor.toXml()).toThrow(UnsupportedTypeError);
-        expect(() => accessor.toXml()).toThrow('requires an XML serializer plugin');
+        const xml = accessor.toXml();
+        expect(xml).toContain('<?xml version="1.0"?>');
+        expect(xml).toContain('<root>');
     });
 
     it('toYaml uses registered serializer plugin', () => {

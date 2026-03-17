@@ -62,4 +62,31 @@ describe(CsvAccessor::class, function () {
         expect($accessor->all())->toBe([]);
     });
 
+    it('toCsv serializes back to CSV', function () {
+        $csv = "name,age\nAna,30\nBob,25";
+        $accessor = CsvAccessor::from($csv);
+        $output = $accessor->toCsv();
+        expect($output)->toBe("name,age\nAna,30\nBob,25");
+    });
+
+    it('toCsv handles empty data', function () {
+        $accessor = CsvAccessor::from("");
+        expect($accessor->toCsv())->toBe('');
+    });
+
+    it('toCsv escapes commas and quotes', function () {
+        $csv = "name,city\n\"Ana, Maria\",\"Porto \"\"Alegre\"\"\"";
+        $accessor = CsvAccessor::from($csv);
+        $output = $accessor->toCsv();
+        expect($output)->toContain('"Ana, Maria"');
+        expect($output)->toContain('"Porto ""Alegre"""');
+    });
+
+    it('toCsv respects csvMode parameter', function () {
+        $csv = "name,formula\nAna,=SUM(A1)";
+        $accessor = CsvAccessor::from($csv);
+        $output = $accessor->toCsv('strip');
+        expect($output)->not->toContain('=SUM');
+    });
+
 });

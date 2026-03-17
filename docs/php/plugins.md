@@ -1,8 +1,5 @@
 ---
-title: Plugins
-parent: PHP
-nav_order: 3
-permalink: /php/plugins/
+outline: deep
 ---
 
 # Plugin System — PHP

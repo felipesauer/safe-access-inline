@@ -1,8 +1,5 @@
 ---
-title: Referência da API — PHP
-nav_exclude: true
-permalink: /pt-br/php/api-reference/
-lang: pt-br
+outline: deep
 ---
 
 # Referência da API — PHP
@@ -10,30 +7,30 @@ lang: pt-br
 ## Índice
 
 - [Facade SafeAccess](#facade-safeaccess)
-- [Métodos de Instância do Accessor](#métodos-de-instância-do-accessor)
+- [Métodos de Instância do Accessor](#metodos-de-instancia-do-accessor)
     - [Leitura](#leitura)
-    - [Escrita (Imutável)](#escrita-imutável)
-    - [Operações de Array (Imutável)](#operações-de-array-imutável)
-    - [JSON Patch & Diff](#json-patch--diff)
-    - [Transformação](#transformação)
-    - [Segurança & Validação](#segurança--validação)
-- [I/O & Carregamento de Arquivos](#io--carregamento-de-arquivos)
-- [Configuração em Camadas](#configuração-em-camadas)
-- [Observação de Arquivos](#observação-de-arquivos)
+    - [Escrita (Imutável)](#escrita-imutavel)
+    - [Operações de Array (Imutável)](#operacoes-de-array-imutavel)
+    - [JSON Patch & Diff](#json-patch-diff)
+    - [Transformação](#transformacao)
+    - [Segurança & Validação](#seguranca-validacao)
+- [I/O & Carregamento de Arquivos](#i-o-carregamento-de-arquivos)
+- [Configuração em Camadas](#configuracao-em-camadas)
+- [Observação de Arquivos](#observacao-de-arquivos)
 - [Log de Auditoria](#log-de-auditoria)
-- [Segurança](#segurança)
+- [Segurança](#seguranca)
     - [SecurityPolicy](#securitypolicy)
     - [SecurityOptions](#securityoptions)
     - [SecurityGuard](#securityguard)
     - [CsvSanitizer](#csvsanitizer)
     - [DataMasker](#datamasker)
-- [Validação de Schema](#validação-de-schema)
-- [Integrações de Framework](#integrações-de-framework)
+- [Validação de Schema](#validacao-de-schema)
+- [Integrações de Framework](#integracoes-de-framework)
     - [Laravel](#laravel)
     - [Symfony](#symfony)
 - [PluginRegistry](#pluginregistry)
 - [DotNotationParser](#dotnotationparser)
-- [Exceções](#exceções)
+- [Exceções](#excecoes)
 - [Interfaces](#interfaces)
 - [Enums](#enums)
 
@@ -208,7 +205,7 @@ Lança `SecurityException` em tentativas de SSRF, IPs privados, não-HTTPS ou ho
 
 #### `SafeAccess::withPolicy(mixed $data, SecurityPolicy $policy): AbstractAccessor`
 
-Auto-detecta o formato e opcionalmente aplica padrões de máscara da política.
+Auto-detecta o formato e aplica limites de segurança da política (`maxPayloadBytes`, `maxKeys`, `maxDepth`). Também aplica padrões de máscara se presentes.
 
 ```php
 use SafeAccessInline\Security\SecurityPolicy;
@@ -769,7 +766,7 @@ Lança `SecurityException` se o aninhamento exceder a profundidade máxima.
 
 #### `SecurityGuard::assertSafeKey(string $key): void`
 
-Bloqueia chaves de prototype pollution: `__proto__`, `constructor`, `prototype`. Lança `SecurityException`.
+Bloqueia chaves de prototype pollution: `__proto__`, `constructor`, `prototype`, `__defineGetter__`, `__defineSetter__`, `__lookupGetter__`, `__lookupSetter__`, `valueOf`, `toString`, `hasOwnProperty`, `isPrototypeOf`. Lança `SecurityException`.
 
 #### `SecurityGuard::sanitizeObject(array $data): array`
 
@@ -779,16 +776,16 @@ Remove recursivamente chaves proibidas dos dados.
 
 **Namespace:** `SafeAccessInline\Security\CsvSanitizer`
 
-Protege contra ataques de CSV injection (`=`, `+`, `-`, `@`, `\t`, `\r`).
+Protege contra ataques de CSV injection (`=`, `+`, `-`, `@`, `\t`, `\r`, `\n`).
 
 #### `CsvSanitizer::sanitizeCell(string $cell, string $mode = 'none'): string`
 
-| Modo       | Comportamento                           |
-| ---------- | --------------------------------------- |
-| `'none'`   | Sem sanitização                         |
-| `'prefix'` | Adiciona `'` antes de células perigosas |
-| `'strip'`  | Remove caracteres perigosos iniciais    |
-| `'error'`  | Lança `SecurityException`               |
+| Modo       | Comportamento                                                                                                         |
+| ---------- | --------------------------------------------------------------------------------------------------------------------- |
+| `'none'`   | Sem sanitização                                                                                                       |
+| `'prefix'` | Adiciona `'` antes de células perigosas                                                                               |
+| `'strip'`  | Remove todos os caracteres de prefixo de injeção CSV (`=`, `+`, `-`, `@`, `\t`, `\r`, `\n`) conforme orientação OWASP |
+| `'error'`  | Lança `SecurityException`                                                                                             |
 
 #### `CsvSanitizer::sanitizeRow(array $row, string $mode = 'none'): array`
 
@@ -1083,15 +1080,16 @@ DotNotationParser::renderTemplate('users.{id}.name', ['id' => '42']);
 
 ## Exceções
 
-| Exceção                      | Quando                                                                                                                         |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `AccessorException`          | Classe base de exceção                                                                                                         |
-| `InvalidFormatException`     | Formato de input inválido (ex: JSON malformado, plugin parser ausente no nível do accessor)                                    |
-| `UnsupportedTypeException`   | `detect()` não consegue determinar formato; `PluginRegistry` não tem plugin registrado; `toXml()`/`transform()` sem serializer |
-| `PathNotFoundException`      | Reservado (não lançado por `get()`)                                                                                            |
-| `SecurityException`          | Tentativa de SSRF, path traversal, payload muito grande, chaves proibidas, CSV injection (modo `error`)                        |
-| `ReadonlyViolationException` | Modificação de um accessor readonly (`set`, `remove`, `merge`, `push`, etc.)                                                   |
-| `SchemaValidationException`  | Validação de schema falhou — possui `getIssues(): SchemaValidationIssue[]` para informações detalhadas de erro                 |
+| Exceção                        | Quando                                                                                                                         |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| `AccessorException`            | Classe base de exceção                                                                                                         |
+| `InvalidFormatException`       | Formato de input inválido (ex: JSON malformado, plugin parser ausente no nível do accessor)                                    |
+| `UnsupportedTypeException`     | `detect()` não consegue determinar formato; `PluginRegistry` não tem plugin registrado; `toXml()`/`transform()` sem serializer |
+| `PathNotFoundException`        | Reservado (não lançado por `get()`)                                                                                            |
+| `SecurityException`            | Tentativa de SSRF, path traversal, payload muito grande, chaves proibidas, CSV injection (modo `error`)                        |
+| `ReadonlyViolationException`   | Modificação de um accessor readonly (`set`, `remove`, `merge`, `push`, etc.)                                                   |
+| `SchemaValidationException`    | Validação de schema falhou — possui `getIssues(): SchemaValidationIssue[]` para informações detalhadas de erro                 |
+| `JsonPatchTestFailedException` | Operação `test` do JSON Patch falhou — valor no caminho não corresponde ao valor esperado                                      |
 
 ---
 

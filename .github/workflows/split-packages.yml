@@ -10,13 +10,16 @@ concurrency:
     group: split-packages
     cancel-in-progress: false
 
+permissions:
+    contents: read
+
 jobs:
     split-php:
         name: Split PHP Package
         runs-on: ubuntu-latest
         steps:
             - name: Checkout mono-repo
-              uses: actions/checkout@v6
+              uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
               with:
                   fetch-depth: 0
                   persist-credentials: false
@@ -35,7 +38,7 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - name: Checkout mono-repo
-              uses: actions/checkout@v6
+              uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
               with:
                   fetch-depth: 0
                   persist-credentials: false
@@ -48,3 +51,22 @@ jobs:
                   SHA=$(git subtree split --prefix=packages/js)
                   git remote add split-js "https://x-access-token:${SPLIT_TOKEN}@github.com/${TARGET_REPO}.git" 2>/dev/null || true
                   git push split-js "${SHA}:refs/heads/main" --force
+
+    split-cli:
+        name: Split CLI Package
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout mono-repo
+              uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+              with:
+                  fetch-depth: 0
+                  persist-credentials: false
+
+            - name: Split and push packages/cli
+              env:
+                  SPLIT_TOKEN: ${{ secrets.SPLIT_TOKEN }}
+                  TARGET_REPO: ${{ github.repository_owner }}/${{ vars.CLI_REPO_NAME || 'safe-access-inline-cli' }}
+              run: |
+                  SHA=$(git subtree split --prefix=packages/cli)
+                  git remote add split-cli "https://x-access-token:${SPLIT_TOKEN}@github.com/${TARGET_REPO}.git" 2>/dev/null || true
+                  git push split-cli "${SHA}:refs/heads/main" --force

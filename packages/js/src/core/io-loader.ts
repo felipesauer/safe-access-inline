@@ -36,9 +36,22 @@ export function assertPathWithinAllowedDirs(filePath: string, allowedDirs?: stri
 
     if (!allowedDirs || allowedDirs.length === 0) return;
 
-    const resolved = path.resolve(filePath);
+    // Resolve symlinks before comparing — path.resolve() alone does not follow symlinks
+    let resolved: string;
+    try {
+        resolved = fs.realpathSync(filePath);
+    } catch {
+        // File does not exist yet (e.g. a write target) — fall back to logical resolution
+        resolved = path.resolve(filePath);
+    }
+
     const allowed = allowedDirs.some((dir) => {
-        const resolvedDir = path.resolve(dir);
+        let resolvedDir: string;
+        try {
+            resolvedDir = fs.realpathSync(dir);
+        } catch {
+            resolvedDir = path.resolve(dir);
+        }
         return resolved.startsWith(resolvedDir + path.sep) || resolved === resolvedDir;
     });
 
@@ -79,7 +92,10 @@ export async function fetchUrl(
     });
 
     emitAudit('url.fetch', { url });
-    const response = await fetch(url);
+    const response = await fetch(url, {
+        redirect: 'error', // block all redirects — prevents SSRF via open redirects
+        signal: AbortSignal.timeout(10_000), // 10 s timeout — prevents DoS via slow servers
+    });
     if (!response.ok) {
         throw new SecurityError(`Failed to fetch URL '${url}': HTTP ${response.status}`);
     }

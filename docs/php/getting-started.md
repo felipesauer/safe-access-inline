@@ -1,8 +1,5 @@
 ---
-title: Getting Started
-parent: PHP
-nav_order: 1
-permalink: /php/getting-started/
+outline: deep
 ---
 
 # Getting Started — PHP

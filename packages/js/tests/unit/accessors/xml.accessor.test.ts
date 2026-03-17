@@ -112,6 +112,12 @@ describe(XmlAccessor.name, () => {
         expect(accessor.get('other')).toBe('val');
     });
 
+    it('handles XML with attributes', () => {
+        const xmlAttrs = `<root><item id="1" type="main">text</item></root>`;
+        const accessor = XmlAccessor.from(xmlAttrs);
+        expect(accessor.get('item')).toBe('text');
+    });
+
     it('handles XML declaration', () => {
         const xmlDecl = `<?xml version="1.0" encoding="UTF-8"?><root><name>Ana</name></root>`;
         const accessor = XmlAccessor.from(xmlDecl);
@@ -133,5 +139,9 @@ describe(XmlAccessor.name, () => {
     it('rejects XML with DOCTYPE even without entities', () => {
         const doctypeXml = `<!DOCTYPE root SYSTEM "test.dtd"><root><a>1</a></root>`;
         expect(() => XmlAccessor.from(doctypeXml)).toThrow(SecurityError);
+    });
+    it('rejects XML with prototype pollution tag name', () => {
+        const protoXml = `<root><__proto__>bad</__proto__></root>`;
+        expect(() => XmlAccessor.from(protoXml)).toThrow(SecurityError);
     });
 });

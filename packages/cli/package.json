@@ -11,7 +11,7 @@
         "README.md"
     ],
     "scripts": {
-        "build": "tsup src/cli.ts --format esm --out-dir dist --banner.js '#!/usr/bin/env node'",
+        "build": "tsup",
         "test": "vitest run",
         "test:watch": "vitest",
         "lint": "eslint src/ tests/"
@@ -20,10 +20,9 @@
         "safe-access",
         "cli",
         "dot-notation",
+        "nested-data",
         "json",
         "yaml",
-        "toml",
-        "xml",
         "query"
     ],
     "license": "MIT",
@@ -44,9 +43,12 @@
         "node": ">=22"
     },
     "dependencies": {
-        "@safe-access-inline/safe-access-inline": "^0.2.1"
+        "@safe-access-inline/safe-access-inline": "^0.2.1",
+        "js-yaml": "^4.0.0",
+        "smol-toml": "^1.0.0"
     },
     "devDependencies": {
+        "@vitest/coverage-v8": "^4.1.0",
         "tsup": "^8.0.0",
         "typescript": "^5.5.0",
         "vitest": "^4.1.0"

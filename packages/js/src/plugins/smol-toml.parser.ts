@@ -1,5 +1,8 @@
-import { parse } from 'smol-toml';
+import type { parse as tomlParse } from 'smol-toml';
+import { optionalRequire } from '../core/optional-require';
 import type { ParserPlugin } from '../core/plugin-registry';
+
+const getSmolToml = optionalRequire<{ parse: typeof tomlParse }>('smol-toml', 'TOML');
 
 /**
  * TOML parser plugin using smol-toml.
@@ -11,6 +14,6 @@ import type { ParserPlugin } from '../core/plugin-registry';
  */
 export class SmolTomlParser implements ParserPlugin {
     parse(raw: string): Record<string, unknown> {
-        return parse(raw) as Record<string, unknown>;
+        return getSmolToml().parse(raw) as Record<string, unknown>;
     }
 }

@@ -12,6 +12,9 @@ import { mask } from '../../src/core/data-masker';
 import { sanitizeCsvCell } from '../../src/core/csv-sanitizer';
 import { TypeDetector } from '../../src/core/type-detector';
 import { XmlAccessor } from '../../src/accessors/xml.accessor';
+import { optionalRequire } from '../../src/core/optional-require';
+import { PathCache } from '../../src/core/path-cache';
+import { PluginRegistry } from '../../src/core/plugin-registry';
 
 // ── SafeAccess.from() with custom accessor via extend ──────────
 describe('SafeAccess — custom accessor through from()', () => {
@@ -665,5 +668,38 @@ describe('JsonPatch — pointer edge cases', () => {
         const ops: JsonPatchOp[] = [{ op: 'remove', path: '/items/0/extra' }];
         const result = applyPatch(data, ops) as { items: Array<Record<string, unknown>> };
         expect(result.items[0]).toEqual({ name: 'old' });
+    });
+});
+
+// ── optionalRequire — missing module throws ─────────────────────
+describe('optionalRequire — missing module', () => {
+    it('throws descriptive error when required module is not installed', () => {
+        const getter = optionalRequire('nonexistent-module-safe-access-test', 'TestFeature');
+        expect(() => getter()).toThrow(
+            'nonexistent-module-safe-access-test is required for TestFeature support',
+        );
+    });
+});
+
+// ── SafeAccess.resetAll — test teardown helper ──────────────────
+describe('SafeAccess.resetAll()', () => {
+    it('resets all global/static state', () => {
+        // Set up some state
+        PathCache.set('test.path', [{ type: 'key' as const, value: 'test' }]);
+        PluginRegistry.registerSerializer('test-fmt', {
+            serialize: () => 'test',
+        });
+
+        SafeAccess.resetAll();
+
+        // Verify reset
+        expect(PathCache.has('test.path')).toBe(false);
+        expect(PluginRegistry.hasSerializer('test-fmt')).toBe(false);
+    });
+
+    it('private constructor is callable via reflection', () => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const instance = new (SafeAccess as any)();
+        expect(instance).toBeDefined();
     });
 });

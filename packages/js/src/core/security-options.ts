@@ -46,3 +46,26 @@ export function assertMaxDepth(currentDepth: number, maxDepth?: number): void {
         throw new SecurityError(`Recursion depth ${currentDepth} exceeds maximum of ${limit}.`);
     }
 }
+
+export function assertMaxStructuralDepth(data: unknown, maxDepth: number): void {
+    const depth = measureDepth(data, new WeakSet(), 0);
+    if (depth > maxDepth) {
+        throw new SecurityError(
+            `Data structural depth ${depth} exceeds policy maximum of ${maxDepth}.`,
+        );
+    }
+}
+
+function measureDepth(value: unknown, seen: WeakSet<object>, current: number): number {
+    if (typeof value !== 'object' || value === null) return current;
+    if (seen.has(value)) return current;
+    seen.add(value);
+
+    let max = current;
+    const entries = Array.isArray(value) ? value : Object.values(value);
+    for (const child of entries) {
+        const d = measureDepth(child, seen, current + 1);
+        if (d > max) max = d;
+    }
+    return max;
+}

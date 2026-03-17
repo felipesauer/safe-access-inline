@@ -265,4 +265,11 @@ describe(FilterParser.name, () => {
         const expr = FilterParser.parse('length(@.val)>0');
         expect(FilterParser.evaluate({ val: 42 } as Record<string, unknown>, expr)).toBe(false);
     });
+
+    it('evaluate — match with missing pattern argument uses empty pattern', () => {
+        // match(@.name) without a second argument — funcArgs[1] is undefined
+        const expr = FilterParser.parse('match(@.name)');
+        // Empty pattern matches any string
+        expect(FilterParser.evaluate({ name: 'anything' }, expr)).toBe(true);
+    });
 });

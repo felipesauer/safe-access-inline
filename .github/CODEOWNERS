@@ -4,7 +4,11 @@
 # Package-specific ownership
 /packages/php/ @felipesauer
 /packages/js/ @felipesauer
+/packages/cli/ @felipesauer
 
 # CI/CD and release configuration
 /.github/ @felipesauer
 /release-please-config.json @felipesauer
+
+# Documentation
+/docs/ @felipesauer

@@ -16,10 +16,14 @@ use SafeAccessInline\Core\AbstractAccessor;
 use SafeAccessInline\Core\DeepMerger;
 use SafeAccessInline\Core\FileWatcher;
 use SafeAccessInline\Core\IoLoader;
+use SafeAccessInline\Core\PathCache;
+use SafeAccessInline\Core\PluginRegistry;
+use SafeAccessInline\Core\SchemaRegistry;
 use SafeAccessInline\Core\TypeDetector;
 use SafeAccessInline\Enums\AccessorFormat;
 use SafeAccessInline\Exceptions\InvalidFormatException;
 use SafeAccessInline\Security\AuditLogger;
+use SafeAccessInline\Security\SecurityOptions;
 use SafeAccessInline\Security\SecurityPolicy;
 
 /**
@@ -184,9 +188,6 @@ final class SafeAccess
     }
 
     /**
-     * @param array{allowPrivateIps?: bool, allowedHosts?: string[], allowedPorts?: int[]} $options
-     */
-    /**
      * @codeCoverageIgnore Requires real HTTP I/O — tested manually / via integration tests.
      */
     public static function fromUrl(
@@ -263,24 +264,67 @@ final class SafeAccess
 
     public static function withPolicy(mixed $data, SecurityPolicy $policy): AbstractAccessor
     {
-        $accessor = TypeDetector::resolve($data);
-        if ($policy->maskPatterns !== []) {
-            return $accessor->masked($policy->maskPatterns);
+        if (is_string($data) && $policy->maxPayloadBytes > 0) {
+            SecurityOptions::assertPayloadSize($data, $policy->maxPayloadBytes);
         }
+
+        $accessor = TypeDetector::resolve($data);
+
+        if ($policy->maxKeys > 0) {
+            SecurityOptions::assertMaxKeys($accessor->toArray(), $policy->maxKeys);
+        }
+
+        if ($policy->maxDepth > 0) {
+            SecurityOptions::assertMaxStructuralDepth($accessor->toArray(), $policy->maxDepth);
+        }
+
+        if ($policy->maskPatterns !== []) {
+            $accessor = $accessor->masked($policy->maskPatterns);
+        }
+
         return $accessor;
     }
 
     public static function fromFileWithPolicy(string $filePath, SecurityPolicy $policy): AbstractAccessor
     {
-        return self::fromFile($filePath, allowedDirs: $policy->allowedDirs);
+        $accessor = self::fromFile($filePath, allowedDirs: $policy->allowedDirs);
+
+        if ($policy->maxKeys > 0) {
+            SecurityOptions::assertMaxKeys($accessor->toArray(), $policy->maxKeys);
+        }
+
+        if ($policy->maskPatterns !== []) {
+            $accessor = $accessor->masked($policy->maskPatterns);
+        }
+
+        return $accessor;
     }
 
-    /**
-     * @codeCoverageIgnore Delegates to fromUrl() which requires real HTTP I/O.
-     */
     public static function fromUrlWithPolicy(string $url, SecurityPolicy $policy): AbstractAccessor
     {
-        return self::fromUrl($url, options: $policy->url ?? []);
+        $content = IoLoader::fetchUrl($url, $policy->url ?? []);
+
+        if ($policy->maxPayloadBytes > 0) {
+            SecurityOptions::assertPayloadSize($content, $policy->maxPayloadBytes);
+        }
+
+        $format = null;
+        $parsed = parse_url($url, PHP_URL_PATH);
+        if (is_string($parsed)) {
+            $format = IoLoader::resolveFormatFromExtension($parsed)?->value;
+        }
+
+        $accessor = $format !== null ? self::from($content, $format) : TypeDetector::resolve($content);
+
+        if ($policy->maxKeys > 0) {
+            SecurityOptions::assertMaxKeys($accessor->toArray(), $policy->maxKeys);
+        }
+
+        if ($policy->maskPatterns !== []) {
+            $accessor = $accessor->masked($policy->maskPatterns);
+        }
+
+        return $accessor;
     }
 
     public static function setGlobalPolicy(SecurityPolicy $policy): void
@@ -307,6 +351,22 @@ final class SafeAccess
     public static function clearAuditListeners(): void
     {
         AuditLogger::clearListeners();
+    }
+
+    // ── Reset All ────────────────────────────────────
+
+    /**
+     * Resets all global/static state. Intended for test teardown.
+     *
+     * @internal
+     */
+    public static function resetAll(): void
+    {
+        PathCache::clear();
+        AuditLogger::clearListeners();
+        SecurityPolicy::clearGlobal();
+        PluginRegistry::reset();
+        SchemaRegistry::clearDefaultAdapter();
     }
 
     /**

@@ -1,8 +1,5 @@
 ---
-title: Primeiros Passos — PHP
-nav_exclude: true
-permalink: /pt-br/php/getting-started/
-lang: pt-br
+outline: deep
 ---
 
 # Primeiros Passos — PHP
@@ -10,23 +7,23 @@ lang: pt-br
 ## Índice
 
 - [Requisitos](#requisitos)
-- [Instalação](#instalação)
-- [Uso Básico](#uso-básico)
+- [Instalação](#instalacao)
+- [Uso Básico](#uso-basico)
 - [Filtragem e Descida Recursiva](#filtragem-e-descida-recursiva)
 - [Deep Merge](#deep-merge)
 - [Sistema de Plugins](#sistema-de-plugins)
 - [Exemplos de Plugins](#exemplos-de-plugins)
 - [Trabalhando com Formatos](#trabalhando-com-formatos)
 - [Accessors Customizados](#accessors-customizados)
-- [Métodos Utilitários](#métodos-utilitários)
-- [Operações de Array](#operações-de-array)
-- [JSON Patch & Diff](#json-patch--diff)
-- [I/O & Carregamento de Arquivos](#io--carregamento-de-arquivos)
-- [Configuração em Camadas](#configuração-em-camadas)
-- [Segurança](#segurança)
-- [Validação de Schema](#validação-de-schema)
+- [Métodos Utilitários](#metodos-utilitarios)
+- [Operações de Array](#operacoes-de-array)
+- [JSON Patch & Diff](#json-patch-diff)
+- [I/O & Carregamento de Arquivos](#i-o-carregamento-de-arquivos)
+- [Configuração em Camadas](#configuracao-em-camadas)
+- [Segurança](#seguranca)
+- [Validação de Schema](#validacao-de-schema)
 - [Log de Auditoria](#log-de-auditoria)
-- [Integrações de Framework](#integrações-de-framework)
+- [Integrações de Framework](#integracoes-de-framework)
 
 ## Requisitos
 

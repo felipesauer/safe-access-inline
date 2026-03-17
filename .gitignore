@@ -18,6 +18,12 @@ packages/js/coverage/
 # See: https://docs.npmjs.com/cli/v10/configuring-npm/package-lock-json#package-lockjson-vs-npm-shrinkwrapjson
 packages/js/package-lock.json
 
+# CLI
+packages/cli/node_modules/
+packages/cli/dist/
+packages/cli/coverage/
+packages/cli/package-lock.json
+
 # Root tooling (husky, commitlint, lint-staged)
 node_modules/
 package-lock.json
@@ -36,3 +42,6 @@ package-lock.json
 # OS
 .DS_Store
 Thumbs.db
+
+# VitePress
+docs/.vitepress/cache/

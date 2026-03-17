@@ -5,6 +5,8 @@ namespace SafeAccessInline\Traits;
 use SafeAccessInline\Core\PluginRegistry;
 use SafeAccessInline\Exceptions\InvalidFormatException;
 use SafeAccessInline\Exceptions\UnsupportedTypeException;
+use SafeAccessInline\Security\CsvSanitizer;
+use SafeAccessInline\Security\SecurityPolicy;
 
 /**
  * Default cross-format conversion implementations.
@@ -24,6 +26,40 @@ trait HasTransformations
             fn (mixed $item): string => json_encode($item, JSON_THROW_ON_ERROR),
             $items,
         );
+        return implode("\n", $lines);
+    }
+
+    /**
+     * @param 'none'|'prefix'|'strip'|'error'|null $csvMode
+     */
+    public function toCsv(?string $csvMode = null): string
+    {
+        $mode = $csvMode ?? SecurityPolicy::getGlobal()?->csvMode ?? 'none';
+        $rows = array_values($this->data);
+        if ($rows === []) {
+            return '';
+        }
+
+        $firstRow = (array) $rows[0];
+        $headers = array_keys($firstRow);
+
+        $escapeCsv = static function (string $val): string {
+            if (str_contains($val, ',') || str_contains($val, '"') || str_contains($val, "\n")) {
+                return '"' . str_replace('"', '""', $val) . '"';
+            }
+            return $val;
+        };
+
+        /** @var 'none'|'prefix'|'strip'|'error' $mode */
+        $lines = [implode(',', array_map(fn (string $h) => $escapeCsv(CsvSanitizer::sanitizeCell((string) $h, $mode)), $headers))];
+        foreach ($rows as $row) {
+            $r = (array) $row;
+            $lines[] = implode(',', array_map(
+                fn (string $h) => $escapeCsv(CsvSanitizer::sanitizeCell((string) ($r[$h] ?? ''), $mode)),
+                $headers,
+            ));
+        }
+
         return implode("\n", $lines);
     }
 

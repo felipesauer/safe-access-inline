@@ -2,6 +2,8 @@
 
 namespace SafeAccessInline\Core;
 
+use SafeAccessInline\Exceptions\JsonPatchTestFailedException;
+
 /**
  * JSON Patch operations per RFC 6902.
  * Provides diff generation and patch application.
@@ -110,7 +112,7 @@ final class JsonPatch
                 case 'test':
                     $actual = self::getAtPointer($result, $op['path']);
                     if (!self::deepEqual($actual, $op['value'] ?? null)) {
-                        throw new \RuntimeException(
+                        throw new JsonPatchTestFailedException(
                             "Test operation failed: value at '{$op['path']}' does not match expected value."
                         );
                     }

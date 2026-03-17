@@ -277,6 +277,26 @@ describe('SecurityPolicy', () => {
             vi.restoreAllMocks();
         }
     });
+
+    it('SafeAccess.fromUrlWithPolicy auto-detects format for extensionless URL', async () => {
+        vi.stubGlobal(
+            'fetch',
+            vi.fn().mockResolvedValue({
+                ok: true,
+                text: () => Promise.resolve('{"b":2}'),
+            }),
+        );
+        try {
+            const policy: SecurityPolicy = {
+                url: { allowedHosts: ['example.com'] },
+            };
+            // URL has no recognizable extension — falls back to TypeDetector auto-detection
+            const acc = await SafeAccess.fromUrlWithPolicy('https://example.com/api', policy);
+            expect(acc.get('b')).toBe(2);
+        } finally {
+            vi.restoreAllMocks();
+        }
+    });
 });
 
 // ── AuditLogger ─────────────────────────────────────────
@@ -405,5 +425,21 @@ describe('Audit Integration', () => {
         const off = onAudit(() => {});
         off();
         off(); // double call should not throw
+    });
+
+    it('warns when max listener count is reached', () => {
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        try {
+            // Register exactly 100 listeners to fill the cap, then one more to trigger warning
+            for (let i = 0; i < 100; i++) {
+                onAudit(() => {});
+            }
+            const noop = onAudit(() => {}); // 101st — triggers warning
+            expect(warn).toHaveBeenCalledWith(expect.stringContaining('Max listener count'));
+            // Invoke the returned no-op unsubscriber to cover its body
+            noop();
+        } finally {
+            warn.mockRestore();
+        }
     });
 });

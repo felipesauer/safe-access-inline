@@ -183,12 +183,7 @@ export class FilterParser {
         let fieldValue: unknown;
 
         if (condition.func) {
-            fieldValue = FilterParser.evaluateFunction(
-                item,
-                condition.func,
-                /* v8 ignore next -- funcArgs is always set alongside func */
-                condition.funcArgs ?? [],
-            );
+            fieldValue = FilterParser.evaluateFunction(item, condition.func, condition.funcArgs!);
         } else {
             fieldValue = FilterParser.resolveField(item, condition.field);
         }
@@ -227,7 +222,6 @@ export class FilterParser {
             case 'match': {
                 const val = FilterParser.resolveFilterArg(item, funcArgs[0]);
                 if (typeof val !== 'string') return false;
-                /* v8 ignore next -- trim() never returns nullish */
                 let pattern = funcArgs[1]?.trim() ?? '';
                 // Strip quotes from pattern
                 if (

@@ -1,3 +1,5 @@
+import { JsonPatchTestFailedError } from '../exceptions/json-patch-test-failed.error';
+
 /**
  * JSON Patch operations per RFC 6902.
  * Provides diff generation and patch application.
@@ -122,7 +124,7 @@ export function applyPatch(
             case 'test': {
                 const actual = getAtPointer(result, op.path);
                 if (!deepEqual(actual, op.value)) {
-                    throw new Error(
+                    throw new JsonPatchTestFailedError(
                         `Test operation failed: value at '${op.path}' does not match expected value.`,
                     );
                 }

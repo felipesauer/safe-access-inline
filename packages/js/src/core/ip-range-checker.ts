@@ -30,7 +30,16 @@ export function isPrivateIp(ip: string): boolean {
 
 export function isIpv6Loopback(host: string): boolean {
     const cleaned = host.replace(/^\[|\]$/g, '');
-    return cleaned === '::1' || cleaned === '0:0:0:0:0:0:0:1';
+    // Loopback: ::1
+    if (cleaned === '::1' || cleaned === '0:0:0:0:0:0:0:1') return true;
+
+    // ULA: fc00::/7 — first byte is 0xfc or 0xfd (private ranges)
+    if (/^f[cd][0-9a-f]{0,2}:/i.test(cleaned)) return true;
+
+    // Link-local: fe80::/10 — equivalent to 169.254.x.x (cloud metadata)
+    if (/^fe[89ab][0-9a-f]{0,1}:/i.test(cleaned)) return true;
+
+    return false;
 }
 
 export function assertSafeUrl(
@@ -73,6 +82,23 @@ export function assertSafeUrl(
 
         if (isIpv6Loopback(hostname)) {
             throw new SecurityError('Access to loopback IPv6 addresses is blocked.');
+        }
+
+        // Check ::ffff: IPv4-mapped IPv6 addresses
+        const cleanedHost = hostname.replace(/^\[|\]$/g, '');
+        if (cleanedHost.toLowerCase().startsWith('::ffff:')) {
+            const mappedPart = cleanedHost.substring(7);
+            // Node's URL parser normalizes ::ffff: mapped addresses to hex pairs
+            // (e.g., ::ffff:127.0.0.1 → ::ffff:7f00:1), so we always parse hex.
+            const hexMatch = mappedPart.match(
+                /^([0-9a-f]{1,4}):([0-9a-f]{1,4})$/i,
+            ) as RegExpMatchArray;
+            const mappedIp = `${(parseInt(hexMatch[1], 16) >> 8) & 0xff}.${parseInt(hexMatch[1], 16) & 0xff}.${(parseInt(hexMatch[2], 16) >> 8) & 0xff}.${parseInt(hexMatch[2], 16) & 0xff}`;
+            if (isPrivateIp(mappedIp)) {
+                throw new SecurityError(
+                    `Access to private/internal IP '${cleanedHost}' is blocked (SSRF protection).`,
+                );
+            }
         }
 
         // Check raw IP

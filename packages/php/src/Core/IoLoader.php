@@ -2,6 +2,7 @@
 
 namespace SafeAccessInline\Core;
 
+use SafeAccessInline\Contracts\HttpClientInterface;
 use SafeAccessInline\Enums\AccessorFormat;
 use SafeAccessInline\Exceptions\SecurityException;
 use SafeAccessInline\Security\AuditLogger;
@@ -11,6 +12,8 @@ use SafeAccessInline\Security\AuditLogger;
  */
 final class IoLoader
 {
+    private static ?HttpClientInterface $httpClient = null;
+
     /** @var array<string, AccessorFormat> */
     private const EXTENSION_FORMAT_MAP = [
         'json' => AccessorFormat::Json,
@@ -85,40 +88,54 @@ final class IoLoader
     }
 
     /**
-     * @codeCoverageIgnore Requires real HTTP I/O.
-     *
      * @param array{allowPrivateIps?: bool, allowedHosts?: string[], allowedPorts?: int[]} $options
      * @throws SecurityException
      */
     public static function fetchUrl(string $url, array $options = []): string
     {
-        self::assertSafeUrl($url, $options);
+        $resolvedIp = self::assertSafeUrl($url, $options);
         AuditLogger::emit('url.fetch', ['url' => $url]);
 
-        $context = stream_context_create([
-            'http' => [
-                'method' => 'GET',
-                'timeout' => 10,
-                'follow_location' => 0,
-            ],
-            'ssl' => [
-                'verify_peer' => true,
-                'verify_peer_name' => true,
-            ],
-        ]);
+        $parsed = parse_url($url);
+        /** @var string $host */
+        $host = $parsed['host'] ?? '';
+        $port = $parsed['port'] ?? 443;
 
-        $content = @file_get_contents($url, false, $context);
-        if ($content === false) {
-            throw new SecurityException("Failed to fetch URL: '{$url}'");
-        }
-        return $content;
+        $curlOptions = [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_FOLLOWLOCATION => false,
+            CURLOPT_TIMEOUT => 10,
+            CURLOPT_CONNECTTIMEOUT => 5,
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_SSL_VERIFYHOST => 2,
+            CURLOPT_PROTOCOLS => CURLPROTO_HTTPS,
+            CURLOPT_RESOLVE => ["{$host}:{$port}:{$resolvedIp}"],
+        ];
+
+        return self::getHttpClient()->fetch($url, $curlOptions);
+    }
+
+    public static function setHttpClient(HttpClientInterface $client): void
+    {
+        self::$httpClient = $client;
+    }
+
+    public static function resetHttpClient(): void
+    {
+        self::$httpClient = null;
+    }
+
+    private static function getHttpClient(): HttpClientInterface
+    {
+        return self::$httpClient ??= new CurlHttpClient();
     }
 
     /**
      * @param array{allowPrivateIps?: bool, allowedHosts?: string[], allowedPorts?: int[]} $options
+     * @return string The resolved IP address (used by fetchUrl to pin DNS via CURLOPT_RESOLVE).
      * @throws SecurityException
      */
-    public static function assertSafeUrl(string $url, array $options = []): void
+    public static function assertSafeUrl(string $url, array $options = []): string
     {
         $parsed = parse_url($url);
         if ($parsed === false || !isset($parsed['scheme'], $parsed['host'])) {
@@ -149,13 +166,33 @@ final class IoLoader
         }
 
         $allowPrivateIps = $options['allowPrivateIps'] ?? false;
-        if (!$allowPrivateIps) {
-            $host = $parsed['host'];
+        $host = $parsed['host'];
 
-            // Check IPv6 loopback
-            $cleaned = trim($host, '[]');
+        // Check IPv6 loopback and link-local
+        $cleaned = trim($host, '[]');
+        if (!$allowPrivateIps) {
             if ($cleaned === '::1' || $cleaned === '0:0:0:0:0:0:0:1') {
                 throw new SecurityException('Access to loopback IPv6 addresses is blocked.');
+            }
+
+            // Block fe80::/10 (link-local) addresses
+            if (str_starts_with(strtolower($cleaned), 'fe80')) {
+                throw new SecurityException('Access to IPv6 link-local addresses is blocked.');
+            }
+
+            // Block ::ffff:0:0/96 (IPv4-mapped IPv6)
+            if (str_starts_with(strtolower($cleaned), '::ffff:')) {
+                $mappedIp = substr($cleaned, 7);
+                if (self::isPrivateIp($mappedIp)) {
+                    throw new SecurityException(
+                        "Access to private/internal IP '{$cleaned}' is blocked (SSRF protection)."
+                    );
+                }
+            }
+
+            // Block fc00::/7 (ULA — unique local addresses)
+            if (preg_match('/^f[cd][0-9a-f]{0,2}:/i', $cleaned)) {
+                throw new SecurityException('Access to IPv6 unique local addresses (ULA) is blocked.');
             }
 
             // Block metadata hostnames
@@ -164,15 +201,18 @@ final class IoLoader
                     "Access to cloud metadata hostname '{$host}' is blocked."
                 );
             }
-
-            // Resolve hostname to IP
-            $ip = gethostbyname($host);
-            if (self::isPrivateIp($ip)) {
-                throw new SecurityException(
-                    "Access to private/internal IP '{$ip}' is blocked (SSRF protection)."
-                );
-            }
         }
+
+        // Resolve hostname to IP
+        $ip = gethostbyname($host);
+
+        if (!$allowPrivateIps && self::isPrivateIp($ip)) {
+            throw new SecurityException(
+                "Access to private/internal IP '{$ip}' is blocked (SSRF protection)."
+            );
+        }
+
+        return $ip;
     }
 
     public static function isPrivateIp(string $ip): bool

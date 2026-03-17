@@ -16,10 +16,7 @@ export class PathCache {
         if (PathCache.cache.size >= MAX_CACHE_SIZE) {
             // Evict oldest (first) entry
             const firstKey = PathCache.cache.keys().next().value;
-            /* v8 ignore next -- Map is never empty when size >= MAX_CACHE_SIZE */
-            if (firstKey !== undefined) {
-                PathCache.cache.delete(firstKey);
-            }
+            PathCache.cache.delete(firstKey!);
         }
         PathCache.cache.set(path, segments);
     }

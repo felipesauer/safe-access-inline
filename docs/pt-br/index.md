@@ -1,131 +1,65 @@
 ---
-layout: default
-title: Início
-nav_exclude: true
-description: Acesse dados profundamente aninhados com notação de ponto — uma API, 10 formatos, PHP + JS/TS.
-permalink: /pt-br/
-lang: pt-br
+layout: home
+
+hero:
+    name: Safe Access Inline
+    text: Uma API, 10 Formatos, PHP + JS/TS
+    tagline: Acesse dados profundamente aninhados com notação de ponto — sem exceções, sem surpresas.
+    image:
+        src: /logo-hero.svg
+        alt: Safe Access Inline
+    actions:
+        - theme: brand
+          text: Começar
+          link: /pt-br/guide/
+        - theme: alt
+          text: Ver no GitHub
+          link: https://github.com/felipesauer/safe-access-inline
+
+features:
+    - icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#5b8def" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>'
+      title: Zero Surpresas
+      details: get() nunca lança exceções — chaves ausentes, dados nulos ou tipos errados sempre retornam o valor padrão seguro. Seguro para produção.
+      link: /pt-br/guide/
+      linkText: Começar
+    - icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#5b8def" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></svg>'
+      title: 10 Formatos
+      details: JSON · XML · YAML · TOML · INI · CSV · ENV · NDJSON · Array · Object — uma API unificada, sem boilerplate.
+      link: /pt-br/js/getting-started
+      linkText: Ver todos os formatos
+    - icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#5b8def" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>'
+      title: Imutável por Design
+      details: "Cada escrita retorna uma nova instância. Ative o modo readonly com deep-freeze via { readonly&#58; true } para bloquear mutações em runtime."
+      link: /pt-br/js/api-reference
+      linkText: Referência da API
+    - icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#5b8def" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>'
+      title: Queries Poderosas
+      details: "Wildcards (*.name) · Filtros ([?price>20]) · Descida recursiva (..key) · Slices ([0:5:2]) · Multi-index ([0,2,4]) · Funções de filtro (length, match, keys)"
+      link: /pt-br/guide/
+      linkText: Sintaxe de paths
+    - icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#5b8def" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>'
+      title: Segurança em Primeiro Lugar
+      details: Proteção contra prototype pollution · Bloqueio SSRF + IPv6 · Prevenção de XXE em XML · Sanitizador de injeção em CSV · 16 padrões de mascaramento automático de chaves sensíveis.
+      link: /pt-br/js/api-reference
+      linkText: Docs de segurança
+    - icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#5b8def" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>'
+      title: Validação de Schema
+      details: Adapters integrados para Zod, Valibot, Yup e JSON Schema. Defina um adapter global via SchemaRegistry ou forneça um por chamada.
+      link: /pt-br/js/api-reference
+      linkText: Adapters de schema
+    - icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#5b8def" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22v-5"/><path d="M9 7V2"/><path d="M15 7V2"/><path d="M18 7H6a2 2 0 0 0-2 2v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/></svg>'
+      title: Extensível
+      details: Substitua qualquer parser ou serializer via PluginRegistry. Integrações para Laravel, Symfony, NestJS e Vite prontas para uso.
+      link: /pt-br/js/plugins
+      linkText: Guia de plugins
+    - icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#5b8def" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>'
+      title: Tipos TypeScript
+      details: Inferência de caminho profunda com DeepPaths&lt;T&gt; e ValueAtPath&lt;T, P&gt;. Chamadas get() totalmente tipadas — sem casting, sem adivinhação.
+      link: /pt-br/js/api-reference
+      linkText: Docs TypeScript
+    - icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#5b8def" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/></svg>'
+      title: Paridade PHP ↔ JS
+      details: API idêntica em ambas linguagens. Mesmos caminhos, mesmos resultados, mesmo comportamento — escolha sua stack.
+      link: /pt-br/php/getting-started
+      linkText: Docs PHP
 ---
-
-# safe-access-inline
-
-{: .fs-9 }
-
-Acesse dados profundamente aninhados com notação de ponto — uma API, 10 formatos, PHP + JS/TS.
-{: .fs-6 .fw-300 }
-
-[![PHP CI](https://github.com/felipesauer/safe-access-inline/actions/workflows/php-ci.yml/badge.svg)](https://github.com/felipesauer/safe-access-inline/actions/workflows/php-ci.yml)
-[![JS CI](https://github.com/felipesauer/safe-access-inline/actions/workflows/js-ci.yml/badge.svg)](https://github.com/felipesauer/safe-access-inline/actions/workflows/js-ci.yml)
-[![npm version](https://img.shields.io/npm/v/@safe-access-inline/safe-access-inline.svg)](https://www.npmjs.com/package/@safe-access-inline/safe-access-inline)
-[![Packagist Version](https://img.shields.io/packagist/v/safe-access-inline/safe-access-inline.svg)](https://packagist.org/packages/safe-access-inline/safe-access-inline)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/felipesauer/safe-access-inline/blob/main/LICENSE)
-
----
-
-## Por quê?
-
-Acessar dados aninhados de configs, APIs ou formatos de arquivo geralmente significa escrever cadeias defensivas de `isset`, optional chaining ou try/catch — cada formato com suas peculiaridades.
-
-**safe-access-inline** oferece uma API unificada que funciona de forma idêntica em PHP e JavaScript:
-
-```php
-$accessor->get('user.profile.name', 'N/A');  // Funciona com JSON, XML, YAML, TOML, INI, CSV, ENV…
-```
-
-```typescript
-accessor.get("user.profile.name", "N/A"); // Mesma API, mesmo resultado
-```
-
-Sem exceções. Sem surpresas. Uma API, 10 formatos.
-
----
-
-## Funcionalidades
-
-- **Zero surpresas** — `get()` nunca lança exceções; sempre retorna um valor padrão para caminhos não encontrados
-- **Agnóstico de formato** — mesma API para 10 formatos de dados (JSON, XML, YAML, TOML, INI, CSV, ENV, NDJSON + Array/Object)
-- **Imutável** — `set()` e `remove()` retornam novas instâncias
-- **Notação de ponto** — acesse dados aninhados com `user.profile.name`
-- **Wildcard & filtro** — `users.*.email`, `items[?price>20].name`, `..name` descida recursiva
-- **Operações de array** — `push`, `pop`, `shift`, `insert`, `filterAt`, `mapAt`, `sortAt`, `unique`, `flatten`
-- **JSON Patch** — RFC 6902 `diff()` e `applyPatch()` para rastreamento de mudanças
-- **Segurança** — proteção SSRF, proteção contra path-traversal, mascaramento de dados, sanitização CSV, modo readonly
-- **Validação de schema** — validação baseada em adapter com qualquer biblioteca (Zod, Joi, JSON Schema, etc.)
-- **I/O** — `fromFile()`, `fromUrl()`, `layer()`, `watchFile()` com log de auditoria
-- **Sistema de plugins** — estenda parsing e serialização com plugins customizados via `PluginRegistry`
-- **CLI** — `@safe-access-inline/cli` para acesso via linha de comando a todas as funcionalidades
-- **Integrações com frameworks** — NestJS, Vite (JS) · Laravel, Symfony (PHP)
-- **Paridade PHP ↔ JS** — API idêntica em ambas linguagens
-
----
-
-## Formatos Suportados
-
-| Formato | PHP | JS/TS | Dependências                                                                       |
-| ------- | :-: | :---: | ---------------------------------------------------------------------------------- |
-| Array   | ✅  |  ✅   | Nenhuma                                                                            |
-| Object  | ✅  |  ✅   | Nenhuma                                                                            |
-| JSON    | ✅  |  ✅   | `ext-json` (nativo)                                                                |
-| XML     | ✅  |  ✅   | `ext-simplexml` (nativo) / parser embutido                                         |
-| YAML    | ✅  |  ✅   | `ext-yaml` ou `symfony/yaml` (PHP) / `js-yaml` (JS) — override via plugin opcional |
-| TOML    | ✅  |  ✅   | Embutido (`devium/toml` / `smol-toml`) — override via plugin opcional              |
-| INI     | ✅  |  ✅   | Nativo                                                                             |
-| CSV     | ✅  |  ✅   | Nativo                                                                             |
-| ENV     | ✅  |  ✅   | Nativo                                                                             |
-| NDJSON  | ✅  |  ✅   | Nativo                                                                             |
-
----
-
-## Início Rápido
-
-### PHP
-
-```bash
-composer require safe-access-inline/safe-access-inline
-```
-
-```php
-use SafeAccessInline\SafeAccess;
-
-$accessor = SafeAccess::fromJson('{"user": {"name": "Ana", "age": 30}}');
-$accessor->get('user.name');           // "Ana"
-$accessor->get('user.email', 'N/A');   // "N/A" (padrão, sem exceção)
-
-// Wildcard
-$accessor = SafeAccess::fromArray(['users' => [['name' => 'Ana'], ['name' => 'Bob']]]);
-$accessor->get('users.*.name');        // ["Ana", "Bob"]
-```
-
-[Primeiros Passos — PHP](php/getting-started){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
-[Referência da API — PHP](php/api-reference){: .btn .fs-5 .mb-4 .mb-md-0 }
-
-### JavaScript / TypeScript
-
-```bash
-npm install @safe-access-inline/safe-access-inline
-```
-
-```typescript
-import { SafeAccess } from "@safe-access-inline/safe-access-inline";
-
-const accessor = SafeAccess.fromJson('{"user": {"name": "Ana", "age": 30}}');
-accessor.get("user.name"); // "Ana"
-accessor.get("user.email", "N/A"); // "N/A"
-
-// Wildcard
-const obj = SafeAccess.fromObject({
-    users: [{ name: "Ana" }, { name: "Bob" }],
-});
-obj.get("users.*.name"); // ["Ana", "Bob"]
-```
-
-[Primeiros Passos — JS/TS](js/getting-started){: .btn .btn-blue .fs-5 .mb-4 .mb-md-0 .mr-2 }
-[Referência da API — JS/TS](js/api-reference){: .btn .fs-5 .mb-4 .mb-md-0 }
-
----
-
-## Saiba Mais
-
-- [Arquitetura](architecture) — princípios de design, diagrama de componentes, sistema de plugins, fluxo de dados
-- [Contribuindo](https://github.com/felipesauer/safe-access-inline/blob/main/CONTRIBUTING.md) — como contribuir
-- [Segurança](https://github.com/felipesauer/safe-access-inline/blob/main/SECURITY.md) — política de divulgação de vulnerabilidades

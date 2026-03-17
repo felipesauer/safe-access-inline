@@ -45,6 +45,21 @@ final class SecurityOptions
         }
     }
 
+    /**
+     * Asserts that the structural depth of data does not exceed the given limit.
+     *
+     * @throws SecurityException
+     */
+    public static function assertMaxStructuralDepth(mixed $data, int $maxDepth): void
+    {
+        $depth = self::measureDepth($data, 0);
+        if ($depth > $maxDepth) {
+            throw new SecurityException(
+                "Data structural depth {$depth} exceeds policy maximum of {$maxDepth}."
+            );
+        }
+    }
+
     private static function countKeys(mixed $obj, int $depth = 0): int
     {
         if ($depth > 100) {
@@ -58,5 +73,20 @@ final class SecurityOptions
             $count += self::countKeys($value, $depth + 1);
         }
         return $count;
+    }
+
+    private static function measureDepth(mixed $value, int $current): int
+    {
+        if (!is_array($value)) {
+            return $current;
+        }
+        $max = $current;
+        foreach ($value as $child) {
+            $d = self::measureDepth($child, $current + 1);
+            if ($d > $max) {
+                $max = $d;
+            }
+        }
+        return $max;
     }
 }

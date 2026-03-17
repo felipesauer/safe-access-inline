@@ -1,7 +1,10 @@
-import { parse } from 'smol-toml';
+import type { parse as tomlParse } from 'smol-toml';
+import { optionalRequire } from '../core/optional-require';
 import { AbstractAccessor } from '../core/abstract-accessor';
 import { PluginRegistry } from '../core/plugin-registry';
 import { InvalidFormatError } from '../exceptions/invalid-format.error';
+
+const getSmolToml = optionalRequire<{ parse: typeof tomlParse }>('smol-toml', 'TOML');
 
 /**
  * Accessor for TOML strings.
@@ -25,9 +28,8 @@ export class TomlAccessor<
         }
 
         try {
-            return parse(input) as Record<string, unknown>;
+            return getSmolToml().parse(input) as Record<string, unknown>;
         } catch {
-            /* v8 ignore next */
             throw new InvalidFormatError('TomlAccessor failed to parse TOML string.');
         }
     }

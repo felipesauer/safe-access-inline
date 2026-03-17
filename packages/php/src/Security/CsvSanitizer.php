@@ -6,7 +6,7 @@ use SafeAccessInline\Exceptions\SecurityException;
 
 final class CsvSanitizer
 {
-    private const DANGEROUS_PREFIXES = ['=', '+', '-', '@', "\t", "\r"];
+    private const DANGEROUS_PREFIXES = ['=', '+', '-', '@', "\t", "\r", "\n"];
 
     /**
      * @param 'prefix'|'strip'|'error'|'none' $mode
@@ -31,7 +31,7 @@ final class CsvSanitizer
 
         return match ($mode) {
             'prefix' => "'" . $cell,
-            'strip' => ltrim($cell, "=+-@\t\r"),
+            'strip' => ltrim($cell, "=+-@\t\r\n"),
             'error' => throw new SecurityException(
                 "CSV cell starts with dangerous character: '{$cell[0]}'"
             ),

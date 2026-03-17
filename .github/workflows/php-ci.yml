@@ -13,6 +13,9 @@ on:
             - ".github/workflows/php-ci.yml"
     workflow_dispatch:
 
+permissions:
+    contents: read
+
 jobs:
     test:
         name: PHP ${{ matrix.php }} (${{ matrix.deps }})
@@ -28,10 +31,10 @@ jobs:
                 working-directory: packages/php
 
         steps:
-            - uses: actions/checkout@v6
+            - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
             - name: Setup PHP
-              uses: shivammathur/setup-php@v2
+              uses: shivammathur/setup-php@728c6c6b8cf02c2e48117716a91ee48313958a19 # v2
               with:
                   php-version: ${{ matrix.php }}
                   extensions: json, simplexml, libxml
@@ -42,7 +45,7 @@ jobs:
               run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
 
             - name: Cache Composer dependencies
-              uses: actions/cache@v5
+              uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5
               with:
                   path: ${{ steps.composer-cache.outputs.dir }}
                   key: php-${{ matrix.php }}-${{ matrix.deps }}-composer-${{ hashFiles('packages/php/composer.json') }}
@@ -56,12 +59,13 @@ jobs:
               run: composer require symfony/yaml devium/toml --dev --no-progress
 
             - name: Run tests
-              run: vendor/bin/pest --coverage --min=95
+              run: vendor/bin/pest --coverage --coverage-clover coverage.xml --min=95
 
             - name: Upload coverage to Codecov
               if: matrix.php == '8.4' && matrix.deps == 'core'
-              uses: codecov/codecov-action@v5
+              uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5
               with:
+                  token: ${{ secrets.CODECOV_TOKEN }}
                   flags: php
                   files: packages/php/coverage.xml
                   fail_ci_if_error: false

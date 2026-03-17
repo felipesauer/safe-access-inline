@@ -62,6 +62,16 @@ describe('io-loader', () => {
                 ]),
             ).toThrow(SecurityError);
         });
+
+        it('falls back to path.resolve when allowed dir does not exist', () => {
+            // The first dir does not exist — realpathSync fails — falls back to path.resolve
+            expect(() =>
+                assertPathWithinAllowedDirs(path.join(fixturesDir, 'config.json'), [
+                    '/this/path/does/not/exist/at/all',
+                    fixturesDir,
+                ]),
+            ).not.toThrow();
+        });
     });
 
     describe('readFileSync()', () => {

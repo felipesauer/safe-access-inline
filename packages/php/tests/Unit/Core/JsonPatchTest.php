@@ -1,6 +1,7 @@
 <?php
 
 use SafeAccessInline\Core\JsonPatch;
+use SafeAccessInline\Exceptions\JsonPatchTestFailedException;
 use SafeAccessInline\Exceptions\ReadonlyViolationException;
 use SafeAccessInline\SafeAccess;
 
@@ -126,7 +127,17 @@ describe(JsonPatch::class, function () {
 
     it('test operation fails for non-matching value', function () {
         JsonPatch::applyPatch(['a' => 1], [['op' => 'test', 'path' => '/a', 'value' => 999]]);
-    })->throws(\RuntimeException::class);
+    })->throws(JsonPatchTestFailedException::class);
+
+    it('test operation failure is instanceof RuntimeException', function () {
+        try {
+            JsonPatch::applyPatch(['a' => 1], [['op' => 'test', 'path' => '/a', 'value' => 999]]);
+        } catch (\Throwable $e) {
+            expect($e)->toBeInstanceOf(JsonPatchTestFailedException::class);
+            expect($e)->toBeInstanceOf(\RuntimeException::class);
+            expect($e->getMessage())->toContain('Test operation failed');
+        }
+    });
 
     it('applies multiple operations', function () {
         $ops = [
