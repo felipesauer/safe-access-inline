@@ -2,27 +2,28 @@
 agent: agent
 tools:
     - codebase
-    - terminal
     - githubRepo
-description: Audits the safe-access-inline monorepo for structural alignment with open-source library best practices — community health, .github/ setup, CI/CD, package manifests, documentation, and repository settings.
-version: "2.0"
+description: "Audit Step 3 — Repository Structure Audit for safe-access-inline. Scores all 6 categories (community health, .github/ structure, CI/CD workflows, package manifests, docs site, GitHub settings) and produces a total score out of 100. Depends on the Discovery Artifact from audit-01."
+version: "1.0"
 ---
 
-# 🏗️ Repository Structure Audit — safe-access-inline
+# 📁 Audit 05 — Repository Structure
 
-> **Execute every step in order. Do not skip any. Do not ask for confirmation between steps — act autonomously and present the full report at the end.**
+> **Read `.github/prompts/audit-shared.md` first** using the `codebase` tool to load role and conventions.
 
-## Role
+> **Paste the Discovery Artifact from `audit-01-discovery.prompt.md` below before running this prompt.**
 
-You are a **Senior Open-Source Library Maintainer and GitHub Repository Auditor** specialised in developer experience, community governance, and release automation. Your goal is to verify this monorepo meets the structural expectations for a production-grade, dual-language open-source library.
+---
 
-**Packages:**
+## Input: Discovery Artifact
 
-| Package        | Language        | Registry  |
-| -------------- | --------------- | --------- |
-| `packages/php` | PHP 8.2+        | Packagist |
-| `packages/js`  | TypeScript/Node | npm       |
-| `packages/cli` | TypeScript/Node | npm       |
+<!-- Paste the full Discovery Artifact produced by audit-01-discovery.prompt.md here -->
+
+---
+
+## Instructions
+
+For each criterion: ✅ Pass, ⚠️ Partial, or ❌ Fail. For every ⚠️ or ❌, provide the exact fix (markdown snippet, YAML block, JSON field, or CLI command).
 
 ---
 
@@ -44,33 +45,7 @@ You are a **Senior Open-Source Library Maintainer and GitHub Repository Auditor*
 
 ---
 
-## Step 1 — Discovery
-
-> Complete all phases before scoring.
-
-### Phase A — Map file tree
-
-Use the terminal to list the full project tree, excluding `.git/`, `vendor/`, `node_modules/`, `coverage/`, and `dist/`.
-
-### Phase B — Read all configuration and community files
-
-Use the `codebase` tool to discover and read every file at:
-
-- **Root:** README, LICENSE, CHANGELOG, CONTRIBUTING, CODE_OF_CONDUCT, SECURITY, .gitignore, .editorconfig, package.json, commitlint config, release-please config/manifest, and any other config files
-- **`.github/`:** CODEOWNERS, FUNDING.yml, dependabot.yml, PULL_REQUEST_TEMPLATE, ISSUE_TEMPLATE/\*, workflows/\*, prompts/\*
-- **Manifests:** `packages/js/package.json`, `packages/cli/package.json`, `packages/php/composer.json`, tsconfigs
-
-### Phase C — Repository settings
-
-Use the `githubRepo` tool to retrieve: description, topics, default branch, detected license, branch protection rules for `main`.
-
----
-
-## Step 2 — Audit & Report
-
-> For each item: ✅ Pass, ⚠️ Partial, or ❌ Fail. For every ⚠️ or ❌, provide the exact fix (markdown snippet, YAML block, JSON field, or CLI command).
-
-### Category 1 — Community Health Files (25 pts)
+## Category 1 — Community Health Files (25 pts)
 
 **`README.md` (8 pts)**
 
@@ -134,7 +109,7 @@ Use the `githubRepo` tool to retrieve: description, topics, default branch, dete
 
 ---
 
-### Category 2 — `.github/` Structure (20 pts)
+## Category 2 — `.github/` Structure (20 pts)
 
 **`CODEOWNERS` (3 pts)**
 
@@ -183,7 +158,7 @@ Use the `githubRepo` tool to retrieve: description, topics, default branch, dete
 
 ---
 
-### Category 3 — CI/CD Workflows (20 pts)
+## Category 3 — CI/CD Workflows (20 pts)
 
 **Per-package CI (6 pts)**
 
@@ -230,7 +205,7 @@ Use the `githubRepo` tool to retrieve: description, topics, default branch, dete
 
 ---
 
-### Category 4 — Package Manifests (20 pts)
+## Category 4 — Package Manifests (20 pts)
 
 **`packages/js/package.json` (9 pts)**
 
@@ -269,7 +244,7 @@ Use the `githubRepo` tool to retrieve: description, topics, default branch, dete
 
 ---
 
-### Category 5 — Documentation Site (10 pts)
+## Category 5 — Documentation Site (10 pts)
 
 | #    | Criterion                         |  Wt | Req |
 | ---- | --------------------------------- | --: | --- |
@@ -286,7 +261,7 @@ Use the `githubRepo` tool to retrieve: description, topics, default branch, dete
 
 ---
 
-### Category 6 — GitHub Repository Settings (5 pts)
+## Category 6 — GitHub Repository Settings (5 pts)
 
 | #   | Criterion                             |  Wt | Req |
 | --- | ------------------------------------- | --: | --- |
@@ -298,48 +273,10 @@ Use the `githubRepo` tool to retrieve: description, topics, default branch, dete
 
 ---
 
-## Step 3 — Report
+## Output Format
 
-### Executive Summary
+Present the full scored table for all 6 categories with ✅ / ⚠️ / ❌ per criterion. For every ⚠️ or ❌ item, provide the exact fix immediately below it (markdown snippet, YAML, JSON field, or CLI command).
 
-| Category                      |       Score | Grade     |
-| ----------------------------- | ----------: | --------- |
-| 1. Community Health Files     |      X / 25 |           |
-| 2. `.github/` Structure       |      X / 20 |           |
-| 3. CI/CD Workflows            |      X / 20 |           |
-| 4. Package Manifests          |      X / 20 |           |
-| 5. Documentation Site         |      X / 10 |           |
-| 6. GitHub Repository Settings |       X / 5 |           |
-| **Total**                     | **X / 100** | **Grade** |
+End with:
 
-### Detailed Results
-
-For **each category**, produce a results table:
-
-| #   | Criterion |  Status  | Notes |
-| --- | --------- | :------: | ----- |
-| N.N | ...       | ✅/⚠️/❌ | ...   |
-
-For every ⚠️ or ❌, provide:
-
-> **[Criterion]** — What is missing or wrong
->
-> Suggested fix:
->
-> ```
-> (exact content to add or correct)
-> ```
-
-### Top 10 Critical Issues _(must fix before next release)_
-
-1. …
-2. …
-3. …
-   ...
-
-### Top 10 Recommended Improvements _(high value, not blocking)_
-
-1. …
-2. …
-3. …
-   ...
+**Final score: X/100 — Grade X**
