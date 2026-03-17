@@ -427,19 +427,11 @@ describe('Audit Integration', () => {
         off(); // double call should not throw
     });
 
-    it('warns when max listener count is reached', () => {
-        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-        try {
-            // Register exactly 100 listeners to fill the cap, then one more to trigger warning
-            for (let i = 0; i < 100; i++) {
-                onAudit(() => {});
-            }
-            const noop = onAudit(() => {}); // 101st — triggers warning
-            expect(warn).toHaveBeenCalledWith(expect.stringContaining('Max listener count'));
-            // Invoke the returned no-op unsubscriber to cover its body
-            noop();
-        } finally {
-            warn.mockRestore();
+    it('throws when max listener count is reached', () => {
+        for (let i = 0; i < 100; i++) {
+            onAudit(() => {});
         }
+        expect(() => onAudit(() => {})).toThrow(RangeError);
+        expect(() => onAudit(() => {})).toThrow(/Max listener count/);
     });
 });

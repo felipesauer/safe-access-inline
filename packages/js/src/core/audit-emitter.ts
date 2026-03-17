@@ -21,11 +21,10 @@ const MAX_LISTENERS = 100;
 
 export function onAudit(listener: AuditListener): () => void {
     if (listeners.length >= MAX_LISTENERS) {
-        console.warn(
+        throw new RangeError(
             `[AuditEmitter] Max listener count (${MAX_LISTENERS}) reached. ` +
-                `Possible memory leak — ensure onAudit() unsubscribers are called.`,
+                'Call the returned unsubscriber or clearAuditListeners() between registrations.',
         );
-        return () => {};
     }
     listeners.push(listener);
     return () => {
