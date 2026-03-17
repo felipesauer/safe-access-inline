@@ -1,0 +1,15 @@
+# Changelog
+
+## [0.1.1](https://github.com/felipesauer/safe-access-inline/compare/cli-v0.1.0...cli-v0.1.1) (2026-03-17)
+
+
+### Features
+
+* **cli:** expand CLI with full command set and CliIO abstraction ([b500083](https://github.com/felipesauer/safe-access-inline/commit/b5000836a399bd7042b042febac3ad9dcdb6e211))
+* **js:** scaffold CLI package with get, set, convert, diff and validate commands ([f409070](https://github.com/felipesauer/safe-access-inline/commit/f4090700b95e4d48792f55d1ecb18c0d31f27acf))
+
+
+### Bug Fixes
+
+* **cli:** force .mjs extension in tsup outExtension for type:module package ([718d2a9](https://github.com/felipesauer/safe-access-inline/commit/718d2a918a5ddfe8ca262d38f15852d2eea90d0f))
+* **cli:** replace --banner.js CLI flag with tsup.config.ts ([a5b3cf5](https://github.com/felipesauer/safe-access-inline/commit/a5b3cf57984aad9aefb228d086edb5b83b52175b))
