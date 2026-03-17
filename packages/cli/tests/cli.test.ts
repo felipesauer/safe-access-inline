@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll } from "vitest";
 import { execSync, execFileSync } from "node:child_process";
 import { resolve, join } from "node:path";
 
-const CLI = resolve(__dirname, "../dist/cli.js");
+const CLI = resolve(__dirname, "../dist/cli.mjs");
 const FIXTURES = resolve(__dirname, "../../js/tests/fixtures");
 
 function run(args: string, input?: string): string {
@@ -47,7 +47,7 @@ const overrideJson = join(FIXTURES, "override.json");
 
 beforeAll(() => {
     // Ensure CLI is built
-    execSync("npx tsup src/cli-entry.ts --format esm --out-dir dist", {
+    execSync("npm run build", {
         cwd: resolve(__dirname, ".."),
         stdio: "ignore",
         timeout: 30_000,

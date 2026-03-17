@@ -11,7 +11,7 @@
         "README.md"
     ],
     "scripts": {
-        "build": "tsup src/cli-entry.ts --format esm --out-dir dist --banner.js '#!/usr/bin/env node'",
+        "build": "tsup",
         "test": "vitest run",
         "test:watch": "vitest",
         "lint": "eslint src/ tests/"
