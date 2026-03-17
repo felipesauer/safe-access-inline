@@ -230,7 +230,11 @@ export class FilterParser {
                 ) {
                     pattern = pattern.slice(1, -1);
                 }
-                return new RegExp(pattern).test(val);
+                try {
+                    return new RegExp(pattern, 'u').test(val);
+                } catch {
+                    return false;
+                }
             }
             case 'keys': {
                 const val = FilterParser.resolveFilterArg(item, funcArgs[0]);
