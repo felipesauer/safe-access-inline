@@ -309,4 +309,23 @@ describe(SafeAccess::class, function () {
             IoLoader::resetHttpClient();
         }
     });
+
+    // ── LOGIC-02 regression: extend() cap & resetAll ──
+
+    it('extend — throws OverflowException when cap exceeded', function () {
+        SafeAccess::resetAll();
+        for ($i = 0; $i < 50; $i++) {
+            SafeAccess::extend("cap_test_{$i}", ArrayAccessor::class);
+        }
+        expect(fn () => SafeAccess::extend('cap_overflow', ArrayAccessor::class))
+            ->toThrow(\OverflowException::class);
+        SafeAccess::resetAll();
+    });
+
+    it('resetAll — clears custom accessors', function () {
+        SafeAccess::extend('reset_test', ArrayAccessor::class);
+        SafeAccess::resetAll();
+        expect(fn () => SafeAccess::custom('reset_test', []))
+            ->toThrow(\RuntimeException::class);
+    });
 });

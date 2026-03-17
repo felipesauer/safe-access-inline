@@ -197,4 +197,20 @@ describe(FilterParser::class, function () {
         expect($expr['conditions'])->toHaveCount(1);
         expect($expr['conditions'][0]['value'])->toBe('x || y');
     });
+
+    // ── SEC-01 / SEC-05 regression: evalMatch hardening ──
+
+    it('evaluate — match with slash in pattern does not inject flags', function () {
+        $expr = FilterParser::parse("match(@.url,'https://example')");
+        expect(FilterParser::evaluate(['url' => 'https://example.com'], $expr))->toBeTrue();
+        expect(FilterParser::evaluate(['url' => 'ftp://other'], $expr))->toBeFalse();
+    });
+
+    it('evaluate — match with catastrophic backtracking pattern returns false', function () {
+        // ReDoS-style pattern with limited backtrack should not hang
+        $expr = FilterParser::parse("match(@.val,'a+a+a+a+a+a+a+a+a+a+b')");
+        $evil = str_repeat('a', 50);
+        // Should complete quickly due to backtrack limit; result is false (no match)
+        expect(FilterParser::evaluate(['val' => $evil], $expr))->toBeFalse();
+    });
 });
