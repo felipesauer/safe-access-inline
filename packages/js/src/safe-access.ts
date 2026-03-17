@@ -170,7 +170,14 @@ export class SafeAccess {
         return TypeDetector.resolve(data);
     }
 
+    private static readonly MAX_CUSTOM_ACCESSORS = 50;
+
     static extend(name: string, cls: new (data: unknown) => AbstractAccessor): void {
+        if (SafeAccess.customAccessors.size >= SafeAccess.MAX_CUSTOM_ACCESSORS) {
+            throw new RangeError(
+                `Maximum custom accessor count (${SafeAccess.MAX_CUSTOM_ACCESSORS}) reached.`,
+            );
+        }
         SafeAccess.customAccessors.set(name, cls);
     }
 
@@ -362,6 +369,7 @@ export class SafeAccess {
      * Resets all global/static state. Intended for test teardown.
      */
     static resetAll(): void {
+        SafeAccess.customAccessors.clear();
         PathCache.clear();
         clearAuditListeners();
         _clearGlobalPolicy();

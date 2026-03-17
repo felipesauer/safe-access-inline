@@ -147,6 +147,8 @@ final class SafeAccess
 
     // ── Extensibility ───────────────────────────────────
 
+    private const MAX_CUSTOM_ACCESSORS = 50;
+
     /**
      * Registers a custom Accessor for non-native formats.
      *
@@ -155,6 +157,11 @@ final class SafeAccess
      */
     public static function extend(string $name, string $class): void
     {
+        if (count(self::$customAccessors) >= self::MAX_CUSTOM_ACCESSORS) {
+            throw new \OverflowException(
+                '[SafeAccess] Maximum custom accessor count (' . self::MAX_CUSTOM_ACCESSORS . ') reached.'
+            );
+        }
         self::$customAccessors[$name] = $class;
     }
 
@@ -362,6 +369,7 @@ final class SafeAccess
      */
     public static function resetAll(): void
     {
+        self::$customAccessors = [];
         PathCache::clear();
         AuditLogger::clearListeners();
         SecurityPolicy::clearGlobal();
