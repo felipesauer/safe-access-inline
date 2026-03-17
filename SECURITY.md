@@ -2,10 +2,11 @@
 
 ## Supported Versions
 
-| Package | Version | Supported |
-|---------|---------|:---------:|
-| `safe-access-inline/safe-access-inline` (PHP) | 0.x | :white_check_mark: |
-| `@safe-access-inline/safe-access-inline` (JS/TS) | 0.x | :white_check_mark: |
+| Package                                          | Version |     Supported      |
+| ------------------------------------------------ | ------- | :----------------: |
+| `safe-access-inline/safe-access-inline` (PHP)    | 0.x     | :white_check_mark: |
+| `@safe-access-inline/safe-access-inline` (JS/TS) | 0.x     | :white_check_mark: |
+| `@safe-access-inline/cli`                        | 0.x     | :white_check_mark: |
 
 > Only the latest release of each package receives security updates.
 
@@ -17,21 +18,21 @@ If you discover a security vulnerability in this project, please report it respo
 
 1. **Use GitHub's private vulnerability reporting:** go to the [**Security** tab → **Report a vulnerability**](https://github.com/felipesauer/safe-access-inline/security/advisories/new).
 2. **Include the following details:**
-   - A clear description of the vulnerability
-   - Steps to reproduce the issue
-   - Affected package(s) and version(s)
-   - Potential impact assessment
-   - (Optional) A suggested fix or patch
+    - A clear description of the vulnerability
+    - Steps to reproduce the issue
+    - Affected package(s) and version(s)
+    - Potential impact assessment
+    - (Optional) A suggested fix or patch
 
 > **Important:** Do **not** open a public GitHub Issue for security vulnerabilities. Use the private reporting channel above to ensure responsible disclosure.
 
 ### What to Expect
 
-| Timeline | Action |
-|----------|--------|
-| **48 hours** | Acknowledgment of your report |
-| **7 days** | Initial assessment and severity classification |
-| **90 days** | Target deadline for a fix to be released |
+| Timeline     | Action                                         |
+| ------------ | ---------------------------------------------- |
+| **48 hours** | Acknowledgment of your report                  |
+| **7 days**   | Initial assessment and severity classification |
+| **90 days**  | Target deadline for a fix to be released       |
 
 We follow a **coordinated disclosure** approach. We ask that you:
 
