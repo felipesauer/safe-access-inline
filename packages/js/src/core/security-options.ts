@@ -1,5 +1,7 @@
 import { SecurityError } from '../exceptions/security.error';
 
+const _utf8Encoder = new TextEncoder();
+
 export interface SecurityOptions {
     maxDepth?: number;
     maxPayloadBytes?: number;
@@ -14,7 +16,7 @@ export const DEFAULT_SECURITY_OPTIONS: Required<SecurityOptions> = {
 
 export function assertPayloadSize(input: string, maxBytes?: number): void {
     const limit = maxBytes ?? DEFAULT_SECURITY_OPTIONS.maxPayloadBytes;
-    const size = new TextEncoder().encode(input).length;
+    const size = _utf8Encoder.encode(input).length;
     if (size > limit) {
         throw new SecurityError(`Payload size ${size} bytes exceeds maximum of ${limit} bytes.`);
     }
