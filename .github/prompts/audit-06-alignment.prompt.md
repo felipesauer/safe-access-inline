@@ -21,6 +21,12 @@ version: "1.0"
 
 ---
 
+## Input: Known State Artifact
+
+<!-- Paste the full Known State Artifact produced by audit-00-bootstrap.prompt.md here -->
+
+---
+
 ## Instructions
 
 Use the `codebase` tool to read each module side-by-side (JS and PHP) before comparing.
@@ -28,6 +34,8 @@ Use the `codebase` tool to read each module side-by-side (JS and PHP) before com
 Complete all three phases in order. Number `[GAP-NNN]` findings sequentially.
 
 **Uncertainty:** If you cannot verify a behaviour without running tests, state _"Requires runtime verification"_ — do not guess.
+
+**Known State filtering:** Before reporting any finding, apply the Known State Protocol from `audit-shared.md`. Skip `accepted` findings entirely, list `deferred` findings only under a `### Still Deferred` section at the end, and report `open` findings that still exist as `[REGRESSION: <original-title>]` rather than new numbered findings.
 
 ---
 

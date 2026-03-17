@@ -21,11 +21,19 @@ version: "1.0"
 
 ---
 
+## Input: Known State Artifact
+
+<!-- Paste the full Known State Artifact produced by audit-00-bootstrap.prompt.md here -->
+
+---
+
 ## Instructions
 
 Using the file paths in the Discovery Artifact, read each security-related module with the `codebase` tool before analysing it. **Do not skip a subsystem because an expected filename is absent** — discover actual files first.
 
 Complete each concern fully before moving to the next. Produce one `[CRIT-NNN]` block per finding, numbered sequentially.
+
+**Known State filtering:** Before reporting any finding, apply the Known State Protocol from `audit-shared.md`. Skip `accepted` findings entirely, list `deferred` findings only under a `### Still Deferred` section at the end, and report `open` findings that still exist as `[REGRESSION: <original-title>]` rather than new numbered findings.
 
 ---
 

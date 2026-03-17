@@ -21,9 +21,17 @@ version: "1.0"
 
 ---
 
+## Input: Known State Artifact
+
+<!-- Paste the full Known State Artifact produced by audit-00-bootstrap.prompt.md here -->
+
+---
+
 ## Instructions
 
 For each criterion: ✅ Pass, ⚠️ Partial, or ❌ Fail. For every ⚠️ or ❌, provide the exact fix (markdown snippet, YAML block, JSON field, or CLI command).
+
+**Known State filtering:** Apply the Known State Protocol from `audit-shared.md`. If a repository criterion (matched by title/description) has status `accepted` in the Known State, mark it ✅ (accepted — suppressed) and do not deduct points. If `deferred`, note it as deferred without deducting points. This allows you to deliberately exclude criteria you have chosen not to address.
 
 ---
 

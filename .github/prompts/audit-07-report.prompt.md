@@ -20,6 +20,10 @@ version: "1.0"
 
 <!-- Paste here -->
 
+### Known State Artifact (from audit-00)
+
+<!-- Paste here -->
+
 ### Security Findings `[CRIT-NNN]` + Security Score Card (from audit-02)
 
 <!-- Paste here -->
@@ -46,9 +50,28 @@ version: "1.0"
 
 Consolidate all inputs into the structured report below. Do **not** re-analyse the code — synthesise only from the provided inputs. Do not omit any finding or gap.
 
+Apply the Known State Protocol from `audit-shared.md` throughout: suppress `accepted` findings from the main body, list `deferred` under "Still Deferred", and label findings that appear in both the Known State (as `open`) and this report as regressions.
+
 ---
 
-## 📋 Executive Summary
+## � Delta Summary
+
+Categorise all findings in this run against the Known State Artifact. **Produce this section first, before the Executive Summary.**
+
+| Category                                               | Count | IDs |
+| ------------------------------------------------------ | ----- | --- |
+| 🆕 New (not in Known State)                            | N     | ... |
+| 🔁 Regressions (still open from previous runs)         | N     | ... |
+| ✅ Resolved (were `open`, not found this run)          | N     | ... |
+| 🔇 Suppressed (`accepted` or `deferred` — not counted) | N     | ... |
+
+> **Resolved** findings are inferred: any entry from the Known State's "Open findings" list that does NOT appear anywhere in this report. List their IDs explicitly.
+
+> If the Known State Artifact is empty or absent, write: _"First run — no baseline to compare against."_
+
+---
+
+## �📋 Executive Summary
 
 - **Overall code quality score:** X/10
 - **Repository structure score:** X/100 (Grade: X)
@@ -163,12 +186,12 @@ Write a paragraph on what this library does **better** and what needs improvemen
 
 Consolidate **every** finding across all three audit domains into one prioritised table. **No issue may be omitted.**
 
-| Priority | ID        | Domain         | Title | Effort | Impact |
-| -------- | --------- | -------------- | ----- | ------ | ------ |
-| 🔴 High  | CRIT-001  | Code Quality   | ...   | S/M/L  | High   |
-| 🔴 High  | GAP-001   | Alignment      | ...   | S/M/L  | High   |
-| 🟡 Med   | QUAL-002  | Code Quality   | ...   | S/M/L  | Med    |
-| 🟡 Med   | Repo-3.11 | Repo Structure | ...   | S/M/L  | Med    |
-| 🟢 Low   | STYLE-003 | Code Quality   | ...   | S/M/L  | Low    |
+| Priority | ID        | Domain         | Title | Effort | Impact | State                  |
+| -------- | --------- | -------------- | ----- | ------ | ------ | ---------------------- |
+| 🔴 High  | CRIT-001  | Code Quality   | ...   | S/M/L  | High   | 🆕 New / 🔁 Regression |
+| 🔴 High  | GAP-001   | Alignment      | ...   | S/M/L  | High   | 🆕 New                 |
+| 🟡 Med   | QUAL-002  | Code Quality   | ...   | S/M/L  | Med    | 🔁 Regression          |
+| 🟡 Med   | Repo-3.11 | Repo Structure | ...   | S/M/L  | Med    | 🆕 New                 |
+| 🟢 Low   | STYLE-003 | Code Quality   | ...   | S/M/L  | Low    | 🆕 New                 |
 
-Every finding (`CRIT`, `QUAL`, `ARCH`, `STYLE`, `PERF`, `COV`, `GAP`, and repo structure fixes) **must** appear in this table.
+Every active finding (`CRIT`, `QUAL`, `ARCH`, `STYLE`, `PERF`, `COV`, `GAP`, and repo structure fixes) **must** appear in this table. Suppressed (`accepted`/`deferred`) findings are excluded.

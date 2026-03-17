@@ -21,9 +21,17 @@ version: "1.0"
 
 ---
 
+## Input: Known State Artifact
+
+<!-- Paste the full Known State Artifact produced by audit-00-bootstrap.prompt.md here -->
+
+---
+
 ## Instructions
 
 Using the file paths in the Discovery Artifact, read each area with the `codebase` tool as needed. Complete all four sections below in order. Do not skip any.
+
+**Known State filtering:** Before reporting any finding, apply the Known State Protocol from `audit-shared.md`. Skip `accepted` findings entirely, list `deferred` findings only under a `### Still Deferred` section at the end, and report `open` findings that still exist as `[REGRESSION: <original-title>]` rather than new numbered findings.
 
 ---
 
