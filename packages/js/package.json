@@ -1,6 +1,6 @@
 {
     "name": "@safe-access-inline/safe-access-inline",
-    "version": "0.2.2",
+    "version": "0.2.3",
     "description": "Safe nested data access with dot notation — supports Object, Array, JSON, XML, YAML and more.",
     "type": "module",
     "main": "./dist/index.cjs",
