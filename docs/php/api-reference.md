@@ -8,31 +8,8 @@ outline: deep
 
 - [SafeAccess Facade](#safeaccess-facade)
 - [Accessor Instance Methods](#accessor-instance-methods)
-    - [Reading](#reading)
-    - [Writing (Immutable)](#writing-immutable)
-    - [Array Operations (Immutable)](#array-operations-immutable)
-    - [JSON Patch & Diff](#json-patch--diff)
-    - [Transformation](#transformation)
-    - [Security & Validation](#security--validation)
-- [I/O & File Loading](#io--file-loading)
-- [Layered Configuration](#layered-configuration)
-- [File Watching](#file-watching)
-- [Audit Logging](#audit-logging)
-- [Security](#security)
-    - [SecurityPolicy](#securitypolicy)
-    - [SecurityOptions](#securityoptions)
-    - [SecurityGuard](#securityguard)
-    - [CsvSanitizer](#csvsanitizer)
-    - [DataMasker](#datamasker)
-- [Schema Validation](#schema-validation)
-- [Framework Integrations](#framework-integrations)
-    - [Laravel](#laravel)
-    - [Symfony](#symfony)
-- [PluginRegistry](#pluginregistry)
-- [DotNotationParser](#dotnotationparser)
-- [Exceptions](#exceptions)
-- [Interfaces](#interfaces)
-- [Enums](#enums)
+
+See also: [API — Operations & I/O](/php/api-features) · [API — Types & Internals](/php/api-types)
 
 ## SafeAccess Facade
 
@@ -154,7 +131,7 @@ Throws `InvalidFormatException` if the format is unknown and not registered.
 
 Auto-detects the format and creates the appropriate accessor.
 
-Detection priority: array → SimpleXMLElement → object → JSON string → XML string → INI string → ENV string.
+Detection priority: array → SimpleXMLElement → object → JSON string (with NDJSON fallback) → XML string → YAML string → TOML string → INI string → ENV string.
 
 ```php
 $accessor = SafeAccess::detect(['key' => 'value']); // ArrayAccessor
@@ -176,14 +153,15 @@ Instantiates a previously registered custom accessor.
 $accessor = SafeAccess::custom('custom', $data);
 ```
 
-#### `SafeAccess::fromFile(string $filePath, ?string $format = null, array $allowedDirs = []): AbstractAccessor`
+#### `SafeAccess::fromFile(string $filePath, ?string $format = null, array $allowedDirs = [], bool $allowAnyPath = false): AbstractAccessor`
 
-Reads a file from disk and creates the appropriate accessor. Auto-detects format from file extension if `$format` is `null`. The `$allowedDirs` parameter restricts which directories can be read (path-traversal protection).
+Reads a file from disk and creates the appropriate accessor. Auto-detects format from file extension if `$format` is `null`. The `$allowedDirs` parameter restricts which directories can be read (path-traversal protection). Set `$allowAnyPath = true` to bypass directory restrictions (use with caution).
 
 ```php
 $accessor = SafeAccess::fromFile('/etc/config.json');
 $accessor = SafeAccess::fromFile('/app/config.yaml', 'yaml');
 $accessor = SafeAccess::fromFile('/app/config.json', null, ['/app']);
+$accessor = SafeAccess::fromFile('/tmp/data.json', null, [], true); // unrestricted path
 ```
 
 Throws `SecurityException` if the path is outside allowed directories.
@@ -267,6 +245,16 @@ $accessor->getMany([
 // ['user.name' => 'Ana', 'user.email' => 'N/A']
 ```
 
+#### `getTemplate(string $template, array $bindings, mixed $default = null): mixed`
+
+Resolves a template string by substituting binding keys with their values, then reads the resulting path from the accessor.
+
+```php
+// Template uses {key} placeholders resolved against $bindings
+$accessor->getTemplate('users.{id}.name', ['id' => '0']); // 'Ana'
+$accessor->getTemplate('settings.{section}.{key}', ['section' => 'db', 'key' => 'host'], 'localhost');
+```
+
 #### `has(string $path): bool`
 
 Check if a path exists in the data.
@@ -278,11 +266,13 @@ $accessor->has('missing');      // false
 
 #### `type(string $path): ?string`
 
-Returns the PHP type of the value at the given path, or `null` if path doesn't exist.
+Returns the normalized type of the value at the given path, or `null` if path doesn't exist.
+
+Possible values: `"string"`, `"number"`, `"bool"`, `"object"`, `"array"`, `"null"`. Returns `null` (not a string) when the path does not exist.
 
 ```php
 $accessor->type('name');   // "string"
-$accessor->type('age');    // "integer"
+$accessor->type('age');    // "number"
 $accessor->type('tags');   // "array"
 $accessor->type('x');      // null
 ```
@@ -404,11 +394,16 @@ $accessor->toNdjson(); // '{"id":1}\n{"id":2}'
 
 #### `transform(string $format): string`
 
-Serialize data to any format that has a registered serializer plugin. Throws `UnsupportedTypeException` if no serializer is registered for the given format.
+Serialize data to any format. Falls back to built-in serializers for `yaml` and `toml` (no plugin required). Other formats require a registered serializer plugin; throws `UnsupportedTypeException` if none is found.
 
 ```php
-PluginRegistry::registerSerializer('yaml', new SymfonyYamlSerializer());
+// yaml and toml work without registration
 $accessor->transform('yaml');  // "name: Ana\nage: 30\n"
+$accessor->transform('toml');  // 'name = "Ana"\nage = 30\n'
+
+// Custom formats need a plugin
+PluginRegistry::registerSerializer('csv', new MyCsvSerializer());
+$accessor->transform('csv');
 ```
 
 ### Security & Validation
@@ -609,521 +604,3 @@ $accessor->getAt(['users', '0', 'name']); // literal traversal
 #### `removeAt(array $segments): static`
 
 ---
-
-## I/O & File Loading
-
-**Namespace:** `SafeAccessInline\Core\IoLoader`
-
-#### `IoLoader::readFile(string $filePath, array $allowedDirs = []): string`
-
-Reads a file with path-traversal protection. Emits `file.read` audit event.
-
-#### `IoLoader::fetchUrl(string $url, array $options = []): string`
-
-Fetches a URL with SSRF protection (blocks private IPs, cloud metadata endpoints, enforces HTTPS).
-
-#### `IoLoader::assertSafeUrl(string $url, array $options = []): void`
-
-Validates a URL is safe without fetching it.
-
-#### `IoLoader::assertPathWithinAllowedDirs(string $filePath, array $allowedDirs = []): void`
-
-Validates a file path is within allowed directories.
-
-#### `IoLoader::isPrivateIp(string $ip): bool`
-
-Checks if an IP address is in a private range (RFC 1918, link-local, loopback, cloud metadata).
-
----
-
-## Layered Configuration
-
-#### `SafeAccess::layer(array $sources): AbstractAccessor`
-
-Deep-merges multiple accessors into one (last-wins). Returns an `ObjectAccessor`.
-
-```php
-$base     = SafeAccess::fromFile('/app/config/defaults.json');
-$override = SafeAccess::fromFile('/app/config/local.json');
-$merged   = SafeAccess::layer([$base, $override]);
-```
-
-#### `SafeAccess::layerFiles(array $paths, array $allowedDirs = []): AbstractAccessor`
-
-Loads multiple files and deep-merges them. Convenience wrapper around `fromFile()` + `layer()`.
-
-```php
-$config = SafeAccess::layerFiles([
-    '/app/config/defaults.yaml',
-    '/app/config/production.yaml',
-], ['/app/config']);
-```
-
----
-
-## File Watching
-
-#### `SafeAccess::watchFile(string $filePath, callable $onChange, ?string $format = null, array $allowedDirs = []): callable`
-
-Watches a file for changes using polling. Calls `$onChange(AbstractAccessor)` when the file is modified. Returns a stop function.
-
-```php
-$stop = SafeAccess::watchFile('/app/config.json', function ($accessor) {
-    echo "Config updated!\n";
-});
-
-// Later: stop watching
-$stop();
-```
-
----
-
-## Audit Logging
-
-#### `SafeAccess::onAudit(callable $listener): callable`
-
-Subscribes to audit events. Returns an unsubscribe function.
-
-Event types: `file.read`, `file.watch`, `url.fetch`, `security.violation`, `data.mask`, `data.freeze`, `schema.validate`.
-
-```php
-$unsub = SafeAccess::onAudit(function (array $event) {
-    // $event = ['type' => 'file.read', 'timestamp' => 1234567890.123, 'detail' => [...]]
-    log($event['type'], $event['detail']);
-});
-
-// Later: unsubscribe
-$unsub();
-```
-
-#### `SafeAccess::clearAuditListeners(): void`
-
-Removes all registered audit listeners.
-
----
-
-## Security
-
-### SecurityPolicy
-
-**Namespace:** `SafeAccessInline\Security\SecurityPolicy`
-
-Aggregates all security settings into a single immutable policy object.
-
-```php
-use SafeAccessInline\Security\SecurityPolicy;
-
-$policy = new SecurityPolicy(
-    maxDepth: 512,
-    maxPayloadBytes: 10_485_760,  // 10 MB
-    maxKeys: 10_000,
-    allowedDirs: ['/app/config'],
-    url: [
-        'allowPrivateIps' => false,
-        'allowedHosts' => ['api.example.com'],
-        'allowedPorts' => [443],
-    ],
-    csvMode: 'strip',
-    maskPatterns: ['password', 'secret', '*_token'],
-);
-```
-
-#### `merge(array $overrides): self`
-
-Creates a new policy with overridden values.
-
-```php
-$strict = $policy->merge(['maxDepth' => 64, 'maxKeys' => 1000]);
-```
-
-### SecurityOptions
-
-**Namespace:** `SafeAccessInline\Security\SecurityOptions`
-
-Static assertion methods for payload safety.
-
-| Constant            | Default Value |
-| ------------------- | ------------- |
-| `MAX_DEPTH`         | 512           |
-| `MAX_PAYLOAD_BYTES` | 10,485,760    |
-| `MAX_KEYS`          | 10,000        |
-
-#### `SecurityOptions::assertPayloadSize(string $input, ?int $maxBytes = null): void`
-
-Throws `SecurityException` if input exceeds max bytes.
-
-#### `SecurityOptions::assertMaxKeys(array $data, ?int $maxKeys = null): void`
-
-Throws `SecurityException` if data has too many keys (recursive count).
-
-#### `SecurityOptions::assertMaxDepth(int $currentDepth, ?int $maxDepth = null): void`
-
-Throws `SecurityException` if nesting exceeds max depth.
-
-### SecurityGuard
-
-**Namespace:** `SafeAccessInline\Security\SecurityGuard`
-
-#### `SecurityGuard::assertSafeKey(string $key): void`
-
-Blocks prototype pollution keys: `__proto__`, `constructor`, `prototype`, `__defineGetter__`, `__defineSetter__`, `__lookupGetter__`, `__lookupSetter__`, `valueOf`, `toString`, `hasOwnProperty`, `isPrototypeOf`. Throws `SecurityException`.
-
-#### `SecurityGuard::sanitizeObject(array $data): array`
-
-Recursively removes forbidden keys from data.
-
-### CsvSanitizer
-
-**Namespace:** `SafeAccessInline\Security\CsvSanitizer`
-
-Guards against CSV injection attacks (`=`, `+`, `-`, `@`, `\t`, `\r`, `\n`).
-
-#### `CsvSanitizer::sanitizeCell(string $cell, string $mode = 'none'): string`
-
-| Mode       | Behavior                                                                                              |
-| ---------- | ----------------------------------------------------------------------------------------------------- |
-| `'none'`   | No sanitization                                                                                       |
-| `'prefix'` | Prepends `'` to dangerous cells                                                                       |
-| `'strip'`  | Removes all CSV injection prefix characters (`=`, `+`, `-`, `@`, `\t`, `\r`, `\n`) per OWASP guidance |
-| `'error'`  | Throws `SecurityException`                                                                            |
-
-#### `CsvSanitizer::sanitizeRow(array $row, string $mode = 'none'): array`
-
-Applies `sanitizeCell` to every cell in a row.
-
-### DataMasker
-
-**Namespace:** `SafeAccessInline\Security\DataMasker`
-
-#### `DataMasker::mask(array $data, array $patterns = []): array`
-
-Replaces values of sensitive keys with `[REDACTED]`. Built-in sensitive keys: `password`, `secret`, `token`, `api_key`, `apiKey`, `authorization`, `auth`, `credential`, `private_key`, `privateKey`, `access_token`, `accessToken`, `refresh_token`, `refreshToken`.
-
-Custom glob patterns extend (not replace) the built-in list.
-
----
-
-## Schema Validation
-
-### SchemaRegistry
-
-**Namespace:** `SafeAccessInline\Core\SchemaRegistry`
-
-#### `SchemaRegistry::setDefaultAdapter(SchemaAdapterInterface $adapter): void`
-
-Set a default schema adapter used by `validate()` when no adapter is explicitly passed.
-
-#### `SchemaRegistry::getDefaultAdapter(): ?SchemaAdapterInterface`
-
-#### `SchemaRegistry::clearDefaultAdapter(): void`
-
-### SchemaAdapterInterface
-
-**Namespace:** `SafeAccessInline\Contracts\SchemaAdapterInterface`
-
-```php
-interface SchemaAdapterInterface
-{
-    public function validate(array $data, mixed $schema): SchemaValidationResult;
-}
-```
-
-### SchemaValidationResult
-
-**Namespace:** `SafeAccessInline\Contracts\SchemaValidationResult`
-
-```php
-readonly class SchemaValidationResult
-{
-    public bool $valid;
-    /** @var SchemaValidationIssue[] */
-    public array $errors;
-}
-```
-
-### SchemaValidationIssue
-
-**Namespace:** `SafeAccessInline\Contracts\SchemaValidationIssue`
-
-```php
-readonly class SchemaValidationIssue
-{
-    public string $path;
-    public string $message;
-}
-```
-
----
-
-## Framework Integrations
-
-### Laravel
-
-**Namespace:** `SafeAccessInline\Integrations\LaravelServiceProvider`
-
-#### `LaravelServiceProvider::register(object $app): void`
-
-Registers a `'safe-access'` singleton in the Laravel container with an alias to `AbstractAccessor::class`.
-
-```php
-use SafeAccessInline\Integrations\LaravelServiceProvider;
-
-LaravelServiceProvider::register($this->app);
-
-// Resolve from container
-$accessor = app('safe-access');
-$accessor = app(AbstractAccessor::class);
-```
-
-#### `LaravelServiceProvider::fromConfig(object $config): AbstractAccessor`
-
-Wraps the entire Laravel config repository.
-
-```php
-$accessor = LaravelServiceProvider::fromConfig(config());
-$accessor->get('app.name'); // 'Laravel'
-```
-
-#### `LaravelServiceProvider::fromConfigKey(object $config, string $key): AbstractAccessor`
-
-Wraps a specific config key.
-
-```php
-$accessor = LaravelServiceProvider::fromConfigKey(config(), 'database');
-$accessor->get('default'); // 'mysql'
-```
-
-### Symfony
-
-**Namespace:** `SafeAccessInline\Integrations\SymfonyIntegration`
-
-#### `SymfonyIntegration::fromParameterBag(object $parameterBag): AbstractAccessor`
-
-Wraps Symfony's ParameterBag.
-
-```php
-use SafeAccessInline\Integrations\SymfonyIntegration;
-
-$accessor = SymfonyIntegration::fromParameterBag($container->getParameterBag());
-$accessor->get('kernel.environment'); // 'prod'
-```
-
-#### `SymfonyIntegration::fromConfig(array $config): AbstractAccessor`
-
-Wraps a processed Symfony config array.
-
-```php
-$accessor = SymfonyIntegration::fromConfig($processedConfig);
-```
-
-#### `SymfonyIntegration::fromYamlFile(string $yamlPath, array $allowedDirs = []): AbstractAccessor`
-
-Loads a YAML config file with path-traversal protection.
-
-```php
-$accessor = SymfonyIntegration::fromYamlFile('/app/config/services.yaml', ['/app/config']);
-```
-
----
-
-## PluginRegistry
-
-**Namespace:** `SafeAccessInline\Core\PluginRegistry`
-
-Static registry for parser and serializer plugins. Parsers convert raw strings to arrays; serializers convert arrays to formatted strings.
-
-#### `PluginRegistry::registerParser(string $format, ParserPluginInterface $parser): void`
-
-Register a parser plugin for the given format.
-
-```php
-use SafeAccessInline\Plugins\SymfonyYamlParser;
-PluginRegistry::registerParser('yaml', new SymfonyYamlParser());
-```
-
-#### `PluginRegistry::registerSerializer(string $format, SerializerPluginInterface $serializer): void`
-
-Register a serializer plugin for the given format.
-
-```php
-use SafeAccessInline\Plugins\SymfonyYamlSerializer;
-PluginRegistry::registerSerializer('yaml', new SymfonyYamlSerializer());
-```
-
-#### `PluginRegistry::hasParser(string $format): bool`
-
-Check if a parser is registered for the given format.
-
-#### `PluginRegistry::hasSerializer(string $format): bool`
-
-Check if a serializer is registered for the given format.
-
-#### `PluginRegistry::getParser(string $format): ParserPluginInterface`
-
-Get the registered parser. Throws `UnsupportedTypeException` if not registered.
-
-#### `PluginRegistry::getSerializer(string $format): SerializerPluginInterface`
-
-Get the registered serializer. Throws `UnsupportedTypeException` if not registered.
-
-#### `PluginRegistry::reset(): void`
-
-Clear all registered plugins. Intended for testing — call in `beforeEach` to prevent cross-test pollution.
-
-### Plugin Interfaces
-
-#### `ParserPluginInterface`
-
-**Namespace:** `SafeAccessInline\Contracts\ParserPluginInterface`
-
-```php
-interface ParserPluginInterface
-{
-    /**
-     * @param string $raw
-     * @return array<mixed>
-     * @throws InvalidFormatException
-     */
-    public function parse(string $raw): array;
-}
-```
-
-#### `SerializerPluginInterface`
-
-**Namespace:** `SafeAccessInline\Contracts\SerializerPluginInterface`
-
-```php
-interface SerializerPluginInterface
-{
-    /**
-     * @param array<mixed> $data
-     * @return string
-     */
-    public function serialize(array $data): string;
-}
-```
-
----
-
-## DotNotationParser
-
-**Namespace:** `SafeAccessInline\Core\DotNotationParser`
-
-Static utility class. Typically used internally, but available for direct use.
-
-#### `DotNotationParser::get(array $data, string $path, mixed $default = null): mixed`
-
-Supports advanced path expressions:
-
-| Syntax            | Description                                                   | Example                 |
-| ----------------- | ------------------------------------------------------------- | ----------------------- |
-| `a.b.c`           | Nested key access                                             | `"user.profile.name"`   |
-| `a[0]`            | Bracket index                                                 | `"items[0].title"`      |
-| `a.*`             | Wildcard — returns array of values                            | `"users.*.name"`        |
-| `a[?field>value]` | Filter — returns matching items                               | `"products[?price>20]"` |
-| `..key`           | Recursive descent — collects all values of `key` at any depth | `"..name"`              |
-
-**Filter expressions** support:
-
-- Comparison: `==`, `!=`, `>`, `<`, `>=`, `<=`
-- Logical: `&&` (AND), `\|\|` (OR)
-- Values: numbers, `'strings'`, `true`, `false`, `null`
-
-```php
-// Filter: all admin users
-DotNotationParser::get($data, "users[?role=='admin']");
-
-// Filter with numeric comparison + path continuation
-DotNotationParser::get($data, 'products[?price>20].name');
-
-// Combined AND
-DotNotationParser::get($data, "items[?type=='fruit' && color=='red'].name");
-
-// Recursive descent: all "name" values at any depth
-DotNotationParser::get($data, '..name');
-
-// Descent + wildcard
-DotNotationParser::get($data, '..items.*.id');
-
-// Descent + filter
-DotNotationParser::get($data, "..employees[?active==true].name");
-```
-
-#### `DotNotationParser::has(array $data, string $path): bool`
-
-#### `DotNotationParser::set(array $data, string $path, mixed $value): array`
-
-Returns a new array (does not mutate input).
-
-#### `DotNotationParser::merge(array $data, string $path, array $value): array`
-
-Deep merges `$value` at `$path`. When `$path` is empty, merges at root. Associative arrays are merged recursively; other values are replaced.
-
-```php
-$result = DotNotationParser::merge($data, 'user.settings', ['theme' => 'dark']);
-```
-
-#### `DotNotationParser::remove(array $data, string $path): array`
-
-Returns a new array (does not mutate input).
-
-#### `DotNotationParser::renderTemplate(string $template, array $bindings): string`
-
-Renders `{key}` placeholders in a path template.
-
-```php
-DotNotationParser::renderTemplate('users.{id}.name', ['id' => '42']);
-// 'users.42.name'
-```
-
----
-
-## Exceptions
-
-| Exception                      | When                                                                                                                     |
-| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
-| `AccessorException`            | Base exception class                                                                                                     |
-| `InvalidFormatException`       | Invalid input format (e.g., malformed JSON, missing parser plugin at accessor level)                                     |
-| `UnsupportedTypeException`     | `detect()` cannot determine format; `PluginRegistry` has no registered plugin; `toXml()`/`transform()` has no serializer |
-| `PathNotFoundException`        | Reserved (not thrown by `get()`)                                                                                         |
-| `SecurityException`            | SSRF attempt, path traversal, payload too large, forbidden keys, CSV injection (`error` mode)                            |
-| `ReadonlyViolationException`   | Modifying a readonly accessor (`set`, `remove`, `merge`, `push`, etc.)                                                   |
-| `SchemaValidationException`    | Schema validation failed — has `getIssues(): SchemaValidationIssue[]` for detailed error info                            |
-| `JsonPatchTestFailedException` | JSON Patch `test` operation failed — value at path does not match expected value                                         |
-
----
-
-## Interfaces
-
-| Interface                   | Methods                                                                                                       |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `ReadableInterface`         | `get()`, `getMany()`, `all()`                                                                                 |
-| `WritableInterface`         | `set()`, `merge()`, `remove()`                                                                                |
-| `TransformableInterface`    | `toArray()`, `toJson()`, `toXml()`, `toYaml()`, `toToml()`, `toNdjson()`, `toObject()`, `transform()`         |
-| `AccessorInterface`         | Extends `ReadableInterface` + `TransformableInterface`, adds `from()`, `has()`, `type()`, `count()`, `keys()` |
-| `ParserPluginInterface`     | `parse()`                                                                                                     |
-| `SerializerPluginInterface` | `serialize()`                                                                                                 |
-| `SchemaAdapterInterface`    | `validate()`                                                                                                  |
-
----
-
-## Enums
-
-### `AccessorFormat`
-
-**Namespace:** `SafeAccessInline\Enums\AccessorFormat`
-
-String-backed enum covering all built-in formats. Use it as a type-safe alternative to passing raw strings to `SafeAccess::from()`.
-
-| Case                     | Value      |
-| ------------------------ | ---------- |
-| `AccessorFormat::Array`  | `'array'`  |
-| `AccessorFormat::Object` | `'object'` |
-| `AccessorFormat::Json`   | `'json'`   |
-| `AccessorFormat::Xml`    | `'xml'`    |
-| `AccessorFormat::Yaml`   | `'yaml'`   |
-| `AccessorFormat::Toml`   | `'toml'`   |
-| `AccessorFormat::Ini`    | `'ini'`    |
-| `AccessorFormat::Csv`    | `'csv'`    |
-| `AccessorFormat::Env`    | `'env'`    |
-| `AccessorFormat::Ndjson` | `'ndjson'` |

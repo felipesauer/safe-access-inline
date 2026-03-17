@@ -23,13 +23,14 @@ npx @safe-access-inline/cli get config.json "user.name"
 ### `get` — Consultar um valor
 
 ```bash
-safe-access get <arquivo> <caminho> [--default <valor>]
+safe-access get <arquivo> <caminho> [--default|-d <valor>]
 ```
 
 ```bash
 safe-access get config.json "user.name"
 safe-access get data.yaml "items.*.price"
 safe-access get config.toml "database.host" --default localhost
+safe-access get config.toml "database.host" -d localhost
 ```
 
 ### `set` — Definir um valor (saída no stdout)
@@ -77,11 +78,12 @@ safe-access diff config.json config-updated.json
 ### `mask` — Mascarar dados sensíveis
 
 ```bash
-safe-access mask <arquivo> --patterns <padrão,...> [--to <formato>] [--pretty]
+safe-access mask <arquivo> --patterns|-p <padrão,...> [--to <formato>] [--pretty]
 ```
 
 ```bash
 safe-access mask config.json --patterns "password,secret,api_*"
+safe-access mask config.json -p "password,secret,api_*"
 ```
 
 ### `layer` — Mesclar arquivos de configuração
@@ -104,6 +106,53 @@ safe-access keys <arquivo> [caminho]
 
 ```bash
 safe-access type <arquivo> <caminho>
+```
+
+### `has` — Verificar se caminho existe
+
+```bash
+safe-access has <arquivo> <caminho>
+```
+
+```bash
+safe-access has config.json "database.host"   # sai com 0 se existir, 1 se não
+```
+
+### `count` — Contar elementos
+
+```bash
+safe-access count <arquivo> [caminho]
+```
+
+```bash
+safe-access count config.json             # conta chaves na raiz
+safe-access count config.json "items"     # conta elementos no caminho
+```
+
+### `validate` — Validar contra JSON Schema
+
+```bash
+safe-access validate <arquivo> --schema|-s <schema.json> [--format json]
+```
+
+```bash
+safe-access validate config.json --schema schema.json
+safe-access validate config.json -s schema.json
+
+# Exibe o resultado da validação como JSON estruturado ({ valid, errors[] })
+safe-access validate config.json --schema schema.json --format json
+```
+
+### `convert` — Converter formato (arquivo ou stdin)
+
+```bash
+safe-access convert --file <arquivo> --to <formato>
+safe-access convert --from <formato> --to <formato> < entrada
+```
+
+```bash
+safe-access convert --file config.yaml --to json
+safe-access convert --from yaml --to toml < config.yaml
 ```
 
 ## Formatos Suportados
