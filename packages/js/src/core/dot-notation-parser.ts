@@ -82,10 +82,12 @@ export class DotNotationParser {
             const items = DotNotationParser.toIterable(current);
             if (items === null) return defaultValue;
 
-            const remaining = segments.slice(index + 1);
-            if (remaining.length === 0) return [...items];
+            const nextIndex = index + 1;
+            if (nextIndex >= segments.length) return [...items];
 
-            return items.map((item) => DotNotationParser.resolve(item, remaining, 0, defaultValue));
+            return items.map((item) =>
+                DotNotationParser.resolve(item, segments, nextIndex, defaultValue),
+            );
         }
 
         if (segment.type === 'filter') {
@@ -99,37 +101,36 @@ export class DotNotationParser {
                     FilterParser.evaluate(item as Record<string, unknown>, segment.expression),
             );
 
-            const remaining = segments.slice(index + 1);
-            if (remaining.length === 0) return filtered;
+            const nextIndex = index + 1;
+            if (nextIndex >= segments.length) return filtered;
 
             return filtered.map((item) =>
-                DotNotationParser.resolve(item, remaining, 0, defaultValue),
+                DotNotationParser.resolve(item, segments, nextIndex, defaultValue),
             );
         }
 
         if (segment.type === 'multi-index') {
+            const nextIndex = index + 1;
             const multiKeys = (segment as unknown as { keys?: string[] }).keys;
             if (multiKeys) {
                 // Multi-key: pick named keys from object
                 if (current === null || typeof current !== 'object') return defaultValue;
                 const obj = current as Record<string, unknown>;
-                const remaining = segments.slice(index + 1);
                 const results = multiKeys.map((k) => {
                     const val = k in obj ? obj[k] : defaultValue;
-                    if (remaining.length === 0) return val;
-                    return DotNotationParser.resolve(val, remaining, 0, defaultValue);
+                    if (nextIndex >= segments.length) return val;
+                    return DotNotationParser.resolve(val, segments, nextIndex, defaultValue);
                 });
                 return results;
             }
             // Numeric multi-index
             const items = DotNotationParser.toIterable(current);
             if (items === null) return defaultValue;
-            const remaining = segments.slice(index + 1);
             const results = segment.indices.map((idx) => {
                 const resolved = idx < 0 ? items[items.length + idx] : items[idx];
                 if (resolved === undefined) return defaultValue;
-                if (remaining.length === 0) return resolved;
-                return DotNotationParser.resolve(resolved, remaining, 0, defaultValue);
+                if (nextIndex >= segments.length) return resolved;
+                return DotNotationParser.resolve(resolved, segments, nextIndex, defaultValue);
             });
             return results;
         }
@@ -151,10 +152,10 @@ export class DotNotationParser {
             } else {
                 for (let si = start; si > end; si += step) sliced.push(items[si]);
             }
-            const remaining = segments.slice(index + 1);
-            if (remaining.length === 0) return sliced;
+            const nextIndex = index + 1;
+            if (nextIndex >= segments.length) return sliced;
             return sliced.map((item) =>
-                DotNotationParser.resolve(item, remaining, 0, defaultValue),
+                DotNotationParser.resolve(item, segments, nextIndex, defaultValue),
             );
         }
 
@@ -256,14 +257,19 @@ export class DotNotationParser {
         value: unknown,
     ): Record<string, unknown> {
         const keys = DotNotationParser.parseKeys(path);
-        const result = structuredClone(data);
+        const result: Record<string, unknown> = { ...data };
         let current: Record<string, unknown> = result;
 
         for (let i = 0; i < keys.length - 1; i++) {
             const key = keys[i];
             SecurityGuard.assertSafeKey(key);
-            if (!(key in current) || typeof current[key] !== 'object' || current[key] === null) {
+            const child = current[key];
+            if (!(key in current) || typeof child !== 'object' || child === null) {
                 current[key] = {};
+            } else {
+                current[key] = Array.isArray(child)
+                    ? [...child]
+                    : { ...(child as Record<string, unknown>) };
             }
             current = current[key] as Record<string, unknown>;
         }
