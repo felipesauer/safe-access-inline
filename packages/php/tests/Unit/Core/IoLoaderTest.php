@@ -31,8 +31,12 @@ describe(IoLoader::class, function () use (&$fixturesDir) {
 
     // ── assertPathWithinAllowedDirs ─────────────
 
-    it('allows any path when no allowedDirs specified', function () {
+    it('throws when no allowedDirs and no allowAnyPath', function () {
         IoLoader::assertPathWithinAllowedDirs('/etc/passwd');
+    })->throws(SecurityException::class, 'No allowedDirs configured');
+
+    it('allows any path with allowAnyPath true', function () {
+        IoLoader::assertPathWithinAllowedDirs('/etc/passwd', [], true);
         expect(true)->toBeTrue();
     });
 
@@ -52,7 +56,7 @@ describe(IoLoader::class, function () use (&$fixturesDir) {
     // ── readFile ────────────────────────────────
 
     it('reads a file successfully', function () use (&$fixturesDir) {
-        $content = IoLoader::readFile($fixturesDir . '/config.json');
+        $content = IoLoader::readFile($fixturesDir . '/config.json', [$fixturesDir]);
         expect($content)->toContain('test-app');
     });
 
@@ -141,6 +145,32 @@ describe(IoLoader::class, function () use (&$fixturesDir) {
     it('blocks IPv6 ULA fc00::/7 (fd prefix)', function () {
         IoLoader::assertSafeUrl('https://[fd12:3456:789a::1]');
     })->throws(SecurityException::class, 'unique local');
+
+    // ── isPrivateIpv6 ───────────────────────────
+
+    it('detects private IPv6 loopback', function () {
+        expect(IoLoader::isPrivateIpv6('::1'))->toBeTrue();
+        expect(IoLoader::isPrivateIpv6('0:0:0:0:0:0:0:1'))->toBeTrue();
+    });
+
+    it('detects private IPv6 link-local', function () {
+        expect(IoLoader::isPrivateIpv6('fe80::1'))->toBeTrue();
+    });
+
+    it('detects private IPv6 ULA', function () {
+        expect(IoLoader::isPrivateIpv6('fc00::1'))->toBeTrue();
+        expect(IoLoader::isPrivateIpv6('fd12:3456::1'))->toBeTrue();
+    });
+
+    it('detects private IPv4-mapped IPv6', function () {
+        expect(IoLoader::isPrivateIpv6('::ffff:127.0.0.1'))->toBeTrue();
+        expect(IoLoader::isPrivateIpv6('::ffff:10.0.0.1'))->toBeTrue();
+    });
+
+    it('treats public IPv6 as non-private', function () {
+        expect(IoLoader::isPrivateIpv6('2001:db8::1'))->toBeFalse();
+        expect(IoLoader::isPrivateIpv6('2607:f8b0:4004:800::200e'))->toBeFalse();
+    });
 
     // ── assertSafeUrl returns resolved IP ───────
 

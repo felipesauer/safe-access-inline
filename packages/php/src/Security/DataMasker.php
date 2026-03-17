@@ -14,7 +14,7 @@ final class DataMasker
 
     /**
      * @param array<mixed> $data
-     * @param array<string> $patterns Glob or string patterns
+     * @param array<string|non-empty-string> $patterns Glob patterns or regex patterns (delimited by /)
      * @return array<mixed>
      */
     public static function mask(array $data, array $patterns = []): array
@@ -62,6 +62,19 @@ final class DataMasker
         }
 
         foreach ($patterns as $pattern) {
+            // Regex pattern: delimited by /
+            if (str_starts_with($pattern, '/') && preg_match('/\/[a-zA-Z]*$/', $pattern) === 1) {
+                $result = preg_match($pattern, $key);
+                if ($result === false) {
+                    throw new \InvalidArgumentException(
+                        "Invalid regex pattern provided to DataMasker: '{$pattern}'. Error: " . preg_last_error_msg()
+                    );
+                }
+                if ($result === 1) {
+                    return true;
+                }
+                continue;
+            }
             if (fnmatch($pattern, $key, FNM_CASEFOLD)) {
                 return true;
             }

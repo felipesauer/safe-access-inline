@@ -173,8 +173,8 @@ describe(YamlAccessor::class, function () {
         registerMockYamlParser(['name' => 'Ana', 'age' => 30, 'active' => true]);
         $accessor = SafeAccess::fromYaml('ignored');
         expect($accessor->type('name'))->toBe('string');
-        expect($accessor->type('age'))->toBe('integer');
-        expect($accessor->type('active'))->toBe('boolean');
+        expect($accessor->type('age'))->toBe('number');
+        expect($accessor->type('active'))->toBe('bool');
     });
 
     it('handles empty YAML returning empty array via symfony', function () {

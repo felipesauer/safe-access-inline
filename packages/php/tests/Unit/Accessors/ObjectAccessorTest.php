@@ -76,7 +76,7 @@ describe(ObjectAccessor::class, function () {
     it('type', function () {
         $accessor = ObjectAccessor::from((object) ['name' => 'Ana', 'age' => 30]);
         expect($accessor->type('name'))->toBe('string');
-        expect($accessor->type('age'))->toBe('integer');
+        expect($accessor->type('age'))->toBe('number');
         expect($accessor->type('missing'))->toBeNull();
     });
 

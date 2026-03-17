@@ -8,28 +8,28 @@ $fixturesDir = realpath(__DIR__ . '/../fixtures');
 describe('SafeAccess::fromFile', function () use (&$fixturesDir) {
 
     it('loads JSON file', function () use (&$fixturesDir) {
-        $acc = SafeAccess::fromFile($fixturesDir . '/config.json');
+        $acc = SafeAccess::fromFile($fixturesDir . '/config.json', null, [$fixturesDir]);
         expect($acc->get('app.name'))->toBe('test-app');
         expect($acc->get('database.port'))->toBe(5432);
     });
 
     it('loads YAML file', function () use (&$fixturesDir) {
-        $acc = SafeAccess::fromFile($fixturesDir . '/config.yaml');
+        $acc = SafeAccess::fromFile($fixturesDir . '/config.yaml', null, [$fixturesDir]);
         expect($acc->get('app.name'))->toBe('test-app');
     });
 
     it('loads TOML file', function () use (&$fixturesDir) {
-        $acc = SafeAccess::fromFile($fixturesDir . '/config.toml');
+        $acc = SafeAccess::fromFile($fixturesDir . '/config.toml', null, [$fixturesDir]);
         expect($acc->get('app.name'))->toBe('test-app');
     });
 
     it('loads ENV file', function () use (&$fixturesDir) {
-        $acc = SafeAccess::fromFile($fixturesDir . '/config.env');
+        $acc = SafeAccess::fromFile($fixturesDir . '/config.env', null, [$fixturesDir]);
         expect($acc->get('APP_NAME'))->toBe('test-app');
     });
 
     it('respects format override', function () use (&$fixturesDir) {
-        $acc = SafeAccess::fromFile($fixturesDir . '/config.json', 'json');
+        $acc = SafeAccess::fromFile($fixturesDir . '/config.json', 'json', [$fixturesDir]);
         expect($acc->get('app.name'))->toBe('test-app');
     });
 
@@ -65,7 +65,7 @@ describe('SafeAccess::layer / layerFiles', function () use (&$fixturesDir) {
         $result = SafeAccess::layerFiles([
             $fixturesDir . '/config.json',
             $fixturesDir . '/override.json',
-        ]);
+        ], [$fixturesDir]);
         expect($result->get('app.name'))->toBe('override-app');
         expect($result->get('app.debug'))->toBe(true);
         expect($result->get('app.version'))->toBe('2.0');

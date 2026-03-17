@@ -20,7 +20,7 @@ interface AccessorInterface extends ReadableInterface, TransformableInterface
     public function has(string $path): bool;
 
     /**
-     * Returns the PHP type of the value at the given path ('string', 'integer', 'array', etc.).
+     * Returns the normalized type of the value at the given path ('string', 'number', 'bool', 'array', 'object', 'null').
      * Returns null if the path does not exist.
      */
     public function type(string $path): ?string;

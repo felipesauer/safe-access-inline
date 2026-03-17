@@ -22,15 +22,19 @@ final class CurlHttpClient implements HttpClientInterface
             throw new SecurityException("Failed to initialize cURL for URL: '{$url}'");
         }
 
-        curl_setopt_array($ch, $curlOptions);
+        try {
+            curl_setopt_array($ch, $curlOptions);
 
-        $content = curl_exec($ch);
-        $errno = curl_errno($ch);
+            $content = curl_exec($ch);
+            $errno = curl_errno($ch);
 
-        if ($errno !== 0 || !is_string($content)) {
-            throw new SecurityException("Failed to fetch URL: '{$url}'");
+            if ($errno !== 0 || !is_string($content)) {
+                throw new SecurityException("Failed to fetch URL: '{$url}'");
+            }
+
+            return $content;
+        } finally {
+            curl_close($ch);
         }
-
-        return $content;
     }
 }

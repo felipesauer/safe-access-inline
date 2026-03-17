@@ -130,7 +130,7 @@ describe('SymfonyIntegration', function (): void {
     });
 
     it('fromYamlFile loads YAML config', function (): void {
-        $accessor = SymfonyIntegration::fromYamlFile($this->fixturesDir . '/config.yaml');
+        $accessor = SymfonyIntegration::fromYamlFile($this->fixturesDir . '/config.yaml', [$this->fixturesDir]);
         expect($accessor)->toBeInstanceOf(AbstractAccessor::class);
         expect($accessor->get('app.name'))->toBe('test-app');
     });

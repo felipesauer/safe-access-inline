@@ -361,9 +361,7 @@ final class DotNotationParser
         $current = &$result;
 
         $lastKey = array_pop($keys);
-        if ($lastKey === null) { // @codeCoverageIgnore — empty path is rejected before this call
-            return $result; // @codeCoverageIgnore
-        }
+        assert($lastKey !== null, 'parseKeys() always returns a non-empty array');
 
         foreach ($keys as $key) {
             if (!is_array($current) || !array_key_exists($key, $current)) {

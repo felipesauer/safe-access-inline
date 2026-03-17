@@ -89,35 +89,62 @@ final class JsonPatch
      */
     public static function applyPatch(array $data, array $ops): array
     {
-        $result = $data;
-
+        // Validate move/copy 'from' fields before any mutation
         foreach ($ops as $op) {
-            switch ($op['op']) {
-                case 'add':
-                case 'replace':
-                    $result = self::setAtPointer($result, $op['path'], $op['value'] ?? null);
-                    break;
-                case 'remove':
-                    $result = self::removeAtPointer($result, $op['path']);
-                    break;
-                case 'move':
-                    $value = self::getAtPointer($result, $op['from'] ?? '');
-                    $result = self::removeAtPointer($result, $op['from'] ?? '');
-                    $result = self::setAtPointer($result, $op['path'], $value);
-                    break;
-                case 'copy':
-                    $value = self::getAtPointer($result, $op['from'] ?? '');
-                    $result = self::setAtPointer($result, $op['path'], $value);
-                    break;
-                case 'test':
-                    $actual = self::getAtPointer($result, $op['path']);
-                    if (!self::deepEqual($actual, $op['value'] ?? null)) {
-                        throw new JsonPatchTestFailedException(
-                            "Test operation failed: value at '{$op['path']}' does not match expected value."
-                        );
-                    }
-                    break;
+            if (in_array($op['op'], ['move', 'copy'], true) && !isset($op['from'])) {
+                throw new \InvalidArgumentException(
+                    "JSON Patch '{$op['op']}' operation requires a 'from' field."
+                );
             }
+        }
+
+        // Pre-flight: run all operations on a copy to check test assertions (atomicity)
+        $preflight = $data;
+        foreach ($ops as $op) {
+            $preflight = self::applyOneOp($preflight, $op);
+        }
+
+        // All tests passed — apply for real on a fresh copy
+        $result = $data;
+        foreach ($ops as $op) {
+            $result = self::applyOneOp($result, $op);
+        }
+
+        return $result;
+    }
+
+    /**
+     * @param array<mixed> $result
+     * @param array{op: string, path: string, value?: mixed, from?: string} $op
+     * @return array<mixed>
+     */
+    private static function applyOneOp(array $result, array $op): array
+    {
+        switch ($op['op']) {
+            case 'add':
+            case 'replace':
+                $result = self::setAtPointer($result, $op['path'], $op['value'] ?? null);
+                break;
+            case 'remove':
+                $result = self::removeAtPointer($result, $op['path']);
+                break;
+            case 'move':
+                $value = self::getAtPointer($result, $op['from'] ?? '');
+                $result = self::removeAtPointer($result, $op['from'] ?? '');
+                $result = self::setAtPointer($result, $op['path'], $value);
+                break;
+            case 'copy':
+                $value = self::getAtPointer($result, $op['from'] ?? '');
+                $result = self::setAtPointer($result, $op['path'], $value);
+                break;
+            case 'test':
+                $actual = self::getAtPointer($result, $op['path']);
+                if (!self::deepEqual($actual, $op['value'] ?? null)) {
+                    throw new JsonPatchTestFailedException(
+                        "Test operation failed: value at '{$op['path']}' does not match expected value."
+                    );
+                }
+                break;
         }
 
         return $result;

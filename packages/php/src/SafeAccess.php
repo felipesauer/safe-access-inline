@@ -83,7 +83,6 @@ final class SafeAccess
     // ── Typed Factories ──────────────────────────────
 
     /** @param array<mixed> $data */
-    /** @param array<mixed> $data */
     public static function fromArray(array $data, bool $readonly = false): ArrayAccessor
     {
         return ArrayAccessor::from($data, $readonly);
@@ -185,8 +184,9 @@ final class SafeAccess
         string $filePath,
         ?string $format = null,
         array $allowedDirs = [],
+        bool $allowAnyPath = false,
     ): AbstractAccessor {
-        $content = IoLoader::readFile($filePath, $allowedDirs);
+        $content = IoLoader::readFile($filePath, $allowedDirs, $allowAnyPath);
         $resolvedFormat = $format ?? IoLoader::resolveFormatFromExtension($filePath)?->value;
         if ($resolvedFormat === null) {
             return TypeDetector::resolve($content);
@@ -194,9 +194,6 @@ final class SafeAccess
         return self::from($content, $resolvedFormat);
     }
 
-    /**
-     * @codeCoverageIgnore Requires real HTTP I/O — tested manually / via integration tests.
-     */
     public static function fromUrl(
         string $url,
         ?string $format = null,
@@ -235,10 +232,10 @@ final class SafeAccess
      * @param string[] $paths
      * @param string[] $allowedDirs
      */
-    public static function layerFiles(array $paths, array $allowedDirs = []): AbstractAccessor
+    public static function layerFiles(array $paths, array $allowedDirs = [], bool $allowAnyPath = false): AbstractAccessor
     {
         $accessors = array_map(
-            fn (string $p) => self::fromFile($p, allowedDirs: $allowedDirs),
+            fn (string $p) => self::fromFile($p, allowedDirs: $allowedDirs, allowAnyPath: $allowAnyPath),
             $paths,
         );
         return self::layer($accessors);
@@ -246,23 +243,21 @@ final class SafeAccess
 
     /**
      * Watches a file for changes and calls the callback with a fresh accessor.
-     * Returns a stop function.
+     * Returns an array with 'poll' (blocking loop) and 'stop' callables.
      *
      * @param callable(AbstractAccessor): void $onChange
      * @param string[] $allowedDirs
-     * @return callable(): void
-     */
-    /**
-     * @codeCoverageIgnore Requires real filesystem events — tested via integration.
+     * @return array{poll: callable(): void, stop: callable(): void}
      */
     public static function watchFile(
         string $filePath,
         callable $onChange,
         ?string $format = null,
         array $allowedDirs = [],
-    ): callable {
-        return FileWatcher::watch($filePath, function () use ($filePath, $format, $allowedDirs, $onChange): void {
-            $accessor = self::fromFile($filePath, $format, $allowedDirs);
+        bool $allowAnyPath = false,
+    ): array {
+        return FileWatcher::watch($filePath, function () use ($filePath, $format, $allowedDirs, $allowAnyPath, $onChange): void {
+            $accessor = self::fromFile($filePath, $format, $allowedDirs, $allowAnyPath);
             $onChange($accessor);
         });
     }
@@ -294,10 +289,21 @@ final class SafeAccess
 
     public static function fromFileWithPolicy(string $filePath, SecurityPolicy $policy): AbstractAccessor
     {
-        $accessor = self::fromFile($filePath, allowedDirs: $policy->allowedDirs);
+        $content = IoLoader::readFile($filePath, $policy->allowedDirs);
+
+        if ($policy->maxPayloadBytes > 0) {
+            SecurityOptions::assertPayloadSize($content, $policy->maxPayloadBytes);
+        }
+
+        $resolvedFormat = IoLoader::resolveFormatFromExtension($filePath)?->value;
+        $accessor = $resolvedFormat !== null ? self::from($content, $resolvedFormat) : TypeDetector::resolve($content);
 
         if ($policy->maxKeys > 0) {
             SecurityOptions::assertMaxKeys($accessor->toArray(), $policy->maxKeys);
+        }
+
+        if ($policy->maxDepth > 0) {
+            SecurityOptions::assertMaxStructuralDepth($accessor->toArray(), $policy->maxDepth);
         }
 
         if ($policy->maskPatterns !== []) {
@@ -375,6 +381,7 @@ final class SafeAccess
         SecurityPolicy::clearGlobal();
         PluginRegistry::reset();
         SchemaRegistry::clearDefaultAdapter();
+        IoLoader::resetHttpClient();
     }
 
     /**

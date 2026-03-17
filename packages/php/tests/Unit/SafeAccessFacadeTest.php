@@ -172,7 +172,7 @@ describe(SafeAccess::class, function () {
         $tmp = tempnam(sys_get_temp_dir(), 'sa-ext-');
         file_put_contents($tmp, '{"key":"value"}');
         try {
-            $accessor = SafeAccess::fromFile($tmp);
+            $accessor = SafeAccess::fromFile($tmp, null, [], true);
             expect($accessor)->toBeInstanceOf(JsonAccessor::class);
             expect($accessor->get('key'))->toBe('value');
         } finally {

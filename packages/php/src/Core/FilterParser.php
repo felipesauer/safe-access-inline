@@ -281,13 +281,23 @@ final class FilterParser
         ) {
             $pattern = substr($pattern, 1, -1);
         }
+        // ReDoS guard: reject patterns with nested quantifiers or excessive length
+        if (preg_match('/([+*])\)\1|\(\?[^)]*[+*]/', $pattern) === 1 || strlen($pattern) > 256) {
+            return false;
+        }
         // Escape the PCRE delimiter to prevent flag injection (e.g. 'foo/i')
         $safePattern = str_replace('/', '\\/', $pattern);
-        $prev = ini_set('pcre.backtrack_limit', '10000');
+        $prevBacktrack = ini_set('pcre.backtrack_limit', '1000');
+        $prevRecursion = ini_set('pcre.recursion_limit', '100');
         try {
             $result = @preg_match('/' . $safePattern . '/u', $val);
         } finally {
-            ini_set('pcre.backtrack_limit', (string) $prev);
+            if ($prevBacktrack !== false) {
+                ini_set('pcre.backtrack_limit', (string) $prevBacktrack);
+            }
+            if ($prevRecursion !== false) {
+                ini_set('pcre.recursion_limit', (string) $prevRecursion);
+            }
         }
         return $result === 1;
     }

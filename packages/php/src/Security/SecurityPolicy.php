@@ -17,6 +17,7 @@ final class SecurityPolicy
         public readonly int $maxKeys = 10_000,
         /** @var string[] */
         public readonly array $allowedDirs = [],
+        public readonly bool $allowAnyPath = false,
         /** @var UrlPolicy|null */
         public readonly ?array $url = null,
         /** @var 'none'|'prefix'|'strip'|'error' */
@@ -77,6 +78,8 @@ final class SecurityPolicy
         $maxKeys = $overrides['maxKeys'] ?? $this->maxKeys;
         /** @var string[] $allowedDirs */
         $allowedDirs = $overrides['allowedDirs'] ?? $this->allowedDirs;
+        /** @var bool $allowAnyPath */
+        $allowAnyPath = $overrides['allowAnyPath'] ?? $this->allowAnyPath;
         /** @var 'none'|'prefix'|'strip'|'error' $csvMode */
         $csvMode = $overrides['csvMode'] ?? $this->csvMode;
         /** @var string[] $maskPatterns */
@@ -92,6 +95,7 @@ final class SecurityPolicy
             maxPayloadBytes: $maxPayloadBytes,
             maxKeys: $maxKeys,
             allowedDirs: $allowedDirs,
+            allowAnyPath: $allowAnyPath,
             url: $url,
             csvMode: $csvMode,
             maskPatterns: $maskPatterns,

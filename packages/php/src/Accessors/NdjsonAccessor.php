@@ -26,10 +26,14 @@ class NdjsonAccessor extends AbstractAccessor
     {
         assert(is_string($raw));
 
-        $lines = array_filter(
-            array_map('trim', explode("\n", $raw)),
-            fn (string $line) => $line !== ''
-        );
+        $allLines = explode("\n", $raw);
+        $lines = [];
+        foreach ($allLines as $idx => $line) {
+            $trimmed = trim($line);
+            if ($trimmed !== '') {
+                $lines[] = ['line' => $trimmed, 'originalLine' => $idx + 1];
+            }
+        }
 
         if (count($lines) === 0) {
             return [];
@@ -37,11 +41,11 @@ class NdjsonAccessor extends AbstractAccessor
 
         $result = [];
         $i = 0;
-        foreach ($lines as $line) {
-            $decoded = json_decode($line, true);
+        foreach ($lines as $entry) {
+            $decoded = json_decode($entry['line'], true);
             if (json_last_error() !== JSON_ERROR_NONE) {
                 throw new InvalidFormatException(
-                    'NdjsonAccessor failed to parse line ' . ($i + 1) . ': ' . $line
+                    'NdjsonAccessor failed to parse line ' . $entry['originalLine'] . ': ' . $entry['line']
                 );
             }
             $result[$i] = $decoded;

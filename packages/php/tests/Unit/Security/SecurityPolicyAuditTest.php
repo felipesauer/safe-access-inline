@@ -57,6 +57,25 @@ describe(SecurityPolicy::class, function () {
         expect($merged->url)->toBe(['allowedPorts' => [443]]);
     });
 
+    it('merge preserves allowAnyPath from base policy', function () {
+        $policy = new SecurityPolicy(allowAnyPath: true);
+        $merged = $policy->merge(['allowedDirs' => ['/tmp']]);
+        expect($merged->allowAnyPath)->toBeTrue();
+        expect($merged->allowedDirs)->toBe(['/tmp']);
+    });
+
+    it('merge allows overriding allowAnyPath', function () {
+        $policy = new SecurityPolicy(allowAnyPath: false);
+        $merged = $policy->merge(['allowAnyPath' => true]);
+        expect($merged->allowAnyPath)->toBeTrue();
+    });
+
+    it('merge does not inherit allowAnyPath when explicitly set to false', function () {
+        $policy = new SecurityPolicy(allowAnyPath: true);
+        $merged = $policy->merge(['allowAnyPath' => false]);
+        expect($merged->allowAnyPath)->toBeFalse();
+    });
+
     it('strict() returns restrictive policy', function () {
         $policy = SecurityPolicy::strict();
         expect($policy->maxDepth)->toBe(20);
@@ -194,7 +213,7 @@ describe('SafeAccess + SecurityPolicy/Audit', function () {
         $tmp = tempnam(sys_get_temp_dir(), 'sa-audit-') . '.json';
         file_put_contents($tmp, '{"a":1}');
         try {
-            SafeAccess::fromFile($tmp);
+            SafeAccess::fromFile($tmp, null, [], true);
             $fileEvents = array_filter($events, fn ($e) => $e['type'] === 'file.read');
             expect($fileEvents)->not->toBeEmpty();
         } finally {
