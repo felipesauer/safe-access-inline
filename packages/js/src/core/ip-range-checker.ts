@@ -90,9 +90,13 @@ export function assertSafeUrl(
             const mappedPart = cleanedHost.substring(7);
             // Node's URL parser normalizes ::ffff: mapped addresses to hex pairs
             // (e.g., ::ffff:127.0.0.1 → ::ffff:7f00:1), so we always parse hex.
-            const hexMatch = mappedPart.match(
-                /^([0-9a-f]{1,4}):([0-9a-f]{1,4})$/i,
-            ) as RegExpMatchArray;
+            const hexMatch = mappedPart.match(/^([0-9a-f]{1,4}):([0-9a-f]{1,4})$/i);
+            /* v8 ignore next 5 — defensive: Node URL parser always normalises to hex pairs */
+            if (!hexMatch) {
+                throw new SecurityError(
+                    `Access to IPv4-mapped IPv6 address '${cleanedHost}' is blocked (SSRF protection).`,
+                );
+            }
             const mappedIp = `${(parseInt(hexMatch[1], 16) >> 8) & 0xff}.${parseInt(hexMatch[1], 16) & 0xff}.${(parseInt(hexMatch[2], 16) >> 8) & 0xff}.${parseInt(hexMatch[2], 16) & 0xff}`;
             if (isPrivateIp(mappedIp)) {
                 throw new SecurityError(
@@ -131,10 +135,11 @@ export async function resolveAndValidateIp(
     // Already a raw IPv4 — return directly (already checked synchronously by assertSafeUrl)
     if (/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname)) return hostname;
 
-    const { resolve4 } = await import('node:dns/promises');
+    const dns = await import('node:dns/promises');
     try {
-        const addresses = await resolve4(hostname);
-        for (const ip of addresses) {
+        // Check IPv4 (A records)
+        const v4Addresses = await dns.resolve4(hostname).catch(() => [] as string[]);
+        for (const ip of v4Addresses) {
             if (isPrivateIp(ip)) {
                 emitAudit('security.violation', { reason: 'ssrf_dns_resolution', hostname, ip });
                 throw new SecurityError(
@@ -142,12 +147,25 @@ export async function resolveAndValidateIp(
                 );
             }
         }
-        return addresses[0] ?? null;
+
+        // Check IPv6 (AAAA records) — prevents bypass via AAAA-only hostnames
+        const v6Addresses = await dns.resolve6(hostname).catch(() => [] as string[]);
+        for (const ip of v6Addresses) {
+            if (isIpv6Loopback(ip)) {
+                emitAudit('security.violation', { reason: 'ssrf_dns_resolution', hostname, ip });
+                throw new SecurityError(
+                    `Host '${hostname}' resolves to private IPv6 '${ip}' (SSRF protection).`,
+                );
+            }
+        }
+
+        return v4Addresses[0] ?? null;
+        /* v8 ignore start — defensive: individual .catch() handlers absorb expected DNS errors */
     } catch (err) {
         if (err instanceof SecurityError) throw err;
-        // DNS resolution failure — allow to proceed (fetch will fail anyway)
         return null;
     }
+    /* v8 ignore stop */
 }
 
 /**

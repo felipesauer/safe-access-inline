@@ -32,14 +32,19 @@ describe(AbstractAccessor.name, () => {
         expect(accessor.type('age')).toBe('number');
     });
 
-    it('type — returns "boolean" for boolean values', () => {
+    it('type — returns "bool" for boolean values', () => {
         const accessor = ArrayAccessor.from({ debug: true });
-        expect(accessor.type('debug')).toBe('boolean');
+        expect(accessor.type('debug')).toBe('bool');
     });
 
     it('type — returns "object" for object values', () => {
         const accessor = ArrayAccessor.from({ config: { host: 'localhost' } });
         expect(accessor.type('config')).toBe('object');
+    });
+
+    it('type — returns "null" for null values', () => {
+        const accessor = ArrayAccessor.from({ empty: null });
+        expect(accessor.type('empty')).toBe('null');
     });
 
     // ── count() ──

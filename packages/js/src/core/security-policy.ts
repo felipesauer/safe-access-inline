@@ -9,6 +9,7 @@ export interface UrlPolicy {
 
 export interface SecurityPolicy extends SecurityOptions {
     allowedDirs?: string[];
+    allowAnyPath?: boolean;
     url?: UrlPolicy;
     csvMode?: 'none' | 'prefix' | 'strip' | 'error';
     maskPatterns?: MaskPattern[];
@@ -21,6 +22,12 @@ const DEFAULT_POLICY: SecurityPolicy = {
     csvMode: 'none',
 };
 
+/**
+ * Strict security policy preset.
+ * NOTE: `allowedDirs` is intentionally not set — callers MUST provide it
+ * via `mergePolicy(STRICT_POLICY, { allowedDirs: [...] })` when using
+ * file-based operations, otherwise path traversal protection is not enforced.
+ */
 export const STRICT_POLICY: Readonly<SecurityPolicy> = Object.freeze({
     maxDepth: 20,
     maxPayloadBytes: 1_048_576,

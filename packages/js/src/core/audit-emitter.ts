@@ -3,6 +3,7 @@ export type AuditEventType =
     | 'file.watch'
     | 'url.fetch'
     | 'security.violation'
+    | 'security.deprecation'
     | 'data.mask'
     | 'data.freeze'
     | 'schema.validate';
@@ -36,7 +37,8 @@ export function onAudit(listener: AuditListener): () => void {
 export function emitAudit(type: AuditEventType, detail: Record<string, unknown>): void {
     if (listeners.length === 0) return;
     const event: AuditEvent = { type, timestamp: Date.now(), detail };
-    for (const listener of listeners) {
+    const snapshot = [...listeners];
+    for (const listener of snapshot) {
         listener(event);
     }
 }

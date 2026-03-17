@@ -25,6 +25,22 @@ describe('deepFreeze', () => {
         const frozen = deepFreeze(obj);
         expect(Object.isFrozen(frozen)).toBe(true);
     });
+
+    it('freezes non-enumerable nested properties', () => {
+        const inner = { value: 42 };
+        const obj: Record<string, unknown> = { visible: 'yes' };
+        Object.defineProperty(obj, 'hidden', {
+            value: inner,
+            enumerable: false,
+            writable: false,
+            configurable: false,
+        });
+        deepFreeze(obj);
+        expect(Object.isFrozen(inner)).toBe(true);
+        expect(() => {
+            (inner as Record<string, unknown>).value = 99;
+        }).toThrow();
+    });
 });
 
 describe('ReadonlyViolationError', () => {

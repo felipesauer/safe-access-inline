@@ -369,7 +369,7 @@ describe('Audit Integration', () => {
         const tmpFile = path.join(os.tmpdir(), `sa-audit-${Date.now()}.json`);
         fs.writeFileSync(tmpFile, '{"a":1}');
         try {
-            SafeAccess.fromFileSync(tmpFile);
+            SafeAccess.fromFileSync(tmpFile, { allowAnyPath: true });
             const fileEvents = events.filter((e) => e.type === 'file.read');
             expect(fileEvents.length).toBeGreaterThanOrEqual(1);
             expect(fileEvents[0].detail.filePath).toBe(tmpFile);

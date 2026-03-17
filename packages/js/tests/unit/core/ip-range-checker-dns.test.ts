@@ -6,6 +6,7 @@ import { SecurityError } from '../../../src/exceptions/security.error';
 
 vi.mock('node:dns/promises', () => ({
     resolve4: vi.fn(),
+    resolve6: vi.fn().mockResolvedValue([]),
 }));
 
 describe('assertResolvedIpNotPrivate()', () => {
@@ -35,5 +36,25 @@ describe('assertResolvedIpNotPrivate()', () => {
     it('skips DNS lookup when hostname is already a raw IP address', async () => {
         const { assertResolvedIpNotPrivate } = await import('../../../src/core/ip-range-checker');
         await expect(assertResolvedIpNotPrivate('8.8.8.8')).resolves.toBeUndefined();
+    });
+
+    it('throws SecurityError when hostname resolves to a loopback IPv6 address', async () => {
+        const dns = await import('node:dns/promises');
+        vi.mocked(dns.resolve4).mockResolvedValueOnce([]);
+        vi.mocked(dns.resolve6).mockResolvedValueOnce(['::1']);
+        const { assertResolvedIpNotPrivate } = await import('../../../src/core/ip-range-checker');
+        await expect(assertResolvedIpNotPrivate('evil-v6.example.com')).rejects.toThrow(
+            SecurityError,
+        );
+    });
+
+    it('silently ignores AAAA DNS errors (ENOTFOUND for IPv6)', async () => {
+        const dns = await import('node:dns/promises');
+        vi.mocked(dns.resolve4).mockResolvedValueOnce(['1.2.3.4']);
+        vi.mocked(dns.resolve6).mockRejectedValueOnce(new Error('ENOTFOUND'));
+        const { assertResolvedIpNotPrivate } = await import('../../../src/core/ip-range-checker');
+        await expect(
+            assertResolvedIpNotPrivate('public-v4only.example.com'),
+        ).resolves.toBeUndefined();
     });
 });

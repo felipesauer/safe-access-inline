@@ -18,21 +18,22 @@ export class NdjsonAccessor<
 
     protected parse(raw: unknown): Record<string, unknown> {
         const input = raw as string;
-        const lines = input
-            .split('\n')
-            .map((line) => line.trim())
-            .filter((line) => line !== '');
+        const allLines = input.split('\n');
+        const lines = allLines
+            .map((line, idx) => ({ line: line.trim(), originalLine: idx + 1 }))
+            .filter(({ line }) => line !== '');
 
         if (lines.length === 0) return {};
 
         const result: Record<string, unknown> = {};
 
         for (let i = 0; i < lines.length; i++) {
+            const { line, originalLine } = lines[i];
             try {
-                result[String(i)] = JSON.parse(lines[i]);
+                result[String(i)] = JSON.parse(line);
             } catch {
                 throw new InvalidFormatError(
-                    `NdjsonAccessor failed to parse line ${i + 1}: ${lines[i]}`,
+                    `NdjsonAccessor failed to parse line ${originalLine}: ${line}`,
                 );
             }
         }

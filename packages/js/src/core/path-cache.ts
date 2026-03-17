@@ -1,4 +1,4 @@
-type Segment = { type: 'key'; value: string } | { type: 'wildcard' };
+type Segment = { type: string; [key: string]: unknown };
 
 const MAX_CACHE_SIZE = 1000;
 

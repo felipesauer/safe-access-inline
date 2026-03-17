@@ -11,7 +11,8 @@ export function deepFreeze<T extends object>(obj: T): Readonly<T> {
 
         Object.freeze(current);
 
-        for (const value of Object.values(current)) {
+        for (const key of Object.getOwnPropertyNames(current)) {
+            const value = (current as Record<string, unknown>)[key];
             if (typeof value === 'object' && value !== null) {
                 freeze(value);
             }

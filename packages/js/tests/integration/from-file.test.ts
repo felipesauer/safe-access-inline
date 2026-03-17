@@ -8,36 +8,47 @@ const fixturesDir = path.resolve(__dirname, '../fixtures');
 describe('SafeAccess.fromFile / fromFileSync / fromUrl', () => {
     describe('fromFileSync()', () => {
         it('loads JSON file', () => {
-            const acc = SafeAccess.fromFileSync(path.join(fixturesDir, 'config.json'));
+            const acc = SafeAccess.fromFileSync(path.join(fixturesDir, 'config.json'), {
+                allowedDirs: [fixturesDir],
+            });
             expect(acc.get('app.name')).toBe('test-app');
             expect(acc.get('database.port')).toBe(5432);
         });
 
         it('loads YAML file', () => {
-            const acc = SafeAccess.fromFileSync(path.join(fixturesDir, 'config.yaml'));
+            const acc = SafeAccess.fromFileSync(path.join(fixturesDir, 'config.yaml'), {
+                allowedDirs: [fixturesDir],
+            });
             expect(acc.get('app.name')).toBe('test-app');
         });
 
         it('loads TOML file', () => {
-            const acc = SafeAccess.fromFileSync(path.join(fixturesDir, 'config.toml'));
+            const acc = SafeAccess.fromFileSync(path.join(fixturesDir, 'config.toml'), {
+                allowedDirs: [fixturesDir],
+            });
             expect(acc.get('app.name')).toBe('test-app');
         });
 
         it('loads ENV file', () => {
-            const acc = SafeAccess.fromFileSync(path.join(fixturesDir, 'config.env'));
+            const acc = SafeAccess.fromFileSync(path.join(fixturesDir, 'config.env'), {
+                allowedDirs: [fixturesDir],
+            });
             expect(acc.get('APP_NAME')).toBe('test-app');
         });
 
         it('respects format override', () => {
             const acc = SafeAccess.fromFileSync(path.join(fixturesDir, 'config.json'), {
                 format: 'json',
+                allowedDirs: [fixturesDir],
             });
             expect(acc.get('app.name')).toBe('test-app');
         });
 
         it('uses auto-detect when format cannot be resolved', () => {
             // Copy fixture without extension — use a JSON fixture
-            const acc = SafeAccess.fromFileSync(path.join(fixturesDir, 'config.json'));
+            const acc = SafeAccess.fromFileSync(path.join(fixturesDir, 'config.json'), {
+                allowedDirs: [fixturesDir],
+            });
             expect(acc.get('app.name')).toBe('test-app');
         });
 
@@ -50,7 +61,9 @@ describe('SafeAccess.fromFile / fromFileSync / fromUrl', () => {
 
     describe('fromFile() (async)', () => {
         it('loads JSON file asynchronously', async () => {
-            const acc = await SafeAccess.fromFile(path.join(fixturesDir, 'config.json'));
+            const acc = await SafeAccess.fromFile(path.join(fixturesDir, 'config.json'), {
+                allowedDirs: [fixturesDir],
+            });
             expect(acc.get('app.name')).toBe('test-app');
         });
 
@@ -87,10 +100,10 @@ describe('SafeAccess.layer / layerFiles', () => {
     });
 
     it('layerFiles merges files in order', async () => {
-        const result = await SafeAccess.layerFiles([
-            path.join(fixturesDir, 'config.json'),
-            path.join(fixturesDir, 'override.json'),
-        ]);
+        const result = await SafeAccess.layerFiles(
+            [path.join(fixturesDir, 'config.json'), path.join(fixturesDir, 'override.json')],
+            { allowedDirs: [fixturesDir] },
+        );
         expect(result.get('app.name')).toBe('override-app');
         expect(result.get('app.debug')).toBe(true);
         expect(result.get('app.version')).toBe('2.0');

@@ -48,7 +48,7 @@ describe('SafeAccess — fromFileSync auto-detect', () => {
         const tmpFile = path.join(os.tmpdir(), `sa-test-${Date.now()}.dat`);
         fs.writeFileSync(tmpFile, '{"auto":"detected"}');
         try {
-            const acc = SafeAccess.fromFileSync(tmpFile);
+            const acc = SafeAccess.fromFileSync(tmpFile, { allowAnyPath: true });
             expect(acc.get('auto')).toBe('detected');
         } finally {
             fs.unlinkSync(tmpFile);
@@ -62,7 +62,7 @@ describe('SafeAccess — fromFile auto-detect', () => {
         const tmpFile = path.join(os.tmpdir(), `sa-test-${Date.now()}.dat`);
         fs.writeFileSync(tmpFile, '{"async_auto":"detected"}');
         try {
-            const acc = await SafeAccess.fromFile(tmpFile);
+            const acc = await SafeAccess.fromFile(tmpFile, { allowAnyPath: true });
             expect(acc.get('async_auto')).toBe('detected');
         } finally {
             fs.unlinkSync(tmpFile);
@@ -134,7 +134,7 @@ describe('SafeAccess — watchFile', () => {
         fs.writeFileSync(tmpFile, '{"v":1}');
 
         const onChange = vi.fn();
-        const unsub = SafeAccess.watchFile(tmpFile, onChange);
+        const unsub = SafeAccess.watchFile(tmpFile, onChange, { allowAnyPath: true });
 
         fs.writeFileSync(tmpFile, '{"v":2}');
         await new Promise((r) => setTimeout(r, 300));
@@ -290,6 +290,28 @@ describe('JSON Patch — array edge cases', () => {
     it('removeAtPointer empty pointer returns empty object', () => {
         const result = applyPatch({ a: 1, b: 2 }, [{ op: 'remove', path: '' }]);
         expect(result).toEqual({});
+    });
+
+    it('add with undefined value at root falls back to empty object', () => {
+        const result = applyPatch({ a: 1 }, [{ op: 'add', path: '', value: undefined }]);
+        expect(result).toEqual({});
+    });
+
+    it('move to root replaces entire document', () => {
+        const result = applyPatch({ a: 1, b: { x: 2 } }, [{ op: 'move', from: '/b', path: '' }]);
+        expect(result).toEqual({ x: 2 });
+    });
+
+    it('move from root clears document and sets target', () => {
+        const result = applyPatch({ a: 1, b: 2 }, [{ op: 'move', from: '', path: '/nested' }]);
+        expect(result).toEqual({ nested: { a: 1, b: 2 } });
+    });
+
+    it('copy to root replaces entire document', () => {
+        const result = applyPatch({ src: { x: 1 }, other: 2 }, [
+            { op: 'copy', from: '/src', path: '' },
+        ]);
+        expect(result).toEqual({ x: 1 });
     });
 
     it('diff with deeply nested arrays of objects', () => {

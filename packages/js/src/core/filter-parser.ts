@@ -230,6 +230,10 @@ export class FilterParser {
                 ) {
                     pattern = pattern.slice(1, -1);
                 }
+                // ReDoS guard: reject patterns with nested quantifiers
+                if (/([+*])\)\1|\(\?[^)]*[+*]/.test(pattern) || pattern.length > 256) {
+                    return false;
+                }
                 try {
                     return new RegExp(pattern, 'u').test(val);
                 } catch {

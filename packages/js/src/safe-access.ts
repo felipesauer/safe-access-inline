@@ -191,9 +191,12 @@ export class SafeAccess {
 
     static fromFileSync(
         filePath: string,
-        options?: { format?: string | Format; allowedDirs?: string[] },
+        options?: { format?: string | Format; allowedDirs?: string[]; allowAnyPath?: boolean },
     ): AbstractAccessor {
-        const content = readFileSync(filePath, { allowedDirs: options?.allowedDirs });
+        const content = readFileSync(filePath, {
+            allowedDirs: options?.allowedDirs,
+            allowAnyPath: options?.allowAnyPath,
+        });
         const format = options?.format ?? resolveFormatFromExtension(filePath);
         if (!format) {
             return TypeDetector.resolve(content);
@@ -203,9 +206,12 @@ export class SafeAccess {
 
     static async fromFile(
         filePath: string,
-        options?: { format?: string | Format; allowedDirs?: string[] },
+        options?: { format?: string | Format; allowedDirs?: string[]; allowAnyPath?: boolean },
     ): Promise<AbstractAccessor> {
-        const content = await readFile(filePath, { allowedDirs: options?.allowedDirs });
+        const content = await readFile(filePath, {
+            allowedDirs: options?.allowedDirs,
+            allowAnyPath: options?.allowAnyPath,
+        });
         const format = options?.format ?? resolveFormatFromExtension(filePath);
         if (!format) {
             return TypeDetector.resolve(content);
@@ -251,10 +257,15 @@ export class SafeAccess {
 
     static async layerFiles(
         paths: string[],
-        options?: { allowedDirs?: string[] },
+        options?: { allowedDirs?: string[]; allowAnyPath?: boolean },
     ): Promise<AbstractAccessor> {
         const accessors = await Promise.all(
-            paths.map((p) => SafeAccess.fromFile(p, { allowedDirs: options?.allowedDirs })),
+            paths.map((p) =>
+                SafeAccess.fromFile(p, {
+                    allowedDirs: options?.allowedDirs,
+                    allowAnyPath: options?.allowAnyPath,
+                }),
+            ),
         );
         return SafeAccess.layer(accessors);
     }
@@ -264,7 +275,7 @@ export class SafeAccess {
     static watchFile(
         filePath: string,
         onChange: (accessor: AbstractAccessor) => void,
-        options?: { format?: string | Format; allowedDirs?: string[] },
+        options?: { format?: string | Format; allowedDirs?: string[]; allowAnyPath?: boolean },
     ): () => void {
         return watchFile(filePath, () => {
             const accessor = SafeAccess.fromFileSync(filePath, options);

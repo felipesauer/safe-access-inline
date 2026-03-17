@@ -35,10 +35,7 @@ export class DotNotationParser {
         const cached = PathCache.get(path);
         if (cached) return cached as Segment[];
         const segments = DotNotationParser.parseSegments(path);
-        PathCache.set(
-            path,
-            segments as Array<{ type: 'key'; value: string } | { type: 'wildcard' }>,
-        );
+        PathCache.set(path, segments);
         return segments;
     }
 

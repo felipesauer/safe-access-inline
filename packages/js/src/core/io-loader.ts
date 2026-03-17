@@ -28,18 +28,23 @@ export function resolveFormatFromExtension(filePath: string): Format | null {
     return EXTENSION_FORMAT_MAP[ext] ?? null;
 }
 
-export function assertPathWithinAllowedDirs(filePath: string, allowedDirs?: string[]): void {
+export function assertPathWithinAllowedDirs(
+    filePath: string,
+    allowedDirs?: string[],
+    options?: { allowAnyPath?: boolean },
+): void {
     // Block null bytes
     if (filePath.includes('\0')) {
         throw new SecurityError('File path contains null bytes.');
     }
 
     if (!allowedDirs || allowedDirs.length === 0) {
-        emitAudit('security.violation', {
-            reason: 'allowedDirs_not_configured',
-            path: filePath,
-        });
-        return;
+        if (options?.allowAnyPath) {
+            return;
+        }
+        throw new SecurityError(
+            'No allowedDirs configured. Provide allowedDirs or set allowAnyPath: true to bypass path restrictions.',
+        );
     }
 
     // Resolve symlinks before comparing — path.resolve() alone does not follow symlinks
@@ -66,17 +71,24 @@ export function assertPathWithinAllowedDirs(filePath: string, allowedDirs?: stri
     }
 }
 
-export function readFileSync(filePath: string, options?: { allowedDirs?: string[] }): string {
-    assertPathWithinAllowedDirs(filePath, options?.allowedDirs);
+export function readFileSync(
+    filePath: string,
+    options?: { allowedDirs?: string[]; allowAnyPath?: boolean },
+): string {
+    assertPathWithinAllowedDirs(filePath, options?.allowedDirs, {
+        allowAnyPath: options?.allowAnyPath,
+    });
     emitAudit('file.read', { filePath });
     return fs.readFileSync(filePath, 'utf-8');
 }
 
 export async function readFile(
     filePath: string,
-    options?: { allowedDirs?: string[] },
+    options?: { allowedDirs?: string[]; allowAnyPath?: boolean },
 ): Promise<string> {
-    assertPathWithinAllowedDirs(filePath, options?.allowedDirs);
+    assertPathWithinAllowedDirs(filePath, options?.allowedDirs, {
+        allowAnyPath: options?.allowAnyPath,
+    });
     emitAudit('file.read', { filePath });
     return fsp.readFile(filePath, 'utf-8');
 }
