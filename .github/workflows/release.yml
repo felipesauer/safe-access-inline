@@ -37,72 +37,28 @@ jobs:
                   token: ${{ secrets.GITHUB_TOKEN }}
 
     # ──────────────────────────────────────────────────────────
-    # Step 2: Wait for split to complete
-    #
-    # The split-packages.yml runs on the same push event.
-    # We need the split repos to be up-to-date before tagging.
-    # ──────────────────────────────────────────────────────────
-    wait-for-split:
-        name: Wait for Split
-        permissions:
-            contents: read
-            checks: read
-        needs: [release-please]
-        if: >-
-            needs.release-please.outputs.php_released == 'true' ||
-            needs.release-please.outputs.js_released == 'true' ||
-            needs.release-please.outputs.cli_released == 'true'
-        runs-on: ubuntu-latest
-        steps:
-            - name: Wait for PHP split to finish
-              uses: lewagon/wait-on-check-action@74049309dfeff245fe8009a0137eacf28136cb3c # v1.5.0
-              with:
-                  ref: ${{ github.sha }}
-                  repo-token: ${{ secrets.GITHUB_TOKEN }}
-                  check-name: "Split PHP Package"
-                  wait-interval: 10
-                  allowed-conclusions: success
-
-            - name: Wait for JS split to finish
-              uses: lewagon/wait-on-check-action@74049309dfeff245fe8009a0137eacf28136cb3c # v1.5.0
-              with:
-                  ref: ${{ github.sha }}
-                  repo-token: ${{ secrets.GITHUB_TOKEN }}
-                  check-name: "Split JS Package"
-                  wait-interval: 10
-                  allowed-conclusions: success
-
-            - name: Wait for CLI split to finish
-              uses: lewagon/wait-on-check-action@74049309dfeff245fe8009a0137eacf28136cb3c # v1.5.0
-              with:
-                  ref: ${{ github.sha }}
-                  repo-token: ${{ secrets.GITHUB_TOKEN }}
-                  check-name: "Split CLI Package"
-                  wait-interval: 10
-                  allowed-conclusions: success
-
-    # ──────────────────────────────────────────────────────────
-    # Step 3: Sync tag to PHP split repo
+    # Step 2: Sync tag to PHP split repo
     # ──────────────────────────────────────────────────────────
     sync-php-tag:
         name: Sync PHP Tag
         permissions:
             contents: read
-        needs: [release-please, wait-for-split]
+        needs: [release-please]
         if: needs.release-please.outputs.php_released == 'true'
         runs-on: ubuntu-latest
         env:
             PHP_REPO: ${{ github.repository_owner }}/${{ vars.PHP_REPO_NAME || 'safe-access-inline-php' }}
 
         steps:
-            - name: Checkout PHP split repo
+            - name: Checkout mono-repo
               uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
               with:
-                  repository: ${{ env.PHP_REPO }}
-                  token: ${{ secrets.SPLIT_TOKEN }}
                   fetch-depth: 0
+                  persist-credentials: false
 
-            - name: Create and push tag
+            - name: Split, push and tag PHP split repo
+              env:
+                  SPLIT_TOKEN: ${{ secrets.SPLIT_TOKEN }}
               run: |
                   VERSION="${{ needs.release-please.outputs.php_version }}"
                   TAG="v${VERSION}"
@@ -110,37 +66,42 @@ jobs:
                   git config user.name "github-actions[bot]"
                   git config user.email "github-actions[bot]@users.noreply.github.com"
 
-                  # Remove tag if it already exists (idempotent)
+                  SHA=$(git subtree split --prefix=packages/php)
+                  REMOTE="https://x-access-token:${SPLIT_TOKEN}@github.com/${PHP_REPO}.git"
+
+                  git remote add split-php "${REMOTE}" 2>/dev/null || git remote set-url split-php "${REMOTE}"
+                  git push split-php "${SHA}:refs/heads/main" --force
+
+                  git push split-php ":refs/tags/${TAG}" 2>/dev/null || true
                   git tag -d "${TAG}" 2>/dev/null || true
-                  git push origin ":refs/tags/${TAG}" 2>/dev/null || true
+                  git tag -a "${TAG}" "${SHA}" -m "Release ${TAG}"
+                  git push split-php "${TAG}"
 
-                  git tag -a "${TAG}" -m "Release ${TAG}"
-                  git push origin "${TAG}"
-
-                  echo "✅ Tagged ${PHP_REPO} with ${TAG}"
+                  echo "✅ Split and tagged ${PHP_REPO} with ${TAG} (${SHA})"
 
     # ──────────────────────────────────────────────────────────
-    # Step 4: Sync tag to JS split repo
+    # Step 3: Sync tag to JS split repo
     # ──────────────────────────────────────────────────────────
     sync-js-tag:
         name: Sync JS Tag
         permissions:
             contents: read
-        needs: [release-please, wait-for-split]
+        needs: [release-please]
         if: needs.release-please.outputs.js_released == 'true'
         runs-on: ubuntu-latest
         env:
             JS_REPO: ${{ github.repository_owner }}/${{ vars.JS_REPO_NAME || 'safe-access-inline-js' }}
 
         steps:
-            - name: Checkout JS split repo
+            - name: Checkout mono-repo
               uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
               with:
-                  repository: ${{ env.JS_REPO }}
-                  token: ${{ secrets.SPLIT_TOKEN }}
                   fetch-depth: 0
+                  persist-credentials: false
 
-            - name: Create and push tag
+            - name: Split, push and tag JS split repo
+              env:
+                  SPLIT_TOKEN: ${{ secrets.SPLIT_TOKEN }}
               run: |
                   VERSION="${{ needs.release-please.outputs.js_version }}"
                   TAG="v${VERSION}"
@@ -148,36 +109,42 @@ jobs:
                   git config user.name "github-actions[bot]"
                   git config user.email "github-actions[bot]@users.noreply.github.com"
 
+                  SHA=$(git subtree split --prefix=packages/js)
+                  REMOTE="https://x-access-token:${SPLIT_TOKEN}@github.com/${JS_REPO}.git"
+
+                  git remote add split-js "${REMOTE}" 2>/dev/null || git remote set-url split-js "${REMOTE}"
+                  git push split-js "${SHA}:refs/heads/main" --force
+
+                  git push split-js ":refs/tags/${TAG}" 2>/dev/null || true
                   git tag -d "${TAG}" 2>/dev/null || true
-                  git push origin ":refs/tags/${TAG}" 2>/dev/null || true
+                  git tag -a "${TAG}" "${SHA}" -m "Release ${TAG}"
+                  git push split-js "${TAG}"
 
-                  git tag -a "${TAG}" -m "Release ${TAG}"
-                  git push origin "${TAG}"
-
-                  echo "✅ Tagged ${JS_REPO} with ${TAG}"
+                  echo "✅ Split and tagged ${JS_REPO} with ${TAG} (${SHA})"
 
     # ──────────────────────────────────────────────────────────
-    # Step 5: Sync tag to CLI split repo
+    # Step 4: Sync tag to CLI split repo
     # ──────────────────────────────────────────────────────────
     sync-cli-tag:
         name: Sync CLI Tag
         permissions:
             contents: read
-        needs: [release-please, wait-for-split]
+        needs: [release-please]
         if: needs.release-please.outputs.cli_released == 'true'
         runs-on: ubuntu-latest
         env:
             CLI_REPO: ${{ github.repository_owner }}/${{ vars.CLI_REPO_NAME || 'safe-access-inline-cli' }}
 
         steps:
-            - name: Checkout CLI split repo
+            - name: Checkout mono-repo
               uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
               with:
-                  repository: ${{ env.CLI_REPO }}
-                  token: ${{ secrets.SPLIT_TOKEN }}
                   fetch-depth: 0
+                  persist-credentials: false
 
-            - name: Create and push tag
+            - name: Split, push and tag CLI split repo
+              env:
+                  SPLIT_TOKEN: ${{ secrets.SPLIT_TOKEN }}
               run: |
                   VERSION="${{ needs.release-please.outputs.cli_version }}"
                   TAG="v${VERSION}"
@@ -185,16 +152,21 @@ jobs:
                   git config user.name "github-actions[bot]"
                   git config user.email "github-actions[bot]@users.noreply.github.com"
 
+                  SHA=$(git subtree split --prefix=packages/cli)
+                  REMOTE="https://x-access-token:${SPLIT_TOKEN}@github.com/${CLI_REPO}.git"
+
+                  git remote add split-cli "${REMOTE}" 2>/dev/null || git remote set-url split-cli "${REMOTE}"
+                  git push split-cli "${SHA}:refs/heads/main" --force
+
+                  git push split-cli ":refs/tags/${TAG}" 2>/dev/null || true
                   git tag -d "${TAG}" 2>/dev/null || true
-                  git push origin ":refs/tags/${TAG}" 2>/dev/null || true
+                  git tag -a "${TAG}" "${SHA}" -m "Release ${TAG}"
+                  git push split-cli "${TAG}"
 
-                  git tag -a "${TAG}" -m "Release ${TAG}"
-                  git push origin "${TAG}"
-
-                  echo "✅ Tagged ${CLI_REPO} with ${TAG}"
+                  echo "✅ Split and tagged ${CLI_REPO} with ${TAG} (${SHA})"
 
     # ──────────────────────────────────────────────────────────
-    # Step 6: Publish JS to npm
+    # Step 5: Publish JS to npm
     # ──────────────────────────────────────────────────────────
     publish-npm:
         name: Publish to npm
@@ -232,7 +204,7 @@ jobs:
                   NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
     # ──────────────────────────────────────────────────────────
-    # Step 7: Publish CLI to npm
+    # Step 6: Publish CLI to npm
     # ──────────────────────────────────────────────────────────
     publish-cli-npm:
         name: Publish CLI to npm

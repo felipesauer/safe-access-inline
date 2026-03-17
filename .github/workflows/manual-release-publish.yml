@@ -1,0 +1,95 @@
+name: Manual Release Publish
+
+on:
+    workflow_dispatch:
+        inputs:
+            package:
+                description: "Package to publish (cli or js)"
+                required: true
+                type: choice
+                options:
+                    - cli
+                    - js
+            version:
+                description: "Version to publish (e.g. 0.1.1)"
+                required: true
+                type: string
+
+permissions: {}
+
+jobs:
+    split-tag-publish:
+        name: Release ${{ inputs.package }} v${{ inputs.version }}
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+
+        steps:
+            - name: Resolve target repo
+              id: target
+              env:
+                  PACKAGE: ${{ inputs.package }}
+                  CLI_REPO: ${{ github.repository_owner }}/${{ vars.CLI_REPO_NAME || 'safe-access-inline-cli' }}
+                  JS_REPO: ${{ github.repository_owner }}/${{ vars.JS_REPO_NAME || 'safe-access-inline-js' }}
+              run: |
+                  if [[ "${PACKAGE}" == "cli" ]]; then
+                      echo "repo=${CLI_REPO}" >> "$GITHUB_OUTPUT"
+                  else
+                      echo "repo=${JS_REPO}" >> "$GITHUB_OUTPUT"
+                  fi
+
+            - name: Checkout mono-repo
+              uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+              with:
+                  fetch-depth: 0
+                  persist-credentials: false
+
+            - name: Split, push and tag split repo
+              env:
+                  SPLIT_TOKEN: ${{ secrets.SPLIT_TOKEN }}
+                  TARGET_REPO: ${{ steps.target.outputs.repo }}
+                  PACKAGE: ${{ inputs.package }}
+                  VERSION: ${{ inputs.version }}
+              run: |
+                  TAG="v${VERSION}"
+                  REMOTE_NAME="split-${PACKAGE}"
+
+                  git config user.name "github-actions[bot]"
+                  git config user.email "github-actions[bot]@users.noreply.github.com"
+
+                  SHA=$(git subtree split --prefix="packages/${PACKAGE}")
+                  REMOTE="https://x-access-token:${SPLIT_TOKEN}@github.com/${TARGET_REPO}.git"
+
+                  git remote add "${REMOTE_NAME}" "${REMOTE}" 2>/dev/null || git remote set-url "${REMOTE_NAME}" "${REMOTE}"
+                  git push "${REMOTE_NAME}" "${SHA}:refs/heads/main" --force
+
+                  git push "${REMOTE_NAME}" ":refs/tags/${TAG}" 2>/dev/null || true
+                  git tag -d "${TAG}" 2>/dev/null || true
+                  git tag -a "${TAG}" "${SHA}" -m "Release ${TAG}"
+                  git push "${REMOTE_NAME}" "${TAG}"
+
+                  echo "✅ Split and tagged ${TARGET_REPO} with ${TAG} (${SHA})"
+
+            - name: Checkout split repo at tag
+              uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+              with:
+                  repository: ${{ steps.target.outputs.repo }}
+                  ref: "v${{ inputs.version }}"
+                  token: ${{ secrets.SPLIT_TOKEN }}
+
+            - name: Setup Node
+              uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
+              with:
+                  node-version: 22
+                  registry-url: "https://registry.npmjs.org"
+
+            - name: Install dependencies
+              run: npm install --ignore-scripts
+
+            - name: Build
+              run: npm run build
+
+            - name: Publish
+              run: npm publish --access public
+              env:
+                  NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
