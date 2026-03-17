@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="../../docs/public/logo.svg" width="80" alt="Safe Access Inline logo">
+  <img src="https://raw.githubusercontent.com/felipesauer/safe-access-inline/main/docs/public/logo.svg" width="80" alt="Safe Access Inline logo">
 </p>
 
 <h1 align="center">safe-access-inline/safe-access-inline</h1>

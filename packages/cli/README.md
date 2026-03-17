@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="../../docs/public/logo.svg" width="80" alt="Safe Access Inline logo">
+  <img src="https://raw.githubusercontent.com/felipesauer/safe-access-inline/main/docs/public/logo.svg" width="80" alt="Safe Access Inline logo">
 </p>
 
 <h1 align="center">@safe-access-inline/cli</h1>
@@ -9,6 +9,7 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/felipesauer/safe-access-inline/actions/workflows/cli-ci.yml"><img src="https://github.com/felipesauer/safe-access-inline/actions/workflows/cli-ci.yml/badge.svg" alt="CLI CI"></a>
   <a href="https://www.npmjs.com/package/@safe-access-inline/cli"><img src="https://img.shields.io/npm/v/@safe-access-inline/cli.svg" alt="npm"></a>
   <a href="https://www.npmjs.com/package/@safe-access-inline/cli"><img src="https://img.shields.io/npm/dm/@safe-access-inline/cli" alt="downloads"></a>
   <a href="../../LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT"></a>
