@@ -172,6 +172,7 @@ jobs:
         name: Publish to npm
         permissions:
             contents: read
+            id-token: write
         needs: [release-please, sync-js-tag]
         if: needs.release-please.outputs.js_released == 'true'
         runs-on: ubuntu-latest
@@ -199,7 +200,7 @@ jobs:
               run: npm run build
 
             - name: Publish
-              run: npm publish --access public
+              run: npm publish --access public --provenance
               env:
                   NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -210,6 +211,7 @@ jobs:
         name: Publish CLI to npm
         permissions:
             contents: read
+            id-token: write
         needs: [release-please, sync-cli-tag]
         if: needs.release-please.outputs.cli_released == 'true'
         runs-on: ubuntu-latest
@@ -237,6 +239,6 @@ jobs:
               run: npm run build
 
             - name: Publish
-              run: npm publish --access public
+              run: npm publish --access public --provenance
               env:
                   NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
