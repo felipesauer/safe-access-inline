@@ -514,6 +514,9 @@ export function run(args: string[], io: CliIO): number {
     } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         io.stderr.write(`Error: ${message}\n`);
+        if (process.env.DEBUG === "1" && err instanceof Error && err.stack) {
+            io.stderr.write(`${err.stack}\n`);
+        }
         return 1;
     }
 }

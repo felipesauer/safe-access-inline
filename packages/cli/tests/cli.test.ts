@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { execSync, execFileSync } from "node:child_process";
+import { execSync } from "node:child_process";
 import { resolve, join } from "node:path";
 
 const CLI = resolve(__dirname, "../dist/cli.mjs");
@@ -42,7 +42,6 @@ function runWithExit(args: string): {
 const configJson = join(FIXTURES, "config.json");
 const configYaml = join(FIXTURES, "config.yaml");
 const configToml = join(FIXTURES, "config.toml");
-const configEnv = join(FIXTURES, "config.env");
 const overrideJson = join(FIXTURES, "override.json");
 
 beforeAll(() => {
