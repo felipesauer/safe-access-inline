@@ -1,5 +1,5 @@
 {
     "packages/php": "0.2.2",
     "packages/js": "0.2.2",
-    "packages/cli": "0.1.0"
+    "packages/cli": "0.1.1"
 }
