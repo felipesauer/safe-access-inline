@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.2.3](https://github.com/felipesauer/safe-access-inline/compare/js-v0.2.2...js-v0.2.3) (2026-03-17)
+
+
+### Features
+
+* **js:** add built-in JSON Schema validation adapter ([68629b4](https://github.com/felipesauer/safe-access-inline/commit/68629b4230d0926aa8beaf958d53351e73f660a9))
+* **js:** add JsonPatchTestFailedError ([b8b0bdc](https://github.com/felipesauer/safe-access-inline/commit/b8b0bdcf52fa0dd51011ac426f0cc5990e99ef0a))
+* **js:** add optional-require utility for lazy peer dep loading ([12ec436](https://github.com/felipesauer/safe-access-inline/commit/12ec43682262446990f4cb126be256500f13c806))
+* **js:** add security policy, audit emitter, and feature wiring ([64bbfa0](https://github.com/felipesauer/safe-access-inline/commit/64bbfa078b52113e043c32b09b264a741368329a))
+
+
+### Bug Fixes
+
+* add missing v8 ignore comments for clarity in optionalRequire function ([a1c239f](https://github.com/felipesauer/safe-access-inline/commit/a1c239f8ada4f7df9f1985301116f003b522c4a4))
+* **js:** always parse hex pairs for IPv4-mapped IPv6 in assertSafeUrl ([8ca9967](https://github.com/felipesauer/safe-access-inline/commit/8ca9967e5e7812bb123be7a8fbe88c13c6a5d57a))
+
 ## [0.2.2](https://github.com/felipesauer/safe-access-inline/compare/js-v0.2.1...js-v0.2.2) (2026-03-14)
 
 
