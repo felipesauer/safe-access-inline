@@ -1,6 +1,7 @@
 import { defineConfig } from "vitepress";
+import { withMermaid } from "vitepress-plugin-mermaid";
 
-export default defineConfig({
+export default withMermaid(defineConfig({
     title: "Safe Access Inline",
     description:
         "Safely access deeply nested data with dot notation — one API, 10 formats, PHP + JS/TS.",
@@ -19,6 +20,10 @@ export default defineConfig({
     base: "/safe-access-inline/",
     cleanUrls: true,
     lastUpdated: true,
+
+    sitemap: {
+        hostname: "https://felipesauer.github.io/safe-access-inline",
+    },
 
     locales: {
         root: {
@@ -77,7 +82,15 @@ export default defineConfig({
             text: "Edit this page on GitHub",
         },
     },
-});
+
+    mermaid: {
+        securityLevel: "loose",
+        startOnLoad: false,
+        flowchart: {
+            htmlLabels: true,
+        },
+    },
+}));
 
 /* ---------- English ---------- */
 
@@ -134,16 +147,28 @@ function sidebar() {
             text: "JavaScript / TypeScript",
             items: [
                 { text: "Getting Started", link: "/js/getting-started" },
+                { text: "Querying & Filtering", link: "/js/querying" },
+                { text: "Formats & TypeScript", link: "/js/formats" },
+                { text: "Plugin System", link: "/js/plugins" },
+                { text: "Advanced Features", link: "/js/advanced" },
+                { text: "Security & Integrations", link: "/js/security" },
                 { text: "API Reference", link: "/js/api-reference" },
-                { text: "Plugins", link: "/js/plugins" },
+                { text: "API — Operations & I/O", link: "/js/api-features" },
+                { text: "API — Types & Internals", link: "/js/api-types" },
             ],
         },
         {
             text: "PHP",
             items: [
                 { text: "Getting Started", link: "/php/getting-started" },
+                { text: "Querying & Filtering", link: "/php/querying" },
+                { text: "Formats & Utilities", link: "/php/formats" },
+                { text: "Plugin System", link: "/php/plugins" },
+                { text: "Advanced Features", link: "/php/advanced" },
+                { text: "Security & Integrations", link: "/php/security" },
                 { text: "API Reference", link: "/php/api-reference" },
-                { text: "Plugins", link: "/php/plugins" },
+                { text: "API — Operations & I/O", link: "/php/api-features" },
+                { text: "API — Types & Internals", link: "/php/api-types" },
             ],
         },
         {
@@ -205,29 +230,29 @@ function sidebarPtBr() {
         {
             text: "JavaScript / TypeScript",
             items: [
-                {
-                    text: "Primeiros Passos",
-                    link: "/pt-br/js/getting-started",
-                },
-                {
-                    text: "Referência da API",
-                    link: "/pt-br/js/api-reference",
-                },
-                { text: "Plugins", link: "/pt-br/js/plugins" },
+                { text: "Primeiros Passos", link: "/pt-br/js/getting-started" },
+                { text: "Consultas e Filtros", link: "/pt-br/js/querying" },
+                { text: "Formatos & TypeScript", link: "/pt-br/js/formats" },
+                { text: "Sistema de Plugins", link: "/pt-br/js/plugins" },
+                { text: "Recursos Avançados", link: "/pt-br/js/advanced" },
+                { text: "Segurança & Integrações", link: "/pt-br/js/security" },
+                { text: "Referência da API", link: "/pt-br/js/api-reference" },
+                { text: "API — Operações & I/O", link: "/pt-br/js/api-features" },
+                { text: "API — Tipos & Internos", link: "/pt-br/js/api-types" },
             ],
         },
         {
             text: "PHP",
             items: [
-                {
-                    text: "Primeiros Passos",
-                    link: "/pt-br/php/getting-started",
-                },
-                {
-                    text: "Referência da API",
-                    link: "/pt-br/php/api-reference",
-                },
-                { text: "Plugins", link: "/pt-br/php/plugins" },
+                { text: "Primeiros Passos", link: "/pt-br/php/getting-started" },
+                { text: "Consultas e Filtros", link: "/pt-br/php/querying" },
+                { text: "Formatos & Utilitários", link: "/pt-br/php/formats" },
+                { text: "Sistema de Plugins", link: "/pt-br/php/plugins" },
+                { text: "Recursos Avançados", link: "/pt-br/php/advanced" },
+                { text: "Segurança & Integrações", link: "/pt-br/php/security" },
+                { text: "Referência da API", link: "/pt-br/php/api-reference" },
+                { text: "API — Operações & I/O", link: "/pt-br/php/api-features" },
+                { text: "API — Tipos & Internos", link: "/pt-br/php/api-types" },
             ],
         },
         {
