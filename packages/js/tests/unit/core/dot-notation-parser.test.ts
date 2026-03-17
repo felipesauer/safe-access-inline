@@ -104,6 +104,36 @@ describe(DotNotationParser.name, () => {
         expect(result).toEqual({ a: 1, b: 2 });
     });
 
+    it('set — structural sharing preserves sibling references', () => {
+        const sibling = { x: 1 };
+        const data = { a: sibling, b: { c: 2 } };
+        const result = DotNotationParser.set(data, 'b.c', 99);
+        // Sibling not on the mutation path should be the same reference
+        expect(result.a).toBe(sibling);
+        // Mutated path should differ
+        expect(result.b).not.toBe(data.b);
+        expect(result.b).toEqual({ c: 99 });
+    });
+
+    it('set — nested structural sharing only clones along path', () => {
+        const deep = { val: 'keep' };
+        const data = { a: { b: { target: 1 }, other: deep } };
+        const result = DotNotationParser.set(data, 'a.b.target', 2);
+        expect(result.a.other).toBe(deep);
+        expect(result.a.b.target).toBe(2);
+        expect(data.a.b.target).toBe(1); // original unchanged
+    });
+
+    // ── multi-wildcard (PERF-03 array_slice removal regression) ──
+
+    it('get — multi-wildcard path a.*.b.*.c', () => {
+        const data = {
+            a: [{ b: [{ c: 1 }, { c: 2 }] }, { b: [{ c: 3 }] }],
+        };
+        // Each outer wildcard yields an inner array from the second wildcard
+        expect(DotNotationParser.get(data, 'a.*.b.*.c')).toEqual([[1, 2], [3]]);
+    });
+
     // ── remove() ──────────────────────────────────────
 
     it('remove — existing key', () => {

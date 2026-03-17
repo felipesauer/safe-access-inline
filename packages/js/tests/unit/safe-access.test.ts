@@ -183,4 +183,32 @@ describe(SafeAccess.name, () => {
             expect(() => SafeAccess.from('data', 'unknown_xyz')).toThrow(/Unknown format/);
         });
     });
+
+    // ── LOGIC-02 regression: extend() cap & resetAll ──
+
+    it('extend — throws RangeError when cap exceeded', () => {
+        SafeAccess.resetAll();
+        for (let i = 0; i < 50; i++) {
+            SafeAccess.extend(
+                `cap_test_${i}`,
+                ArrayAccessor as unknown as new (data: unknown) => ArrayAccessor,
+            );
+        }
+        expect(() =>
+            SafeAccess.extend(
+                'cap_overflow',
+                ArrayAccessor as unknown as new (data: unknown) => ArrayAccessor,
+            ),
+        ).toThrow(RangeError);
+        SafeAccess.resetAll();
+    });
+
+    it('resetAll — clears custom accessors', () => {
+        SafeAccess.extend(
+            'reset_test',
+            ArrayAccessor as unknown as new (data: unknown) => ArrayAccessor,
+        );
+        SafeAccess.resetAll();
+        expect(() => SafeAccess.custom('reset_test', {})).toThrow();
+    });
 });

@@ -272,4 +272,17 @@ describe(FilterParser.name, () => {
         // Empty pattern matches any string
         expect(FilterParser.evaluate({ name: 'anything' }, expr)).toBe(true);
     });
+
+    // ── SEC-02 regression: invalid regex returns false ──
+
+    it('evaluate — match with invalid regex returns false', () => {
+        const expr = FilterParser.parse("match(@.val,'[invalid')");
+        expect(FilterParser.evaluate({ val: 'anything' }, expr)).toBe(false);
+    });
+
+    it('evaluate — match with slash in pattern works correctly', () => {
+        const expr = FilterParser.parse("match(@.url,'https://example')");
+        expect(FilterParser.evaluate({ url: 'https://example.com' }, expr)).toBe(true);
+        expect(FilterParser.evaluate({ url: 'ftp://other' }, expr)).toBe(false);
+    });
 });
