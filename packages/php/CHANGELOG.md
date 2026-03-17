@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.2.3](https://github.com/felipesauer/safe-access-inline/compare/php-v0.2.2...php-v0.2.3) (2026-03-17)
+
+
+### Features
+
+* **php:** add HttpClientInterface and CurlHttpClient ([30eae8d](https://github.com/felipesauer/safe-access-inline/commit/30eae8d40501ab6eb94e293582db656f245c9af7))
+* **php:** add JsonPatchTestFailedException ([ceb39e3](https://github.com/felipesauer/safe-access-inline/commit/ceb39e3ce910d68c3d3c5cb0230b483dc5d18232))
+* **php:** add security policy, audit logger, and JS feature parity ([fc77833](https://github.com/felipesauer/safe-access-inline/commit/fc778330a2e724bb781a74dceefc27080485902a))
+
+
+### Bug Fixes
+
+* improve type error message formatting in JsonSchemaAdapter ([f57c667](https://github.com/felipesauer/safe-access-inline/commit/f57c6676d4d002e73ab48079b0b7dda43bad09c9))
+* **php:** add PHPStan type annotation in JsonSchemaAdapter ([119e263](https://github.com/felipesauer/safe-access-inline/commit/119e26321b2906cea50f55dda99ab4b2753b04b2))
+
+
+### Miscellaneous Chores
+
+* update keywords in package.json and composer.json for improved searchability ([8f47646](https://github.com/felipesauer/safe-access-inline/commit/8f47646d5ada1e93cf09f8dd8826d8ac00c59c0c))
+
 ## [0.2.2](https://github.com/felipesauer/safe-access-inline/compare/php-v0.2.1...php-v0.2.2) (2026-03-14)
 
 
