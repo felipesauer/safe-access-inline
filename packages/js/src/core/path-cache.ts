@@ -8,7 +8,13 @@ export class PathCache {
 
     static get(path: string): Segment[] | undefined {
         if (!PathCache.enabled) return undefined;
-        return PathCache.cache.get(path);
+        const cached = PathCache.cache.get(path);
+        if (cached !== undefined) {
+            // Promote to most-recently-used by reinserting
+            PathCache.cache.delete(path);
+            PathCache.cache.set(path, cached);
+        }
+        return cached;
     }
 
     static set(path: string, segments: Segment[]): void {

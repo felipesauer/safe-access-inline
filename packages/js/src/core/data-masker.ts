@@ -1,5 +1,10 @@
 import { emitAudit } from './audit-emitter';
 
+/**
+ * Common sensitive key names that are always masked, regardless of user-supplied patterns.
+ * @see OWASP Sensitive Data Exposure (A02:2021 — Cryptographic Failures)
+ * @see https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html
+ */
 const COMMON_SENSITIVE_KEYS = new Set([
     'password',
     'secret',
@@ -20,6 +25,9 @@ const COMMON_SENSITIVE_KEYS = new Set([
 
 export type MaskPattern = string | RegExp;
 const REDACTED = '[REDACTED]';
+
+/** Cache compiled RegExp objects for glob-style wildcard patterns to avoid recompilation per call. */
+const wildcardRegexCache = new Map<string, RegExp>();
 
 export function mask(
     data: Record<string, unknown>,
@@ -48,9 +56,15 @@ function matchesPattern(key: string, patterns: MaskPattern[]): boolean {
 function matchWildcard(text: string, pattern: string): boolean {
     if (pattern === '*') return true;
     if (!pattern.includes('*')) return text === pattern;
-    const regex = new RegExp(
-        '^' + pattern.replace(/[.*+?^${}()|[\]\\]/g, (m) => (m === '*' ? '.*' : '\\' + m)) + '$',
-    );
+    let regex = wildcardRegexCache.get(pattern);
+    if (!regex) {
+        regex = new RegExp(
+            '^' +
+                pattern.replace(/[.*+?^${}()|[\]\\]/g, (m) => (m === '*' ? '.*' : '\\' + m)) +
+                '$',
+        );
+        wildcardRegexCache.set(pattern, regex);
+    }
     return regex.test(text);
 }
 
