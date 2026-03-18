@@ -190,6 +190,43 @@ describe('fetchUrl()', () => {
         await expect(fetchUrl('https://example.com/data')).resolves.toBe('ipv6-ok');
     });
 
+    it('rejects with SecurityError when response body exceeds maxPayloadBytes', async () => {
+        const { https, ipChecker, fetchUrl } = await getModules();
+        const { SecurityError } = await import('../../../src/exceptions/security.error');
+        vi.mocked(ipChecker.resolveAndValidateIp).mockResolvedValue('1.2.3.4');
+
+        // Create a chunk that exceeds the 10MB default limit
+        const largeChunk = 'x'.repeat(11 * 1024 * 1024);
+        const res = makeResMock(200);
+        const req = makeReqMock();
+        (vi.mocked(https.request) as ReturnType<typeof vi.fn>).mockImplementation(
+            (
+                options: {
+                    hostname?: string;
+                    lookup?: (
+                        h: string,
+                        o: object,
+                        cb: (err: null, addr: string, family: number) => void,
+                    ) => void;
+                },
+                cb?: (r: ResMock) => void,
+            ) => {
+                if (typeof options?.lookup === 'function') {
+                    options.lookup(options.hostname ?? 'example.com', {}, () => {});
+                }
+                setImmediate(() => {
+                    cb!(res);
+                    res.emit('data', largeChunk);
+                });
+                return req;
+            },
+        );
+
+        await expect(fetchUrl('https://example.com/data')).rejects.toThrow(SecurityError);
+        await expect(fetchUrl('https://example.com/data')).rejects.toThrow('exceeds maximum size');
+        expect(req.destroy).toHaveBeenCalled();
+    });
+
     it('treats response with undefined statusCode as success (covers ?? 0 branch)', async () => {
         const { https, ipChecker, fetchUrl } = await getModules();
         vi.mocked(ipChecker.resolveAndValidateIp).mockResolvedValue('1.2.3.4');
