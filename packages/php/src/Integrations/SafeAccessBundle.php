@@ -20,7 +20,9 @@ use SafeAccessInline\SafeAccess;
 class SafeAccessBundle
 {
     /**
-     * Returns the bundle name.
+     * Returns the bundle name used by Symfony's kernel.
+     *
+     * @return string The bundle identifier.
      */
     public function getName(): string
     {

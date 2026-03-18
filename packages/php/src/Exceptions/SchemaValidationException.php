@@ -1,7 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SafeAccessInline\Exceptions;
 
+/** Thrown when schema validation fails, carrying the list of validation issues. */
 class SchemaValidationException extends AccessorException
 {
     /** @var array<\SafeAccessInline\Contracts\SchemaValidationIssue> */
