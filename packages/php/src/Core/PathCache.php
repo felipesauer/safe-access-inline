@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SafeAccessInline\Core;
 
 /**
@@ -13,7 +15,17 @@ namespace SafeAccessInline\Core;
  */
 final class PathCache
 {
-    private const MAX_CACHE_SIZE = 1000;
+    private static CacheConfig $config;
+
+    private static function config(): CacheConfig
+    {
+        return self::$config ??= new CacheConfig();
+    }
+
+    public static function configure(CacheConfig $config): void
+    {
+        self::$config = $config;
+    }
 
     /** @var array<string, array<mixed>> */
     private static array $cache = [];
@@ -46,7 +58,7 @@ final class PathCache
         if (!self::$enabled) {
             return;
         }
-        if (count(self::$cache) >= self::MAX_CACHE_SIZE) {
+        if (count(self::$cache) >= self::config()->maxSize) {
             // Evict oldest entry
             reset(self::$cache);
             $firstKey = key(self::$cache);

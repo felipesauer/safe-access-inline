@@ -4,13 +4,25 @@ declare(strict_types=1);
 
 namespace SafeAccessInline\Security;
 
+use SafeAccessInline\Core\AuditConfig;
+
 /**
- * @phpstan-type AuditEventType 'file.read'|'file.watch'|'url.fetch'|'security.violation'|'security.deprecation'|'data.mask'|'data.freeze'|'schema.validate'
+ * @phpstan-type AuditEventType 'file.read'|'file.watch'|'url.fetch'|'security.violation'|'security.deprecation'|'data.mask'|'data.freeze'|'schema.validate'|'plugin.overwrite'
  * @phpstan-type AuditEvent array{type: AuditEventType, timestamp: float, detail: array<string, mixed>}
  */
 final class AuditLogger
 {
-    private const MAX_LISTENERS = 100;
+    private static AuditConfig $config;
+
+    private static function config(): AuditConfig
+    {
+        return self::$config ??= new AuditConfig();
+    }
+
+    public static function configure(AuditConfig $config): void
+    {
+        self::$config = $config;
+    }
 
     /** @var list<callable(array{type: string, timestamp: float, detail: array<string, mixed>}): void> */
     private static array $listeners = [];
@@ -22,9 +34,9 @@ final class AuditLogger
      */
     public static function onAudit(callable $listener): callable
     {
-        if (count(self::$listeners) >= self::MAX_LISTENERS) {
+        if (count(self::$listeners) >= self::config()->maxListeners) {
             throw new \OverflowException(
-                '[AuditLogger] Max listener count (' . self::MAX_LISTENERS . ') reached. '
+                '[AuditLogger] Max listener count (' . self::config()->maxListeners . ') reached. '
                 . 'Call the returned unsubscriber function or clearListeners() before registering new listeners.'
             );
         }

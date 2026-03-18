@@ -1,16 +1,35 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SafeAccessInline\Security;
+
+use SafeAccessInline\Core\MaskerConfig;
 
 final class DataMasker
 {
+    private static MaskerConfig $config;
+
+    private static function config(): MaskerConfig
+    {
+        return self::$config ??= new MaskerConfig();
+    }
+
+    public static function configure(MaskerConfig $config): void
+    {
+        self::$config = $config;
+    }
+
     private const COMMON_SENSITIVE_KEYS = [
         'password', 'secret', 'token', 'api_key', 'apikey', 'private_key',
         'passphrase', 'credential', 'auth', 'authorization', 'cookie',
         'session', 'ssn', 'credit_card', 'creditcard',
     ];
 
-    private const REDACTED = '[REDACTED]';
+    private static function redactedValue(): string
+    {
+        return self::config()->defaultMaskValue;
+    }
 
     /**
      * @param array<mixed> $data
@@ -31,13 +50,13 @@ final class DataMasker
      */
     private static function maskRecursive(array &$obj, array $patterns, int $depth): void
     {
-        if ($depth > 100) {
+        if ($depth > self::config()->maxRecursionDepth) {
             return;
         }
 
         foreach ($obj as $key => &$value) {
             if (is_string($key) && self::matchesPattern($key, $patterns)) {
-                $value = self::REDACTED;
+                $value = self::redactedValue();
             } elseif (is_array($value) && !array_is_list($value)) {
                 self::maskRecursive($value, $patterns, $depth + 1);
             } elseif (is_array($value) && array_is_list($value)) {
