@@ -3,6 +3,7 @@ import type { FilterExpression } from './filter-parser';
 import { SecurityGuard } from './security-guard';
 import { PathCache } from './path-cache';
 import { assertMaxDepth } from './security-options';
+import { deepMerge } from './deep-merger';
 
 /**
  * Segment types returned by parseSegments().
@@ -296,34 +297,14 @@ export class DotNotationParser {
     }
 
     /**
-     * Recursively merges source into target. Objects are merged; other values are replaced.
+     * Recursively merges source into target. Delegates to the shared deepMerge utility
+     * to avoid logic duplication (see ARCH-005).
      */
     private static deepMerge(
         target: Record<string, unknown>,
         source: Record<string, unknown>,
     ): Record<string, unknown> {
-        const result = structuredClone(target);
-        for (const key of Object.keys(source)) {
-            SecurityGuard.assertSafeKey(key);
-            const srcVal = source[key];
-            const tgtVal = result[key];
-            if (
-                typeof srcVal === 'object' &&
-                srcVal !== null &&
-                !Array.isArray(srcVal) &&
-                typeof tgtVal === 'object' &&
-                tgtVal !== null &&
-                !Array.isArray(tgtVal)
-            ) {
-                result[key] = DotNotationParser.deepMerge(
-                    tgtVal as Record<string, unknown>,
-                    srcVal as Record<string, unknown>,
-                );
-            } else {
-                result[key] = structuredClone(srcVal);
-            }
-        }
-        return result;
+        return deepMerge(target, source);
     }
 
     /**

@@ -1,5 +1,7 @@
 import { SecurityGuard } from './security-guard';
 
+const MAX_MERGE_DEPTH = 512;
+
 /**
  * Deep merge utility for layered configuration.
  * Objects are merged recursively. Primitives and arrays are replaced by last source.
@@ -11,7 +13,7 @@ export function deepMerge(
     let result = structuredClone(base);
 
     for (const override of overrides) {
-        result = mergeTwo(result, override);
+        result = mergeTwo(result, override, 0);
     }
 
     return result;
@@ -20,13 +22,17 @@ export function deepMerge(
 function mergeTwo(
     target: Record<string, unknown>,
     source: Record<string, unknown>,
+    depth: number,
 ): Record<string, unknown> {
-    const result = structuredClone(target);
-
+    if (depth > MAX_MERGE_DEPTH) {
+        throw new Error(`Deep merge exceeded maximum depth of ${MAX_MERGE_DEPTH}`);
+    }
+    // target is already a fresh clone owned by the caller — mutate in place
     for (const key of Object.keys(source)) {
+        // Prevent prototype-pollution during deep merge (OWASP A03:2021 — Injection)
         SecurityGuard.assertSafeKey(key);
         const srcVal = source[key];
-        const tgtVal = result[key];
+        const tgtVal = target[key];
 
         if (
             typeof srcVal === 'object' &&
@@ -36,16 +42,17 @@ function mergeTwo(
             tgtVal !== null &&
             !Array.isArray(tgtVal)
         ) {
-            result[key] = mergeTwo(
+            target[key] = mergeTwo(
                 tgtVal as Record<string, unknown>,
                 srcVal as Record<string, unknown>,
+                depth + 1,
             );
         } else {
             // Only deep-clone objects/arrays; primitives are immutable and need no cloning
-            result[key] =
+            target[key] =
                 typeof srcVal === 'object' && srcVal !== null ? structuredClone(srcVal) : srcVal;
         }
     }
 
-    return result;
+    return target;
 }

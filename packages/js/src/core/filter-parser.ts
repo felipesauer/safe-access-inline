@@ -194,9 +194,9 @@ export class FilterParser {
 
         switch (condition.operator) {
             case '==':
-                return fieldValue == expected;
+                return fieldValue === expected;
             case '!=':
-                return fieldValue != expected;
+                return fieldValue !== expected;
             case '>':
                 return (fieldValue as number) > (expected as number);
             case '<':

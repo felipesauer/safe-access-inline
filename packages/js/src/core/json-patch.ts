@@ -1,4 +1,5 @@
 import { JsonPatchTestFailedError } from '../exceptions/json-patch-test-failed.error';
+import { SecurityGuard } from './security-guard';
 
 /**
  * JSON Patch operations per RFC 6902.
@@ -203,6 +204,7 @@ function getAtPointer(data: unknown, pointer: string): unknown {
         if (Array.isArray(current)) {
             current = current[Number(key)];
         } else if (typeof current === 'object' && current !== null) {
+            SecurityGuard.assertSafeKey(key);
             current = (current as Record<string, unknown>)[key];
         } else {
             return undefined;
@@ -222,6 +224,7 @@ function mutateAtPointer(data: Record<string, unknown>, pointer: string, value: 
         if (Array.isArray(current)) {
             current = current[Number(key)];
         } else {
+            SecurityGuard.assertSafeKey(key);
             current = (current as Record<string, unknown>)[key];
         }
     }
@@ -234,6 +237,7 @@ function mutateAtPointer(data: Record<string, unknown>, pointer: string, value: 
             current[Number(lastKey)] = value;
         }
     } else {
+        SecurityGuard.assertSafeKey(lastKey);
         (current as Record<string, unknown>)[lastKey] = value;
     }
 }
@@ -249,6 +253,7 @@ function mutateRemoveAtPointer(data: Record<string, unknown>, pointer: string): 
         if (Array.isArray(current)) {
             current = current[Number(key)];
         } else {
+            SecurityGuard.assertSafeKey(key);
             current = (current as Record<string, unknown>)[key];
         }
     }
@@ -257,6 +262,7 @@ function mutateRemoveAtPointer(data: Record<string, unknown>, pointer: string): 
     if (Array.isArray(current)) {
         current.splice(Number(lastKey), 1);
     } else {
+        SecurityGuard.assertSafeKey(lastKey);
         delete (current as Record<string, unknown>)[lastKey];
     }
 }
