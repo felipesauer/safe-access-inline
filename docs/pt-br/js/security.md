@@ -20,6 +20,11 @@ import {
     SecurityPolicy,
     defaultPolicy,
     mergePolicy,
+    STRICT_POLICY,
+    PERMISSIVE_POLICY,
+    setGlobalPolicy,
+    clearGlobalPolicy,
+    getGlobalPolicy,
 } from "@safe-access-inline/safe-access-inline";
 
 const policy: SecurityPolicy = mergePolicy(defaultPolicy, {
@@ -38,6 +43,31 @@ const fromUrl = await SafeAccess.fromUrlWithPolicy(
     "https://api.example.com/config.json",
     policy,
 );
+```
+
+#### Presets de Política
+
+Dois presets integrados estão disponíveis:
+
+- **`STRICT_POLICY`** — limites restritivos para entrada não confiável
+- **`PERMISSIVE_POLICY`** — limites relaxados para ambientes confiáveis
+
+```typescript
+const accessor = SafeAccess.withPolicy(data, STRICT_POLICY);
+```
+
+#### Política Global
+
+Defina uma política global que se aplica como padrão para todas as operações:
+
+```typescript
+setGlobalPolicy(STRICT_POLICY);
+const current = getGlobalPolicy(); // SecurityPolicy | undefined
+clearGlobalPolicy();
+
+// Ou via facade SafeAccess
+SafeAccess.setGlobalPolicy(STRICT_POLICY);
+SafeAccess.clearGlobalPolicy();
 ```
 
 ### Mascaramento de dados
@@ -98,7 +128,7 @@ const unsub = SafeAccess.onAudit((event) => {
 });
 
 // Eventos: file.read, file.watch, url.fetch, security.violation,
-//         data.mask, data.freeze, schema.validate
+//         security.deprecation, data.mask, data.freeze, schema.validate
 
 // Limpar
 unsub();

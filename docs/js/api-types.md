@@ -7,6 +7,7 @@ outline: deep
 ## Table of Contents
 
 - [PluginRegistry](#pluginregistry)
+- [PathCache](#pathcache)
 - [DotNotationParser](#dotnotationparser)
 - [Errors](#errors)
 - [TypeScript Types](#typescript-types)
@@ -169,15 +170,16 @@ Returns a new object (does not mutate input).
 
 ## Errors
 
-| Error                    | When                                                                                             |
-| ------------------------ | ------------------------------------------------------------------------------------------------ |
-| `AccessorError`          | Base error class                                                                                 |
-| `InvalidFormatError`     | Invalid input format (e.g., malformed JSON, missing parser plugin)                               |
-| `PathNotFoundError`      | Reserved (not thrown by `get()`)                                                                 |
-| `UnsupportedTypeError`   | No serializer/parser plugin registered for the requested format (e.g., `toXml()` without plugin) |
-| `SecurityError`          | Security constraint violation (payload size, key count, depth, URL safety, XML entities)         |
-| `ReadonlyViolationError` | Mutation attempted on a readonly accessor                                                        |
-| `SchemaValidationError`  | Data fails schema validation via `validate()`                                                    |
+| Error                      | When                                                                                     |
+| -------------------------- | ---------------------------------------------------------------------------------------- |
+| `AccessorError`            | Base error class                                                                         |
+| `InvalidFormatError`       | Invalid input format (e.g., malformed JSON, missing parser plugin)                       |
+| `PathNotFoundError`        | Reserved (not thrown by `get()`)                                                         |
+| `UnsupportedTypeError`     | No serializer/parser plugin registered for the requested format                          |
+| `SecurityError`            | Security constraint violation (payload size, key count, depth, URL safety, XML entities) |
+| `ReadonlyViolationError`   | Mutation attempted on a readonly accessor                                                |
+| `SchemaValidationError`    | Data fails schema validation via `validate()`                                            |
+| `JsonPatchTestFailedError` | JSON Patch `test` operation failed — value at path does not match expected value         |
 
 All errors extend the base `Error` class and `AccessorError`.
 

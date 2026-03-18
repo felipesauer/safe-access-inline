@@ -113,11 +113,11 @@ accessor.toJson(true); // JSON formatado
 // YAML e TOML funcionam sem configuração (via js-yaml e smol-toml)
 accessor.toYaml(); // "name: Ana\nage: 30\n"
 accessor.toToml(); // 'name = "Ana"\nage = 30\n'
-accessor.toXml("person"); // requer plugin serializer 'xml'
-accessor.transform("yaml"); // genérico — usa PluginRegistry
+accessor.toXml("person"); // usa serializador interno (plugin pode substituir)
+accessor.transform("yaml"); // delega para toYaml()
 ```
 
-> **Nota:** `toXml()` e `transform()` para formatos customizados requerem plugins serializer. `toYaml()` e `toToml()` funcionam sem configuração.
+> **Nota:** `toYaml()`, `toToml()` e `toXml()` funcionam sem configuração. `transform()` também utiliza os serializadores internos para `yaml`, `toml` e `csv`.
 
 ---
 

@@ -197,7 +197,7 @@ safe-access-inline/
 │   │   ├── src/
 │   │   │   ├── Accessors/   # 10 accessors de formato (incl. NDJSON)
 │   │   │   ├── Contracts/   # Interfaces (incl. ParserPlugin, SerializerPlugin, SchemaAdapter)
-│   │   │   ├── Core/        # AbstractAccessor, DotNotationParser, TypeDetector, PluginRegistry, SchemaRegistry, JsonPatch, IoLoader, FileWatcher, DeepMerger
+│   │   │   ├── Core/        # AbstractAccessor, DotNotationParser, PathCache, TypeDetector, PluginRegistry, SchemaRegistry, JsonPatch, IoLoader, FileWatcher, DeepMerger
 │   │   │   ├── Enums/       # AccessorFormat enum
 │   │   │   ├── Exceptions/  # Hierarquia de exceções (incl. SecurityException, SchemaValidationException, ReadonlyViolationException)
 │   │   │   ├── Integrations/# LaravelServiceProvider, SymfonyIntegration
@@ -212,7 +212,7 @@ safe-access-inline/
 │   │   ├── src/
 │   │   │   ├── accessors/   # 10 accessors de formato (incl. NDJSON)
 │   │   │   ├── contracts/   # Interfaces TypeScript
-│   │   │   ├── core/        # AbstractAccessor, DotNotationParser, TypeDetector, PluginRegistry, SchemaRegistry, JsonPatch, IoLoader, FileWatcher, DeepMerger, AuditLogger
+│   │   │   ├── core/        # AbstractAccessor, DotNotationParser, PathCache, TypeDetector, PluginRegistry, SchemaRegistry, JsonPatch, IoLoader, FileWatcher, DeepMerger, AuditEmitter
 │   │   │   ├── exceptions/  # Hierarquia de erros (incl. SecurityError, SchemaValidationError, ReadonlyViolationError)
 │   │   │   ├── integrations/# Módulo NestJS, plugin Vite
 │   │   │   ├── plugins/     # Plugins incluídos (JsYaml*, SmolToml*)
@@ -272,6 +272,8 @@ Carregamento de arquivos e URLs segue um pipeline seguro:
 
 File watching usa polling (`FileWatcher`) — verifica mtime em intervalos configuráveis. Retorna uma função stop para cleanup.
 
+- **PathCache** — Cache LRU em memória entre `AbstractAccessor` e `DotNotationParser`. Arrays de segmentos de caminhos parseados são armazenados indexados pela string do caminho, eliminando re-parsing redundante em acessos frequentes.
+
 Configuração em camadas (`layer()`, `layerFiles()`) realiza deep-merge de múltiplas fontes com semântica last-wins.
 
 ## Validação de Schema
@@ -294,7 +296,7 @@ Usuários implementam `SchemaAdapterInterface` com sua biblioteca de validação
 
 O sistema de auditoria fornece observabilidade para operações relevantes à segurança:
 
-- **Tipos de evento:** `file.read`, `file.watch`, `url.fetch`, `security.violation`, `data.mask`, `data.freeze`, `schema.validate`
+- **Tipos de evento:** `file.read`, `file.watch`, `url.fetch`, `security.violation`, `security.deprecation`, `data.mask`, `data.freeze`, `schema.validate`
 - **Assinatura:** `SafeAccess.onAudit(listener)` retorna uma função de unsubscribe
 - **Emissão:** Interna — disparada automaticamente por IoLoader, DataMasker, validação de schema, etc.
 - **Design:** Padrão pub/sub. Listeners são síncronos. Eventos incluem campos `type`, `timestamp` e `detail`.

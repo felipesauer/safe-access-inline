@@ -168,15 +168,16 @@ Retorna um novo objeto (não muta o input).
 
 ## Erros
 
-| Erro                     | Quando                                                                                                                     |
-| ------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
-| `AccessorError`          | Classe base de erro                                                                                                        |
-| `InvalidFormatError`     | Formato de input inválido (ex: JSON malformado, plugin parser ausente)                                                     |
-| `PathNotFoundError`      | Reservado (não lançado por `get()`)                                                                                        |
-| `UnsupportedTypeError`   | Nenhum plugin serializer/parser registrado para o formato solicitado (ex: `toXml()` sem plugin)                            |
-| `SecurityError`          | Violação de restrição de segurança (tamanho do payload, contagem de chaves, profundidade, segurança de URL, entidades XML) |
-| `ReadonlyViolationError` | Tentativa de mutação em um accessor readonly                                                                               |
-| `SchemaValidationError`  | Dados falham na validação de schema via `validate()`                                                                       |
+| Erro                       | Quando                                                                                                                     |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `AccessorError`            | Classe base de erro                                                                                                        |
+| `InvalidFormatError`       | Formato de input inválido (ex: JSON malformado, plugin parser ausente)                                                     |
+| `PathNotFoundError`        | Reservado (não lançado por `get()`)                                                                                        |
+| `UnsupportedTypeError`     | Nenhum plugin serializer/parser registrado para o formato solicitado                                                       |
+| `SecurityError`            | Violação de restrição de segurança (tamanho do payload, contagem de chaves, profundidade, segurança de URL, entidades XML) |
+| `ReadonlyViolationError`   | Tentativa de mutação em um accessor readonly                                                                               |
+| `SchemaValidationError`    | Dados falham na validação de schema via `validate()`                                                                       |
+| `JsonPatchTestFailedError` | Operação `test` do JSON Patch falhou — valor no caminho não corresponde ao valor esperado                                  |
 
 Todos os erros estendem a classe base `Error` e `AccessorError`.
 

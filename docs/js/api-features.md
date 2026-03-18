@@ -378,6 +378,7 @@ type AuditEventType =
     | "file.watch"
     | "url.fetch"
     | "security.violation"
+    | "security.deprecation"
     | "data.mask"
     | "data.freeze"
     | "schema.validate";
@@ -389,7 +390,7 @@ type AuditEventType =
 
 ### NestJS
 
-**Import:** `import { SafeAccessModule, SAFE_ACCESS, createSafeAccessProvider } from '@safe-access-inline/safe-access-inline'`
+**Import:** `import { SafeAccessModule, SafeAccessService, SAFE_ACCESS, createSafeAccessProvider, createSafeAccessServiceProvider } from '@safe-access-inline/safe-access-inline'`
 
 ```typescript
 // Option 1: Module registration
@@ -417,6 +418,31 @@ export class ConfigModule {}
 @Injectable()
 class MyService {
     constructor(@Inject(SAFE_ACCESS) private config: AbstractAccessor) {}
+}
+```
+
+#### `createSafeAccessProvider(options: SafeAccessModuleOptions)`
+
+Returns a NestJS provider definition that resolves an `AbstractAccessor` under the `SAFE_ACCESS` injection token. Use when you want to inject the accessor directly.
+
+#### `createSafeAccessServiceProvider(options: SafeAccessModuleOptions)`
+
+Returns a NestJS provider definition that resolves a `SafeAccessService` instance, which wraps the accessor and can be injected by type.
+
+```typescript
+@Module({
+    providers: [createSafeAccessServiceProvider({ filePath: "./config.yaml" })],
+    exports: [SafeAccessService],
+})
+export class ConfigModule {}
+
+@Injectable()
+class MyService {
+    constructor(private config: SafeAccessService) {}
+
+    getHost() {
+        return this.config.get("database.host");
+    }
 }
 ```
 

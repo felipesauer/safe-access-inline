@@ -5,6 +5,10 @@ import { InvalidFormatError } from '../exceptions/invalid-format.error';
  * Accessor for NDJSON (Newline Delimited JSON) strings.
  * Each line is a separate JSON object.
  * Result: object with numeric string indices mapping to parsed JSON objects.
+ *
+ * **Strict parsing:** Every non-empty line must be valid JSON. If any line
+ * fails to parse, an `InvalidFormatError` is thrown immediately — there is
+ * no lenient/skip mode. Empty and whitespace-only lines are silently ignored.
  */
 export class NdjsonAccessor<
     T extends Record<string, unknown> = Record<string, unknown>,

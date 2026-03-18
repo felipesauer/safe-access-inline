@@ -392,6 +392,15 @@ $accessor = SafeAccess::fromArray([['id' => 1], ['id' => 2]]);
 $accessor->toNdjson(); // '{"id":1}\n{"id":2}'
 ```
 
+#### `toCsv(?string $csvMode = null): string`
+
+Serializes the data to CSV format. The optional `$csvMode` parameter controls CSV injection sanitization: `'none'` (default), `'prefix'`, `'strip'`, or `'error'`.
+
+```php
+$accessor->toCsv();          // default: no sanitization
+$accessor->toCsv('strip');   // strip dangerous leading characters
+```
+
 #### `transform(string $format): string`
 
 Serialize data to any format. Falls back to built-in serializers for `yaml` and `toml` (no plugin required). Other formats require a registered serializer plugin; throws `UnsupportedTypeException` if none is found.

@@ -29,6 +29,11 @@ import {
     SecurityPolicy,
     defaultPolicy,
     mergePolicy,
+    STRICT_POLICY,
+    PERMISSIVE_POLICY,
+    setGlobalPolicy,
+    clearGlobalPolicy,
+    getGlobalPolicy,
 } from "@safe-access-inline/safe-access-inline";
 
 const policy: SecurityPolicy = mergePolicy(defaultPolicy, {
@@ -47,6 +52,31 @@ const fromUrl = await SafeAccess.fromUrlWithPolicy(
     "https://api.example.com/config.json",
     policy,
 );
+```
+
+#### Policy Presets
+
+Two built-in presets are available:
+
+- **`STRICT_POLICY`** — restrictive limits suitable for untrusted input
+- **`PERMISSIVE_POLICY`** — relaxed limits for trusted environments
+
+```typescript
+const accessor = SafeAccess.withPolicy(data, STRICT_POLICY);
+```
+
+#### Global Policy
+
+Set a global policy that applies as the default for all operations:
+
+```typescript
+setGlobalPolicy(STRICT_POLICY);
+const current = getGlobalPolicy(); // SecurityPolicy | undefined
+clearGlobalPolicy();
+
+// Or via SafeAccess facade
+SafeAccess.setGlobalPolicy(STRICT_POLICY);
+SafeAccess.clearGlobalPolicy();
 ```
 
 ### Data masking
@@ -107,7 +137,7 @@ const unsub = SafeAccess.onAudit((event) => {
 });
 
 // Events: file.read, file.watch, url.fetch, security.violation,
-//         data.mask, data.freeze, schema.validate
+//         security.deprecation, data.mask, data.freeze, schema.validate
 
 // Clean up
 unsub();

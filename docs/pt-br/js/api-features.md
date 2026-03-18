@@ -354,8 +354,8 @@ const unsubscribe = SafeAccess.onAudit((event) => {
     console.log(`[${event.type}]`, event.detail);
 });
 
-// Tipos de evento: 'file.read', 'url.fetch', 'security.violation', 'data.mask',
-//                  'file.watch', 'data.freeze', 'schema.validate'
+// Tipos de evento: 'file.read', 'url.fetch', 'security.violation', 'security.deprecation',
+//                  'data.mask', 'file.watch', 'data.freeze', 'schema.validate'
 
 // Limpeza
 SafeAccess.clearAuditListeners();
@@ -376,6 +376,7 @@ type AuditEventType =
     | "file.watch"
     | "url.fetch"
     | "security.violation"
+    | "security.deprecation"
     | "data.mask"
     | "data.freeze"
     | "schema.validate";

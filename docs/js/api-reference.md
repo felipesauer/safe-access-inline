@@ -19,23 +19,25 @@ See also: [API — Operations & I/O](/js/api-features) · [API — Types & Inter
 
 ### Factory Methods
 
-#### `SafeAccess.fromArray(data: unknown[]): ArrayAccessor`
+#### `SafeAccess.fromArray(data: unknown[], options?: { readonly?: boolean }): ArrayAccessor`
 
-Creates an accessor from an array or object.
+Creates an accessor from an array. Pass `{ readonly: true }` to prevent mutations.
 
 ```typescript
 const accessor = SafeAccess.fromArray([{ name: "Ana" }, { name: "Bob" }]);
+const ro = SafeAccess.fromArray([1, 2, 3], { readonly: true });
 ```
 
-#### `SafeAccess.fromObject(data: Record<string, unknown>): ObjectAccessor`
+#### `SafeAccess.fromObject(data: Record<string, unknown>, options?: { readonly?: boolean }): ObjectAccessor`
 
-Creates an accessor from a plain object.
+Creates an accessor from a plain object. Pass `{ readonly: true }` to prevent mutations.
 
 ```typescript
 const accessor = SafeAccess.fromObject({ name: "Ana", age: 30 });
+const ro = SafeAccess.fromObject({ key: "value" }, { readonly: true });
 ```
 
-#### `SafeAccess.fromJson(data: string): JsonAccessor`
+#### `SafeAccess.fromJson(data: string, options?: { readonly?: boolean }): JsonAccessor`
 
 Creates an accessor from a JSON string.
 
@@ -43,7 +45,7 @@ Creates an accessor from a JSON string.
 const accessor = SafeAccess.fromJson('{"name": "Ana"}');
 ```
 
-#### `SafeAccess.fromXml(data: string): XmlAccessor`
+#### `SafeAccess.fromXml(data: string, options?: { readonly?: boolean }): XmlAccessor`
 
 Creates an accessor from an XML string.
 
@@ -51,7 +53,7 @@ Creates an accessor from an XML string.
 const accessor = SafeAccess.fromXml("<root><name>Ana</name></root>");
 ```
 
-#### `SafeAccess.fromYaml(data: string): YamlAccessor`
+#### `SafeAccess.fromYaml(data: string, options?: { readonly?: boolean }): YamlAccessor`
 
 Creates an accessor from a YAML string. Uses `js-yaml` by default. If a parser plugin is registered via `PluginRegistry`, the plugin takes precedence.
 
@@ -59,7 +61,7 @@ Creates an accessor from a YAML string. Uses `js-yaml` by default. If a parser p
 const accessor = SafeAccess.fromYaml("name: Ana\nage: 30");
 ```
 
-#### `SafeAccess.fromToml(data: string): TomlAccessor`
+#### `SafeAccess.fromToml(data: string, options?: { readonly?: boolean }): TomlAccessor`
 
 Creates an accessor from a TOML string. Uses `smol-toml` by default. If a parser plugin is registered via `PluginRegistry`, the plugin takes precedence.
 
@@ -67,7 +69,7 @@ Creates an accessor from a TOML string. Uses `smol-toml` by default. If a parser
 const accessor = SafeAccess.fromToml('name = "Ana"');
 ```
 
-#### `SafeAccess.fromIni(data: string): IniAccessor`
+#### `SafeAccess.fromIni(data: string, options?: { readonly?: boolean }): IniAccessor`
 
 Creates an accessor from an INI string.
 
@@ -75,7 +77,7 @@ Creates an accessor from an INI string.
 const accessor = SafeAccess.fromIni("[section]\nkey = value");
 ```
 
-#### `SafeAccess.fromCsv(data: string): CsvAccessor`
+#### `SafeAccess.fromCsv(data: string, options?: { readonly?: boolean }): CsvAccessor`
 
 Creates an accessor from a CSV string (first line = headers).
 
@@ -83,7 +85,7 @@ Creates an accessor from a CSV string (first line = headers).
 const accessor = SafeAccess.fromCsv("name,age\nAna,30");
 ```
 
-#### `SafeAccess.fromEnv(data: string): EnvAccessor`
+#### `SafeAccess.fromEnv(data: string, options?: { readonly?: boolean }): EnvAccessor`
 
 Creates an accessor from a `.env` format string.
 
@@ -91,7 +93,7 @@ Creates an accessor from a `.env` format string.
 const accessor = SafeAccess.fromEnv("APP_NAME=MyApp\nDEBUG=true");
 ```
 
-#### `SafeAccess.fromNdjson(data: string): NdjsonAccessor`
+#### `SafeAccess.fromNdjson(data: string, options?: { readonly?: boolean }): NdjsonAccessor`
 
 Creates an accessor from a newline-delimited JSON (NDJSON) string.
 
@@ -200,6 +202,31 @@ accessor.has("user.name"); // true
 accessor.has("missing"); // false
 ```
 
+#### `getTemplate(template: string, bindings: Record<string, string | number>, defaultValue?: unknown): unknown`
+
+Resolves a template string by substituting `{key}` placeholders with binding values, then reads the resulting path.
+
+```typescript
+accessor.getTemplate("users.{id}.name", { id: 0 }); // 'Ana'
+accessor.getTemplate(
+    "settings.{section}.{key}",
+    { section: "db", key: "host" },
+    "localhost",
+);
+```
+
+#### `getAt(segments: string[], defaultValue?: unknown): unknown`
+
+Access a value via an array of path segments (programmatic alternative to dot-notation strings).
+
+```typescript
+accessor.getAt(["users", "0", "name"]); // 'Ana'
+```
+
+#### `hasAt(segments: string[]): boolean`
+
+Check if a path exists using an array of segments.
+
 #### `type(path: string): string | null`
 
 Returns the normalized type of the value at the given path, or `null` if path doesn't exist.
@@ -272,6 +299,18 @@ const newAccessor = accessor.remove("user.age");
 // accessor is unchanged, newAccessor has 'age' removed
 ```
 
+#### `setAt(segments: string[], value: unknown): AbstractAccessor`
+
+Sets a value using an array of path segments. Returns a **new instance**.
+
+```typescript
+const newAccessor = accessor.setAt(["user", "email"], "ana@example.com");
+```
+
+#### `removeAt(segments: string[]): AbstractAccessor`
+
+Removes a path using an array of segments. Returns a **new instance**.
+
 ### Transformation
 
 #### `toArray(): Record<string, unknown>`
@@ -331,6 +370,15 @@ Serializes the data to newline-delimited JSON. Each top-level array item becomes
 
 ```typescript
 accessor.toNdjson(); // '{"id":1}\n{"id":2}'
+```
+
+#### `toCsv(csvMode?: 'none' | 'prefix' | 'strip' | 'error'): string`
+
+Serializes the data to CSV format. The optional `csvMode` parameter controls CSV injection sanitization.
+
+```typescript
+accessor.toCsv(); // default: no sanitization
+accessor.toCsv("strip"); // strip dangerous leading characters
 ```
 
 #### `transform(format: string): string`

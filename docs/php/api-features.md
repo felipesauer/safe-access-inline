@@ -100,7 +100,7 @@ $stop();
 
 Subscribes to audit events. Returns an unsubscribe function.
 
-Event types: `file.read`, `file.watch`, `url.fetch`, `security.violation`, `data.mask`, `data.freeze`, `schema.validate`.
+Event types: `file.read`, `file.watch`, `url.fetch`, `security.violation`, `security.deprecation`, `data.mask`, `data.freeze`, `schema.validate`.
 
 ```php
 $unsub = SafeAccess::onAudit(function (array $event) {

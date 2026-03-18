@@ -7,6 +7,7 @@ outline: deep
 ## Table of Contents
 
 - [PluginRegistry](#pluginregistry)
+- [PathCache](#pathcache)
 - [DotNotationParser](#dotnotationparser)
 - [Exceptions](#exceptions)
 - [Interfaces](#interfaces)
@@ -88,6 +89,46 @@ interface SerializerPluginInterface
     public function serialize(array $data): string;
 }
 ```
+
+---
+
+## PathCache
+
+**Namespace:** `SafeAccessInline\Core\PathCache`
+
+An internal LRU-style cache for parsed dot-notation path segments. Exported for advanced use cases such as pre-warming the cache or clearing it between test runs. All methods are static.
+
+#### `PathCache::get(string $path): ?array`
+
+Retrieve cached parsed segments for the given path string.
+
+#### `PathCache::set(string $path, array $segments): void`
+
+Store parsed segments in the cache.
+
+#### `PathCache::has(string $path): bool`
+
+Check if a path is cached.
+
+#### `PathCache::clear(): void`
+
+Evict all entries from the cache.
+
+#### `PathCache::size(): int`
+
+Return the current number of cached entries.
+
+#### `PathCache::enable(): void`
+
+Enable the cache (enabled by default).
+
+#### `PathCache::disable(): void`
+
+Disable the cache — all lookups will bypass the cache.
+
+#### `PathCache::isEnabled(): bool`
+
+Check if the cache is currently enabled.
 
 ---
 

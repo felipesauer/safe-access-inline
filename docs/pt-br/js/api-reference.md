@@ -22,23 +22,25 @@ outline: deep
 
 ### Métodos Factory
 
-#### `SafeAccess.fromArray(data: unknown[]): ArrayAccessor`
+#### `SafeAccess.fromArray(data: unknown[], options?: { readonly?: boolean }): ArrayAccessor`
 
-Cria um accessor a partir de um array ou objeto.
+Cria um accessor a partir de um array. Passe `{ readonly: true }` para prevenir mutações.
 
 ```typescript
 const accessor = SafeAccess.fromArray([{ name: "Ana" }, { name: "Bob" }]);
+const ro = SafeAccess.fromArray([1, 2, 3], { readonly: true });
 ```
 
-#### `SafeAccess.fromObject(data: Record<string, unknown>): ObjectAccessor`
+#### `SafeAccess.fromObject(data: Record<string, unknown>, options?: { readonly?: boolean }): ObjectAccessor`
 
-Cria um accessor a partir de um objeto plano.
+Cria um accessor a partir de um objeto plano. Passe `{ readonly: true }` para prevenir mutações.
 
 ```typescript
 const accessor = SafeAccess.fromObject({ name: "Ana", age: 30 });
+const ro = SafeAccess.fromObject({ key: "value" }, { readonly: true });
 ```
 
-#### `SafeAccess.fromJson(data: string): JsonAccessor`
+#### `SafeAccess.fromJson(data: string, options?: { readonly?: boolean }): JsonAccessor`
 
 Cria um accessor a partir de uma string JSON.
 
@@ -46,7 +48,7 @@ Cria um accessor a partir de uma string JSON.
 const accessor = SafeAccess.fromJson('{"name": "Ana"}');
 ```
 
-#### `SafeAccess.fromXml(data: string): XmlAccessor`
+#### `SafeAccess.fromXml(data: string, options?: { readonly?: boolean }): XmlAccessor`
 
 Cria um accessor a partir de uma string XML.
 
@@ -54,7 +56,7 @@ Cria um accessor a partir de uma string XML.
 const accessor = SafeAccess.fromXml("<root><name>Ana</name></root>");
 ```
 
-#### `SafeAccess.fromYaml(data: string): YamlAccessor`
+#### `SafeAccess.fromYaml(data: string, options?: { readonly?: boolean }): YamlAccessor`
 
 Cria um accessor a partir de uma string YAML. Usa `js-yaml` por padrão. Se um plugin parser for registrado via `PluginRegistry`, o plugin tem prioridade.
 
@@ -62,7 +64,7 @@ Cria um accessor a partir de uma string YAML. Usa `js-yaml` por padrão. Se um p
 const accessor = SafeAccess.fromYaml("name: Ana\nage: 30");
 ```
 
-#### `SafeAccess.fromToml(data: string): TomlAccessor`
+#### `SafeAccess.fromToml(data: string, options?: { readonly?: boolean }): TomlAccessor`
 
 Cria um accessor a partir de uma string TOML. Usa `smol-toml` por padrão. Se um plugin parser for registrado via `PluginRegistry`, o plugin tem prioridade.
 
@@ -70,7 +72,7 @@ Cria um accessor a partir de uma string TOML. Usa `smol-toml` por padrão. Se um
 const accessor = SafeAccess.fromToml('name = "Ana"');
 ```
 
-#### `SafeAccess.fromIni(data: string): IniAccessor`
+#### `SafeAccess.fromIni(data: string, options?: { readonly?: boolean }): IniAccessor`
 
 Cria um accessor a partir de uma string INI.
 
@@ -78,7 +80,7 @@ Cria um accessor a partir de uma string INI.
 const accessor = SafeAccess.fromIni("[section]\nkey = value");
 ```
 
-#### `SafeAccess.fromCsv(data: string): CsvAccessor`
+#### `SafeAccess.fromCsv(data: string, options?: { readonly?: boolean }): CsvAccessor`
 
 Cria um accessor a partir de uma string CSV (primeira linha = cabeçalhos).
 
@@ -86,7 +88,7 @@ Cria um accessor a partir de uma string CSV (primeira linha = cabeçalhos).
 const accessor = SafeAccess.fromCsv("name,age\nAna,30");
 ```
 
-#### `SafeAccess.fromEnv(data: string): EnvAccessor`
+#### `SafeAccess.fromEnv(data: string, options?: { readonly?: boolean }): EnvAccessor`
 
 Cria um accessor a partir de uma string no formato `.env`.
 
@@ -94,7 +96,7 @@ Cria um accessor a partir de uma string no formato `.env`.
 const accessor = SafeAccess.fromEnv("APP_NAME=MyApp\nDEBUG=true");
 ```
 
-#### `SafeAccess.fromNdjson(data: string): NdjsonAccessor`
+#### `SafeAccess.fromNdjson(data: string, options?: { readonly?: boolean }): NdjsonAccessor`
 
 Cria um accessor a partir de uma string JSON delimitada por linhas (NDJSON).
 
@@ -137,7 +139,7 @@ Lança `InvalidFormatError` se o formato for desconhecido e não estiver registr
 
 Auto-detecta o formato e cria o accessor apropriado.
 
-Prioridade de detecção: array → object → string JSON → string XML → string YAML → string INI → string ENV.
+Prioridade de detecção: array → object → string JSON (com fallback NDJSON) → string XML → string YAML → string TOML → string INI → string ENV.
 
 ```typescript
 const accessor = SafeAccess.detect({ key: "value" }); // ObjectAccessor
@@ -202,6 +204,31 @@ Verifica se um caminho existe nos dados.
 accessor.has("user.name"); // true
 accessor.has("missing"); // false
 ```
+
+#### `getTemplate(template: string, bindings: Record<string, string | number>, defaultValue?: unknown): unknown`
+
+Resolve uma string de template substituindo placeholders `{key}` com valores dos bindings, e então lê o caminho resultante.
+
+```typescript
+accessor.getTemplate("users.{id}.name", { id: 0 }); // 'Ana'
+accessor.getTemplate(
+    "settings.{section}.{key}",
+    { section: "db", key: "host" },
+    "localhost",
+);
+```
+
+#### `getAt(segments: string[], defaultValue?: unknown): unknown`
+
+Acessa um valor via array de segmentos de caminho (alternativa programática a strings com notação de ponto).
+
+```typescript
+accessor.getAt(["users", "0", "name"]); // 'Ana'
+```
+
+#### `hasAt(segments: string[]): boolean`
+
+Verifica se um caminho existe usando um array de segmentos.
 
 #### `type(path: string): string | null`
 
@@ -275,6 +302,18 @@ const newAccessor = accessor.remove("user.age");
 // accessor inalterado, newAccessor tem 'age' removido
 ```
 
+#### `setAt(segments: string[], value: unknown): AbstractAccessor`
+
+Define um valor usando um array de segmentos de caminho. Retorna uma **nova instância**.
+
+```typescript
+const newAccessor = accessor.setAt(["user", "email"], "ana@example.com");
+```
+
+#### `removeAt(segments: string[]): AbstractAccessor`
+
+Remove um caminho usando um array de segmentos. Retorna uma **nova instância**.
+
 ### Transformação
 
 #### `toArray(): Record<string, unknown>`
@@ -314,17 +353,18 @@ accessor.toToml(); // 'name = "Ana"\n'
 
 #### `toXml(rootElement?: string): string`
 
-Serializa os dados para XML. Requer um plugin serializer `'xml'` registrado via `PluginRegistry`. Cai para `UnsupportedTypeError` se nenhum serializer estiver registrado. O parâmetro `rootElement` (padrão: `'root'`) é passado internamente mas o plugin serializer controla a saída real.
+Serializa os dados para XML. Usa um serializador XML interno por padrão — produz `<?xml version="1.0"?><root>...</root>`. Se um plugin serializer `'xml'` for registrado via `PluginRegistry`, o plugin tem prioridade. O parâmetro `rootElement` (padrão: `'root'`) define o nome do elemento raiz XML.
 
 ```typescript
-PluginRegistry.registerSerializer("xml", {
-    serialize: (data) => {
-        // Sua lógica de serialização XML
-        return "<root>...</root>";
-    },
-});
+// Serializador interno (sem necessidade de plugin)
+accessor.toXml(); // <?xml version="1.0"?>\n<root>...</root>
+accessor.toXml("config"); // <?xml version="1.0"?>\n<config>...</config>
 
-accessor.toXml();
+// Registre um plugin para substituir o serializador interno
+PluginRegistry.registerSerializer("xml", {
+    serialize: (data) => myXmlLib.build(data),
+});
+accessor.toXml(); // usa seu plugin
 ```
 
 #### `toNdjson(): string`
@@ -333,6 +373,15 @@ Serializa os dados para JSON delimitado por linhas. Cada item de array de nível
 
 ```typescript
 accessor.toNdjson(); // '{"id":1}\n{"id":2}'
+```
+
+#### `toCsv(csvMode?: 'none' | 'prefix' | 'strip' | 'error'): string`
+
+Serializa os dados para formato CSV. O parâmetro opcional `csvMode` controla a sanitização de injeção CSV.
+
+```typescript
+accessor.toCsv(); // padrão: sem sanitização
+accessor.toCsv("strip"); // remove caracteres iniciais perigosos
 ```
 
 #### `transform(format: string): string`

@@ -100,7 +100,7 @@ $stop();
 
 Inscreve-se em eventos de auditoria. Retorna uma função de cancelamento de inscrição.
 
-Tipos de evento: `file.read`, `file.watch`, `url.fetch`, `security.violation`, `data.mask`, `data.freeze`, `schema.validate`.
+Tipos de evento: `file.read`, `file.watch`, `url.fetch`, `security.violation`, `security.deprecation`, `data.mask`, `data.freeze`, `schema.validate`.
 
 ```php
 $unsub = SafeAccess::onAudit(function (array $event) {

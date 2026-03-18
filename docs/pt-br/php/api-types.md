@@ -7,6 +7,7 @@ outline: deep
 ## Índice
 
 - [PluginRegistry](#pluginregistry)
+- [PathCache](#pathcache)
 - [DotNotationParser](#dotnotationparser)
 - [Exceções](#exceções)
 - [Interfaces](#interfaces)
@@ -88,6 +89,46 @@ interface SerializerPluginInterface
     public function serialize(array $data): string;
 }
 ```
+
+---
+
+## PathCache
+
+**Namespace:** `SafeAccessInline\Core\PathCache`
+
+Um cache interno estilo LRU para segmentos de caminho dot-notation já parseados. Exportado para casos de uso avançados como pré-aquecimento do cache ou limpeza entre testes. Todos os métodos são estáticos.
+
+#### `PathCache::get(string $path): ?array`
+
+Retorna os segmentos parseados em cache para o caminho dado.
+
+#### `PathCache::set(string $path, array $segments): void`
+
+Armazena segmentos parseados no cache.
+
+#### `PathCache::has(string $path): bool`
+
+Verifica se um caminho está em cache.
+
+#### `PathCache::clear(): void`
+
+Remove todas as entradas do cache.
+
+#### `PathCache::size(): int`
+
+Retorna o número atual de entradas em cache.
+
+#### `PathCache::enable(): void`
+
+Habilita o cache (habilitado por padrão).
+
+#### `PathCache::disable(): void`
+
+Desabilita o cache — todas as buscas ignoram o cache.
+
+#### `PathCache::isEnabled(): bool`
+
+Verifica se o cache está atualmente habilitado.
 
 ---
 

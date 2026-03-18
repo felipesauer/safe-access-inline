@@ -36,6 +36,31 @@ $accessor = SafeAccess::fromFileWithPolicy('/app/config.json', $policy);
 $accessor = SafeAccess::fromUrlWithPolicy('https://api.example.com/config.json', $policy);
 ```
 
+#### Policy Presets
+
+Two built-in presets are available:
+
+- **`SecurityPolicy::strict()`** — restrictive limits suitable for untrusted input
+- **`SecurityPolicy::permissive()`** — relaxed limits for trusted environments
+
+```php
+$accessor = SafeAccess::withPolicy($data, SecurityPolicy::strict());
+```
+
+#### Global Policy
+
+Set a global policy that applies as the default for all operations:
+
+```php
+SecurityPolicy::setGlobal(SecurityPolicy::strict());
+$current = SecurityPolicy::getGlobal(); // ?SecurityPolicy
+SecurityPolicy::clearGlobal();
+
+// Or via SafeAccess facade
+SafeAccess::setGlobalPolicy(SecurityPolicy::strict());
+SafeAccess::clearGlobalPolicy();
+```
+
 ### Data masking
 
 ```php
@@ -95,7 +120,7 @@ $unsub = SafeAccess::onAudit(function (array $event) {
 });
 
 // Events: file.read, file.watch, url.fetch, security.violation,
-//         data.mask, data.freeze, schema.validate
+//         security.deprecation, data.mask, data.freeze, schema.validate
 
 // Clean up
 $unsub();
