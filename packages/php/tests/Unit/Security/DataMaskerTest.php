@@ -87,6 +87,11 @@ describe(DataMasker::class, function () {
         $result = DataMasker::mask($data, ['/^zzz_/']);
         expect($result['app_name'])->toBe('test');
     });
+
+    it('throws InvalidArgumentException for invalid regex pattern', function () {
+        $data = ['some_key' => 'value'];
+        DataMasker::mask($data, ['/[invalid/']);
+    })->throws(\InvalidArgumentException::class, 'Invalid regex pattern');
 });
 
 describe('AbstractAccessor::masked()', function () {
