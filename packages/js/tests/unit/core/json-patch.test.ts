@@ -138,4 +138,16 @@ describe('AbstractAccessor.diff() and applyPatch()', () => {
         const result = a.applyPatch(ops);
         expect(result.all()).toEqual(b.all());
     });
+
+    it('applyPatch — throws when move operation is missing from field', () => {
+        expect(() => applyPatch({ a: 1 }, [{ op: 'move', path: '/b' } as JsonPatchOp])).toThrow(
+            "JSON Patch 'move' operation requires a 'from' field",
+        );
+    });
+
+    it('applyPatch — throws when copy operation is missing from field', () => {
+        expect(() => applyPatch({ a: 1 }, [{ op: 'copy', path: '/b' } as JsonPatchOp])).toThrow(
+            "JSON Patch 'copy' operation requires a 'from' field",
+        );
+    });
 });

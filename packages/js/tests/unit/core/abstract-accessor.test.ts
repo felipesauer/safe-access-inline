@@ -391,4 +391,14 @@ describe(AbstractAccessor.name, () => {
         expect(result).toContain('name,age');
         expect(result).toContain('Ana,25');
     });
+
+    it('toCsv — skips deprecation audit when explicit csvMode is passed', () => {
+        const accessor = ArrayAccessor.from({
+            r1: { name: 'Ana', age: 25 },
+        });
+        // Passing an explicit csvMode bypasses the emitAudit deprecation warning branch
+        const csv = accessor.toCsv('none');
+        expect(csv).toContain('name,age');
+        expect(csv).toContain('Ana,25');
+    });
 });

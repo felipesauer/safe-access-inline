@@ -382,4 +382,13 @@ describe(DotNotationParser.name, () => {
         // results may be empty or fallback — the key point is the branch is exercised
         expect(result).toBeDefined();
     });
+
+    it('set — clones array when intermediate key holds an array value', () => {
+        // Exercises the Array.isArray(child) ? [...child] branch in the set path
+        const data = { nested: { items: [1, 2, 3] } };
+        const result = DotNotationParser.set(data, 'nested.items.0', 99);
+        expect((result as { nested: { items: number[] } }).nested.items[0]).toBe(99);
+        // Original must not be mutated
+        expect(data.nested.items[0]).toBe(1);
+    });
 });

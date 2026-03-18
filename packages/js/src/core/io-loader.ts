@@ -126,7 +126,7 @@ export async function fetchUrl(
             {
                 hostname: parsed.hostname,
                 port: Number(parsed.port) || 443,
-                path: (parsed.pathname || '/') + parsed.search,
+                path: parsed.pathname + parsed.search,
                 method: 'GET',
                 timeout: 10_000,
                 // Override DNS resolution to use the pre-validated IP (when available)

@@ -57,4 +57,15 @@ describe('assertResolvedIpNotPrivate()', () => {
             assertResolvedIpNotPrivate('public-v4only.example.com'),
         ).resolves.toBeUndefined();
     });
+
+    it('resolveAndValidateIp throws SecurityError when AAAA record resolves to IPv6 loopback', async () => {
+        const dns = await import('node:dns/promises');
+        vi.mocked(dns.resolve4).mockResolvedValueOnce([]);
+        vi.mocked(dns.resolve6).mockResolvedValueOnce(['::1']);
+        const { resolveAndValidateIp } = await import('../../../src/core/ip-range-checker');
+        const { SecurityError } = await import('../../../src/exceptions/security.error');
+        await expect(resolveAndValidateIp('evil-v6only.example.com')).rejects.toThrow(
+            SecurityError,
+        );
+    });
 });

@@ -1,11 +1,17 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
     ipToLong,
     isPrivateIp,
     isIpv6Loopback,
     assertSafeUrl,
+    resolveAndValidateIp,
 } from '../../../src/core/ip-range-checker';
 import { SecurityError } from '../../../src/exceptions/security.error';
+
+vi.mock('node:dns/promises', () => ({
+    resolve4: vi.fn().mockResolvedValue([]),
+    resolve6: vi.fn().mockResolvedValue([]),
+}));
 
 describe('ip-range-checker', () => {
     describe('ipToLong()', () => {
@@ -151,6 +157,34 @@ describe('ip-range-checker', () => {
         it('allows ::ffff: IPv4-mapped IPv6 in hex pair format with public IP', () => {
             // ::ffff:808:808 is hex for 8.8.8.8
             expect(() => assertSafeUrl('https://[::ffff:808:808]')).not.toThrow();
+        });
+
+        it('allows host when it is in allowedHosts list', () => {
+            expect(() =>
+                assertSafeUrl('https://example.com', { allowedHosts: ['example.com'] }),
+            ).not.toThrow();
+        });
+
+        it('allows raw public IPv4 address (isPrivateIp returns false)', () => {
+            expect(() => assertSafeUrl('https://8.8.8.8')).not.toThrow();
+        });
+    });
+
+    describe('resolveAndValidateIp()', () => {
+        it('throws SecurityError when AAAA record resolves to IPv6 loopback', async () => {
+            const dns = await import('node:dns/promises');
+            vi.mocked(dns.resolve4).mockResolvedValueOnce([]);
+            vi.mocked(dns.resolve6).mockResolvedValueOnce(['::1']);
+            await expect(resolveAndValidateIp('evil-v6only.example.com')).rejects.toThrow(
+                SecurityError,
+            );
+        });
+
+        it('returns null when IPv6 resolves to non-loopback addresses (covers if(isIpv6Loopback) false branch)', async () => {
+            const dns = await import('node:dns/promises');
+            vi.mocked(dns.resolve4).mockResolvedValueOnce([]);
+            vi.mocked(dns.resolve6).mockResolvedValueOnce(['2001:db8::1']);
+            await expect(resolveAndValidateIp('v6only.example.com')).resolves.toBeNull();
         });
     });
 });
