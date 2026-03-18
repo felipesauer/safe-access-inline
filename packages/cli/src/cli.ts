@@ -89,9 +89,10 @@ export function loadFromStdinOrFile(
         // Use SafeAccess.fromFileSync so the IoLoader path-traversal and null-byte checks apply
         return SafeAccess.fromFileSync(resolve(fileArg), {
             format: fromFormat,
+            allowAnyPath: true,
         });
     }
-    return SafeAccess.fromFileSync(resolve(fileArg));
+    return SafeAccess.fromFileSync(resolve(fileArg), { allowAnyPath: true });
 }
 
 export function formatOutput(
