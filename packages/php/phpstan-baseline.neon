@@ -1,6 +1,18 @@
 parameters:
 	ignoreErrors:
 		-
+			rawMessage: 'Call to static method dump() on an unknown class Symfony\Component\Yaml\Yaml.'
+			identifier: class.notFound
+			count: 1
+			path: src/Core/AbstractAccessor.php
+
+		-
+			rawMessage: 'Call to static method encode() on an unknown class Devium\Toml\Toml.'
+			identifier: class.notFound
+			count: 1
+			path: src/Core/AbstractAccessor.php
+
+		-
 			rawMessage: Cannot access offset string on mixed.
 			identifier: offsetAccess.nonOffsetAccessible
 			count: 2
@@ -53,6 +65,36 @@ parameters:
 			identifier: notIdentical.alwaysTrue
 			count: 1
 			path: src/Core/PathCache.php
+
+		-
+			rawMessage: 'Call to static method decode() on an unknown class Devium\Toml\Toml.'
+			identifier: class.notFound
+			count: 1
+			path: src/Plugins/DeviumTomlParser.php
+
+		-
+			rawMessage: 'Call to static method encode() on an unknown class Devium\Toml\Toml.'
+			identifier: class.notFound
+			count: 1
+			path: src/Plugins/DeviumTomlSerializer.php
+
+		-
+			rawMessage: Access to constant PARSE_EXCEPTION_ON_INVALID_TYPE on an unknown class Symfony\Component\Yaml\Yaml.
+			identifier: class.notFound
+			count: 1
+			path: src/Plugins/SymfonyYamlParser.php
+
+		-
+			rawMessage: 'Call to static method parse() on an unknown class Symfony\Component\Yaml\Yaml.'
+			identifier: class.notFound
+			count: 1
+			path: src/Plugins/SymfonyYamlParser.php
+
+		-
+			rawMessage: 'Call to static method dump() on an unknown class Symfony\Component\Yaml\Yaml.'
+			identifier: class.notFound
+			count: 1
+			path: src/Plugins/SymfonyYamlSerializer.php
 
 		-
 			rawMessage: 'Method SafeAccessInline\SafeAccess::fromUrl() has parameter $options with no value type specified in iterable type array.'
