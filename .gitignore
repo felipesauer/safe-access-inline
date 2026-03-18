@@ -38,6 +38,7 @@ package-lock.json
 *.swo
 *~
 .plans/
+.github/audit/
 
 # OS
 .DS_Store
