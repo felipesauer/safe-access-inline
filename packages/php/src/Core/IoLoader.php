@@ -205,7 +205,7 @@ final class IoLoader
             }
 
             // Block metadata hostnames
-            if (in_array($host, ['metadata.google.internal', 'instance-data'], true)) {
+            if (in_array($host, ['metadata.google.internal', 'instance-data', 'metadata.oracle.internal'], true)) {
                 throw new SecurityException(
                     "Access to cloud metadata hostname '{$host}' is blocked."
                 );
