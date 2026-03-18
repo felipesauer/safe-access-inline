@@ -78,7 +78,7 @@
         "js-yaml": "^4.0.0",
         "smol-toml": "^1.0.0",
         "@types/js-yaml": "^4.0.0",
-        "@types/node": "^22.0.0",
+        "@types/node": "^25.5.0",
         "@eslint/js": "^10.0.1",
         "@vitest/coverage-v8": "^4.1.0",
         "eslint": "^10.0",
