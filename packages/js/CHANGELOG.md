@@ -6,6 +6,37 @@
 
 - **js:** `type()` now returns `"bool"` instead of `"boolean"` and `"null"` instead of `"object"` for null values, aligning the cross-language type vocabulary (`"string"`, `"number"`, `"bool"`, `"array"`, `"object"`, `"null"`, `"undefined"`).
 
+## [0.3.0](https://github.com/felipesauer/safe-access-inline/compare/js-v0.2.3...js-v0.3.0) (2026-03-18)
+
+
+### ⚠ BREAKING CHANGES
+
+* **js:** type() now returns "bool" instead of "boolean" and "null" instead of "object" for null values, aligning cross-language type vocabulary ("string", "number", "bool", "array", "object", "null", "undefined").
+
+### Features
+
+* **js:** normalize type() vocabulary, atomic JSON Patch, testing entry and security enhancements ([688408d](https://github.com/felipesauer/safe-access-inline/commit/688408d65e781f94fa0f5767c99bdc3cc39bfbc8))
+
+
+### Bug Fixes
+
+* **js:** block Oracle metadata hostname and cap HTTP response payload size ([f14e205](https://github.com/felipesauer/safe-access-inline/commit/f14e205e18b01805cace0002bb8ccb309ed89f8b))
+* **js:** emit allowedDirs audit event and add post-fetch DNS rebinding guard ([9094cea](https://github.com/felipesauer/safe-access-inline/commit/9094cea584565d606f6da3ce33cbcc500e308b19))
+* **js:** emit security.violation audit event on CSV column count mismatch ([94c8b81](https://github.com/felipesauer/safe-access-inline/commit/94c8b81683eb6bfb3649af822651e4b6da44921a))
+* **js:** guard match() against invalid regex and add unicode flag ([e87a680](https://github.com/felipesauer/safe-access-inline/commit/e87a680b48062b9b51a65adaee968d9adca2dbbe))
+* **js:** harden deep-merger, json-patch, filter-parser against prototype pollution ([ab52daf](https://github.com/felipesauer/safe-access-inline/commit/ab52daf66209f404be24ac7f647477c0d1be7ced))
+* **js:** isolate errors in audit-emitter, file-watcher, and vite integration ([a845ca9](https://github.com/felipesauer/safe-access-inline/commit/a845ca9a4018c9ba3207fa510b36e0db5e448a27))
+* **js:** resolve CRIT-001-005, ARCH-001-003, PERF-001-002, QUAL-001 ([506526f](https://github.com/felipesauer/safe-access-inline/commit/506526f3837207aa456c466d1e4c321a07d2415e))
+* **js:** throw RangeError on audit listener overflow instead of warning ([2f1a36a](https://github.com/felipesauer/safe-access-inline/commit/2f1a36a7614f341ed20ab9ccb563855149116c06))
+* **php,js:** cap custom accessors at 50 and clear on resetAll ([6054b7c](https://github.com/felipesauer/safe-access-inline/commit/6054b7cbcab6a1d4e9242b76a3087a6de791661c))
+
+
+### Performance Improvements
+
+* **js:** cache compiled wildcard RegExp in data-masker and fix LRU in PathCache ([bc12b07](https://github.com/felipesauer/safe-access-inline/commit/bc12b0752a62baedf32025d4c15c3824abd0510a))
+* **js:** eliminate slice allocations and replace structuredClone in DotNotationParser ([a58f532](https://github.com/felipesauer/safe-access-inline/commit/a58f532ed82ce23194a99e631bda34db0b052dd3))
+* **js:** hoist TextEncoder instance to module scope ([395e712](https://github.com/felipesauer/safe-access-inline/commit/395e712c0d70c839158fc64c4d32a5dc23bd045d))
+
 ## [0.2.3](https://github.com/felipesauer/safe-access-inline/compare/js-v0.2.2...js-v0.2.3) (2026-03-17)
 
 ### Features
