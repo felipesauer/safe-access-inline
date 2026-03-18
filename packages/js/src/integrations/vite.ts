@@ -78,11 +78,15 @@ export function safeAccessPlugin(options: VitePluginOptions) {
         handleHotUpdate(ctx: { file: string; server: { ws: { send: (msg: unknown) => void } } }) {
             const watchedFiles = options.files.map((f) => resolve(f));
             if (watchedFiles.includes(ctx.file)) {
-                configData = loadConfig();
-                ctx.server.ws.send({
-                    type: 'full-reload',
-                    path: '*',
-                });
+                try {
+                    configData = loadConfig();
+                    ctx.server.ws.send({
+                        type: 'full-reload',
+                        path: '*',
+                    });
+                } catch {
+                    // Prevent invalid config from crashing the dev server
+                }
             }
         },
     };

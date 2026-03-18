@@ -39,7 +39,11 @@ export function emitAudit(type: AuditEventType, detail: Record<string, unknown>)
     const event: AuditEvent = { type, timestamp: Date.now(), detail };
     const snapshot = [...listeners];
     for (const listener of snapshot) {
-        listener(event);
+        try {
+            listener(event);
+        } catch {
+            // Isolate listener errors so subsequent listeners still fire
+        }
     }
 }
 
