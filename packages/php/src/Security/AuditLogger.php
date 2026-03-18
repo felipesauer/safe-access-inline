@@ -53,7 +53,11 @@ final class AuditLogger
         ];
         $snapshot = self::$listeners;
         foreach ($snapshot as $listener) {
-            $listener($event);
+            try {
+                $listener($event);
+            } catch (\Throwable) {
+                // Isolate listener errors so subsequent listeners still fire
+            }
         }
     }
 

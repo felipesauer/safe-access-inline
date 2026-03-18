@@ -34,7 +34,8 @@ final class CurlHttpClient implements HttpClientInterface
 
             return $content;
         } finally {
-            curl_close($ch);
+            // curl_close() is a no-op since PHP 8.0 and deprecated since PHP 8.5;
+            // the CurlHandle is freed automatically when it goes out of scope.
         }
     }
 }
