@@ -1,8 +1,19 @@
 <?php
 
+use SafeAccessInline\Exceptions\InvalidFormatException;
 use SafeAccessInline\Plugins\SymfonyYamlParser;
 
 describe(SymfonyYamlParser::class, function () {
+
+    it('throws InvalidFormatException when symfony/yaml is not available', function () {
+        $parser = new class () extends SymfonyYamlParser {
+            protected function isAvailable(): bool
+            {
+                return false;
+            }
+        };
+        expect(fn () => $parser->parse('name: Ana'))->toThrow(InvalidFormatException::class, 'symfony/yaml is not installed');
+    });
 
     beforeEach(function () {
         if (!class_exists(\Symfony\Component\Yaml\Yaml::class)) {

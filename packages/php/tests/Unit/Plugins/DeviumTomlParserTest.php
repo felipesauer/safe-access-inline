@@ -1,8 +1,19 @@
 <?php
 
+use SafeAccessInline\Exceptions\InvalidFormatException;
 use SafeAccessInline\Plugins\DeviumTomlParser;
 
 describe(DeviumTomlParser::class, function () {
+
+    it('throws InvalidFormatException when devium/toml is not available', function () {
+        $parser = new class () extends DeviumTomlParser {
+            protected function isAvailable(): bool
+            {
+                return false;
+            }
+        };
+        expect(fn () => $parser->parse('key = "value"'))->toThrow(InvalidFormatException::class, 'devium/toml is not installed');
+    });
 
     beforeEach(function () {
         if (!class_exists(\Devium\Toml\Toml::class)) {

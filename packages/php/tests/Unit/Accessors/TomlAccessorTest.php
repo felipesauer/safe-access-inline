@@ -145,4 +145,10 @@ describe(TomlAccessor::class, function () {
         expect(fn () => TomlAccessor::from('{{{{invalid toml}}}}'))
             ->toThrow(InvalidFormatException::class, 'failed to parse TOML');
     })->skip(!class_exists(\Devium\Toml\Toml::class), 'devium/toml not installed (run with deps=full to enable)');
+
+    it('throws InvalidFormatException when devium/toml not installed and no plugin', function () {
+        // No plugin registered, devium/toml not available → class_exists fails
+        expect(fn () => TomlAccessor::from('key = "value"'))
+            ->toThrow(InvalidFormatException::class, 'requires devium/toml');
+    })->skip(class_exists(\Devium\Toml\Toml::class), 'devium/toml is installed');
 });

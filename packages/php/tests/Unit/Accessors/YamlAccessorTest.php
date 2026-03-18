@@ -204,4 +204,15 @@ describe(YamlAccessor::class, function () {
         };
         expect($accessor)->toThrow(InvalidFormatException::class, 'failed to parse YAML');
     })->skip(!class_exists(\Symfony\Component\Yaml\Yaml::class), 'symfony/yaml not installed (run with deps=full to enable)');
+
+    it('throws InvalidFormatException when no YAML parser available and no plugin', function () {
+        // No plugin, no ext-yaml, no symfony/yaml → class_exists fails
+        $accessor = fn () => new class ("name: Ana") extends YamlAccessor {
+            protected function hasNativeYamlParse(): bool
+            {
+                return false;
+            }
+        };
+        expect($accessor)->toThrow(InvalidFormatException::class, 'requires ext-yaml or symfony/yaml');
+    })->skip(class_exists(\Symfony\Component\Yaml\Yaml::class) || function_exists('yaml_parse'), 'YAML parser is available');
 });
