@@ -88,7 +88,7 @@ final class IoLoader
     {
         self::assertPathWithinAllowedDirs($filePath, $allowedDirs, $allowAnyPath);
         AuditLogger::emit('file.read', ['filePath' => $filePath]);
-        $content = file_get_contents($filePath);
+        $content = @file_get_contents($filePath);
         if ($content === false) {
             throw new SecurityException("Failed to read file: '{$filePath}'");
         }
