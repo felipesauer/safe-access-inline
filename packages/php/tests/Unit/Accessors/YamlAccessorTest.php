@@ -58,7 +58,7 @@ describe(YamlAccessor::class, function () {
         $accessor = SafeAccess::fromYaml("name: Ana\nage: 30");
         expect($accessor->get('name'))->toBe('Ana');
         expect($accessor->get('age'))->toBe(30);
-    });
+    })->skip(!class_exists(\Symfony\Component\Yaml\Yaml::class), 'symfony/yaml not installed (run with deps=full to enable)');
 
     it('prefers ext-yaml over symfony/yaml when available', function () {
         if (!function_exists('yaml_parse')) {
@@ -79,7 +79,7 @@ describe(YamlAccessor::class, function () {
         });
         expect($accessor->get('name'))->toBe('Ana');
         expect($accessor->get('age'))->toBe(30);
-    });
+    })->skip(!class_exists(\Symfony\Component\Yaml\Yaml::class), 'symfony/yaml not installed (run with deps=full to enable)');
 
     it('from — valid YAML string with registered plugin', function () {
         registerMockYamlParser();
@@ -185,7 +185,7 @@ describe(YamlAccessor::class, function () {
             }
         });
         expect($accessor->toArray())->toBe([]);
-    });
+    })->skip(!class_exists(\Symfony\Component\Yaml\Yaml::class), 'symfony/yaml not installed (run with deps=full to enable)');
 
     it('handles empty YAML returning empty array via native yaml_parse', function () {
         if (!function_exists('yaml_parse')) {
@@ -203,5 +203,5 @@ describe(YamlAccessor::class, function () {
             }
         };
         expect($accessor)->toThrow(InvalidFormatException::class, 'failed to parse YAML');
-    });
+    })->skip(!class_exists(\Symfony\Component\Yaml\Yaml::class), 'symfony/yaml not installed (run with deps=full to enable)');
 });

@@ -133,7 +133,7 @@ describe('SymfonyIntegration', function (): void {
         $accessor = SymfonyIntegration::fromYamlFile($this->fixturesDir . '/config.yaml', [$this->fixturesDir]);
         expect($accessor)->toBeInstanceOf(AbstractAccessor::class);
         expect($accessor->get('app.name'))->toBe('test-app');
-    });
+    })->skip(!class_exists(\Symfony\Component\Yaml\Yaml::class), 'symfony/yaml not installed (run with deps=full to enable)');
 });
 
 // ── LaravelFacade ───────────────────────────────

@@ -4,6 +4,12 @@ use SafeAccessInline\Plugins\SymfonyYamlSerializer;
 
 describe(SymfonyYamlSerializer::class, function () {
 
+    beforeEach(function () {
+        if (!class_exists(\Symfony\Component\Yaml\Yaml::class)) {
+            test()->skip('symfony/yaml not installed (run with deps=full to enable)');
+        }
+    });
+
     it('serializes flat data to YAML', function () {
         $serializer = new SymfonyYamlSerializer();
         $result = $serializer->serialize(['name' => 'Ana']);

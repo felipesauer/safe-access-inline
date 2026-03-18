@@ -16,12 +16,12 @@ describe('SafeAccess::fromFile', function () use (&$fixturesDir) {
     it('loads YAML file', function () use (&$fixturesDir) {
         $acc = SafeAccess::fromFile($fixturesDir . '/config.yaml', null, [$fixturesDir]);
         expect($acc->get('app.name'))->toBe('test-app');
-    });
+    })->skip(!class_exists(\Symfony\Component\Yaml\Yaml::class), 'symfony/yaml not installed (run with deps=full to enable)');
 
     it('loads TOML file', function () use (&$fixturesDir) {
         $acc = SafeAccess::fromFile($fixturesDir . '/config.toml', null, [$fixturesDir]);
         expect($acc->get('app.name'))->toBe('test-app');
-    });
+    })->skip(!class_exists(\Devium\Toml\Toml::class), 'devium/toml not installed (run with deps=full to enable)');
 
     it('loads ENV file', function () use (&$fixturesDir) {
         $acc = SafeAccess::fromFile($fixturesDir . '/config.env', null, [$fixturesDir]);

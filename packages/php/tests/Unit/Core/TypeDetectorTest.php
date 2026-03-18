@@ -84,6 +84,6 @@ describe(TypeDetector::class, function () {
     it('detects TOML string', function () {
         $accessor = TypeDetector::resolve('title = "Hello"');
         expect($accessor)->toBeInstanceOf(\SafeAccessInline\Accessors\TomlAccessor::class);
-    });
+    })->skip(!class_exists(\Devium\Toml\Toml::class), 'devium/toml not installed (run with deps=full to enable)');
 
 });

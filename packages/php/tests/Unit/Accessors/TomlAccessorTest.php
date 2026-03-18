@@ -58,7 +58,7 @@ describe(TomlAccessor::class, function () {
     it('works without plugin using devium/toml', function () {
         $accessor = SafeAccess::fromToml('key = "value"');
         expect($accessor->get('key'))->toBe('value');
-    });
+    })->skip(!class_exists(\Devium\Toml\Toml::class), 'devium/toml not installed (run with deps=full to enable)');
 
     it('from — valid TOML string with registered plugin', function () {
         registerMockTomlParser(['title' => 'My Config']);
@@ -144,5 +144,5 @@ describe(TomlAccessor::class, function () {
         // No plugin registered, so devium/toml will attempt to parse and fail
         expect(fn () => TomlAccessor::from('{{{{invalid toml}}}}'))
             ->toThrow(InvalidFormatException::class, 'failed to parse TOML');
-    });
+    })->skip(!class_exists(\Devium\Toml\Toml::class), 'devium/toml not installed (run with deps=full to enable)');
 });

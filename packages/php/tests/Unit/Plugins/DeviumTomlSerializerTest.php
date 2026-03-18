@@ -4,6 +4,12 @@ use SafeAccessInline\Plugins\DeviumTomlSerializer;
 
 describe(DeviumTomlSerializer::class, function () {
 
+    beforeEach(function () {
+        if (!class_exists(\Devium\Toml\Toml::class)) {
+            test()->skip('devium/toml not installed (run with deps=full to enable)');
+        }
+    });
+
     it('serializes flat data to TOML', function () {
         $serializer = new DeviumTomlSerializer();
         $result = $serializer->serialize(['name' => 'Ana', 'count' => 5]);

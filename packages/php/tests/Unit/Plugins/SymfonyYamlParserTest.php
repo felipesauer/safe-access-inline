@@ -4,6 +4,12 @@ use SafeAccessInline\Plugins\SymfonyYamlParser;
 
 describe(SymfonyYamlParser::class, function () {
 
+    beforeEach(function () {
+        if (!class_exists(\Symfony\Component\Yaml\Yaml::class)) {
+            test()->skip('symfony/yaml not installed (run with deps=full to enable)');
+        }
+    });
+
     it('parses YAML key-value pairs', function () {
         $parser = new SymfonyYamlParser();
         $result = $parser->parse("name: Ana\nage: 30");

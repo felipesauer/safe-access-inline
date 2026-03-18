@@ -87,7 +87,7 @@ describe(HasTransformations::class, function () {
         };
         $yaml = $accessor->toYaml();
         expect($yaml)->toContain('a: 1');
-    });
+    })->skip(!class_exists(\Symfony\Component\Yaml\Yaml::class), 'symfony/yaml not installed (run with deps=full to enable)');
 
     it('toYaml falls back to native yaml_emit when ext-yaml is available', function () {
         if (!function_exists('yaml_emit')) {
@@ -141,18 +141,18 @@ describe(HasTransformations::class, function () {
         $toml = $accessor->toToml();
         expect($toml)->toContain('name');
         expect($toml)->toContain('Ana');
-    });
+    })->skip(!class_exists(\Devium\Toml\Toml::class), 'devium/toml not installed (run with deps=full to enable)');
 
     it('transform falls back to toYaml for yaml format', function () {
         $accessor = ArrayAccessor::from(['a' => 1]);
         $result = $accessor->transform('yaml');
         expect($result)->toContain('a: 1');
-    });
+    })->skip(!class_exists(\Symfony\Component\Yaml\Yaml::class), 'symfony/yaml not installed (run with deps=full to enable)');
 
     it('transform falls back to toToml for toml format', function () {
         $accessor = ArrayAccessor::from(['a' => 1]);
         $result = $accessor->transform('toml');
         expect($result)->toContain('a');
-    });
+    })->skip(!class_exists(\Devium\Toml\Toml::class), 'devium/toml not installed (run with deps=full to enable)');
 
 });
