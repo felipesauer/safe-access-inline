@@ -105,18 +105,26 @@ export function applyPatch(
         }
     }
 
-    // Pre-flight: run all operations on a throwaway clone to check test assertions
+    // RFC 6902 §5: operations MUST be atomic; preflight validates test assertions before
+    // mutating state. Skip preflight when no 'test' ops are present (the common case)
+    // to avoid the O(2n) cost of cloning + traversing the document twice.
+    const hasTestOps = ops.some((op) => op.op === 'test');
+
+    if (!hasTestOps) {
+        let result = structuredClone(data);
+        for (const op of ops) {
+            result = applyOneOp(result, op);
+        }
+        return result;
+    }
+
+    // Pre-flight: run all operations on a throwaway clone to validate test assertions atomically.
+    // Return the preflight result directly — no need to clone and traverse a second time.
     let preflight = structuredClone(data);
     for (const op of ops) {
         preflight = applyOneOp(preflight, op);
     }
-
-    // All tests passed — apply for real on a fresh clone
-    let result = structuredClone(data);
-    for (const op of ops) {
-        result = applyOneOp(result, op);
-    }
-    return result;
+    return preflight;
 }
 
 function applyOneOp(result: Record<string, unknown>, op: JsonPatchOp): Record<string, unknown> {

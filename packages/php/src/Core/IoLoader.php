@@ -183,8 +183,9 @@ final class IoLoader
                 throw new SecurityException('Access to loopback IPv6 addresses is blocked.');
             }
 
-            // Block fe80::/10 (link-local) addresses
-            if (str_starts_with(strtolower($cleaned), 'fe80')) {
+            // Block fe80::/10 (link-local) — full range fe80::–febf::, not just fe80::
+            // The /10 prefix covers second bytes 0x80–0xbf: fe8x, fe9x, feax, febx
+            if (preg_match('/^fe[89ab][0-9a-f]:/i', strtolower($cleaned))) {
                 throw new SecurityException('Access to IPv6 link-local addresses is blocked.');
             }
 
@@ -248,8 +249,9 @@ final class IoLoader
             return true;
         }
 
-        // fe80::/10 link-local
-        if (str_starts_with($lower, 'fe80')) {
+        // fe80::/10 link-local — full range fe80::–febf::, not just fe80::
+        // The /10 prefix covers second bytes 0x80–0xbf: fe8x, fe9x, feax, febx
+        if (preg_match('/^fe[89ab][0-9a-f]:/i', $lower)) {
             return true;
         }
 

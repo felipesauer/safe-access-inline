@@ -81,7 +81,8 @@ describe(SecurityPolicy::class, function () {
         expect($policy->maxDepth)->toBe(20);
         expect($policy->maxPayloadBytes)->toBe(1_048_576);
         expect($policy->maxKeys)->toBe(1_000);
-        expect($policy->csvMode)->toBe('strip');
+        expect($policy->csvMode)->toBe('error');
+        expect($policy->url['allowedPorts'])->toBe([443]);
     });
 
     it('permissive() returns relaxed policy', function () {

@@ -3,6 +3,7 @@ import { PathCache } from './path-cache';
 import { PluginRegistry } from './plugin-registry';
 import { SchemaRegistry } from './schema-registry';
 import { clearAuditListeners } from './audit-emitter';
+import { SafeAccess } from '../safe-access';
 
 /**
  * Resets all global/static state. Intended for test teardown.
@@ -12,6 +13,7 @@ import { clearAuditListeners } from './audit-emitter';
  *   afterEach(() => resetAll());
  */
 export function resetAll(): void {
+    SafeAccess.clearCustomAccessors();
     clearGlobalPolicy();
     clearAuditListeners();
     PathCache.clear();

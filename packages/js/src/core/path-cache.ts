@@ -27,6 +27,7 @@ export class PathCache {
 
     static clear(): void {
         PathCache.cache.clear();
+        PathCache.enabled = true; // restore default after clear — prevents permanent disable after resetAll()
     }
 
     static get size(): number {

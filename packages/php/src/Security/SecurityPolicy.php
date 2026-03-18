@@ -33,7 +33,8 @@ final class SecurityPolicy
             maxDepth: 20,
             maxPayloadBytes: 1_048_576,
             maxKeys: 1_000,
-            csvMode: 'strip',
+            csvMode: 'error', // reject injection attempts — never silently mutate in a strict context
+            url: ['allowedPorts' => [443]], // HTTPS only; callers must supply allowedHosts
         );
     }
 

@@ -54,6 +54,7 @@ final class PathCache
     public static function clear(): void
     {
         self::$cache = [];
+        self::$enabled = true; // restore default after clear — prevents permanent disable after resetAll()
     }
 
     public static function size(): int

@@ -181,6 +181,10 @@ export class SafeAccess {
         SafeAccess.customAccessors.set(name, cls);
     }
 
+    static clearCustomAccessors(): void {
+        SafeAccess.customAccessors.clear();
+    }
+
     static custom(name: string, data: unknown): AbstractAccessor {
         const Cls = SafeAccess.customAccessors.get(name);
         if (!Cls) throw new Error(`Custom accessor '${name}' is not registered.`);

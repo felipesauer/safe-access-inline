@@ -27,12 +27,17 @@ const DEFAULT_POLICY: SecurityPolicy = {
  * NOTE: `allowedDirs` is intentionally not set — callers MUST provide it
  * via `mergePolicy(STRICT_POLICY, { allowedDirs: [...] })` when using
  * file-based operations, otherwise path traversal protection is not enforced.
+ * NOTE: `url.allowedHosts` is left empty — callers MUST supply an explicit
+ * allowlist via `mergePolicy(STRICT_POLICY, { url: { allowedHosts: [...] } })`.
  */
 export const STRICT_POLICY: Readonly<SecurityPolicy> = Object.freeze({
     maxDepth: 20,
     maxPayloadBytes: 1_048_576,
     maxKeys: 1_000,
-    csvMode: 'strip',
+    csvMode: 'error', // reject injection attempts — never silently mutate in a strict context
+    url: {
+        allowedPorts: [443], // HTTPS only; callers must add allowedHosts
+    },
 });
 
 export const PERMISSIVE_POLICY: Readonly<SecurityPolicy> = Object.freeze({

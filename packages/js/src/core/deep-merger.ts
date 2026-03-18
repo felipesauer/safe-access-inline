@@ -41,7 +41,9 @@ function mergeTwo(
                 srcVal as Record<string, unknown>,
             );
         } else {
-            result[key] = structuredClone(srcVal);
+            // Only deep-clone objects/arrays; primitives are immutable and need no cloning
+            result[key] =
+                typeof srcVal === 'object' && srcVal !== null ? structuredClone(srcVal) : srcVal;
         }
     }
 

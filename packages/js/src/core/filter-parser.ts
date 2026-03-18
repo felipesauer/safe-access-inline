@@ -1,3 +1,5 @@
+import { SecurityGuard } from './security-guard';
+
 /**
  * Parses and evaluates filter expressions for JSONPath-like queries.
  *
@@ -230,8 +232,14 @@ export class FilterParser {
                 ) {
                     pattern = pattern.slice(1, -1);
                 }
-                // ReDoS guard: reject patterns with nested quantifiers
-                if (/([+*])\)\1|\(\?[^)]*[+*]/.test(pattern) || pattern.length > 256) {
+                // ReDoS guard: reject patterns with nested quantifiers, alternation quantifiers,
+                // or excessive length. Covers: (x+)+ / (x+)* / (a|b)+ / (?...*) shapes.
+                if (
+                    pattern.length > 128 ||
+                    /(\+|\*|\{[\d,]+\})\)(\+|\*|\{[\d,]+\})/.test(pattern) || // (group)+ or (group)*
+                    /\([^)]*\|[^)]*\)(\+|\*|\{[\d,]+\})/.test(pattern) || // (a|b)+  alternation
+                    /\(\?[^)]*[+*]/.test(pattern) // (?...*)  non-capturing quantifier
+                ) {
                     return false;
                 }
                 try {
@@ -265,10 +273,11 @@ export class FilterParser {
         if (field.includes('.')) {
             let current: unknown = item;
             for (const key of field.split('.')) {
+                SecurityGuard.assertSafeKey(key); // prevent prototype chain traversal
                 if (
                     current !== null &&
                     typeof current === 'object' &&
-                    key in (current as Record<string, unknown>)
+                    Object.prototype.hasOwnProperty.call(current, key)
                 ) {
                     current = (current as Record<string, unknown>)[key];
                 } else {
@@ -277,6 +286,7 @@ export class FilterParser {
             }
             return current;
         }
-        return item[field];
+        SecurityGuard.assertSafeKey(field); // prevent prototype chain traversal
+        return Object.prototype.hasOwnProperty.call(item, field) ? item[field] : undefined;
     }
 }
