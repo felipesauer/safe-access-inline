@@ -6,7 +6,7 @@ describe(DeviumTomlParser::class, function () {
 
     beforeEach(function () {
         if (!class_exists(\Devium\Toml\Toml::class)) {
-            test()->skip('devium/toml not installed (run with deps=full to enable)');
+            $this->markTestSkipped('devium/toml not installed (run with deps=full to enable)');
         }
     });
 

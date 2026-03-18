@@ -6,7 +6,7 @@ describe(SymfonyYamlSerializer::class, function () {
 
     beforeEach(function () {
         if (!class_exists(\Symfony\Component\Yaml\Yaml::class)) {
-            test()->skip('symfony/yaml not installed (run with deps=full to enable)');
+            $this->markTestSkipped('symfony/yaml not installed (run with deps=full to enable)');
         }
     });
 
