@@ -164,7 +164,16 @@ abstract class AbstractAccessor implements AccessorInterface, WritableInterface
         if (!$this->has($path)) {
             return null;
         }
-        return gettype($this->get($path));
+
+        return match (gettype($this->get($path))) {
+            'integer', 'double' => 'number',
+            'boolean' => 'bool',
+            'NULL' => 'null',
+            'array' => 'array',
+            'string' => 'string',
+            'object' => 'object',
+            default => 'unknown',
+        };
     }
 
     /** {@inheritDoc} */

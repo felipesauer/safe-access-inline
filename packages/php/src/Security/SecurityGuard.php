@@ -20,12 +20,26 @@ final class SecurityGuard
         'isPrototypeOf',
     ];
 
+    /** @var array<string, true>|null */
+    private static ?array $forbiddenKeysMap = null;
+
+    /**
+     * @return array<string, true>
+     */
+    private static function getForbiddenKeysMap(): array
+    {
+        if (self::$forbiddenKeysMap === null) {
+            self::$forbiddenKeysMap = array_fill_keys(self::FORBIDDEN_KEYS, true);
+        }
+        return self::$forbiddenKeysMap;
+    }
+
     /**
      * @throws SecurityException
      */
     public static function assertSafeKey(string $key): void
     {
-        if (in_array($key, self::FORBIDDEN_KEYS, true)) {
+        if (isset(self::getForbiddenKeysMap()[$key])) {
             AuditLogger::emit('security.violation', ['reason' => 'forbidden_key', 'key' => $key]);
             throw new SecurityException(
                 "Forbidden key '{$key}' detected. This key is blocked to prevent prototype pollution."
@@ -41,9 +55,10 @@ final class SecurityGuard
      */
     public static function sanitizeObject(array $data): array
     {
+        $map = self::getForbiddenKeysMap();
         $cleaned = [];
         foreach ($data as $key => $value) {
-            if (is_string($key) && in_array($key, self::FORBIDDEN_KEYS, true)) {
+            if (is_string($key) && isset($map[$key])) {
                 continue;
             }
             $cleaned[$key] = is_array($value) ? self::sanitizeObject($value) : $value;

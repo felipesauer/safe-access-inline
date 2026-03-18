@@ -1,8 +1,25 @@
 <?php
 
+use SafeAccessInline\Exceptions\InvalidFormatException;
 use SafeAccessInline\Plugins\SymfonyYamlSerializer;
 
 describe(SymfonyYamlSerializer::class, function () {
+
+    it('throws InvalidFormatException when symfony/yaml is not available', function () {
+        $serializer = new class () extends SymfonyYamlSerializer {
+            protected function isAvailable(): bool
+            {
+                return false;
+            }
+        };
+        expect(fn () => $serializer->serialize(['name' => 'Ana']))->toThrow(InvalidFormatException::class, 'symfony/yaml is not installed');
+    });
+
+    beforeEach(function () {
+        if (!class_exists(\Symfony\Component\Yaml\Yaml::class)) {
+            $this->markTestSkipped('symfony/yaml not installed (run with deps=full to enable)');
+        }
+    });
 
     it('serializes flat data to YAML', function () {
         $serializer = new SymfonyYamlSerializer();

@@ -3,6 +3,7 @@
  */
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { SafeAccess } from '../../../src/safe-access';
+import * as ioLoader from '../../../src/core/io-loader';
 import {
     defaultPolicy,
     mergePolicy,
@@ -23,6 +24,7 @@ import * as os from 'node:os';
 afterEach(() => {
     clearAuditListeners();
     clearGlobalPolicy();
+    vi.restoreAllMocks();
 });
 
 // ── SecurityPolicy ──────────────────────────────────────
@@ -65,7 +67,8 @@ describe('SecurityPolicy', () => {
         expect(STRICT_POLICY.maxDepth).toBe(20);
         expect(STRICT_POLICY.maxPayloadBytes).toBe(1_048_576);
         expect(STRICT_POLICY.maxKeys).toBe(1_000);
-        expect(STRICT_POLICY.csvMode).toBe('strip');
+        expect(STRICT_POLICY.csvMode).toBe('error');
+        expect(STRICT_POLICY.url?.allowedPorts).toEqual([443]);
     });
 
     it('PERMISSIVE_POLICY has relaxed limits', () => {
@@ -172,130 +175,70 @@ describe('SecurityPolicy', () => {
     });
 
     it('SafeAccess.fromUrlWithPolicy fetches with policy URL options', async () => {
-        vi.stubGlobal(
-            'fetch',
-            vi.fn().mockResolvedValue({
-                ok: true,
-                text: () => Promise.resolve('{"from":"url"}'),
-            }),
-        );
-        try {
-            const policy: SecurityPolicy = {
-                ...defaultPolicy(),
-                url: { allowedHosts: ['example.com'] },
-            };
-            const acc = await SafeAccess.fromUrlWithPolicy('https://example.com/data.json', policy);
-            expect(acc.get('from')).toBe('url');
-        } finally {
-            vi.restoreAllMocks();
-        }
+        vi.spyOn(ioLoader, 'fetchUrl').mockResolvedValueOnce('{"from":"url"}');
+        const policy: SecurityPolicy = {
+            ...defaultPolicy(),
+            url: { allowedHosts: ['example.com'] },
+        };
+        const acc = await SafeAccess.fromUrlWithPolicy('https://example.com/data.json', policy);
+        expect(acc.get('from')).toBe('url');
     });
 
     it('SafeAccess.fromUrlWithPolicy applies maskPatterns', async () => {
-        vi.stubGlobal(
-            'fetch',
-            vi.fn().mockResolvedValue({
-                ok: true,
-                text: () => Promise.resolve('{"user":"john","token":"abc123"}'),
-            }),
-        );
-        try {
-            const policy: SecurityPolicy = {
-                ...defaultPolicy(),
-                url: { allowedHosts: ['example.com'] },
-                maskPatterns: ['token'],
-            };
-            const acc = await SafeAccess.fromUrlWithPolicy('https://example.com/data.json', policy);
-            expect(acc.get('user')).toBe('john');
-            expect(acc.get('token')).toBe('[REDACTED]');
-        } finally {
-            vi.restoreAllMocks();
-        }
+        vi.spyOn(ioLoader, 'fetchUrl').mockResolvedValueOnce('{"user":"john","token":"abc123"}');
+        const policy: SecurityPolicy = {
+            ...defaultPolicy(),
+            url: { allowedHosts: ['example.com'] },
+            maskPatterns: ['token'],
+        };
+        const acc = await SafeAccess.fromUrlWithPolicy('https://example.com/data.json', policy);
+        expect(acc.get('user')).toBe('john');
+        expect(acc.get('token')).toBe('[REDACTED]');
     });
 
     it('SafeAccess.fromUrlWithPolicy throws when maxPayloadBytes exceeded', async () => {
-        vi.stubGlobal(
-            'fetch',
-            vi.fn().mockResolvedValue({
-                ok: true,
-                text: () => Promise.resolve('{"big":"' + 'x'.repeat(500) + '"}'),
-            }),
-        );
-        try {
-            const policy: SecurityPolicy = {
-                ...defaultPolicy(),
-                url: { allowedHosts: ['example.com'] },
-                maxPayloadBytes: 10,
-            };
-            await expect(
-                SafeAccess.fromUrlWithPolicy('https://example.com/data.json', policy),
-            ).rejects.toThrow('exceeds maximum');
-        } finally {
-            vi.restoreAllMocks();
-        }
+        vi.spyOn(ioLoader, 'fetchUrl').mockResolvedValueOnce('{"big":"' + 'x'.repeat(500) + '"}');
+        const policy: SecurityPolicy = {
+            ...defaultPolicy(),
+            url: { allowedHosts: ['example.com'] },
+            maxPayloadBytes: 10,
+        };
+        await expect(
+            SafeAccess.fromUrlWithPolicy('https://example.com/data.json', policy),
+        ).rejects.toThrow('exceeds maximum');
     });
 
     it('SafeAccess.fromUrlWithPolicy throws when maxKeys exceeded', async () => {
         const obj: Record<string, unknown> = {};
         for (let i = 0; i < 20; i++) obj[`k${i}`] = i;
-        vi.stubGlobal(
-            'fetch',
-            vi.fn().mockResolvedValue({
-                ok: true,
-                text: () => Promise.resolve(JSON.stringify(obj)),
-            }),
-        );
-        try {
-            const policy: SecurityPolicy = {
-                ...defaultPolicy(),
-                url: { allowedHosts: ['example.com'] },
-                maxKeys: 5,
-            };
-            await expect(
-                SafeAccess.fromUrlWithPolicy('https://example.com/data.json', policy),
-            ).rejects.toThrow('exceeding maximum');
-        } finally {
-            vi.restoreAllMocks();
-        }
+        vi.spyOn(ioLoader, 'fetchUrl').mockResolvedValueOnce(JSON.stringify(obj));
+        const policy: SecurityPolicy = {
+            ...defaultPolicy(),
+            url: { allowedHosts: ['example.com'] },
+            maxKeys: 5,
+        };
+        await expect(
+            SafeAccess.fromUrlWithPolicy('https://example.com/data.json', policy),
+        ).rejects.toThrow('exceeding maximum');
     });
 
     it('SafeAccess.fromUrlWithPolicy skips payload and keys checks when not set', async () => {
-        vi.stubGlobal(
-            'fetch',
-            vi.fn().mockResolvedValue({
-                ok: true,
-                text: () => Promise.resolve('{"a":1}'),
-            }),
-        );
-        try {
-            const policy: SecurityPolicy = {
-                url: { allowedHosts: ['example.com'] },
-            };
-            const acc = await SafeAccess.fromUrlWithPolicy('https://example.com/data.json', policy);
-            expect(acc.get('a')).toBe(1);
-        } finally {
-            vi.restoreAllMocks();
-        }
+        vi.spyOn(ioLoader, 'fetchUrl').mockResolvedValueOnce('{"a":1}');
+        const policy: SecurityPolicy = {
+            url: { allowedHosts: ['example.com'] },
+        };
+        const acc = await SafeAccess.fromUrlWithPolicy('https://example.com/data.json', policy);
+        expect(acc.get('a')).toBe(1);
     });
 
     it('SafeAccess.fromUrlWithPolicy auto-detects format for extensionless URL', async () => {
-        vi.stubGlobal(
-            'fetch',
-            vi.fn().mockResolvedValue({
-                ok: true,
-                text: () => Promise.resolve('{"b":2}'),
-            }),
-        );
-        try {
-            const policy: SecurityPolicy = {
-                url: { allowedHosts: ['example.com'] },
-            };
-            // URL has no recognizable extension — falls back to TypeDetector auto-detection
-            const acc = await SafeAccess.fromUrlWithPolicy('https://example.com/api', policy);
-            expect(acc.get('b')).toBe(2);
-        } finally {
-            vi.restoreAllMocks();
-        }
+        vi.spyOn(ioLoader, 'fetchUrl').mockResolvedValueOnce('{"b":2}');
+        const policy: SecurityPolicy = {
+            url: { allowedHosts: ['example.com'] },
+        };
+        // URL has no recognizable extension — falls back to TypeDetector auto-detection
+        const acc = await SafeAccess.fromUrlWithPolicy('https://example.com/api', policy);
+        expect(acc.get('b')).toBe(2);
     });
 });
 
@@ -369,7 +312,7 @@ describe('Audit Integration', () => {
         const tmpFile = path.join(os.tmpdir(), `sa-audit-${Date.now()}.json`);
         fs.writeFileSync(tmpFile, '{"a":1}');
         try {
-            SafeAccess.fromFileSync(tmpFile);
+            SafeAccess.fromFileSync(tmpFile, { allowAnyPath: true });
             const fileEvents = events.filter((e) => e.type === 'file.read');
             expect(fileEvents.length).toBeGreaterThanOrEqual(1);
             expect(fileEvents[0].detail.filePath).toBe(tmpFile);
@@ -404,21 +347,14 @@ describe('Audit Integration', () => {
     it('url.fetch emits audit event', async () => {
         const events: AuditEvent[] = [];
         onAudit((e) => events.push(e));
-        vi.stubGlobal(
-            'fetch',
-            vi.fn().mockResolvedValue({
-                ok: true,
-                text: () => Promise.resolve('{"url":"data"}'),
-            }),
-        );
-        try {
-            await SafeAccess.fromUrl('https://example.com/api.json');
-            const urlEvents = events.filter((e) => e.type === 'url.fetch');
-            expect(urlEvents).toHaveLength(1);
-            expect(urlEvents[0].detail.url).toBe('https://example.com/api.json');
-        } finally {
-            vi.restoreAllMocks();
-        }
+        vi.spyOn(ioLoader, 'fetchUrl').mockImplementationOnce(async (url: string) => {
+            emitAudit('url.fetch', { url });
+            return '{"url":"data"}';
+        });
+        await SafeAccess.fromUrl('https://example.com/api.json');
+        const urlEvents = events.filter((e) => e.type === 'url.fetch');
+        expect(urlEvents).toHaveLength(1);
+        expect(urlEvents[0].detail.url).toBe('https://example.com/api.json');
     });
 
     it('unsubscribe from double call is safe', () => {
@@ -427,19 +363,11 @@ describe('Audit Integration', () => {
         off(); // double call should not throw
     });
 
-    it('warns when max listener count is reached', () => {
-        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-        try {
-            // Register exactly 100 listeners to fill the cap, then one more to trigger warning
-            for (let i = 0; i < 100; i++) {
-                onAudit(() => {});
-            }
-            const noop = onAudit(() => {}); // 101st — triggers warning
-            expect(warn).toHaveBeenCalledWith(expect.stringContaining('Max listener count'));
-            // Invoke the returned no-op unsubscriber to cover its body
-            noop();
-        } finally {
-            warn.mockRestore();
+    it('throws when max listener count is reached', () => {
+        for (let i = 0; i < 100; i++) {
+            onAudit(() => {});
         }
+        expect(() => onAudit(() => {})).toThrow(RangeError);
+        expect(() => onAudit(() => {})).toThrow(/Max listener count/);
     });
 });

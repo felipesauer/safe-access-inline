@@ -34,6 +34,7 @@ describe('NestJS Integration', () => {
     it('createSafeAccessProvider with filePath', async () => {
         const provider = createSafeAccessProvider({
             filePath: resolve(FIXTURES, 'config.json'),
+            allowedDirs: [FIXTURES],
         });
         const accessor = await provider.useFactory();
         expect(accessor.get('app.name')).toBe('test-app');
@@ -42,6 +43,7 @@ describe('NestJS Integration', () => {
     it('createSafeAccessProvider with layerPaths', async () => {
         const provider = createSafeAccessProvider({
             layerPaths: [resolve(FIXTURES, 'config.json'), resolve(FIXTURES, 'override.json')],
+            allowedDirs: [FIXTURES],
         });
         const accessor = await provider.useFactory();
         expect(accessor.get('app.name')).toBe('override-app');
@@ -98,10 +100,10 @@ describe('NestJS Integration', () => {
 
 describe('Vite Integration', () => {
     it('loadConfig merges files', () => {
-        const accessor = loadConfig([
-            resolve(FIXTURES, 'config.json'),
-            resolve(FIXTURES, 'override.json'),
-        ]);
+        const accessor = loadConfig(
+            [resolve(FIXTURES, 'config.json'), resolve(FIXTURES, 'override.json')],
+            { allowedDirs: [FIXTURES] },
+        );
         expect(accessor.get('app.name')).toBe('override-app');
         expect(accessor.get('database.host')).toBe('localhost');
         expect(accessor.get('cache.driver')).toBe('redis');
@@ -133,6 +135,7 @@ describe('Vite Integration', () => {
     it('safeAccessPlugin loads config on buildStart', () => {
         const plugin = safeAccessPlugin({
             files: [resolve(FIXTURES, 'config.json')],
+            allowedDirs: [FIXTURES],
         });
         (plugin.buildStart as () => void)();
         const code = plugin.load('\0virtual:safe-access-config') as string;
@@ -143,6 +146,7 @@ describe('Vite Integration', () => {
     it('safeAccessPlugin returns null for non-virtual modules', () => {
         const plugin = safeAccessPlugin({
             files: [resolve(FIXTURES, 'config.json')],
+            allowedDirs: [FIXTURES],
         });
         expect(plugin.load('some-other-module')).toBeNull();
     });
@@ -159,6 +163,7 @@ describe('Vite Integration', () => {
     it('safeAccessPlugin handleHotUpdate reloads watched files', () => {
         const plugin = safeAccessPlugin({
             files: [resolve(FIXTURES, 'config.json')],
+            allowedDirs: [FIXTURES],
         });
         (plugin.buildStart as () => void)();
 
@@ -180,6 +185,7 @@ describe('Vite Integration', () => {
     it('safeAccessPlugin handleHotUpdate ignores non-watched files', () => {
         const plugin = safeAccessPlugin({
             files: [resolve(FIXTURES, 'config.json')],
+            allowedDirs: [FIXTURES],
         });
         (plugin.buildStart as () => void)();
 

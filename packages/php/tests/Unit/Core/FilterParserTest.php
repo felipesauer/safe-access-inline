@@ -197,4 +197,42 @@ describe(FilterParser::class, function () {
         expect($expr['conditions'])->toHaveCount(1);
         expect($expr['conditions'][0]['value'])->toBe('x || y');
     });
+
+    // ── SEC-01 / SEC-05 regression: evalMatch hardening ──
+
+    it('evaluate — match with slash in pattern does not inject flags', function () {
+        $expr = FilterParser::parse("match(@.url,'https://example')");
+        expect(FilterParser::evaluate(['url' => 'https://example.com'], $expr))->toBeTrue();
+        expect(FilterParser::evaluate(['url' => 'ftp://other'], $expr))->toBeFalse();
+    });
+
+    it('evaluate — match with catastrophic backtracking pattern returns false', function () {
+        // ReDoS-style pattern with limited backtrack should not hang
+        $expr = FilterParser::parse("match(@.val,'a+a+a+a+a+a+a+a+a+a+b')");
+        $evil = str_repeat('a', 50);
+        // Should complete quickly due to backtrack limit; result is false (no match)
+        expect(FilterParser::evaluate(['val' => $evil], $expr))->toBeFalse();
+    });
+
+    it('evaluate — length() on non-string/non-array returns 0', function () {
+        $expr = FilterParser::parse('length(@.val) == 0');
+        expect(FilterParser::evaluate(['val' => 42], $expr))->toBeTrue();
+    });
+
+    it('evaluate — match() on non-string value returns false', function () {
+        $expr = FilterParser::parse("match(@.val,'pattern')");
+        expect(FilterParser::evaluate(['val' => 123], $expr))->toBeFalse();
+    });
+
+    it('evaluate — keys() on list array returns 0', function () {
+        $expr = FilterParser::parse('keys(@.val) == 0');
+        expect(FilterParser::evaluate(['val' => [1, 2, 3]], $expr))->toBeTrue();
+    });
+
+    it('evaluate — match with ReDoS oversized pattern is rejected', function () {
+        $longPattern = str_repeat('a', 257);
+        $expr = FilterParser::parse("match(@.val,'{$longPattern}')");
+        // Pattern rejected by ReDoS guard (>256 chars) → returns false
+        expect(FilterParser::evaluate(['val' => 'aaaaab'], $expr))->toBeFalse();
+    });
 });

@@ -1,4 +1,4 @@
-type Segment = { type: 'key'; value: string } | { type: 'wildcard' };
+type Segment = { type: string; [key: string]: unknown };
 
 const MAX_CACHE_SIZE = 1000;
 
@@ -8,7 +8,13 @@ export class PathCache {
 
     static get(path: string): Segment[] | undefined {
         if (!PathCache.enabled) return undefined;
-        return PathCache.cache.get(path);
+        const cached = PathCache.cache.get(path);
+        if (cached !== undefined) {
+            // Promote to most-recently-used by reinserting
+            PathCache.cache.delete(path);
+            PathCache.cache.set(path, cached);
+        }
+        return cached;
     }
 
     static set(path: string, segments: Segment[]): void {
@@ -27,6 +33,7 @@ export class PathCache {
 
     static clear(): void {
         PathCache.cache.clear();
+        PathCache.enabled = true; // restore default after clear — prevents permanent disable after resetAll()
     }
 
     static get size(): number {

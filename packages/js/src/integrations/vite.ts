@@ -12,6 +12,8 @@ export interface VitePluginOptions {
     virtualId?: string;
     /** Allowed directories for file access */
     allowedDirs?: string[];
+    /** Set to true to bypass path restrictions when no allowedDirs are configured */
+    allowAnyPath?: boolean;
 }
 
 /**
@@ -46,6 +48,7 @@ export function safeAccessPlugin(options: VitePluginOptions) {
             const filePath = resolve(f);
             return SafeAccess.fromFileSync(filePath, {
                 allowedDirs: options.allowedDirs,
+                allowAnyPath: options.allowAnyPath,
             });
         });
         if (accessors.length === 0) return {};
@@ -75,11 +78,15 @@ export function safeAccessPlugin(options: VitePluginOptions) {
         handleHotUpdate(ctx: { file: string; server: { ws: { send: (msg: unknown) => void } } }) {
             const watchedFiles = options.files.map((f) => resolve(f));
             if (watchedFiles.includes(ctx.file)) {
-                configData = loadConfig();
-                ctx.server.ws.send({
-                    type: 'full-reload',
-                    path: '*',
-                });
+                try {
+                    configData = loadConfig();
+                    ctx.server.ws.send({
+                        type: 'full-reload',
+                        path: '*',
+                    });
+                } catch {
+                    // Prevent invalid config from crashing the dev server
+                }
             }
         },
     };
@@ -97,11 +104,12 @@ export function safeAccessPlugin(options: VitePluginOptions) {
  */
 export function loadConfig(
     files: string[],
-    options?: { allowedDirs?: string[] },
+    options?: { allowedDirs?: string[]; allowAnyPath?: boolean },
 ): AbstractAccessor {
     const accessors = files.map((f) =>
         SafeAccess.fromFileSync(resolve(f), {
             allowedDirs: options?.allowedDirs,
+            allowAnyPath: options?.allowAnyPath,
         }),
     );
     return SafeAccess.layer(accessors);

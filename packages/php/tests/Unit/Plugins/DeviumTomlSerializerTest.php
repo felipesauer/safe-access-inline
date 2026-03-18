@@ -1,8 +1,25 @@
 <?php
 
+use SafeAccessInline\Exceptions\InvalidFormatException;
 use SafeAccessInline\Plugins\DeviumTomlSerializer;
 
 describe(DeviumTomlSerializer::class, function () {
+
+    it('throws InvalidFormatException when devium/toml is not available', function () {
+        $serializer = new class () extends DeviumTomlSerializer {
+            protected function isAvailable(): bool
+            {
+                return false;
+            }
+        };
+        expect(fn () => $serializer->serialize(['key' => 'value']))->toThrow(InvalidFormatException::class, 'devium/toml is not installed');
+    });
+
+    beforeEach(function () {
+        if (!class_exists(\Devium\Toml\Toml::class)) {
+            $this->markTestSkipped('devium/toml not installed (run with deps=full to enable)');
+        }
+    });
 
     it('serializes flat data to TOML', function () {
         $serializer = new DeviumTomlSerializer();

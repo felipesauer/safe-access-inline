@@ -47,8 +47,8 @@ class SymfonyIntegration
      * @param string $yamlPath Path to a YAML config file
      * @param string[] $allowedDirs Optional directory whitelist
      */
-    public static function fromYamlFile(string $yamlPath, array $allowedDirs = []): AbstractAccessor
+    public static function fromYamlFile(string $yamlPath, array $allowedDirs = [], bool $allowAnyPath = false): AbstractAccessor
     {
-        return SafeAccess::fromFile($yamlPath, 'yaml', $allowedDirs);
+        return SafeAccess::fromFile($yamlPath, 'yaml', $allowedDirs, $allowAnyPath);
     }
 }

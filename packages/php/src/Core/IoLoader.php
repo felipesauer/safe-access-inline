@@ -39,14 +39,22 @@ final class IoLoader
      * @param string[] $allowedDirs
      * @throws SecurityException
      */
-    public static function assertPathWithinAllowedDirs(string $filePath, array $allowedDirs = []): void
-    {
+    public static function assertPathWithinAllowedDirs(
+        string $filePath,
+        array $allowedDirs = [],
+        bool $allowAnyPath = false,
+    ): void {
         if (str_contains($filePath, "\0")) {
             throw new SecurityException('File path contains null bytes.');
         }
 
         if (count($allowedDirs) === 0) {
-            return;
+            if ($allowAnyPath) {
+                return;
+            }
+            throw new SecurityException(
+                'No allowedDirs configured. Provide allowedDirs or set allowAnyPath: true to bypass path restrictions.'
+            );
         }
 
         $resolved = realpath($filePath);
@@ -76,11 +84,11 @@ final class IoLoader
      * @param string[] $allowedDirs
      * @throws SecurityException
      */
-    public static function readFile(string $filePath, array $allowedDirs = []): string
+    public static function readFile(string $filePath, array $allowedDirs = [], bool $allowAnyPath = false): string
     {
-        self::assertPathWithinAllowedDirs($filePath, $allowedDirs);
+        self::assertPathWithinAllowedDirs($filePath, $allowedDirs, $allowAnyPath);
         AuditLogger::emit('file.read', ['filePath' => $filePath]);
-        $content = file_get_contents($filePath);
+        $content = @file_get_contents($filePath);
         if ($content === false) {
             throw new SecurityException("Failed to read file: '{$filePath}'");
         }
@@ -175,8 +183,9 @@ final class IoLoader
                 throw new SecurityException('Access to loopback IPv6 addresses is blocked.');
             }
 
-            // Block fe80::/10 (link-local) addresses
-            if (str_starts_with(strtolower($cleaned), 'fe80')) {
+            // Block fe80::/10 (link-local) — full range fe80::–febf::, not just fe80::
+            // The /10 prefix covers second bytes 0x80–0xbf: fe8x, fe9x, feax, febx
+            if (preg_match('/^fe[89ab][0-9a-f]:/i', strtolower($cleaned))) {
                 throw new SecurityException('Access to IPv6 link-local addresses is blocked.');
             }
 
@@ -196,15 +205,31 @@ final class IoLoader
             }
 
             // Block metadata hostnames
-            if (in_array($host, ['metadata.google.internal', 'instance-data'], true)) {
+            if (in_array($host, ['metadata.google.internal', 'instance-data', 'metadata.oracle.internal'], true)) {
                 throw new SecurityException(
                     "Access to cloud metadata hostname '{$host}' is blocked."
                 );
             }
         }
 
-        // Resolve hostname to IP
+        // Resolve hostname to IP — try IPv4 first, then AAAA fallback
         $ip = gethostbyname($host);
+
+        if ($ip === $host) {
+            // gethostbyname failed (returned hostname unchanged) — try IPv6 AAAA records
+            $records = @dns_get_record($host, DNS_AAAA);
+            if (is_array($records) && count($records) > 0 && isset($records[0]['ipv6'])) {
+                $ip = $records[0]['ipv6'];
+
+                if (!$allowPrivateIps && self::isPrivateIpv6($ip)) {
+                    throw new SecurityException(
+                        "Access to private/internal IPv6 '{$ip}' is blocked (SSRF protection)."
+                    );
+                }
+
+                return $ip;
+            }
+        }
 
         if (!$allowPrivateIps && self::isPrivateIp($ip)) {
             throw new SecurityException(
@@ -213,6 +238,35 @@ final class IoLoader
         }
 
         return $ip;
+    }
+
+    public static function isPrivateIpv6(string $ip): bool
+    {
+        $lower = strtolower($ip);
+
+        // ::1 loopback
+        if ($lower === '::1' || $lower === '0:0:0:0:0:0:0:1') {
+            return true;
+        }
+
+        // fe80::/10 link-local — full range fe80::–febf::, not just fe80::
+        // The /10 prefix covers second bytes 0x80–0xbf: fe8x, fe9x, feax, febx
+        if (preg_match('/^fe[89ab][0-9a-f]:/i', $lower)) {
+            return true;
+        }
+
+        // fc00::/7 ULA (unique local addresses): fd00::/8 and fc00::/8
+        if (preg_match('/^f[cd][0-9a-f]{0,2}:/i', $lower)) {
+            return true;
+        }
+
+        // ::ffff:0:0/96 IPv4-mapped — check the mapped IPv4 address
+        if (str_starts_with($lower, '::ffff:')) {
+            $mappedIp = substr($lower, 7);
+            return self::isPrivateIp($mappedIp);
+        }
+
+        return false;
     }
 
     public static function isPrivateIp(string $ip): bool

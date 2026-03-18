@@ -93,12 +93,12 @@ final class DotNotationParser
                 return $default;
             }
             $items = array_values($current);
-            $remaining = array_slice($segments, $index + 1);
-            if (count($remaining) === 0) {
+            $nextIndex = $index + 1;
+            if ($nextIndex >= count($segments)) {
                 return $items;
             }
             return array_map(
-                fn ($item) => self::resolve($item, $remaining, 0, $default),
+                fn ($item) => self::resolve($item, $segments, $nextIndex, $default),
                 $items
             );
         }
@@ -113,12 +113,12 @@ final class DotNotationParser
                 array_values($current),
                 fn ($item) => is_array($item) && FilterParser::evaluate($item, $filterExpr)
             ));
-            $remaining = array_slice($segments, $index + 1);
-            if (count($remaining) === 0) {
+            $nextIndex = $index + 1;
+            if ($nextIndex >= count($segments)) {
                 return $filtered;
             }
             return array_map(
-                fn ($item) => self::resolve($item, $remaining, 0, $default),
+                fn ($item) => self::resolve($item, $segments, $nextIndex, $default),
                 $filtered
             );
         }
@@ -127,17 +127,18 @@ final class DotNotationParser
             if (!is_array($current)) {
                 return $default;
             }
-            $remaining = array_slice($segments, $index + 1);
+            $nextIndex = $index + 1;
+            $segmentCount = count($segments);
             // Multi-key mode (string keys)
             if (isset($segment['keys'])) {
                 /** @var array<string> $multiKeys */
                 $multiKeys = $segment['keys'];
-                return array_map(function ($k) use ($current, $remaining, $default) {
+                return array_map(function ($k) use ($current, $segments, $nextIndex, $segmentCount, $default) {
                     $val = array_key_exists($k, $current) ? $current[$k] : $default;
-                    if (count($remaining) === 0) {
+                    if ($nextIndex >= $segmentCount) {
                         return $val;
                     }
-                    return self::resolve($val, $remaining, 0, $default);
+                    return self::resolve($val, $segments, $nextIndex, $default);
                 }, $multiKeys);
             }
             // Numeric indices
@@ -145,15 +146,15 @@ final class DotNotationParser
             $indices = $segment['indices'] ?? [];
             $items = array_values($current);
             $len = count($items);
-            return array_map(function ($idx) use ($items, $len, $remaining, $default) {
+            return array_map(function ($idx) use ($items, $len, $segments, $nextIndex, $segmentCount, $default) {
                 $resolved = $idx < 0 ? ($items[$len + $idx] ?? null) : ($items[$idx] ?? null);
                 if ($resolved === null) {
                     return $default;
                 }
-                if (count($remaining) === 0) {
+                if ($nextIndex >= $segmentCount) {
                     return $resolved;
                 }
-                return self::resolve($resolved, $remaining, 0, $default);
+                return self::resolve($resolved, $segments, $nextIndex, $default);
             }, $indices);
         }
 
@@ -188,12 +189,12 @@ final class DotNotationParser
                     $sliced[] = $items[$si];
                 }
             }
-            $remaining = array_slice($segments, $index + 1);
-            if (count($remaining) === 0) {
+            $nextSliceIndex = $index + 1;
+            if ($nextSliceIndex >= count($segments)) {
                 return $sliced;
             }
             return array_map(
-                fn ($item) => self::resolve($item, $remaining, 0, $default),
+                fn ($item) => self::resolve($item, $segments, $nextSliceIndex, $default),
                 $sliced
             );
         }
@@ -324,8 +325,12 @@ final class DotNotationParser
      * @param array<mixed> $source
      * @return array<mixed>
      */
-    private static function deepMerge(array $target, array $source): array
+    private static function deepMerge(array $target, array $source, int $depth = 0): array
     {
+        if ($depth > self::MAX_RESOLVE_DEPTH) {
+            throw new SecurityException('Deep merge exceeded maximum depth of ' . self::MAX_RESOLVE_DEPTH);
+        }
+
         $result = $target;
         foreach ($source as $key => $srcVal) {
             if (is_string($key)) {
@@ -338,7 +343,7 @@ final class DotNotationParser
                 && is_array($result[$key])
                 && !array_is_list($result[$key])
             ) {
-                $result[$key] = self::deepMerge($result[$key], $srcVal);
+                $result[$key] = self::deepMerge($result[$key], $srcVal, $depth + 1);
             } else {
                 $result[$key] = $srcVal;
             }
@@ -360,9 +365,7 @@ final class DotNotationParser
         $current = &$result;
 
         $lastKey = array_pop($keys);
-        if ($lastKey === null) { // @codeCoverageIgnore — empty path is rejected before this call
-            return $result; // @codeCoverageIgnore
-        }
+        assert($lastKey !== null, 'parseKeys() always returns a non-empty array');
 
         foreach ($keys as $key) {
             if (!is_array($current) || !array_key_exists($key, $current)) {

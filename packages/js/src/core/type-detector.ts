@@ -17,11 +17,12 @@ import { UnsupportedTypeError } from '../exceptions/unsupported-type.error';
  * 1. array             → ArrayAccessor
  * 2. object            → ObjectAccessor
  * 3. string JSON       → JsonAccessor
- * 4. string XML        → XmlAccessor
- * 5. string YAML       → YamlAccessor
- * 6. string TOML       → TomlAccessor
- * 7. string INI        → IniAccessor
- * 8. string ENV        → EnvAccessor
+ * 4. string NDJSON     → NdjsonAccessor
+ * 5. string XML        → XmlAccessor
+ * 6. string YAML       → YamlAccessor
+ * 7. string TOML       → TomlAccessor
+ * 8. string INI        → IniAccessor
+ * 9. string ENV        → EnvAccessor
  */
 export class TypeDetector {
     static resolve(data: unknown): AbstractAccessor {

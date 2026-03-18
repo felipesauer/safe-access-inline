@@ -6,7 +6,11 @@ export function watchFile(filePath: string, onChange: (filePath: string) => void
     const watcher = fs.watch(filePath, (_eventType: string) => {
         if (debounceTimer) clearTimeout(debounceTimer);
         debounceTimer = setTimeout(() => {
-            onChange(filePath);
+            try {
+                onChange(filePath);
+            } catch {
+                // Prevent unhandled exceptions from leaking timer handles
+            }
         }, 100);
     });
 

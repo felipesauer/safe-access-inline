@@ -95,7 +95,7 @@ describe('Cross-format conversion', function () {
         $accessor2 = SafeAccess::fromYaml($output);
         expect($accessor2->get('app.name'))->toBe('MyApp');
         expect($accessor2->get('app.port'))->toBe(3000);
-    });
+    })->skip(!class_exists(\Symfony\Component\Yaml\Yaml::class), 'symfony/yaml not installed (run with deps=full to enable)');
 
     it('TOML → toToml roundtrip (zero config)', function () {
         $toml = "title = \"Test\"\n\n[server]\nhost = \"localhost\"\nport = 8080";
@@ -105,7 +105,7 @@ describe('Cross-format conversion', function () {
         expect($accessor2->get('title'))->toBe('Test');
         expect($accessor2->get('server.host'))->toBe('localhost');
         expect($accessor2->get('server.port'))->toBe(8080);
-    });
+    })->skip(!class_exists(\Devium\Toml\Toml::class), 'devium/toml not installed (run with deps=full to enable)');
 
     it('JSON → toYaml pipeline (zero config)', function () {
         $accessor = SafeAccess::fromJson('{"name": "Ana", "age": 30}');
@@ -113,13 +113,13 @@ describe('Cross-format conversion', function () {
         expect($yaml)->toContain('name:');
         expect($yaml)->toContain('Ana');
         expect($yaml)->toContain('age: 30');
-    });
+    })->skip(!class_exists(\Symfony\Component\Yaml\Yaml::class), 'symfony/yaml not installed (run with deps=full to enable)');
 
     it('JSON → toToml pipeline (zero config)', function () {
         $accessor = SafeAccess::fromJson('{"name": "Ana", "age": 30}');
         $toml = $accessor->toToml();
         expect($toml)->toContain('Ana');
         expect($toml)->toContain('age = 30');
-    });
+    })->skip(!class_exists(\Devium\Toml\Toml::class), 'devium/toml not installed (run with deps=full to enable)');
 
 });

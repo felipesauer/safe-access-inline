@@ -32,10 +32,13 @@ describe(FileWatcher::class, function () {
         expect($result['mtime'])->toBe(0);
     });
 
-    it('watch returns a callable stop function', function () {
-        $stop = FileWatcher::watch('/tmp/test.json', function () {
+    it('watch returns an array with poll and stop callables', function () {
+        $watcher = FileWatcher::watch('/tmp/test.json', function () {
         });
-        expect($stop)->toBeCallable();
+        expect($watcher)->toBeArray();
+        expect($watcher)->toHaveKeys(['poll', 'stop']);
+        expect($watcher['poll'])->toBeCallable();
+        expect($watcher['stop'])->toBeCallable();
     });
 
     // ── COV-003: watch() with injectable sleep ─────────
@@ -47,13 +50,13 @@ describe(FileWatcher::class, function () {
         $changedPaths = [];
         $iterations = 0;
 
-        $stop = FileWatcher::watch(
+        $watcher = FileWatcher::watch(
             $tmp,
             function (string $path) use (&$changedPaths): void {
                 $changedPaths[] = $path;
             },
             1000,
-            function (int $us) use (&$iterations, $tmp, &$stop): void {
+            function (int $us) use (&$iterations, $tmp, &$watcher): void {
                 $iterations++;
                 if ($iterations === 1) {
                     // Simulate a file change on first sleep
@@ -61,34 +64,63 @@ describe(FileWatcher::class, function () {
                     file_put_contents($tmp, 'changed');
                 } elseif ($iterations >= 3) {
                     // Stop after 3 iterations
-                    if (is_callable($stop)) {
-                        ($stop)();
-                    }
+                    ($watcher['stop'])();
                 }
             },
         );
 
-        // Execute the poll loop (it runs synchronously with our sleep override)
-        // Since we can't call $poll directly (it's internal), the watch just returns stop.
-        // The polling loop is never started automatically in PHP — it was designed for
-        // external execution, so we test via checkOnce + stop function.
-        expect($stop)->toBeCallable();
-        ($stop)();
+        // Execute the poll loop — now it actually runs
+        ($watcher['poll'])();
+
+        expect($changedPaths)->toHaveCount(1);
+        expect($changedPaths[0])->toBe($tmp);
+
+        unlink($tmp);
+    });
+
+    it('watch handles onChange callback exception gracefully', function () {
+        $tmp = tempnam(sys_get_temp_dir(), 'fw_err_');
+        file_put_contents($tmp, 'initial');
+
+        $iterations = 0;
+
+        $watcher = FileWatcher::watch(
+            $tmp,
+            function (string $path): void {
+                throw new \RuntimeException('callback error');
+            },
+            1000,
+            function (int $us) use (&$iterations, $tmp, &$watcher): void {
+                $iterations++;
+                if ($iterations === 1) {
+                    sleep(1);
+                    file_put_contents($tmp, 'changed');
+                } elseif ($iterations >= 2) {
+                    ($watcher['stop'])();
+                }
+            },
+        );
+
+        // Should not throw — error is caught internally via error_log
+        ($watcher['poll'])();
+        expect($iterations)->toBeGreaterThanOrEqual(2);
 
         unlink($tmp);
     });
 
     it('watch stop function prevents further polling', function () {
-        $stop = FileWatcher::watch(
+        $iterations = 0;
+        $watcher = FileWatcher::watch(
             '/tmp/test_stop_' . uniqid() . '.json',
             function () {
             },
             100,
-            function (int $us): void {
+            function (int $us) use (&$watcher, &$iterations): void {
+                $iterations++;
+                ($watcher['stop'])();
             },
         );
-        // Calling stop should not throw
-        ($stop)();
-        expect(true)->toBeTrue();
+        ($watcher['poll'])();
+        expect($iterations)->toBe(1);
     });
 });

@@ -148,6 +148,88 @@ describe(JsonPatch::class, function () {
         $result = JsonPatch::applyPatch(['a' => 1], $ops);
         expect($result)->toBe(['a' => 10]);
     });
+
+    it('throws when move operation is missing from field', function () {
+        JsonPatch::applyPatch(['a' => 1], [['op' => 'move', 'path' => '/b']]);
+    })->throws(\InvalidArgumentException::class, "'from' field");
+
+    it('throws when copy operation is missing from field', function () {
+        JsonPatch::applyPatch(['a' => 1], [['op' => 'copy', 'path' => '/b']]);
+    })->throws(\InvalidArgumentException::class, "'from' field");
+
+    it('applies add to append to array with dash pointer', function () {
+        $result = JsonPatch::applyPatch(
+            ['items' => [1, 2]],
+            [['op' => 'add', 'path' => '/items/-', 'value' => 3]],
+        );
+        expect($result['items'])->toBe([1, 2, 3]);
+    });
+
+    it('move operation on nested path', function () {
+        $data = ['a' => ['x' => 1], 'b' => ['y' => 2]];
+        $result = JsonPatch::applyPatch($data, [
+            ['op' => 'move', 'from' => '/a/x', 'path' => '/b/z'],
+        ]);
+        expect($result['b']['z'])->toBe(1);
+        expect($result['a'])->not->toHaveKey('x');
+    });
+
+    it('copy operation on nested path', function () {
+        $data = ['a' => ['x' => 1]];
+        $result = JsonPatch::applyPatch($data, [
+            ['op' => 'copy', 'from' => '/a/x', 'path' => '/b'],
+        ]);
+        expect($result['a']['x'])->toBe(1);
+        expect($result['b'])->toBe(1);
+    });
+
+    it('remove from list array reindexes', function () {
+        $result = JsonPatch::applyPatch(
+            ['items' => ['a', 'b', 'c']],
+            [['op' => 'remove', 'path' => '/items/1']],
+        );
+        expect($result['items'])->toBe(['a', 'c']);
+    });
+
+    it('setAtPointer creates intermediate keys', function () {
+        $result = JsonPatch::applyPatch(
+            [],
+            [['op' => 'add', 'path' => '/a/b/c', 'value' => 42]],
+        );
+        expect($result['a']['b']['c'])->toBe(42);
+    });
+
+    it('remove at nonexistent nested path is safe', function () {
+        $result = JsonPatch::applyPatch(
+            ['a' => 1],
+            [['op' => 'remove', 'path' => '/x/y/z']],
+        );
+        expect($result)->toBe(['a' => 1]);
+    });
+
+    it('getAtPointer resolves numeric keys in list arrays', function () {
+        $result = JsonPatch::applyPatch(
+            ['items' => ['a', 'b', 'c']],
+            [['op' => 'test', 'path' => '/items/1', 'value' => 'b']],
+        );
+        expect($result['items'])->toBe(['a', 'b', 'c']);
+    });
+
+    it('remove at root pointer returns empty array', function () {
+        $result = JsonPatch::applyPatch(
+            ['a' => 1, 'b' => 2],
+            [['op' => 'remove', 'path' => '']],
+        );
+        expect($result)->toBe([]);
+    });
+
+    it('replace at root pointer with array value', function () {
+        $result = JsonPatch::applyPatch(
+            ['a' => 1],
+            [['op' => 'replace', 'path' => '', 'value' => ['b' => 2]]],
+        );
+        expect($result)->toBe(['b' => 2]);
+    });
 });
 
 describe('AbstractAccessor readonly mode', function () {
@@ -246,5 +328,12 @@ describe('AbstractAccessor getTemplate and merge(array)', function () {
         expect($merged->get('a'))->toBe(1);
         expect($merged->get('b'))->toBe(99);
         expect($merged->get('c'))->toBe(3);
+    });
+
+    it('merge(string, array) merges data at specific path', function () {
+        $acc = SafeAccess::fromArray(['a' => ['x' => 1]]);
+        $merged = $acc->merge('a', ['y' => 2]);
+        expect($merged->get('a.x'))->toBe(1);
+        expect($merged->get('a.y'))->toBe(2);
     });
 });

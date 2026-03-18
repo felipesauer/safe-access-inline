@@ -90,9 +90,16 @@ export function assertSafeUrl(
             const mappedPart = cleanedHost.substring(7);
             // Node's URL parser normalizes ::ffff: mapped addresses to hex pairs
             // (e.g., ::ffff:127.0.0.1 → ::ffff:7f00:1), so we always parse hex.
-            const hexMatch = mappedPart.match(
-                /^([0-9a-f]{1,4}):([0-9a-f]{1,4})$/i,
-            ) as RegExpMatchArray;
+            const hexMatch = mappedPart.match(/^([0-9a-f]{1,4}):([0-9a-f]{1,4})$/i);
+            /* v8 ignore next 5 — defensive: WHATWG URL spec (§4.1) normalises IPv4-mapped
+               IPv6 addresses to hex pairs (e.g. ::ffff:127.0.0.1 → ::ffff:7f00:1).
+               The hexMatch RegExp covers all normalised forms; this branch guards
+               against hypothetical future parser changes. */
+            if (!hexMatch) {
+                throw new SecurityError(
+                    `Access to IPv4-mapped IPv6 address '${cleanedHost}' is blocked (SSRF protection).`,
+                );
+            }
             const mappedIp = `${(parseInt(hexMatch[1], 16) >> 8) & 0xff}.${parseInt(hexMatch[1], 16) & 0xff}.${(parseInt(hexMatch[2], 16) >> 8) & 0xff}.${parseInt(hexMatch[2], 16) & 0xff}`;
             if (isPrivateIp(mappedIp)) {
                 throw new SecurityError(
@@ -111,10 +118,64 @@ export function assertSafeUrl(
         }
 
         // Block well-known metadata hostnames
-        if (hostname === 'metadata.google.internal' || hostname === 'instance-data') {
+        if (
+            hostname === 'metadata.google.internal' ||
+            hostname === 'instance-data' ||
+            hostname === 'metadata.oracle.internal'
+        ) {
             throw new SecurityError(`Access to cloud metadata hostname '${hostname}' is blocked.`);
         }
     }
+}
+
+/**
+ * Resolves a hostname to IPv4, validates it is not a private IP, and returns
+ * the resolved address for connection pinning. Returns null when skipped.
+ * @internal Not part of the public API — used by fetchUrl for DNS pinning.
+ */
+export async function resolveAndValidateIp(
+    hostname: string,
+    options?: { allowPrivateIps?: boolean },
+): Promise<string | null> {
+    if (options?.allowPrivateIps) return null;
+
+    // Already a raw IPv4 — return directly (already checked synchronously by assertSafeUrl)
+    if (/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname)) return hostname;
+
+    const dns = await import('node:dns/promises');
+    try {
+        // Check IPv4 (A records)
+        const v4Addresses = await dns.resolve4(hostname).catch(() => [] as string[]);
+        for (const ip of v4Addresses) {
+            if (isPrivateIp(ip)) {
+                emitAudit('security.violation', { reason: 'ssrf_dns_resolution', hostname, ip });
+                throw new SecurityError(
+                    `Host '${hostname}' resolves to private IP '${ip}' (SSRF protection).`,
+                );
+            }
+        }
+
+        // Check IPv6 (AAAA records) — prevents bypass via AAAA-only hostnames
+        const v6Addresses = await dns.resolve6(hostname).catch(() => [] as string[]);
+        for (const ip of v6Addresses) {
+            if (isIpv6Loopback(ip)) {
+                emitAudit('security.violation', { reason: 'ssrf_dns_resolution', hostname, ip });
+                throw new SecurityError(
+                    `Host '${hostname}' resolves to private IPv6 '${ip}' (SSRF protection).`,
+                );
+            }
+        }
+
+        return v4Addresses[0] ?? null;
+        /* v8 ignore start — defensive: the per-record .catch(() => []) handlers above absorb
+           expected DNS errors (ENOTFOUND, ENODATA). This outer catch only fires for truly
+           unexpected failures (e.g. OS-level or runtime errors). SecurityErrors are rethrown.
+           Testable via vi.spyOn(dns.promises, 'resolve4') throwing a non-DNS error. */
+    } catch (err) {
+        if (err instanceof SecurityError) throw err;
+        return null;
+    }
+    /* v8 ignore stop */
 }
 
 /**
@@ -125,24 +186,5 @@ export async function assertResolvedIpNotPrivate(
     hostname: string,
     options?: { allowPrivateIps?: boolean },
 ): Promise<void> {
-    if (options?.allowPrivateIps) return;
-
-    // Skip if already a raw IP (already checked synchronously)
-    if (/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname)) return;
-
-    const { resolve4 } = await import('node:dns/promises');
-    try {
-        const addresses = await resolve4(hostname);
-        for (const ip of addresses) {
-            if (isPrivateIp(ip)) {
-                emitAudit('security.violation', { reason: 'ssrf_dns_resolution', hostname, ip });
-                throw new SecurityError(
-                    `Host '${hostname}' resolves to private IP '${ip}' (SSRF protection).`,
-                );
-            }
-        }
-    } catch (err) {
-        if (err instanceof SecurityError) throw err;
-        // DNS resolution failure — allow to proceed (fetch will fail anyway)
-    }
+    await resolveAndValidateIp(hostname, options);
 }

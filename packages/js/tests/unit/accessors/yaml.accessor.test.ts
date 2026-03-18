@@ -104,7 +104,7 @@ features:
         const accessor = YamlAccessor.from(yaml);
         expect(accessor.type('app')).toBe('object');
         expect(accessor.type('app.name')).toBe('string');
-        expect(accessor.type('app.debug')).toBe('boolean');
+        expect(accessor.type('app.debug')).toBe('bool');
         expect(accessor.type('database.port')).toBe('number');
     });
 

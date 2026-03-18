@@ -21,8 +21,10 @@
         "@commitlint/config-conventional": "^20.4",
         "husky": "^9.0",
         "lint-staged": "^16.3",
+        "mermaid": "^11.13.0",
         "prettier": "^3.0",
-        "vitepress": "^1.6.4"
+        "vitepress": "^1.6.4",
+        "vitepress-plugin-mermaid": "^2.0.17"
     },
     "engines": {
         "node": ">=22"

@@ -58,11 +58,17 @@ jobs:
             - name: Build
               run: npm run build
 
+            - name: Lint
+              run: npm run lint
+
+            - name: Type check
+              run: npm run typecheck
+
             - name: Run tests
               run: npm test -- --coverage
 
             - name: Upload coverage to Codecov
-              if: matrix.node == 22
+              if: matrix.node == '22'
               uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5
               with:
                   token: ${{ secrets.CODECOV_TOKEN }}

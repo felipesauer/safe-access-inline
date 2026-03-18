@@ -57,12 +57,32 @@ describe(SecurityPolicy::class, function () {
         expect($merged->url)->toBe(['allowedPorts' => [443]]);
     });
 
+    it('merge preserves allowAnyPath from base policy', function () {
+        $policy = new SecurityPolicy(allowAnyPath: true);
+        $merged = $policy->merge(['allowedDirs' => ['/tmp']]);
+        expect($merged->allowAnyPath)->toBeTrue();
+        expect($merged->allowedDirs)->toBe(['/tmp']);
+    });
+
+    it('merge allows overriding allowAnyPath', function () {
+        $policy = new SecurityPolicy(allowAnyPath: false);
+        $merged = $policy->merge(['allowAnyPath' => true]);
+        expect($merged->allowAnyPath)->toBeTrue();
+    });
+
+    it('merge does not inherit allowAnyPath when explicitly set to false', function () {
+        $policy = new SecurityPolicy(allowAnyPath: true);
+        $merged = $policy->merge(['allowAnyPath' => false]);
+        expect($merged->allowAnyPath)->toBeFalse();
+    });
+
     it('strict() returns restrictive policy', function () {
         $policy = SecurityPolicy::strict();
         expect($policy->maxDepth)->toBe(20);
         expect($policy->maxPayloadBytes)->toBe(1_048_576);
         expect($policy->maxKeys)->toBe(1_000);
-        expect($policy->csvMode)->toBe('strip');
+        expect($policy->csvMode)->toBe('error');
+        expect($policy->url['allowedPorts'])->toBe([443]);
     });
 
     it('permissive() returns relaxed policy', function () {
@@ -142,6 +162,16 @@ describe(AuditLogger::class, function () {
         AuditLogger::emit('file.read', ['filePath' => 'c.json']);
         expect($events)->toHaveCount(0);
     });
+
+    it('throws OverflowException when max listeners exceeded', function () {
+        for ($i = 0; $i < 100; $i++) {
+            AuditLogger::onAudit(function () {
+            });
+        }
+        // 101st listener should throw
+        AuditLogger::onAudit(function () {
+        });
+    })->throws(\OverflowException::class, 'Max listener count');
 });
 
 // ── SafeAccess Integration ──────────────────────────────
@@ -194,7 +224,7 @@ describe('SafeAccess + SecurityPolicy/Audit', function () {
         $tmp = tempnam(sys_get_temp_dir(), 'sa-audit-') . '.json';
         file_put_contents($tmp, '{"a":1}');
         try {
-            SafeAccess::fromFile($tmp);
+            SafeAccess::fromFile($tmp, null, [], true);
             $fileEvents = array_filter($events, fn ($e) => $e['type'] === 'file.read');
             expect($fileEvents)->not->toBeEmpty();
         } finally {

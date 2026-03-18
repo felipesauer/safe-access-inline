@@ -15,6 +15,8 @@ export interface SafeAccessModuleOptions {
     layerPaths?: string[];
     /** Allowed directories for file access */
     allowedDirs?: string[];
+    /** Set to true to bypass path restrictions when no allowedDirs are configured */
+    allowAnyPath?: boolean;
 }
 
 /**
@@ -67,6 +69,7 @@ export function createSafeAccessProvider(options: SafeAccessModuleOptions) {
             if (options.layerPaths && options.layerPaths.length > 0) {
                 return SafeAccess.layerFiles(options.layerPaths, {
                     allowedDirs: options.allowedDirs,
+                    allowAnyPath: options.allowAnyPath,
                 });
             }
 
@@ -74,6 +77,7 @@ export function createSafeAccessProvider(options: SafeAccessModuleOptions) {
                 return SafeAccess.fromFile(options.filePath, {
                     format: options.format,
                     allowedDirs: options.allowedDirs,
+                    allowAnyPath: options.allowAnyPath,
                 });
             }
 

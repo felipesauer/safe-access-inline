@@ -11,6 +11,11 @@
             "types": "./dist/index.d.ts",
             "import": "./dist/index.js",
             "require": "./dist/index.cjs"
+        },
+        "./testing": {
+            "types": "./dist/testing.d.ts",
+            "import": "./dist/testing.js",
+            "require": "./dist/testing.cjs"
         }
     },
     "files": [
@@ -19,12 +24,13 @@
         "CHANGELOG.md"
     ],
     "scripts": {
-        "build": "tsup src/index.ts --format cjs,esm --dts",
+        "build": "tsup",
         "test": "vitest run",
         "test:coverage": "vitest run --coverage",
         "test:watch": "vitest",
         "bench": "vitest bench benchmarks/",
         "lint": "eslint src/ tests/",
+        "typecheck": "tsc --noEmit",
         "format": "prettier --write src/ tests/"
     },
     "keywords": [
@@ -47,6 +53,10 @@
     "homepage": "https://github.com/felipesauer/safe-access-inline#readme",
     "bugs": {
         "url": "https://github.com/felipesauer/safe-access-inline/issues"
+    },
+    "funding": {
+        "type": "github",
+        "url": "https://github.com/sponsors/felipesauer"
     },
     "publishConfig": {
         "access": "public"

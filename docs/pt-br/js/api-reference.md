@@ -8,18 +8,11 @@ outline: deep
 
 - [Facade SafeAccess](#facade-safeaccess)
 - [Métodos de Instância do Accessor](#metodos-de-instancia-do-accessor)
-- [Operações de Array](#operacoes-de-array)
-- [JSON Patch](#json-patch)
-- [Validação de Schema](#validacao-de-schema)
-- [Segurança](#seguranca)
-- [I/O & Carregamento de Arquivos](#i-o-carregamento-de-arquivos)
-- [Log de Auditoria](#log-de-auditoria)
-- [Integrações de Framework](#integracoes-de-framework)
-- [PluginRegistry](#pluginregistry)
-- [DotNotationParser](#dotnotationparser)
-- [Erros](#erros)
-- [Tipos TypeScript](#tipos-typescript)
-- [Enums](#enums)
+
+**Ver também:**
+
+- [API — Operações & I/O](/pt-br/js/api-features)
+- [API — Tipos & Internos](/pt-br/js/api-types)
 
 ---
 
@@ -29,23 +22,25 @@ outline: deep
 
 ### Métodos Factory
 
-#### `SafeAccess.fromArray(data: unknown[]): ArrayAccessor`
+#### `SafeAccess.fromArray(data: unknown[], options?: { readonly?: boolean }): ArrayAccessor`
 
-Cria um accessor a partir de um array ou objeto.
+Cria um accessor a partir de um array. Passe `{ readonly: true }` para prevenir mutações.
 
 ```typescript
 const accessor = SafeAccess.fromArray([{ name: "Ana" }, { name: "Bob" }]);
+const ro = SafeAccess.fromArray([1, 2, 3], { readonly: true });
 ```
 
-#### `SafeAccess.fromObject(data: Record<string, unknown>): ObjectAccessor`
+#### `SafeAccess.fromObject(data: Record<string, unknown>, options?: { readonly?: boolean }): ObjectAccessor`
 
-Cria um accessor a partir de um objeto plano.
+Cria um accessor a partir de um objeto plano. Passe `{ readonly: true }` para prevenir mutações.
 
 ```typescript
 const accessor = SafeAccess.fromObject({ name: "Ana", age: 30 });
+const ro = SafeAccess.fromObject({ key: "value" }, { readonly: true });
 ```
 
-#### `SafeAccess.fromJson(data: string): JsonAccessor`
+#### `SafeAccess.fromJson(data: string, options?: { readonly?: boolean }): JsonAccessor`
 
 Cria um accessor a partir de uma string JSON.
 
@@ -53,7 +48,7 @@ Cria um accessor a partir de uma string JSON.
 const accessor = SafeAccess.fromJson('{"name": "Ana"}');
 ```
 
-#### `SafeAccess.fromXml(data: string): XmlAccessor`
+#### `SafeAccess.fromXml(data: string, options?: { readonly?: boolean }): XmlAccessor`
 
 Cria um accessor a partir de uma string XML.
 
@@ -61,7 +56,7 @@ Cria um accessor a partir de uma string XML.
 const accessor = SafeAccess.fromXml("<root><name>Ana</name></root>");
 ```
 
-#### `SafeAccess.fromYaml(data: string): YamlAccessor`
+#### `SafeAccess.fromYaml(data: string, options?: { readonly?: boolean }): YamlAccessor`
 
 Cria um accessor a partir de uma string YAML. Usa `js-yaml` por padrão. Se um plugin parser for registrado via `PluginRegistry`, o plugin tem prioridade.
 
@@ -69,7 +64,7 @@ Cria um accessor a partir de uma string YAML. Usa `js-yaml` por padrão. Se um p
 const accessor = SafeAccess.fromYaml("name: Ana\nage: 30");
 ```
 
-#### `SafeAccess.fromToml(data: string): TomlAccessor`
+#### `SafeAccess.fromToml(data: string, options?: { readonly?: boolean }): TomlAccessor`
 
 Cria um accessor a partir de uma string TOML. Usa `smol-toml` por padrão. Se um plugin parser for registrado via `PluginRegistry`, o plugin tem prioridade.
 
@@ -77,7 +72,7 @@ Cria um accessor a partir de uma string TOML. Usa `smol-toml` por padrão. Se um
 const accessor = SafeAccess.fromToml('name = "Ana"');
 ```
 
-#### `SafeAccess.fromIni(data: string): IniAccessor`
+#### `SafeAccess.fromIni(data: string, options?: { readonly?: boolean }): IniAccessor`
 
 Cria um accessor a partir de uma string INI.
 
@@ -85,7 +80,7 @@ Cria um accessor a partir de uma string INI.
 const accessor = SafeAccess.fromIni("[section]\nkey = value");
 ```
 
-#### `SafeAccess.fromCsv(data: string): CsvAccessor`
+#### `SafeAccess.fromCsv(data: string, options?: { readonly?: boolean }): CsvAccessor`
 
 Cria um accessor a partir de uma string CSV (primeira linha = cabeçalhos).
 
@@ -93,7 +88,7 @@ Cria um accessor a partir de uma string CSV (primeira linha = cabeçalhos).
 const accessor = SafeAccess.fromCsv("name,age\nAna,30");
 ```
 
-#### `SafeAccess.fromEnv(data: string): EnvAccessor`
+#### `SafeAccess.fromEnv(data: string, options?: { readonly?: boolean }): EnvAccessor`
 
 Cria um accessor a partir de uma string no formato `.env`.
 
@@ -101,7 +96,7 @@ Cria um accessor a partir de uma string no formato `.env`.
 const accessor = SafeAccess.fromEnv("APP_NAME=MyApp\nDEBUG=true");
 ```
 
-#### `SafeAccess.fromNdjson(data: string): NdjsonAccessor`
+#### `SafeAccess.fromNdjson(data: string, options?: { readonly?: boolean }): NdjsonAccessor`
 
 Cria um accessor a partir de uma string JSON delimitada por linhas (NDJSON).
 
@@ -144,7 +139,7 @@ Lança `InvalidFormatError` se o formato for desconhecido e não estiver registr
 
 Auto-detecta o formato e cria o accessor apropriado.
 
-Prioridade de detecção: array → object → string JSON → string XML → string YAML → string INI → string ENV.
+Prioridade de detecção: array → object → string JSON (com fallback NDJSON) → string XML → string YAML → string TOML → string INI → string ENV.
 
 ```typescript
 const accessor = SafeAccess.detect({ key: "value" }); // ObjectAccessor
@@ -210,11 +205,36 @@ accessor.has("user.name"); // true
 accessor.has("missing"); // false
 ```
 
+#### `getTemplate(template: string, bindings: Record<string, string | number>, defaultValue?: unknown): unknown`
+
+Resolve uma string de template substituindo placeholders `{key}` com valores dos bindings, e então lê o caminho resultante.
+
+```typescript
+accessor.getTemplate("users.{id}.name", { id: 0 }); // 'Ana'
+accessor.getTemplate(
+    "settings.{section}.{key}",
+    { section: "db", key: "host" },
+    "localhost",
+);
+```
+
+#### `getAt(segments: string[], defaultValue?: unknown): unknown`
+
+Acessa um valor via array de segmentos de caminho (alternativa programática a strings com notação de ponto).
+
+```typescript
+accessor.getAt(["users", "0", "name"]); // 'Ana'
+```
+
+#### `hasAt(segments: string[]): boolean`
+
+Verifica se um caminho existe usando um array de segmentos.
+
 #### `type(path: string): string | null`
 
-Retorna o tipo JavaScript do valor no caminho dado, ou `null` se o caminho não existir.
+Retorna o tipo normalizado do valor no caminho dado, ou `null` se o caminho não existir.
 
-Valores possíveis: `"string"`, `"number"`, `"boolean"`, `"object"`, `"array"`, `"null"`, `"undefined"`.
+Valores possíveis: `"string"`, `"number"`, `"bool"`, `"object"`, `"array"`, `"null"`, `"undefined"`.
 
 ```typescript
 accessor.type("name"); // "string"
@@ -282,6 +302,18 @@ const newAccessor = accessor.remove("user.age");
 // accessor inalterado, newAccessor tem 'age' removido
 ```
 
+#### `setAt(segments: string[], value: unknown): AbstractAccessor`
+
+Define um valor usando um array de segmentos de caminho. Retorna uma **nova instância**.
+
+```typescript
+const newAccessor = accessor.setAt(["user", "email"], "ana@example.com");
+```
+
+#### `removeAt(segments: string[]): AbstractAccessor`
+
+Remove um caminho usando um array de segmentos. Retorna uma **nova instância**.
+
 ### Transformação
 
 #### `toArray(): Record<string, unknown>`
@@ -321,17 +353,18 @@ accessor.toToml(); // 'name = "Ana"\n'
 
 #### `toXml(rootElement?: string): string`
 
-Serializa os dados para XML. Requer um plugin serializer `'xml'` registrado via `PluginRegistry`. Cai para `UnsupportedTypeError` se nenhum serializer estiver registrado. O parâmetro `rootElement` (padrão: `'root'`) é passado internamente mas o plugin serializer controla a saída real.
+Serializa os dados para XML. Usa um serializador XML interno por padrão — produz `<?xml version="1.0"?><root>...</root>`. Se um plugin serializer `'xml'` for registrado via `PluginRegistry`, o plugin tem prioridade. O parâmetro `rootElement` (padrão: `'root'`) define o nome do elemento raiz XML.
 
 ```typescript
-PluginRegistry.registerSerializer("xml", {
-    serialize: (data) => {
-        // Sua lógica de serialização XML
-        return "<root>...</root>";
-    },
-});
+// Serializador interno (sem necessidade de plugin)
+accessor.toXml(); // <?xml version="1.0"?>\n<root>...</root>
+accessor.toXml("config"); // <?xml version="1.0"?>\n<config>...</config>
 
-accessor.toXml();
+// Registre um plugin para substituir o serializador interno
+PluginRegistry.registerSerializer("xml", {
+    serialize: (data) => myXmlLib.build(data),
+});
+accessor.toXml(); // usa seu plugin
 ```
 
 #### `toNdjson(): string`
@@ -340,6 +373,15 @@ Serializa os dados para JSON delimitado por linhas. Cada item de array de nível
 
 ```typescript
 accessor.toNdjson(); // '{"id":1}\n{"id":2}'
+```
+
+#### `toCsv(csvMode?: 'none' | 'prefix' | 'strip' | 'error'): string`
+
+Serializa os dados para formato CSV. O parâmetro opcional `csvMode` controla a sanitização de injeção CSV.
+
+```typescript
+accessor.toCsv(); // padrão: sem sanitização
+accessor.toCsv("strip"); // remove caracteres iniciais perigosos
 ```
 
 #### `transform(format: string): string`
@@ -377,700 +419,3 @@ accessor.validate(mySchema);
 ```
 
 ---
-
-## Operações de Array
-
-Todas as operações de array são **imutáveis** — retornam uma nova instância do accessor.
-
-**Import:** Estes são métodos de instância em qualquer accessor.
-
-#### `push(path: string, ...items: unknown[]): AbstractAccessor`
-
-Adiciona itens ao final do array no caminho dado.
-
-```typescript
-const updated = accessor.push("tags", "new-tag");
-```
-
-#### `pop(path: string): AbstractAccessor`
-
-Remove o último item do array no caminho dado.
-
-#### `shift(path: string): AbstractAccessor`
-
-Remove o primeiro item do array no caminho dado.
-
-#### `unshift(path: string, ...items: unknown[]): AbstractAccessor`
-
-Adiciona itens ao início do array no caminho dado.
-
-#### `insert(path: string, index: number, ...items: unknown[]): AbstractAccessor`
-
-Insere itens no índice dado no array no caminho dado.
-
-```typescript
-const updated = accessor.insert("items", 2, { id: 99 });
-```
-
-#### `filterAt(path: string, predicate: (item, index) => boolean): AbstractAccessor`
-
-Filtra o array no caminho dado usando uma função predicado.
-
-```typescript
-const active = accessor.filterAt("users", (u) => u.active === true);
-```
-
-#### `mapAt(path: string, transform: (item, index) => unknown): AbstractAccessor`
-
-Transforma cada item no array no caminho dado.
-
-#### `sortAt(path: string, key?: string, direction?: 'asc' | 'desc'): AbstractAccessor`
-
-Ordena o array no caminho dado. Para arrays de objetos, passe `key` para ordenar por um campo específico.
-
-```typescript
-const sorted = accessor.sortAt("items", "price", "desc");
-```
-
-#### `unique(path: string, key?: string): AbstractAccessor`
-
-Remove duplicatas do array no caminho dado. Para objetos, passe `key` para deduplicar por um campo específico.
-
-#### `flatten(path: string, depth?: number): AbstractAccessor`
-
-Achata arrays aninhados no caminho dado. Profundidade padrão é 1.
-
-#### `first(path: string, defaultValue?: unknown): unknown`
-
-Retorna o primeiro elemento do array no caminho dado.
-
-```typescript
-accessor.first("items"); // primeiro item
-accessor.first("items", null); // null se vazio
-```
-
-#### `last(path: string, defaultValue?: unknown): unknown`
-
-Retorna o último elemento do array no caminho dado.
-
-#### `nth(path: string, index: number, defaultValue?: unknown): unknown`
-
-Retorna o elemento no índice dado. Suporta índices negativos.
-
-```typescript
-accessor.nth("items", -1); // último item
-```
-
----
-
-## JSON Patch
-
-**Import:** `import { diff, applyPatch } from '@safe-access-inline/safe-access-inline'`
-
-#### `diff(a: Record<string, unknown>, b: Record<string, unknown>): JsonPatchOp[]`
-
-Calcula um JSON Patch RFC 6902 entre dois objetos.
-
-```typescript
-const patches = diff(original, modified);
-// [{ op: 'replace', path: '/name', value: 'New' }, ...]
-```
-
-#### `applyPatch(data: Record<string, unknown>, ops: JsonPatchOp[]): Record<string, unknown>`
-
-Aplica um JSON Patch a um objeto. Retorna um novo objeto (não muta o input).
-
-```typescript
-const result = applyPatch(data, patches);
-```
-
-#### Métodos de Instância
-
-Accessors também expõem estes como métodos de instância:
-
-```typescript
-const patches = accessorA.diff(accessorB);
-const patched = accessor.applyPatch(patches);
-```
-
-#### `JsonPatchOp`
-
-```typescript
-type JsonPatchOp = {
-    op: "add" | "remove" | "replace" | "move" | "copy" | "test";
-    path: string;
-    value?: unknown;
-    from?: string;
-};
-```
-
----
-
-## Validação de Schema
-
-**Import:** `import { SchemaRegistry, SchemaValidationError } from '@safe-access-inline/safe-access-inline'`
-
-#### `SchemaRegistry.setDefaultAdapter(adapter: SchemaAdapterInterface): void`
-
-Define um adapter de schema global padrão usado por `accessor.validate()` quando nenhum adapter é passado.
-
-#### `SchemaRegistry.getDefaultAdapter(): SchemaAdapterInterface | null`
-
-Retorna o adapter padrão atual, ou `null`.
-
-#### `SchemaRegistry.clearDefaultAdapter(): void`
-
-Limpa o adapter padrão.
-
-#### `SchemaAdapterInterface`
-
-```typescript
-interface SchemaAdapterInterface<TSchema = unknown> {
-    validate(
-        data: Record<string, unknown>,
-        schema: TSchema,
-    ): SchemaValidationResult;
-}
-
-interface SchemaValidationResult {
-    valid: boolean;
-    issues: SchemaValidationIssue[];
-}
-
-interface SchemaValidationIssue {
-    path: string;
-    message: string;
-}
-```
-
----
-
-## Segurança
-
-### SecurityPolicy
-
-**Import:** `import { mergePolicy, defaultPolicy } from '@safe-access-inline/safe-access-inline'`
-
-Uma configuração de segurança unificada que agrega todas as opções de segurança.
-
-```typescript
-import type { SecurityPolicy } from "@safe-access-inline/safe-access-inline";
-
-const policy = mergePolicy(defaultPolicy(), {
-    maxDepth: 256,
-    allowedDirs: ["/etc/config"],
-    url: { allowPrivateIps: false, allowedHosts: ["api.example.com"] },
-    maskPatterns: ["password", "secret"],
-});
-
-const accessor = SafeAccess.withPolicy(data, policy);
-const fileAccessor = await SafeAccess.fromFileWithPolicy(
-    "/etc/config/app.json",
-    policy,
-);
-const urlAccessor = await SafeAccess.fromUrlWithPolicy(
-    "https://api.example.com/config",
-    policy,
-);
-```
-
-#### Interface `SecurityPolicy`
-
-```typescript
-interface SecurityPolicy {
-    maxDepth?: number;
-    maxPayloadBytes?: number;
-    maxKeys?: number;
-    allowedDirs?: string[];
-    url?: UrlPolicy;
-    csvMode?: "none" | "prefix" | "strip" | "error";
-    maskPatterns?: MaskPattern[];
-}
-
-interface UrlPolicy {
-    allowPrivateIps?: boolean;
-    allowedHosts?: string[];
-    allowedPorts?: number[];
-}
-```
-
-#### `mergePolicy(base, overrides?): SecurityPolicy`
-
-Mescla duas policies. Overrides têm prioridade.
-
-#### `defaultPolicy(): SecurityPolicy`
-
-Retorna a policy padrão (maxDepth=512, maxPayloadBytes=10MB, maxKeys=10000).
-
-### SecurityOptions
-
-**Import:** `import { assertPayloadSize, assertMaxKeys, assertMaxDepth } from '@safe-access-inline/safe-access-inline'`
-
-Funções de asserção de baixo nível usadas internamente por todos os parsers de formato:
-
-- `assertPayloadSize(input: string, maxBytes?: number): void`
-- `assertMaxKeys(data: Record<string, unknown>, maxKeys?: number): void`
-- `assertMaxDepth(currentDepth: number, maxDepth?: number): void`
-
-### Mascaramento de Dados
-
-**Import:** `import { mask } from '@safe-access-inline/safe-access-inline'`
-
-#### `mask(data, patterns?): Record<string, unknown>`
-
-Mascara recursivamente valores sensíveis. Auto-detecta chaves sensíveis comuns (password, secret, token, etc.). Suporta padrões wildcard com `*`.
-
-```typescript
-const safe = mask(data, ["api_*", "credentials"]);
-// { password: '[REDACTED]', api_key: '[REDACTED]', name: 'Ana' }
-```
-
-### Sanitização CSV
-
-**Import:** `import { sanitizeCsvCell, sanitizeCsvRow } from '@safe-access-inline/safe-access-inline'`
-
-Protege contra injeção de fórmulas CSV.
-
-- `sanitizeCsvCell(cell: string, mode?: CsvSanitizeMode): string`
-- `sanitizeCsvRow(row: string[], mode?: CsvSanitizeMode): string[]`
-
-Modos: `'prefix'` (prefixa com `'`), `'strip'` (remove todos os caracteres de prefixo de injeção CSV: `=`, `+`, `-`, `@`, `\t`, `\r`, `\n` conforme orientação OWASP CSV Injection), `'error'` (lança erro), `'none'` (passthrough).
-
-### Deep Freeze
-
-**Import:** `import { deepFreeze } from '@safe-access-inline/safe-access-inline'`
-
-#### `deepFreeze<T extends object>(obj: T): Readonly<T>`
-
-Congela recursivamente um objeto. Útil para tornar configurações imutáveis em tempo de execução.
-
-### IP Range Checker
-
-**Import:** `import { assertSafeUrl, isPrivateIp } from '@safe-access-inline/safe-access-inline'`
-
-- `assertSafeUrl(url: string, options?): void` — Lança `SecurityError` se a URL aponta para um IP privado (proteção contra SSRF).
-- `isPrivateIp(ip: string): boolean` — Retorna `true` para IPs privados/loopback.
-
----
-
-## I/O & Carregamento de Arquivos
-
-### Carregamento de Arquivos
-
-```typescript
-// Síncrono
-const accessor = SafeAccess.fromFileSync("./config.json");
-const accessor = SafeAccess.fromFileSync("./config.yaml", {
-    format: "yaml",
-    allowedDirs: ["/etc/config"],
-});
-
-// Assíncrono
-const accessor = await SafeAccess.fromFile("./config.json");
-```
-
-### Carregamento via URL
-
-```typescript
-const accessor = await SafeAccess.fromUrl(
-    "https://api.example.com/config.json",
-    {
-        allowPrivateIps: false,
-        allowedHosts: ["api.example.com"],
-        allowedPorts: [443],
-    },
-);
-```
-
-### Configuração em Camadas
-
-Mescla múltiplas fontes de configuração (última vence):
-
-```typescript
-const config = SafeAccess.layer([defaults, overrides, local]);
-const config = await SafeAccess.layerFiles([
-    "./defaults.yaml",
-    "./overrides.json",
-]);
-```
-
-### File Watcher
-
-```typescript
-const stop = SafeAccess.watchFile("./config.yaml", (accessor) => {
-    console.log("Config changed:", accessor.get("app.name"));
-});
-
-// Depois: parar de observar
-stop();
-```
-
----
-
-## Log de Auditoria
-
-**Import:** `import { onAudit, clearAuditListeners } from '@safe-access-inline/safe-access-inline'`
-
-Inscreva-se em eventos de segurança e operações de dados.
-
-```typescript
-const unsubscribe = SafeAccess.onAudit((event) => {
-    console.log(`[${event.type}]`, event.detail);
-});
-
-// Tipos de evento: 'file.read', 'url.fetch', 'security.violation', 'data.mask',
-//                  'file.watch', 'data.freeze', 'schema.validate'
-
-// Limpeza
-SafeAccess.clearAuditListeners();
-unsubscribe(); // ou cancelar inscrição individualmente
-```
-
-#### `AuditEvent`
-
-```typescript
-interface AuditEvent {
-    type: AuditEventType;
-    timestamp: number;
-    detail: Record<string, unknown>;
-}
-
-type AuditEventType =
-    | "file.read"
-    | "file.watch"
-    | "url.fetch"
-    | "security.violation"
-    | "data.mask"
-    | "data.freeze"
-    | "schema.validate";
-```
-
----
-
-## Integrações de Framework
-
-### NestJS
-
-**Import:** `import { SafeAccessModule, SAFE_ACCESS, createSafeAccessProvider } from '@safe-access-inline/safe-access-inline'`
-
-```typescript
-// Opção 1: Registro de módulo
-@Module({
-    imports: [
-        SafeAccessModule.register({
-            filePath: "./config.yaml",
-        }),
-    ],
-})
-export class AppModule {}
-
-// Opção 2: Provider customizado
-@Module({
-    providers: [
-        createSafeAccessProvider({
-            layerPaths: ["./defaults.yaml", "./overrides.json"],
-        }),
-    ],
-    exports: [SAFE_ACCESS],
-})
-export class ConfigModule {}
-
-// Injetar em serviços
-@Injectable()
-class MyService {
-    constructor(@Inject(SAFE_ACCESS) private config: AbstractAccessor) {}
-}
-```
-
-### Plugin Vite
-
-**Import:** `import { safeAccessPlugin, loadConfig } from '@safe-access-inline/safe-access-inline'`
-
-```typescript
-// vite.config.ts
-import { safeAccessPlugin } from "@safe-access-inline/safe-access-inline";
-
-export default defineConfig({
-    plugins: [
-        safeAccessPlugin({
-            files: ["./config/defaults.yaml", "./config/local.json"],
-            virtualId: "virtual:safe-access-config", // padrão
-        }),
-    ],
-});
-
-// No código da aplicação:
-import config from "virtual:safe-access-config";
-// config é o objeto JSON mesclado
-```
-
-HMR é suportado — alterar um arquivo de configuração observado dispara um reload completo.
-
----
-
-## PluginRegistry
-
-**Import:** `import { PluginRegistry } from '@safe-access-inline/safe-access-inline'`
-
-Registro central para plugins de parser e serializer. Todos os métodos são estáticos.
-
-### Métodos de Parser
-
-#### `PluginRegistry.registerParser(format: string, parser: ParserPlugin): void`
-
-Registra um plugin parser para o formato dado. O plugin deve implementar `{ parse(raw: string): Record<string, unknown> }`.
-
-```typescript
-import type { ParserPlugin } from "@safe-access-inline/safe-access-inline";
-
-const yamlParser: ParserPlugin = {
-    parse: (raw) => jsYaml.load(raw) as Record<string, unknown>,
-};
-
-PluginRegistry.registerParser("yaml", yamlParser);
-```
-
-#### `PluginRegistry.hasParser(format: string): boolean`
-
-Retorna `true` se um plugin parser estiver registrado para o formato.
-
-#### `PluginRegistry.getParser(format: string): ParserPlugin`
-
-Retorna o plugin parser registrado. Lança `UnsupportedTypeError` se não encontrado.
-
-### Métodos de Serializer
-
-#### `PluginRegistry.registerSerializer(format: string, serializer: SerializerPlugin): void`
-
-Registra um plugin serializer para o formato dado. O plugin deve implementar `{ serialize(data: Record<string, unknown>): string }`.
-
-```typescript
-import type { SerializerPlugin } from "@safe-access-inline/safe-access-inline";
-
-const yamlSerializer: SerializerPlugin = {
-    serialize: (data) => jsYaml.dump(data),
-};
-
-PluginRegistry.registerSerializer("yaml", yamlSerializer);
-```
-
-#### `PluginRegistry.hasSerializer(format: string): boolean`
-
-Retorna `true` se um plugin serializer estiver registrado para o formato.
-
-#### `PluginRegistry.getSerializer(format: string): SerializerPlugin`
-
-Retorna o plugin serializer registrado. Lança `UnsupportedTypeError` se não encontrado.
-
-### Métodos Utilitários
-
-#### `PluginRegistry.reset(): void`
-
-Limpa todos os parsers e serializers registrados. Útil em teardowns de teste.
-
-```typescript
-afterEach(() => PluginRegistry.reset());
-```
-
----
-
-## DotNotationParser
-
-**Import:** `import { DotNotationParser } from '@safe-access-inline/safe-access-inline'`
-
-Classe utilitária estática. Normalmente usada internamente, mas disponível para uso direto.
-
-#### `DotNotationParser.get(data, path, defaultValue?): unknown`
-
-Suporta expressões de caminho avançadas:
-
-| Sintaxe           | Descrição                                                                     | Exemplo                 |
-| ----------------- | ----------------------------------------------------------------------------- | ----------------------- |
-| `a.b.c`           | Acesso a chave aninhada                                                       | `"user.profile.name"`   |
-| `a[0]`            | Índice com colchetes                                                          | `"items[0].title"`      |
-| `a.*`             | Wildcard — retorna array de valores                                           | `"users.*.name"`        |
-| `a[?field>value]` | Filtro — retorna itens correspondentes                                        | `"products[?price>20]"` |
-| `..key`           | Descida recursiva — coleta todos os valores de `key` em qualquer profundidade | `"..name"`              |
-
-**Expressões de filtro** suportam:
-
-- Comparação: `==`, `!=`, `>`, `<`, `>=`, `<=`
-- Lógicos: `&&` (AND), `\|\|` (OR)
-- Valores: números, `'strings'`, `true`, `false`, `null`
-
-```typescript
-// Filtro: todos os usuários admin
-DotNotationParser.get(data, "users[?role=='admin']");
-
-// Filtro com comparação numérica + continuação de caminho
-DotNotationParser.get(data, "products[?price>20].name");
-
-// AND combinado
-DotNotationParser.get(data, "items[?type=='fruit' && color=='red'].name");
-
-// Descida recursiva: todos os valores "name" em qualquer profundidade
-DotNotationParser.get(data, "..name");
-
-// Descida + wildcard
-DotNotationParser.get(data, "..items.*.id");
-
-// Descida + filtro
-DotNotationParser.get(data, "..employees[?active==true].name");
-```
-
-#### `DotNotationParser.has(data, path): boolean`
-
-#### `DotNotationParser.set(data, path, value): Record<string, unknown>`
-
-Retorna um novo objeto (usa `structuredClone`, não muta o input).
-
-#### `DotNotationParser.merge(data, path, value): Record<string, unknown>`
-
-Faz deep merge de `value` no `path` dado. Quando `path` é uma string vazia, mescla na raiz. Objetos são mesclados recursivamente; todos os outros valores são substituídos.
-
-```typescript
-const result = DotNotationParser.merge(data, "user.settings", {
-    theme: "dark",
-});
-// Mescla { theme: "dark" } em data.user.settings
-```
-
-#### `DotNotationParser.remove(data, path): Record<string, unknown>`
-
-Retorna um novo objeto (não muta o input).
-
----
-
-## Erros
-
-| Erro                     | Quando                                                                                                                     |
-| ------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
-| `AccessorError`          | Classe base de erro                                                                                                        |
-| `InvalidFormatError`     | Formato de input inválido (ex: JSON malformado, plugin parser ausente)                                                     |
-| `PathNotFoundError`      | Reservado (não lançado por `get()`)                                                                                        |
-| `UnsupportedTypeError`   | Nenhum plugin serializer/parser registrado para o formato solicitado (ex: `toXml()` sem plugin)                            |
-| `SecurityError`          | Violação de restrição de segurança (tamanho do payload, contagem de chaves, profundidade, segurança de URL, entidades XML) |
-| `ReadonlyViolationError` | Tentativa de mutação em um accessor readonly                                                                               |
-| `SchemaValidationError`  | Dados falham na validação de schema via `validate()`                                                                       |
-
-Todos os erros estendem a classe base `Error` e `AccessorError`.
-
----
-
-## Tipos TypeScript
-
-```typescript
-interface AccessorInterface {
-    get(path: string, defaultValue?: unknown): unknown;
-    getMany(paths: Record<string, unknown>): Record<string, unknown>;
-    has(path: string): boolean;
-    set(path: string, value: unknown): AbstractAccessor;
-    remove(path: string): AbstractAccessor;
-    type(path: string): string | null;
-    count(path?: string): number;
-    keys(path?: string): string[];
-    all(): Record<string, unknown>;
-    toArray(): Record<string, unknown>;
-    toJson(pretty?: boolean): string;
-    toObject(): Record<string, unknown>;
-    toYaml(): string;
-    toToml(): string;
-    toXml(rootElement?: string): string;
-    transform(format: string): string;
-}
-
-interface ParserPlugin {
-    parse(raw: string): Record<string, unknown>;
-}
-```
-
-### Plugins Incluídos
-
-O pacote inclui plugins de parser e serializer prontos para uso para substituir as implementações padrão de YAML/TOML:
-
-```typescript
-import {
-    JsYamlParser,
-    JsYamlSerializer,
-    SmolTomlParser,
-    SmolTomlSerializer,
-} from "@safe-access-inline/safe-access-inline";
-```
-
-| Plugin               | Formato | Tipo       | Biblioteca  |
-| -------------------- | ------- | ---------- | ----------- |
-| `JsYamlParser`       | yaml    | Parser     | `js-yaml`   |
-| `JsYamlSerializer`   | yaml    | Serializer | `js-yaml`   |
-| `SmolTomlParser`     | toml    | Parser     | `smol-toml` |
-| `SmolTomlSerializer` | toml    | Serializer | `smol-toml` |
-
-```typescript
-interface SerializerPlugin {
-    serialize(data: Record<string, unknown>): string;
-}
-```
-
----
-
-## Enums
-
-### `Format`
-
-**Import:** `import { Format } from '@safe-access-inline/safe-access-inline'`
-
-Enum de string cobrindo todos os formatos built-in. Use como alternativa tipada a passar strings brutas para `SafeAccess.from()`.
-
-| Membro          | Valor      |
-| --------------- | ---------- |
-| `Format.Array`  | `'array'`  |
-| `Format.Object` | `'object'` |
-| `Format.Json`   | `'json'`   |
-| `Format.Xml`    | `'xml'`    |
-| `Format.Yaml`   | `'yaml'`   |
-| `Format.Toml`   | `'toml'`   |
-| `Format.Ini`    | `'ini'`    |
-| `Format.Csv`    | `'csv'`    |
-| `Format.Env`    | `'env'`    |
-| `Format.Ndjson` | `'ndjson'` |
-
-### Utilitários de Inferência de Caminho
-
-Inferência de caminho type-safe para validação de caminhos em tempo de compilação e resolução de valores:
-
-```typescript
-import type {
-    DeepPaths,
-    ValueAtPath,
-} from "@safe-access-inline/safe-access-inline";
-
-type Config = {
-    db: { host: string; port: number };
-    cache: { ttl: number; enabled: boolean };
-};
-
-// Todos os caminhos válidos em notação de ponto como tipo união
-type ConfigPaths = DeepPaths<Config>;
-// "db" | "db.host" | "db.port" | "cache" | "cache.ttl" | "cache.enabled"
-
-// Resolver tipo do valor em um caminho específico
-type Host = ValueAtPath<Config, "db.host">; // string
-type Port = ValueAtPath<Config, "db.port">; // number
-
-// Usar em assinaturas de função para type safety
-function getConfig<P extends DeepPaths<Config>>(
-    accessor: AbstractAccessor,
-    path: P,
-): ValueAtPath<Config, P> {
-    return accessor.get(path) as ValueAtPath<Config, P>;
-}
-
-const host = getConfig(accessor, "db.host"); // tipado como string
-```
-
-#### `DeepPaths<T, Depth?>`
-
-Gera uma união de todos os caminhos válidos em notação de ponto para o tipo `T`. Profundidade de recursão padrão: 7 níveis.
-
-#### `ValueAtPath<T, P>`
-
-Resolve o tipo do valor no caminho de notação de ponto `P` no tipo `T`. Retorna `unknown` para caminhos inválidos.

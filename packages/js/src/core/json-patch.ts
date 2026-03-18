@@ -1,4 +1,5 @@
 import { JsonPatchTestFailedError } from '../exceptions/json-patch-test-failed.error';
+import { SecurityGuard } from './security-guard';
 
 /**
  * JSON Patch operations per RFC 6902.
@@ -92,47 +93,92 @@ function diffArrays(a: unknown[], b: unknown[], basePath: string): JsonPatchOp[]
 
 /**
  * Applies a JSON Patch (RFC 6902) to a data object. Returns a new object (immutable).
+ * Operations are atomic: if any test operation fails, no mutations are applied.
  */
 export function applyPatch(
     data: Record<string, unknown>,
     ops: JsonPatchOp[],
 ): Record<string, unknown> {
-    let result = structuredClone(data);
-
+    // Validate move/copy 'from' fields before any mutation
     for (const op of ops) {
-        switch (op.op) {
-            case 'add':
-                result = setAtPointer(result, op.path, op.value);
-                break;
-            case 'remove':
-                result = removeAtPointer(result, op.path);
-                break;
-            case 'replace':
-                result = setAtPointer(result, op.path, op.value);
-                break;
-            case 'move': {
-                const value = getAtPointer(result, op.from!);
-                result = removeAtPointer(result, op.from!);
-                result = setAtPointer(result, op.path, value);
-                break;
-            }
-            case 'copy': {
-                const value = getAtPointer(result, op.from!);
-                result = setAtPointer(result, op.path, structuredClone(value));
-                break;
-            }
-            case 'test': {
-                const actual = getAtPointer(result, op.path);
-                if (!deepEqual(actual, op.value)) {
-                    throw new JsonPatchTestFailedError(
-                        `Test operation failed: value at '${op.path}' does not match expected value.`,
-                    );
-                }
-                break;
-            }
+        if ((op.op === 'move' || op.op === 'copy') && op.from === undefined) {
+            throw new Error(`JSON Patch '${op.op}' operation requires a 'from' field.`);
         }
     }
 
+    // RFC 6902 §5: operations MUST be atomic; preflight validates test assertions before
+    // mutating state. Skip preflight when no 'test' ops are present (the common case)
+    // to avoid the O(2n) cost of cloning + traversing the document twice.
+    const hasTestOps = ops.some((op) => op.op === 'test');
+
+    if (!hasTestOps) {
+        let result = structuredClone(data);
+        for (const op of ops) {
+            result = applyOneOp(result, op);
+        }
+        return result;
+    }
+
+    // Pre-flight: run all operations on a throwaway clone to validate test assertions atomically.
+    // Return the preflight result directly — no need to clone and traverse a second time.
+    let preflight = structuredClone(data);
+    for (const op of ops) {
+        preflight = applyOneOp(preflight, op);
+    }
+    return preflight;
+}
+
+function applyOneOp(result: Record<string, unknown>, op: JsonPatchOp): Record<string, unknown> {
+    switch (op.op) {
+        case 'add':
+        case 'replace':
+            if (op.path === '') {
+                result = (op.value ?? {}) as Record<string, unknown>;
+            } else {
+                mutateAtPointer(result, op.path, op.value);
+            }
+            break;
+        case 'remove':
+            if (op.path === '') {
+                result = {} as Record<string, unknown>;
+            } else {
+                mutateRemoveAtPointer(result, op.path);
+            }
+            break;
+        case 'move': {
+            const value = getAtPointer(result, op.from!);
+            if (op.from === '') {
+                result = {} as Record<string, unknown>;
+            } else {
+                mutateRemoveAtPointer(result, op.from!);
+            }
+            if (op.path === '') {
+                result = value as Record<string, unknown>;
+            } else {
+                mutateAtPointer(result, op.path, value);
+            }
+            break;
+        }
+        case 'copy': {
+            const value = getAtPointer(result, op.from!);
+            const cloned = structuredClone(value);
+            if (op.path === '') {
+                result = cloned as Record<string, unknown>;
+            } else {
+                mutateAtPointer(result, op.path, cloned);
+            }
+            break;
+        }
+        case 'test': {
+            const actual = getAtPointer(result, op.path);
+            if (!deepEqual(actual, op.value)) {
+                throw new JsonPatchTestFailedError(
+                    `Test operation failed: value at '${op.path}' does not match expected value.`,
+                );
+            }
+            break;
+        }
+    }
     return result;
 }
 
@@ -158,6 +204,7 @@ function getAtPointer(data: unknown, pointer: string): unknown {
         if (Array.isArray(current)) {
             current = current[Number(key)];
         } else if (typeof current === 'object' && current !== null) {
+            SecurityGuard.assertSafeKey(key);
             current = (current as Record<string, unknown>)[key];
         } else {
             return undefined;
@@ -166,22 +213,18 @@ function getAtPointer(data: unknown, pointer: string): unknown {
     return current;
 }
 
-function setAtPointer(
-    data: Record<string, unknown>,
-    pointer: string,
-    value: unknown,
-): Record<string, unknown> {
+/** In-place mutation — caller must ensure `data` is already a working copy. */
+function mutateAtPointer(data: Record<string, unknown>, pointer: string, value: unknown): void {
     const keys = parsePointer(pointer);
-    if (keys.length === 0) return value as Record<string, unknown>;
 
-    const result = structuredClone(data);
-    let current: unknown = result;
+    let current: unknown = data;
 
     for (let i = 0; i < keys.length - 1; i++) {
         const key = keys[i];
         if (Array.isArray(current)) {
             current = current[Number(key)];
         } else {
+            SecurityGuard.assertSafeKey(key);
             current = (current as Record<string, unknown>)[key];
         }
     }
@@ -194,24 +237,23 @@ function setAtPointer(
             current[Number(lastKey)] = value;
         }
     } else {
+        SecurityGuard.assertSafeKey(lastKey);
         (current as Record<string, unknown>)[lastKey] = value;
     }
-
-    return result;
 }
 
-function removeAtPointer(data: Record<string, unknown>, pointer: string): Record<string, unknown> {
+/** In-place removal — caller must ensure `data` is already a working copy. */
+function mutateRemoveAtPointer(data: Record<string, unknown>, pointer: string): void {
     const keys = parsePointer(pointer);
-    if (keys.length === 0) return {};
 
-    const result = structuredClone(data);
-    let current: unknown = result;
+    let current: unknown = data;
 
     for (let i = 0; i < keys.length - 1; i++) {
         const key = keys[i];
         if (Array.isArray(current)) {
             current = current[Number(key)];
         } else {
+            SecurityGuard.assertSafeKey(key);
             current = (current as Record<string, unknown>)[key];
         }
     }
@@ -220,10 +262,9 @@ function removeAtPointer(data: Record<string, unknown>, pointer: string): Record
     if (Array.isArray(current)) {
         current.splice(Number(lastKey), 1);
     } else {
+        SecurityGuard.assertSafeKey(lastKey);
         delete (current as Record<string, unknown>)[lastKey];
     }
-
-    return result;
 }
 
 function isPlainObject(val: unknown): val is Record<string, unknown> {

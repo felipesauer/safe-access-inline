@@ -11,11 +11,13 @@ Thank you for considering contributing! This guide covers everything you need to
     - [Development Setup](#development-setup)
         - [PHP](#php)
         - [JavaScript / TypeScript](#javascript--typescript)
+        - [CLI](#cli)
     - [Architecture Overview](#architecture-overview)
     - [Testing](#testing)
         - [Running Tests](#running-tests)
         - [Test Structure](#test-structure)
         - [Writing Tests for Plugin-Dependent Code](#writing-tests-for-plugin-dependent-code)
+        - [Global State Teardown](#global-state-teardown)
         - [Quality Gates](#quality-gates)
         - [Future Quality Improvements](#future-quality-improvements)
         - [Documentation](#documentation)
@@ -61,7 +63,7 @@ You only need the tools for the package you're working on. PHP contributors don'
 
 ## Development Setup
 
-This is a monorepo with two independent packages:
+This is a monorepo with three independent packages:
 
 ```bash
 git clone https://github.com/felipesauer/safe-access-inline.git
@@ -89,6 +91,15 @@ npm run lint      # ESLint
 npm run format    # Prettier
 ```
 
+### CLI
+
+```bash
+cd packages/cli
+npm install
+npm test          # Run tests (Vitest)
+npm run build     # Build (tsup → ESM)
+```
+
 ## Architecture Overview
 
 safe-access-inline follows the **Facade + Accessor** pattern:
@@ -98,7 +109,7 @@ safe-access-inline follows the **Facade + Accessor** pattern:
 - **`DotNotationParser`** — static utility that resolves dot-notation paths against nested data structures
 - **`PluginRegistry`** — static registry for parser and serializer plugins (YAML, TOML, custom formats)
 
-Each concrete accessor (JSON, XML, YAML, TOML, INI, CSV, ENV, Array, Object) extends `AbstractAccessor` and only implements `parse(raw) → array`.
+Each concrete accessor (JSON, XML, YAML, TOML, INI, CSV, ENV, NDJSON, Array, Object) extends `AbstractAccessor` and only implements `parse(raw) → array`.
 
 For a detailed component diagram and data flow, read [Architecture](https://felipesauer.github.io/safe-access-inline/architecture/).
 
@@ -150,6 +161,27 @@ PluginRegistry.registerParser("yaml", {
 
 Always call `PluginRegistry::reset()` / `PluginRegistry.reset()` in `beforeEach` to prevent cross-test pollution.
 
+### Global State Teardown
+
+Both packages expose a `resetAll()` utility that clears all global/static state (global policy, path cache, plugin registry, schema registry, audit listeners). This is called automatically in `afterEach` via the test setup files:
+
+- **PHP:** `SafeAccess::resetAll()` — registered globally in `tests/Pest.php`
+- **JS/TS:** `resetAll()` from `@safe-access-inline/safe-access-inline/testing` — registered in `tests/setup.ts`
+
+If you write tests that mutate global state, you do **not** need manual cleanup — the global teardown handles it. For external consumers writing tests against this library:
+
+```typescript
+// JS/TS
+import { resetAll } from "@safe-access-inline/safe-access-inline/testing";
+import { afterEach } from "vitest"; // or jest, etc.
+afterEach(() => resetAll());
+```
+
+```php
+// PHP
+afterEach(fn () => \SafeAccessInline\SafeAccess::resetAll());
+```
+
 ### Quality Gates
 
 All pull requests must pass:
@@ -169,16 +201,18 @@ The following tools are planned for v1.0:
 
 ### Documentation
 
-Documentation in `docs/` is published via GitHub Pages + Jekyll at [felipesauer.github.io/safe-access-inline](https://felipesauer.github.io/safe-access-inline).
+Documentation in `docs/` is published via GitHub Pages + VitePress at [felipesauer.github.io/safe-access-inline](https://felipesauer.github.io/safe-access-inline).
 
 **Structure:**
 
 ```
 docs/
-├── _config.yml          # Jekyll config (version, theme, i18n)
-├── Gemfile              # Jekyll dependencies for local preview
+├── .vitepress/
+│   └── config.ts        # VitePress config (nav, sidebar, i18n)
 ├── index.md             # EN landing page
-├── architecture.md      # EN
+├── guide/
+│   ├── index.md
+│   └── architecture.md
 ├── js/                  # JS/TS docs (EN)
 │   ├── index.md
 │   ├── getting-started.md
@@ -187,26 +221,27 @@ docs/
 │   ├── index.md
 │   ├── getting-started.md
 │   └── api-reference.md
+├── cli/
+│   └── index.md             # CLI command reference
 └── pt-br/               # Portuguese (BR) translations
     ├── index.md
-    ├── architecture.md
+    ├── guide/
     ├── js/
-    └── php/
+    ├── php/
+    └── cli/
 ```
 
 **Editing docs:**
 
-- Each `.md` file needs YAML front matter (`title`, `nav_order`, `parent`, `permalink`)
 - When creating a new page, also create the corresponding `pt-br/` translation (even a stub is fine)
 - When modifying a page, update the `pt-br/` translation too
+- Navigation is configured in `docs/.vitepress/config.ts`
 
 **Local preview:**
 
 ```bash
-cd docs
-bundle install
-bundle exec jekyll serve
-# → http://localhost:4000/safe-access-inline/
+npm run docs:dev
+# → http://localhost:5173/safe-access-inline/
 ```
 
 **Docs ↔ code alignment rules:**
@@ -217,7 +252,7 @@ bundle exec jekyll serve
 
 **Version bump:**
 
-The `version` field in `docs/_config.yml` is updated automatically by Release Please during releases.
+The version displayed in the docs is updated automatically by Release Please during releases.
 
 ## Coding Standards
 

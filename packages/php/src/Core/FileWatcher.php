@@ -6,13 +6,16 @@ final class FileWatcher
 {
     /**
      * Watches a file for changes using polling (filemtime).
-     * Returns a callable to stop watching.
+     * Returns an array with 'poll' (blocking loop) and 'stop' callables.
+     *
+     * The 'poll' callable starts a blocking while-loop that checks for file changes.
+     * The 'stop' callable sets the flag to exit the loop after the current iteration.
      *
      * @param int $intervalMs Polling interval in milliseconds (default: 1000)
      * @param callable(int): void|null $sleepFn Custom sleep function for testing (receives microseconds)
-     * @return callable(): void Stop function
+     * @return array{poll: callable(): void, stop: callable(): void}
      */
-    public static function watch(string $filePath, callable $onChange, int $intervalMs = 1000, ?callable $sleepFn = null): callable
+    public static function watch(string $filePath, callable $onChange, int $intervalMs = 1000, ?callable $sleepFn = null): array
     {
         $sleep = $sleepFn ?? static function (int $us): void {
             usleep($us);
@@ -21,22 +24,28 @@ final class FileWatcher
         $lastMtime = file_exists($filePath) ? filemtime($filePath) : 0;
         $running = true;
 
-        // Return a closure that polls
         $poll = function () use ($filePath, $onChange, &$lastMtime, &$running, $intervalMs, $sleep): void {
             while ($running) {
                 clearstatcache(true, $filePath);
                 $currentMtime = file_exists($filePath) ? filemtime($filePath) : 0;
                 if ($currentMtime !== $lastMtime) {
                     $lastMtime = $currentMtime;
-                    $onChange($filePath);
+                    try {
+                        $onChange($filePath);
+                    } catch (\Throwable $e) {
+                        error_log('[FileWatcher] onChange callback error: ' . $e->getMessage());
+                    }
                 }
                 $sleep($intervalMs * 1000);
             }
         };
 
-        return function () use (&$running): void {
-            $running = false;
-        };
+        return [
+            'poll' => $poll,
+            'stop' => function () use (&$running): void {
+                $running = false;
+            },
+        ];
     }
 
     /**

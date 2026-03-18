@@ -59,8 +59,9 @@ representative at an online or offline event.
 ## Enforcement
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
-reported by opening a GitHub Issue with the prefix `[CONDUCT]` in the title on
-the [safe-access-inline repository](https://github.com/felipesauer/safe-access-inline/issues).
+reported privately via a
+[GitHub Security Advisory](https://github.com/felipesauer/safe-access-inline/security/advisories/new).
+This channel is confidential and only visible to repository maintainers.
 
 All complaints will be reviewed and investigated promptly and fairly.
 

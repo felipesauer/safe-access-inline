@@ -3,6 +3,7 @@ export type AuditEventType =
     | 'file.watch'
     | 'url.fetch'
     | 'security.violation'
+    | 'security.deprecation'
     | 'data.mask'
     | 'data.freeze'
     | 'schema.validate';
@@ -21,11 +22,10 @@ const MAX_LISTENERS = 100;
 
 export function onAudit(listener: AuditListener): () => void {
     if (listeners.length >= MAX_LISTENERS) {
-        console.warn(
+        throw new RangeError(
             `[AuditEmitter] Max listener count (${MAX_LISTENERS}) reached. ` +
-                `Possible memory leak — ensure onAudit() unsubscribers are called.`,
+                'Call the returned unsubscriber or clearAuditListeners() between registrations.',
         );
-        return () => {};
     }
     listeners.push(listener);
     return () => {
@@ -37,8 +37,13 @@ export function onAudit(listener: AuditListener): () => void {
 export function emitAudit(type: AuditEventType, detail: Record<string, unknown>): void {
     if (listeners.length === 0) return;
     const event: AuditEvent = { type, timestamp: Date.now(), detail };
-    for (const listener of listeners) {
-        listener(event);
+    const snapshot = [...listeners];
+    for (const listener of snapshot) {
+        try {
+            listener(event);
+        } catch {
+            // Isolate listener errors so subsequent listeners still fire
+        }
     }
 }
 

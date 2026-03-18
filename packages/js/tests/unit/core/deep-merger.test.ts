@@ -68,4 +68,16 @@ describe('deepMerge', () => {
         >);
         expect(result.a).toBeNull();
     });
+
+    it('throws when merge depth exceeds MAX_MERGE_DEPTH (512)', () => {
+        // Both base and override must be deeply nested at matching keys so
+        // mergeTwo recurses past the 512 depth limit.
+        let base: Record<string, unknown> = { v: 1 };
+        let override: Record<string, unknown> = { v: 2 };
+        for (let i = 0; i < 513; i++) {
+            base = { n: base };
+            override = { n: override };
+        }
+        expect(() => deepMerge(base, override)).toThrow('Deep merge exceeded maximum depth of 512');
+    });
 });

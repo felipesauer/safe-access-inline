@@ -19,6 +19,7 @@ import { SchemaValidationError } from '../exceptions/schema-validation.error';
 import { SchemaRegistry } from './schema-registry';
 import { getGlobalPolicy } from './security-policy';
 import { sanitizeCsvCell } from './csv-sanitizer';
+import { emitAudit } from './audit-emitter';
 import type { DeepPaths, ValueAtPath } from '../types/deep-paths';
 
 export abstract class AbstractAccessor<
@@ -149,7 +150,11 @@ export abstract class AbstractAccessor<
     type(path: string): string | null {
         if (!this.has(path)) return null;
         const val = this.get(path);
-        return Array.isArray(val) ? 'array' : typeof val;
+        if (val === null) return 'null';
+        if (Array.isArray(val)) return 'array';
+        const t = typeof val;
+        if (t === 'boolean') return 'bool';
+        return t;
     }
 
     count(path?: string): number {
@@ -257,6 +262,14 @@ export abstract class AbstractAccessor<
 
     toCsv(csvMode?: 'none' | 'prefix' | 'strip' | 'error'): string {
         const mode = csvMode ?? getGlobalPolicy()?.csvMode ?? 'none';
+        if (!csvMode && !getGlobalPolicy()?.csvMode) {
+            emitAudit('security.deprecation', {
+                message:
+                    "csvMode defaults to 'none' which does not sanitize CSV cells. " +
+                    "In a future version, the default will change to 'prefix'. " +
+                    'Pass an explicit csvMode to toCsv() or set it via setGlobalPolicy().',
+            });
+        }
         const rows = Object.values(this.data);
         if (rows.length === 0) return '';
 

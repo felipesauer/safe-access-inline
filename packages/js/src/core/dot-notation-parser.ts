@@ -3,6 +3,7 @@ import type { FilterExpression } from './filter-parser';
 import { SecurityGuard } from './security-guard';
 import { PathCache } from './path-cache';
 import { assertMaxDepth } from './security-options';
+import { deepMerge } from './deep-merger';
 
 /**
  * Segment types returned by parseSegments().
@@ -35,10 +36,7 @@ export class DotNotationParser {
         const cached = PathCache.get(path);
         if (cached) return cached as Segment[];
         const segments = DotNotationParser.parseSegments(path);
-        PathCache.set(
-            path,
-            segments as Array<{ type: 'key'; value: string } | { type: 'wildcard' }>,
-        );
+        PathCache.set(path, segments);
         return segments;
     }
 
@@ -82,10 +80,12 @@ export class DotNotationParser {
             const items = DotNotationParser.toIterable(current);
             if (items === null) return defaultValue;
 
-            const remaining = segments.slice(index + 1);
-            if (remaining.length === 0) return [...items];
+            const nextIndex = index + 1;
+            if (nextIndex >= segments.length) return [...items];
 
-            return items.map((item) => DotNotationParser.resolve(item, remaining, 0, defaultValue));
+            return items.map((item) =>
+                DotNotationParser.resolve(item, segments, nextIndex, defaultValue),
+            );
         }
 
         if (segment.type === 'filter') {
@@ -99,37 +99,36 @@ export class DotNotationParser {
                     FilterParser.evaluate(item as Record<string, unknown>, segment.expression),
             );
 
-            const remaining = segments.slice(index + 1);
-            if (remaining.length === 0) return filtered;
+            const nextIndex = index + 1;
+            if (nextIndex >= segments.length) return filtered;
 
             return filtered.map((item) =>
-                DotNotationParser.resolve(item, remaining, 0, defaultValue),
+                DotNotationParser.resolve(item, segments, nextIndex, defaultValue),
             );
         }
 
         if (segment.type === 'multi-index') {
+            const nextIndex = index + 1;
             const multiKeys = (segment as unknown as { keys?: string[] }).keys;
             if (multiKeys) {
                 // Multi-key: pick named keys from object
                 if (current === null || typeof current !== 'object') return defaultValue;
                 const obj = current as Record<string, unknown>;
-                const remaining = segments.slice(index + 1);
                 const results = multiKeys.map((k) => {
                     const val = k in obj ? obj[k] : defaultValue;
-                    if (remaining.length === 0) return val;
-                    return DotNotationParser.resolve(val, remaining, 0, defaultValue);
+                    if (nextIndex >= segments.length) return val;
+                    return DotNotationParser.resolve(val, segments, nextIndex, defaultValue);
                 });
                 return results;
             }
             // Numeric multi-index
             const items = DotNotationParser.toIterable(current);
             if (items === null) return defaultValue;
-            const remaining = segments.slice(index + 1);
             const results = segment.indices.map((idx) => {
                 const resolved = idx < 0 ? items[items.length + idx] : items[idx];
                 if (resolved === undefined) return defaultValue;
-                if (remaining.length === 0) return resolved;
-                return DotNotationParser.resolve(resolved, remaining, 0, defaultValue);
+                if (nextIndex >= segments.length) return resolved;
+                return DotNotationParser.resolve(resolved, segments, nextIndex, defaultValue);
             });
             return results;
         }
@@ -151,10 +150,10 @@ export class DotNotationParser {
             } else {
                 for (let si = start; si > end; si += step) sliced.push(items[si]);
             }
-            const remaining = segments.slice(index + 1);
-            if (remaining.length === 0) return sliced;
+            const nextIndex = index + 1;
+            if (nextIndex >= segments.length) return sliced;
             return sliced.map((item) =>
-                DotNotationParser.resolve(item, remaining, 0, defaultValue),
+                DotNotationParser.resolve(item, segments, nextIndex, defaultValue),
             );
         }
 
@@ -256,14 +255,19 @@ export class DotNotationParser {
         value: unknown,
     ): Record<string, unknown> {
         const keys = DotNotationParser.parseKeys(path);
-        const result = structuredClone(data);
+        const result: Record<string, unknown> = { ...data };
         let current: Record<string, unknown> = result;
 
         for (let i = 0; i < keys.length - 1; i++) {
             const key = keys[i];
             SecurityGuard.assertSafeKey(key);
-            if (!(key in current) || typeof current[key] !== 'object' || current[key] === null) {
+            const child = current[key];
+            if (!(key in current) || typeof child !== 'object' || child === null) {
                 current[key] = {};
+            } else {
+                current[key] = Array.isArray(child)
+                    ? [...child]
+                    : { ...(child as Record<string, unknown>) };
             }
             current = current[key] as Record<string, unknown>;
         }
@@ -293,34 +297,14 @@ export class DotNotationParser {
     }
 
     /**
-     * Recursively merges source into target. Objects are merged; other values are replaced.
+     * Recursively merges source into target. Delegates to the shared deepMerge utility
+     * to avoid logic duplication (see ARCH-005).
      */
     private static deepMerge(
         target: Record<string, unknown>,
         source: Record<string, unknown>,
     ): Record<string, unknown> {
-        const result = structuredClone(target);
-        for (const key of Object.keys(source)) {
-            SecurityGuard.assertSafeKey(key);
-            const srcVal = source[key];
-            const tgtVal = result[key];
-            if (
-                typeof srcVal === 'object' &&
-                srcVal !== null &&
-                !Array.isArray(srcVal) &&
-                typeof tgtVal === 'object' &&
-                tgtVal !== null &&
-                !Array.isArray(tgtVal)
-            ) {
-                result[key] = DotNotationParser.deepMerge(
-                    tgtVal as Record<string, unknown>,
-                    srcVal as Record<string, unknown>,
-                );
-            } else {
-                result[key] = structuredClone(srcVal);
-            }
-        }
-        return result;
+        return deepMerge(target, source);
     }
 
     /**

@@ -98,10 +98,16 @@ describe(ArrayAccessor::class, function () {
             'items' => [1, 2],
         ]);
         expect($accessor->type('name'))->toBe('string');
-        expect($accessor->type('age'))->toBe('integer');
-        expect($accessor->type('active'))->toBe('boolean');
+        expect($accessor->type('age'))->toBe('number');
+        expect($accessor->type('active'))->toBe('bool');
         expect($accessor->type('items'))->toBe('array');
         expect($accessor->type('missing'))->toBeNull();
+    });
+
+    it('type — returns number for float and null for null', function () {
+        $accessor = ArrayAccessor::from(['price' => 9.99, 'empty' => null]);
+        expect($accessor->type('price'))->toBe('number');
+        expect($accessor->type('empty'))->toBe('null');
     });
 
     it('count — root and sub-path', function () {

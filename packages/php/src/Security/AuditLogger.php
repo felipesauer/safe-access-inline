@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace SafeAccessInline\Security;
 
 /**
- * @phpstan-type AuditEventType 'file.read'|'file.watch'|'url.fetch'|'security.violation'|'data.mask'|'data.freeze'|'schema.validate'
+ * @phpstan-type AuditEventType 'file.read'|'file.watch'|'url.fetch'|'security.violation'|'security.deprecation'|'data.mask'|'data.freeze'|'schema.validate'
  * @phpstan-type AuditEvent array{type: AuditEventType, timestamp: float, detail: array<string, mixed>}
  */
 final class AuditLogger
@@ -25,7 +25,7 @@ final class AuditLogger
         if (count(self::$listeners) >= self::MAX_LISTENERS) {
             throw new \OverflowException(
                 '[AuditLogger] Max listener count (' . self::MAX_LISTENERS . ') reached. '
-                . 'Possible memory leak — ensure onAudit() unsubscribers are called.'
+                . 'Call the returned unsubscriber function or clearListeners() before registering new listeners.'
             );
         }
         self::$listeners[] = $listener;
@@ -51,8 +51,13 @@ final class AuditLogger
             'timestamp' => microtime(true),
             'detail' => $detail,
         ];
-        foreach (self::$listeners as $listener) {
-            $listener($event);
+        $snapshot = self::$listeners;
+        foreach ($snapshot as $listener) {
+            try {
+                $listener($event);
+            } catch (\Throwable) {
+                // Isolate listener errors so subsequent listeners still fire
+            }
         }
     }
 

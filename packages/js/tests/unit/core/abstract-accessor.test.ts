@@ -32,14 +32,19 @@ describe(AbstractAccessor.name, () => {
         expect(accessor.type('age')).toBe('number');
     });
 
-    it('type — returns "boolean" for boolean values', () => {
+    it('type — returns "bool" for boolean values', () => {
         const accessor = ArrayAccessor.from({ debug: true });
-        expect(accessor.type('debug')).toBe('boolean');
+        expect(accessor.type('debug')).toBe('bool');
     });
 
     it('type — returns "object" for object values', () => {
         const accessor = ArrayAccessor.from({ config: { host: 'localhost' } });
         expect(accessor.type('config')).toBe('object');
+    });
+
+    it('type — returns "null" for null values', () => {
+        const accessor = ArrayAccessor.from({ empty: null });
+        expect(accessor.type('empty')).toBe('null');
     });
 
     // ── count() ──
@@ -385,5 +390,15 @@ describe(AbstractAccessor.name, () => {
         const result = accessor.transform('csv');
         expect(result).toContain('name,age');
         expect(result).toContain('Ana,25');
+    });
+
+    it('toCsv — skips deprecation audit when explicit csvMode is passed', () => {
+        const accessor = ArrayAccessor.from({
+            r1: { name: 'Ana', age: 25 },
+        });
+        // Passing an explicit csvMode bypasses the emitAudit deprecation warning branch
+        const csv = accessor.toCsv('none');
+        expect(csv).toContain('name,age');
+        expect(csv).toContain('Ana,25');
     });
 });

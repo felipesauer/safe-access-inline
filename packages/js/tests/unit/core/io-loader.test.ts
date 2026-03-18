@@ -35,8 +35,14 @@ describe('io-loader', () => {
     });
 
     describe('assertPathWithinAllowedDirs()', () => {
-        it('allows any path when no allowedDirs specified', () => {
-            expect(() => assertPathWithinAllowedDirs('/etc/passwd')).not.toThrow();
+        it('throws when no allowedDirs and no allowAnyPath', () => {
+            expect(() => assertPathWithinAllowedDirs('/etc/passwd')).toThrow(SecurityError);
+        });
+
+        it('allows any path with allowAnyPath: true', () => {
+            expect(() =>
+                assertPathWithinAllowedDirs('/etc/passwd', undefined, { allowAnyPath: true }),
+            ).not.toThrow();
         });
 
         it('allows paths within allowed directories', () => {
@@ -76,7 +82,9 @@ describe('io-loader', () => {
 
     describe('readFileSync()', () => {
         it('reads a file successfully', () => {
-            const content = readFileSync(path.join(fixturesDir, 'config.json'));
+            const content = readFileSync(path.join(fixturesDir, 'config.json'), {
+                allowedDirs: [fixturesDir],
+            });
             expect(content).toContain('test-app');
         });
 
@@ -96,7 +104,9 @@ describe('io-loader', () => {
 
     describe('readFile() (async)', () => {
         it('reads a file asynchronously', async () => {
-            const content = await readFile(path.join(fixturesDir, 'config.json'));
+            const content = await readFile(path.join(fixturesDir, 'config.json'), {
+                allowedDirs: [fixturesDir],
+            });
             expect(content).toContain('test-app');
         });
 

@@ -1,10 +1,12 @@
 import * as fs from 'node:fs';
 import * as fsp from 'node:fs/promises';
+import * as https from 'node:https';
 import * as path from 'node:path';
 import { SecurityError } from '../exceptions/security.error';
-import { assertSafeUrl, assertResolvedIpNotPrivate } from './ip-range-checker';
+import { assertSafeUrl, resolveAndValidateIp } from './ip-range-checker';
 import { Format } from '../format.enum';
 import { emitAudit } from './audit-emitter';
+import { DEFAULT_SECURITY_OPTIONS } from './security-options';
 
 /**
  * Maps file extensions to Format enum values.
@@ -28,13 +30,24 @@ export function resolveFormatFromExtension(filePath: string): Format | null {
     return EXTENSION_FORMAT_MAP[ext] ?? null;
 }
 
-export function assertPathWithinAllowedDirs(filePath: string, allowedDirs?: string[]): void {
+export function assertPathWithinAllowedDirs(
+    filePath: string,
+    allowedDirs?: string[],
+    options?: { allowAnyPath?: boolean },
+): void {
     // Block null bytes
     if (filePath.includes('\0')) {
         throw new SecurityError('File path contains null bytes.');
     }
 
-    if (!allowedDirs || allowedDirs.length === 0) return;
+    if (!allowedDirs || allowedDirs.length === 0) {
+        if (options?.allowAnyPath) {
+            return;
+        }
+        throw new SecurityError(
+            'No allowedDirs configured. Provide allowedDirs or set allowAnyPath: true to bypass path restrictions.',
+        );
+    }
 
     // Resolve symlinks before comparing — path.resolve() alone does not follow symlinks
     let resolved: string;
@@ -60,17 +73,24 @@ export function assertPathWithinAllowedDirs(filePath: string, allowedDirs?: stri
     }
 }
 
-export function readFileSync(filePath: string, options?: { allowedDirs?: string[] }): string {
-    assertPathWithinAllowedDirs(filePath, options?.allowedDirs);
+export function readFileSync(
+    filePath: string,
+    options?: { allowedDirs?: string[]; allowAnyPath?: boolean },
+): string {
+    assertPathWithinAllowedDirs(filePath, options?.allowedDirs, {
+        allowAnyPath: options?.allowAnyPath,
+    });
     emitAudit('file.read', { filePath });
     return fs.readFileSync(filePath, 'utf-8');
 }
 
 export async function readFile(
     filePath: string,
-    options?: { allowedDirs?: string[] },
+    options?: { allowedDirs?: string[]; allowAnyPath?: boolean },
 ): Promise<string> {
-    assertPathWithinAllowedDirs(filePath, options?.allowedDirs);
+    assertPathWithinAllowedDirs(filePath, options?.allowedDirs, {
+        allowAnyPath: options?.allowAnyPath,
+    });
     emitAudit('file.read', { filePath });
     return fsp.readFile(filePath, 'utf-8');
 }
@@ -85,19 +105,71 @@ export async function fetchUrl(
 ): Promise<string> {
     assertSafeUrl(url, options);
 
-    // DNS-level SSRF check: resolve hostname and verify it doesn't point to private IPs
     const parsed = new URL(url);
-    await assertResolvedIpNotPrivate(parsed.hostname, {
+
+    // Resolve and validate the IP before connecting — prevents SSRF via private/internal hosts.
+    const resolvedIp = await resolveAndValidateIp(parsed.hostname, {
         allowPrivateIps: options?.allowPrivateIps,
     });
 
     emitAudit('url.fetch', { url });
-    const response = await fetch(url, {
-        redirect: 'error', // block all redirects — prevents SSRF via open redirects
-        signal: AbortSignal.timeout(10_000), // 10 s timeout — prevents DoS via slow servers
+
+    // Pin the pre-validated IP to the HTTPS connection to prevent DNS rebinding (TOCTOU).
+    // native fetch() performs its own independent DNS lookup after our security check, opening
+    // a race window. Using https.request() with a custom lookup overrides the resolver,
+    // equivalent to PHP's CURLOPT_RESOLVE option in IoLoader::fetchUrl().
+    // resolvedIp is null only when allowPrivateIps=true (testing/internal use); in that case
+    // we let the OS resolve normally since there is no security constraint to enforce.
+    const isIPv6 = resolvedIp !== null && resolvedIp.includes(':');
+
+    return new Promise<string>((resolve, reject) => {
+        const req = https.request(
+            {
+                hostname: parsed.hostname,
+                port: Number(parsed.port) || 443,
+                path: parsed.pathname + parsed.search,
+                method: 'GET',
+                timeout: 10_000,
+                // Override DNS resolution to use the pre-validated IP (when available)
+                lookup:
+                    resolvedIp !== null
+                        ? (_h, _o, cb) => cb(null, resolvedIp, isIPv6 ? 6 : 4)
+                        : undefined,
+            },
+            (res) => {
+                // Block redirects — prevents SSRF via open-redirect chains
+                if ((res.statusCode ?? 0) >= 300) {
+                    res.resume(); // drain to avoid memory leak
+                    reject(
+                        new SecurityError(`Failed to fetch URL '${url}': HTTP ${res.statusCode}`),
+                    );
+                    return;
+                }
+                const maxBytes = DEFAULT_SECURITY_OPTIONS.maxPayloadBytes;
+                let body = '';
+                let received = 0;
+                res.setEncoding('utf-8');
+                res.on('data', (chunk: string) => {
+                    received += Buffer.byteLength(chunk, 'utf-8');
+                    if (received > maxBytes) {
+                        req.destroy();
+                        reject(
+                            new SecurityError(
+                                `Response body exceeds maximum size of ${maxBytes} bytes.`,
+                            ),
+                        );
+                        return;
+                    }
+                    body += chunk;
+                });
+                res.on('end', () => resolve(body));
+            },
+        );
+        req.on('error', reject);
+        req.on('timeout', () => {
+            req.destroy();
+            reject(new SecurityError(`Request to '${url}' timed out after 10s.`));
+        });
+        req.end();
     });
-    if (!response.ok) {
-        throw new SecurityError(`Failed to fetch URL '${url}': HTTP ${response.status}`);
-    }
-    return response.text();
 }

@@ -31,8 +31,12 @@ describe(IoLoader::class, function () use (&$fixturesDir) {
 
     // ── assertPathWithinAllowedDirs ─────────────
 
-    it('allows any path when no allowedDirs specified', function () {
+    it('throws when no allowedDirs and no allowAnyPath', function () {
         IoLoader::assertPathWithinAllowedDirs('/etc/passwd');
+    })->throws(SecurityException::class, 'No allowedDirs configured');
+
+    it('allows any path with allowAnyPath true', function () {
+        IoLoader::assertPathWithinAllowedDirs('/etc/passwd', [], true);
         expect(true)->toBeTrue();
     });
 
@@ -52,7 +56,7 @@ describe(IoLoader::class, function () use (&$fixturesDir) {
     // ── readFile ────────────────────────────────
 
     it('reads a file successfully', function () use (&$fixturesDir) {
-        $content = IoLoader::readFile($fixturesDir . '/config.json');
+        $content = IoLoader::readFile($fixturesDir . '/config.json', [$fixturesDir]);
         expect($content)->toContain('test-app');
     });
 
@@ -141,6 +145,32 @@ describe(IoLoader::class, function () use (&$fixturesDir) {
     it('blocks IPv6 ULA fc00::/7 (fd prefix)', function () {
         IoLoader::assertSafeUrl('https://[fd12:3456:789a::1]');
     })->throws(SecurityException::class, 'unique local');
+
+    // ── isPrivateIpv6 ───────────────────────────
+
+    it('detects private IPv6 loopback', function () {
+        expect(IoLoader::isPrivateIpv6('::1'))->toBeTrue();
+        expect(IoLoader::isPrivateIpv6('0:0:0:0:0:0:0:1'))->toBeTrue();
+    });
+
+    it('detects private IPv6 link-local', function () {
+        expect(IoLoader::isPrivateIpv6('fe80::1'))->toBeTrue();
+    });
+
+    it('detects private IPv6 ULA', function () {
+        expect(IoLoader::isPrivateIpv6('fc00::1'))->toBeTrue();
+        expect(IoLoader::isPrivateIpv6('fd12:3456::1'))->toBeTrue();
+    });
+
+    it('detects private IPv4-mapped IPv6', function () {
+        expect(IoLoader::isPrivateIpv6('::ffff:127.0.0.1'))->toBeTrue();
+        expect(IoLoader::isPrivateIpv6('::ffff:10.0.0.1'))->toBeTrue();
+    });
+
+    it('treats public IPv6 as non-private', function () {
+        expect(IoLoader::isPrivateIpv6('2001:db8::1'))->toBeFalse();
+        expect(IoLoader::isPrivateIpv6('2607:f8b0:4004:800::200e'))->toBeFalse();
+    });
 
     // ── assertSafeUrl returns resolved IP ───────
 
@@ -231,5 +261,36 @@ describe(IoLoader::class, function () use (&$fixturesDir) {
         // After reset, the default CurlHttpClient is used, which will fail for unreachable hosts
         expect(fn () => IoLoader::fetchUrl('https://unreachable-test.invalid', ['allowPrivateIps' => true]))
             ->toThrow(SecurityException::class, 'Failed to fetch URL');
+    });
+
+    // ── Path resolution edge cases ─────────────
+
+    it('assertPathWithinAllowedDirs resolves non-existent file within allowed dir', function () {
+        $tmpDir = sys_get_temp_dir();
+        // File doesn't exist, but directory does — should resolve through dirname
+        $nonExistent = $tmpDir . '/safe_access_nonexistent_' . uniqid() . '.json';
+        // Should NOT throw when allowedDirs contains the temp dir
+        IoLoader::assertPathWithinAllowedDirs($nonExistent, [$tmpDir]);
+        expect(true)->toBeTrue(); // no exception
+    });
+
+    it('assertPathWithinAllowedDirs throws for completely invalid directory', function () {
+        $fakePath = '/nonexistent_dir_' . uniqid() . '/subdir/file.json';
+        expect(fn () => IoLoader::assertPathWithinAllowedDirs($fakePath, ['/tmp']))
+            ->toThrow(SecurityException::class, 'outside allowed directories');
+    });
+
+    it('readFile throws for failed file read', function () {
+        $tmpDir = sys_get_temp_dir();
+        $path = $tmpDir . '/safe_access_missing_' . uniqid() . '.json';
+        expect(fn () => IoLoader::readFile($path, [$tmpDir]))
+            ->toThrow(SecurityException::class, 'Failed to read file');
+    });
+
+    // ── assertSafeUrl: invalid URL ───────────────
+
+    it('assertSafeUrl rejects completely invalid URL', function () {
+        expect(fn () => IoLoader::assertSafeUrl('not a url at all ://'))
+            ->toThrow(SecurityException::class, 'Invalid URL');
     });
 });

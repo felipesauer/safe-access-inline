@@ -3,6 +3,7 @@
 namespace SafeAccessInline\Core;
 
 use SafeAccessInline\Exceptions\JsonPatchTestFailedException;
+use SafeAccessInline\Security\SecurityGuard;
 
 /**
  * JSON Patch operations per RFC 6902.
@@ -89,35 +90,56 @@ final class JsonPatch
      */
     public static function applyPatch(array $data, array $ops): array
     {
-        $result = $data;
-
+        // Validate move/copy 'from' fields before any mutation
         foreach ($ops as $op) {
-            switch ($op['op']) {
-                case 'add':
-                case 'replace':
-                    $result = self::setAtPointer($result, $op['path'], $op['value'] ?? null);
-                    break;
-                case 'remove':
-                    $result = self::removeAtPointer($result, $op['path']);
-                    break;
-                case 'move':
-                    $value = self::getAtPointer($result, $op['from'] ?? '');
-                    $result = self::removeAtPointer($result, $op['from'] ?? '');
-                    $result = self::setAtPointer($result, $op['path'], $value);
-                    break;
-                case 'copy':
-                    $value = self::getAtPointer($result, $op['from'] ?? '');
-                    $result = self::setAtPointer($result, $op['path'], $value);
-                    break;
-                case 'test':
-                    $actual = self::getAtPointer($result, $op['path']);
-                    if (!self::deepEqual($actual, $op['value'] ?? null)) {
-                        throw new JsonPatchTestFailedException(
-                            "Test operation failed: value at '{$op['path']}' does not match expected value."
-                        );
-                    }
-                    break;
+            if (in_array($op['op'], ['move', 'copy'], true) && !isset($op['from'])) {
+                throw new \InvalidArgumentException(
+                    "JSON Patch '{$op['op']}' operation requires a 'from' field."
+                );
             }
+        }
+
+        // Pre-flight: run all operations on a copy to check test assertions (atomicity)
+        $preflight = $data;
+        foreach ($ops as $op) {
+            $preflight = self::applyOneOp($preflight, $op);
+        }
+
+        return $preflight;
+    }
+
+    /**
+     * @param array<mixed> $result
+     * @param array{op: string, path: string, value?: mixed, from?: string} $op
+     * @return array<mixed>
+     */
+    private static function applyOneOp(array $result, array $op): array
+    {
+        switch ($op['op']) {
+            case 'add':
+            case 'replace':
+                $result = self::setAtPointer($result, $op['path'], $op['value'] ?? null);
+                break;
+            case 'remove':
+                $result = self::removeAtPointer($result, $op['path']);
+                break;
+            case 'move':
+                $value = self::getAtPointer($result, $op['from'] ?? '');
+                $result = self::removeAtPointer($result, $op['from'] ?? '');
+                $result = self::setAtPointer($result, $op['path'], $value);
+                break;
+            case 'copy':
+                $value = self::getAtPointer($result, $op['from'] ?? '');
+                $result = self::setAtPointer($result, $op['path'], $value);
+                break;
+            case 'test':
+                $actual = self::getAtPointer($result, $op['path']);
+                if (!self::deepEqual($actual, $op['value'] ?? null)) {
+                    throw new JsonPatchTestFailedException(
+                        "Test operation failed: value at '{$op['path']}' does not match expected value."
+                    );
+                }
+                break;
         }
 
         return $result;
@@ -149,10 +171,11 @@ final class JsonPatch
         $keys = self::parsePointer($pointer);
         $current = $data;
         foreach ($keys as $key) {
-            if (is_array($current) && array_key_exists($key, $current)) {
-                $current = $current[$key];
-            } elseif (is_array($current) && is_numeric($key) && array_key_exists((int) $key, $current)) {
+            if (is_array($current) && is_numeric($key) && array_key_exists((int) $key, $current)) {
                 $current = $current[(int) $key];
+            } elseif (is_array($current) && array_key_exists($key, $current)) {
+                SecurityGuard::assertSafeKey($key);
+                $current = $current[$key];
             } else {
                 return null;
             }
@@ -178,6 +201,9 @@ final class JsonPatch
 
         for ($i = 0; $i < count($keys) - 1; $i++) {
             $key = is_numeric($keys[$i]) ? (int) $keys[$i] : $keys[$i];
+            if (is_string($key)) {
+                SecurityGuard::assertSafeKey($key);
+            }
             if (!is_array($current) || !array_key_exists($key, $current)) {
                 $current[$key] = [];
             }
@@ -189,6 +215,9 @@ final class JsonPatch
             $current[] = $value;
         } else {
             $key = is_numeric($lastKey) ? (int) $lastKey : $lastKey;
+            if (is_string($key)) {
+                SecurityGuard::assertSafeKey($key);
+            }
             $current[$key] = $value;
         }
 
@@ -212,6 +241,9 @@ final class JsonPatch
 
         for ($i = 0; $i < count($keys) - 1; $i++) {
             $key = is_numeric($keys[$i]) ? (int) $keys[$i] : $keys[$i];
+            if (is_string($key)) {
+                SecurityGuard::assertSafeKey($key);
+            }
             if (!is_array($current) || !array_key_exists($key, $current)) {
                 return $result;
             }
@@ -220,6 +252,9 @@ final class JsonPatch
 
         $lastKey = end($keys);
         $key = is_numeric($lastKey) ? (int) $lastKey : $lastKey;
+        if (is_string($key)) {
+            SecurityGuard::assertSafeKey($key);
+        }
         if (is_array($current)) {
             unset($current[$key]);
             if (array_is_list($current) || (is_int($key) && count($current) > 0)) {

@@ -4,6 +4,12 @@ use SafeAccessInline\SafeAccess;
 
 describe('YamlAccessor with real libraries', function () {
 
+    beforeEach(function () {
+        if (!class_exists(\Symfony\Component\Yaml\Yaml::class)) {
+            $this->markTestSkipped('symfony/yaml not installed (run with deps=full to enable)');
+        }
+    });
+
     it('parses real YAML with nested structures', function () {
         $yaml = <<<YAML
         database:

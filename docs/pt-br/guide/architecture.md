@@ -45,52 +45,22 @@ safe-access-inline é uma biblioteca de acesso a dados agnóstica de formato que
 
 ## Diagrama de Componentes
 
-```
-┌──────────────────────────────┐
-│       SafeAccess Facade      │  ← Ponto de entrada estático
-│  fromArray / fromJson / ...  │
-│  detect / extend / custom    │
-└──────────┬───────────────────┘
-           │ cria
-           ▼
-┌──────────────────────────────┐
-│     AbstractAccessor         │  ← Classe base (toda a lógica)
-│  get / set / remove / has    │
-│  toArray / toJson / toXml    │
-│  toYaml / toToml / transform │
-│  type / count / keys / all   │
-│  push / pop / shift / insert │  ← Operações de array
-│  diff / applyPatch           │  ← JSON Patch (RFC 6902)
-│  masked / validate           │  ← Segurança & schema
-└──────────┬───────────────────┘
-           │
-     ┌─────┴─────────────────────┐
-     │ delega resolução          │ delega serialização
-     │ de caminho para           │ & parsing para
-     ▼                           ▼
-┌────────────────────┐   ┌────────────────────────┐
-│  DotNotationParser │   │    PluginRegistry       │
-│  get / has / set   │   │  registerParser()       │
-│  remove / parseKeys│   │  registerSerializer()   │
-│  buildPath         │   │  getParser / has / get  │
-└────────────────────┘   └────────┬───────────────┘
-                                  │ armazena
-                     ┌────────────┼────────────────┐
-                     ▼            ▼                ▼
-              ┌───────────┐ ┌──────────────┐ ┌──────────┐
-              │  Parsers   │ │ Serializers  │ │ Custom   │
-              │  yaml,toml │ │ yaml,xml,... │ │ plugins  │
-              └───────────┘ └──────────────┘ └──────────┘
+```mermaid
+flowchart TD
+    SA["SafeAccess — ponto de entrada estático<br/>fromArray · fromJson · detect · extend · custom"]
+    AA["AbstractAccessor — classe base (toda a lógica)<br/>get · set · remove · has<br/>toArray · toJson · toXml · toYaml · toToml · transform<br/>type · count · keys · all<br/>push · pop · shift · insert · diff · applyPatch<br/>masked · validate"]
+    DNP["DotNotationParser<br/>get · has · set · remove<br/>parseKeys · buildPath"]
+    PR["PluginRegistry<br/>registerParser() · registerSerializer()<br/>getParser · has · get"]
+    P["Parsers<br/>yaml · toml"]
+    S["Serializers<br/>yaml · xml · …"]
+    C["Custom plugins"]
+    acc["Accessors Concretos<br/>Array · Object · JSON · XML · YAML<br/>TOML · INI · CSV · ENV · NDJSON<br/>cada um implementa parse(raw) → array"]
 
-Accessors Concretos (estendem AbstractAccessor):
-┌──────────┬──────────┬──────────┐
-│  Array   │  Object  │  JSON    │
-│  XML     │  YAML    │  TOML    │
-│  INI     │  CSV     │  ENV     │
-│  NDJSON  │          │          │
-└──────────┴──────────┴──────────┘
-Cada um implementa apenas: parse(raw) → array
-(YAML/TOML usam bibliotecas reais por padrão, com override opcional via PluginRegistry)
+    SA -->|cria| AA
+    AA -->|resolução de caminho| DNP
+    AA -->|serialização e parsing| PR
+    PR --> P & S & C
+    AA -.->|estendido por| acc
 ```
 
 ## Sistema de Plugins
@@ -99,11 +69,16 @@ O Sistema de Plugins fornece capacidade de **override opcional** para parsing e 
 
 ### Contratos
 
-```
-┌───────────────────────────┐     ┌───────────────────────────────┐
-│  ParserPluginInterface    │     │  SerializerPluginInterface    │
-│  parse(string): array     │     │  serialize(array): string     │
-└───────────────────────────┘     └───────────────────────────────┘
+```mermaid
+classDiagram
+    class ParserPluginInterface {
+        <<interface>>
+        +parse(string raw) array
+    }
+    class SerializerPluginInterface {
+        <<interface>>
+        +serialize(array data) string
+    }
 ```
 
 - **`ParserPluginInterface`** — recebe uma string bruta (ex: texto YAML), retorna um array associativo normalizado. Lança `InvalidFormatException` para input malformado.
@@ -133,22 +108,30 @@ PluginRegistry::registerSerializer('yaml', new SymfonyYamlSerializer());
 
 ## Fluxo de Dados
 
-```
-Input (string/array/object)
-  → Accessor::from(data)
-    → Construtor: raw = data, data = parse(raw)
-      → Para a maioria dos formatos: parsing específico do accessor (JSON.parse, XML parse, etc.)
-      → Para YAML (PHP): Plugin override → ext-yaml (yaml_parse) → fallback Symfony\Yaml
-      → Para TOML (PHP): Plugin override → Devium\Toml padrão
-      → Para YAML/TOML (JS): Plugin override → biblioteca real padrão (js-yaml / smol-toml)
-  → Array normalizado armazenado em $data / this.data
-  → Todas operações de leitura (get/set/has/etc.) operam sobre data via DotNotationParser
-  → Métodos de transformação:
-      → toArray() / toJson() / toObject() — embutidos, sempre disponíveis
-      → toXml() — embutido em PHP (SimpleXMLElement), baseado em plugin em JS
-      → toYaml() — Plugin override → ext-yaml (yaml_emit) → fallback symfony/yaml em PHP; js-yaml padrão em JS
-      → toToml() — Plugin override → devium/toml padrão em PHP; smol-toml padrão em JS
-      → transform(format) — sempre delega para PluginRegistry::getSerializer(format)
+```mermaid
+flowchart TD
+    Input["Entrada<br/>string · array · object"]
+    Factory["Accessor::from(data)<br/>raw = data, data = parse(raw)"]
+
+    P1["Maioria dos formatos<br/>parsing específico do accessor<br/>JSON.parse · XML parse · …"]
+    P2["YAML — PHP<br/>PluginRegistry → ext-yaml → symfony/yaml fallback"]
+    P3["TOML — PHP<br/>PluginRegistry → devium/toml"]
+    P4["YAML / TOML — JS<br/>PluginRegistry → js-yaml / smol-toml"]
+
+    Norm["Array normalizado armazenado em data"]
+    Read["Operações de leitura via DotNotationParser<br/>get · set · has · remove · …"]
+
+    T1["toArray() · toJson() · toObject()<br/>embutidos, sempre disponíveis"]
+    T2["toXml()<br/>embutido em PHP e JS<br/>plugin tem precedência se registrado"]
+    T3["toYaml()<br/>PHP: Plugin → ext-yaml → symfony/yaml<br/>JS: js-yaml padrão"]
+    T4["toToml()<br/>PHP: Plugin → devium/toml<br/>JS: smol-toml padrão"]
+    T5["transform(format)<br/>embutido para yaml · toml · csv (JS)<br/>outros → PluginRegistry"]
+
+    Input --> Factory
+    Factory --> P1 & P2 & P3 & P4
+    P1 & P2 & P3 & P4 --> Norm
+    Norm --> Read
+    Norm --> T1 & T2 & T3 & T4 & T5
 ```
 
 ## Motor DotNotationParser
@@ -197,12 +180,13 @@ Prioridade de auto-detecção (primeiro match vence):
 4. **String JSON** (`{` ou `[`) → `JsonAccessor`
 5. **String NDJSON** (múltiplas linhas `{...}`) → `NdjsonAccessor`
 6. **String XML** (`<?xml` ou `<`) → `XmlAccessor`
-7. **String YAML** (contém pares `: ` ou front-matter `---`) → `YamlAccessor`
-8. **String INI** (tem `[seção]` ou `chave = valor`) → `IniAccessor`
-9. **String ENV** (padrão `CHAVE=VALOR`) → `EnvAccessor`
-10. **Não suportado** → lança `UnsupportedTypeError` / `UnsupportedTypeException`
+7. **String YAML** (contém `: ` sem `=`) → `YamlAccessor`
+8. **String TOML** (padrão `chave = "quoted"`) → `TomlAccessor`
+9. **String INI** (tem cabeçalhos `[seção]`) → `IniAccessor`
+10. **String ENV** (padrão `CHAVE=VALOR` maiúsculo) → `EnvAccessor`
+11. **Não suportado** → lança `UnsupportedTypeError` / `UnsupportedTypeException`
 
-> **Limitações:** TOML e CSV não são auto-detectados devido à ambiguidade de formato. A heurística YAML (padrão `chave:` sem `=`) pode produzir falsos positivos para strings que não são YAML. Sempre prefira métodos factory explícitos (ex: `fromYaml()`, `fromToml()`) para inputs ambíguos.
+> **Limitações:** CSV não é auto-detectado. A heurística YAML (`: ` sem `=`) pode produzir falsos positivos, e a detecção TOML (`chave = "quoted"`) pode ocasionalmente conflitar com alguns formatos INI. Sempre prefira métodos factory explícitos (ex: `fromYaml()`, `fromToml()`) para inputs ambíguos.
 
 ## Estrutura do Monorepo
 
@@ -213,7 +197,7 @@ safe-access-inline/
 │   │   ├── src/
 │   │   │   ├── Accessors/   # 10 accessors de formato (incl. NDJSON)
 │   │   │   ├── Contracts/   # Interfaces (incl. ParserPlugin, SerializerPlugin, SchemaAdapter)
-│   │   │   ├── Core/        # AbstractAccessor, DotNotationParser, TypeDetector, PluginRegistry, SchemaRegistry, JsonPatch, IoLoader, FileWatcher, DeepMerger
+│   │   │   ├── Core/        # AbstractAccessor, DotNotationParser, PathCache, TypeDetector, PluginRegistry, SchemaRegistry, JsonPatch, IoLoader, FileWatcher, DeepMerger
 │   │   │   ├── Enums/       # AccessorFormat enum
 │   │   │   ├── Exceptions/  # Hierarquia de exceções (incl. SecurityException, SchemaValidationException, ReadonlyViolationException)
 │   │   │   ├── Integrations/# LaravelServiceProvider, SymfonyIntegration
@@ -228,7 +212,7 @@ safe-access-inline/
 │   │   ├── src/
 │   │   │   ├── accessors/   # 10 accessors de formato (incl. NDJSON)
 │   │   │   ├── contracts/   # Interfaces TypeScript
-│   │   │   ├── core/        # AbstractAccessor, DotNotationParser, TypeDetector, PluginRegistry, SchemaRegistry, JsonPatch, IoLoader, FileWatcher, DeepMerger, AuditLogger
+│   │   │   ├── core/        # AbstractAccessor, DotNotationParser, PathCache, TypeDetector, PluginRegistry, SchemaRegistry, JsonPatch, IoLoader, FileWatcher, DeepMerger, AuditEmitter
 │   │   │   ├── exceptions/  # Hierarquia de erros (incl. SecurityError, SchemaValidationError, ReadonlyViolationError)
 │   │   │   ├── integrations/# Módulo NestJS, plugin Vite
 │   │   │   ├── plugins/     # Plugins incluídos (JsYaml*, SmolToml*)
@@ -239,9 +223,9 @@ safe-access-inline/
 │   │       ├── unit/        # Testes unitários mock-based
 │   │       └── integration/ # Testes de pipeline cross-format
 │   └── cli/                 # Pacote CLI (@safe-access-inline/cli)
-│       ├── src/cli.ts       # Ponto de entrada CLI (get, set, remove, transform, diff, mask, layer, keys, type, has, count)
+│       ├── src/cli.ts       # Ponto de entrada CLI (get, set, remove, transform, convert, diff, mask, layer, keys, type, has, count, validate)
 │       └── tests/
-├── docs/                    # Documentação (Jekyll, English + pt-BR)
+└── docs/                    # Documentação (VitePress, English + pt-BR)
 ├── .github/workflows/       # CI/CD
 ├── CHANGELOG.md
 ├── CODE_OF_CONDUCT.md
@@ -255,20 +239,18 @@ safe-access-inline/
 
 O módulo de segurança fornece defesa em profundidade para processamento de dados:
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                    SecurityPolicy                       │
-│  maxDepth, maxPayloadBytes, maxKeys, allowedDirs,       │
-│  url options, csvMode, maskPatterns                     │
-└──────────┬──────────────────────────────────────────────┘
-           │ delega para
-     ┌─────┴─────────┬──────────────┬────────────────┐
-     ▼               ▼              ▼                ▼
-┌──────────┐  ┌──────────────┐ ┌───────────┐  ┌───────────┐
-│ Security │  │    IoLoader   │ │   CSV     │  │   Data    │
-│ Options  │  │  path/URL    │ │ Sanitizer │  │  Masker   │
-│ (limits) │  │  validation  │ │           │  │           │
-└──────────┘  └──────────────┘ └───────────┘  └───────────┘
+```mermaid
+flowchart TD
+    SP["SecurityPolicy<br/>maxDepth · maxPayloadBytes · maxKeys<br/>allowedDirs · url options · csvMode · maskPatterns"]
+    SO["SecurityOptions<br/>assertções de limite"]
+    IL["IoLoader<br/>validação de path e URL"]
+    CS["CsvSanitizer"]
+    DM["DataMasker"]
+
+    SP -->|delega para| SO
+    SP -->|delega para| IL
+    SP -->|delega para| CS
+    SP -->|delega para| DM
 ```
 
 - **SecurityPolicy** — Agregado imutável de todas as configurações de segurança. Suporta `merge()` para criar políticas derivadas.
@@ -290,24 +272,22 @@ Carregamento de arquivos e URLs segue um pipeline seguro:
 
 File watching usa polling (`FileWatcher`) — verifica mtime em intervalos configuráveis. Retorna uma função stop para cleanup.
 
+- **PathCache** — Cache LRU em memória entre `AbstractAccessor` e `DotNotationParser`. Arrays de segmentos de caminhos parseados são armazenados indexados pela string do caminho, eliminando re-parsing redundante em acessos frequentes.
+
 Configuração em camadas (`layer()`, `layerFiles()`) realiza deep-merge de múltiplas fontes com semântica last-wins.
 
 ## Validação de Schema
 
 A validação de schema usa o padrão **Adapter** para permanecer agnóstica de biblioteca:
 
-```
-┌───────────────────┐     ┌────────────────────────┐
-│  SchemaRegistry   │────▶│  SchemaAdapterInterface │
-│  default adapter  │     │  validate(data, schema) │
-└───────────────────┘     └────────────┬───────────┘
-                                       │ retorna
-                                       ▼
-                          ┌────────────────────────┐
-                          │ SchemaValidationResult  │
-                          │  valid: bool            │
-                          │  errors: Issue[]        │
-                          └────────────────────────┘
+```mermaid
+flowchart LR
+    SR["SchemaRegistry<br/>default adapter"]
+    SAI["SchemaAdapterInterface<br/>validate(data, schema)"]
+    SVR["SchemaValidationResult<br/>valid: bool<br/>errors: Issue[]"]
+
+    SR -->|usa| SAI
+    SAI -->|retorna| SVR
 ```
 
 Usuários implementam `SchemaAdapterInterface` com sua biblioteca de validação preferida (Zod, Joi, JSON Schema, etc.) e registram via `SchemaRegistry.setDefaultAdapter()`.
@@ -316,7 +296,7 @@ Usuários implementam `SchemaAdapterInterface` com sua biblioteca de validação
 
 O sistema de auditoria fornece observabilidade para operações relevantes à segurança:
 
-- **Tipos de evento:** `file.read`, `file.watch`, `url.fetch`, `security.violation`, `data.mask`, `data.freeze`, `schema.validate`
+- **Tipos de evento:** `file.read`, `file.watch`, `url.fetch`, `security.violation`, `security.deprecation`, `data.mask`, `data.freeze`, `schema.validate`
 - **Assinatura:** `SafeAccess.onAudit(listener)` retorna uma função de unsubscribe
 - **Emissão:** Interna — disparada automaticamente por IoLoader, DataMasker, validação de schema, etc.
 - **Design:** Padrão pub/sub. Listeners são síncronos. Eventos incluem campos `type`, `timestamp` e `detail`.

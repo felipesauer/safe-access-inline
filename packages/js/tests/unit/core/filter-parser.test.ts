@@ -272,4 +272,30 @@ describe(FilterParser.name, () => {
         // Empty pattern matches any string
         expect(FilterParser.evaluate({ name: 'anything' }, expr)).toBe(true);
     });
+
+    // ── SEC-02 regression: invalid regex returns false ──
+
+    it('evaluate — match with invalid regex returns false', () => {
+        const expr = FilterParser.parse("match(@.val,'[invalid')");
+        expect(FilterParser.evaluate({ val: 'anything' }, expr)).toBe(false);
+    });
+
+    it('evaluate — match with slash in pattern works correctly', () => {
+        const expr = FilterParser.parse("match(@.url,'https://example')");
+        expect(FilterParser.evaluate({ url: 'https://example.com' }, expr)).toBe(true);
+        expect(FilterParser.evaluate({ url: 'ftp://other' }, expr)).toBe(false);
+    });
+
+    it('evaluate — match returns false for non-capturing group with quantifier inside (ReDoS guard)', () => {
+        // Pattern > 128 chars triggers the length-based ReDoS guard → return false
+        const longPattern = 'a'.repeat(130);
+        const expr = FilterParser.parse(`match(@.name,'${longPattern}')`);
+        expect(FilterParser.evaluate({ name: 'a'.repeat(130) }, expr)).toBe(false);
+    });
+
+    it('evaluate — accessing a non-existent simple field returns undefined (covers hasOwnProperty false branch)', () => {
+        // 'missing' is not in { x: 1 } → hasOwnProperty returns false → undefined → comparison fails
+        const expr = FilterParser.parse('missing==1');
+        expect(FilterParser.evaluate({ x: 1 }, expr)).toBe(false);
+    });
 });

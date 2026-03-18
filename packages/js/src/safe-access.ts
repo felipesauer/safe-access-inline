@@ -170,8 +170,19 @@ export class SafeAccess {
         return TypeDetector.resolve(data);
     }
 
+    private static readonly MAX_CUSTOM_ACCESSORS = 50;
+
     static extend(name: string, cls: new (data: unknown) => AbstractAccessor): void {
+        if (SafeAccess.customAccessors.size >= SafeAccess.MAX_CUSTOM_ACCESSORS) {
+            throw new RangeError(
+                `Maximum custom accessor count (${SafeAccess.MAX_CUSTOM_ACCESSORS}) reached.`,
+            );
+        }
         SafeAccess.customAccessors.set(name, cls);
+    }
+
+    static clearCustomAccessors(): void {
+        SafeAccess.customAccessors.clear();
     }
 
     static custom(name: string, data: unknown): AbstractAccessor {
@@ -184,9 +195,12 @@ export class SafeAccess {
 
     static fromFileSync(
         filePath: string,
-        options?: { format?: string | Format; allowedDirs?: string[] },
+        options?: { format?: string | Format; allowedDirs?: string[]; allowAnyPath?: boolean },
     ): AbstractAccessor {
-        const content = readFileSync(filePath, { allowedDirs: options?.allowedDirs });
+        const content = readFileSync(filePath, {
+            allowedDirs: options?.allowedDirs,
+            allowAnyPath: options?.allowAnyPath,
+        });
         const format = options?.format ?? resolveFormatFromExtension(filePath);
         if (!format) {
             return TypeDetector.resolve(content);
@@ -196,9 +210,12 @@ export class SafeAccess {
 
     static async fromFile(
         filePath: string,
-        options?: { format?: string | Format; allowedDirs?: string[] },
+        options?: { format?: string | Format; allowedDirs?: string[]; allowAnyPath?: boolean },
     ): Promise<AbstractAccessor> {
-        const content = await readFile(filePath, { allowedDirs: options?.allowedDirs });
+        const content = await readFile(filePath, {
+            allowedDirs: options?.allowedDirs,
+            allowAnyPath: options?.allowAnyPath,
+        });
         const format = options?.format ?? resolveFormatFromExtension(filePath);
         if (!format) {
             return TypeDetector.resolve(content);
@@ -244,10 +261,15 @@ export class SafeAccess {
 
     static async layerFiles(
         paths: string[],
-        options?: { allowedDirs?: string[] },
+        options?: { allowedDirs?: string[]; allowAnyPath?: boolean },
     ): Promise<AbstractAccessor> {
         const accessors = await Promise.all(
-            paths.map((p) => SafeAccess.fromFile(p, { allowedDirs: options?.allowedDirs })),
+            paths.map((p) =>
+                SafeAccess.fromFile(p, {
+                    allowedDirs: options?.allowedDirs,
+                    allowAnyPath: options?.allowAnyPath,
+                }),
+            ),
         );
         return SafeAccess.layer(accessors);
     }
@@ -257,7 +279,7 @@ export class SafeAccess {
     static watchFile(
         filePath: string,
         onChange: (accessor: AbstractAccessor) => void,
-        options?: { format?: string | Format; allowedDirs?: string[] },
+        options?: { format?: string | Format; allowedDirs?: string[]; allowAnyPath?: boolean },
     ): () => void {
         return watchFile(filePath, () => {
             const accessor = SafeAccess.fromFileSync(filePath, options);
@@ -362,6 +384,7 @@ export class SafeAccess {
      * Resets all global/static state. Intended for test teardown.
      */
     static resetAll(): void {
+        SafeAccess.customAccessors.clear();
         PathCache.clear();
         clearAuditListeners();
         _clearGlobalPolicy();

@@ -41,6 +41,12 @@ class YamlAccessor extends AbstractAccessor
                 return is_array($parsed) ? $parsed : [];
             }
 
+            if (!class_exists(Yaml::class)) {
+                throw new InvalidFormatException(
+                    'YAML support requires ext-yaml or symfony/yaml. Install via: composer require symfony/yaml'
+                );
+            }
+
             $parsed = Yaml::parse($raw, Yaml::PARSE_EXCEPTION_ON_INVALID_TYPE);
             return is_array($parsed) ? $parsed : [];
         } catch (\Throwable $e) {

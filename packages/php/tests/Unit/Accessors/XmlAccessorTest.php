@@ -123,8 +123,9 @@ describe(XmlAccessor::class, function () {
     });
 
     it('rejects XML with ENTITY declaration', function () {
-        $entityXml = '<?xml version="1.0"?><!DOCTYPE test [<!ENTITY test "value">]><root><a>1</a></root>';
-        expect(fn () => XmlAccessor::from($entityXml))->toThrow(SecurityException::class);
+        // ENTITY without DOCTYPE — tests the ENTITY check separately
+        $entityXml = '<?xml version="1.0"?><!ENTITY test "value"><root><a>1</a></root>';
+        expect(fn () => XmlAccessor::from($entityXml))->toThrow(SecurityException::class, 'ENTITY');
     });
 
     it('rejects XML with DOCTYPE even without entities', function () {

@@ -104,6 +104,36 @@ describe(DotNotationParser.name, () => {
         expect(result).toEqual({ a: 1, b: 2 });
     });
 
+    it('set — structural sharing preserves sibling references', () => {
+        const sibling = { x: 1 };
+        const data = { a: sibling, b: { c: 2 } };
+        const result = DotNotationParser.set(data, 'b.c', 99);
+        // Sibling not on the mutation path should be the same reference
+        expect(result.a).toBe(sibling);
+        // Mutated path should differ
+        expect(result.b).not.toBe(data.b);
+        expect(result.b).toEqual({ c: 99 });
+    });
+
+    it('set — nested structural sharing only clones along path', () => {
+        const deep = { val: 'keep' };
+        const data = { a: { b: { target: 1 }, other: deep } };
+        const result = DotNotationParser.set(data, 'a.b.target', 2);
+        expect(result.a.other).toBe(deep);
+        expect(result.a.b.target).toBe(2);
+        expect(data.a.b.target).toBe(1); // original unchanged
+    });
+
+    // ── multi-wildcard (PERF-03 array_slice removal regression) ──
+
+    it('get — multi-wildcard path a.*.b.*.c', () => {
+        const data = {
+            a: [{ b: [{ c: 1 }, { c: 2 }] }, { b: [{ c: 3 }] }],
+        };
+        // Each outer wildcard yields an inner array from the second wildcard
+        expect(DotNotationParser.get(data, 'a.*.b.*.c')).toEqual([[1, 2], [3]]);
+    });
+
     // ── remove() ──────────────────────────────────────
 
     it('remove — existing key', () => {
@@ -351,5 +381,14 @@ describe(DotNotationParser.name, () => {
         const result = DotNotationParser.get(data, '..[x,y]');
         // results may be empty or fallback — the key point is the branch is exercised
         expect(result).toBeDefined();
+    });
+
+    it('set — clones array when intermediate key holds an array value', () => {
+        // Exercises the Array.isArray(child) ? [...child] branch in the set path
+        const data = { nested: { items: [1, 2, 3] } };
+        const result = DotNotationParser.set(data, 'nested.items.0', 99);
+        expect((result as { nested: { items: number[] } }).nested.items[0]).toBe(99);
+        // Original must not be mutated
+        expect(data.nested.items[0]).toBe(1);
     });
 });

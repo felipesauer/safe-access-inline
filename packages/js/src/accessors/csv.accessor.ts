@@ -1,5 +1,6 @@
 import { AbstractAccessor } from '../core/abstract-accessor';
 import { InvalidFormatError } from '../exceptions/invalid-format.error';
+import { emitAudit } from '../core/audit-emitter';
 
 /**
  * Accessor for CSV strings.
@@ -36,6 +37,13 @@ export class CsvAccessor<
                     row[headers[j]] = values[j];
                 }
                 result[String(i - 1)] = row;
+            } else {
+                emitAudit('security.violation', {
+                    reason: 'csv_column_mismatch',
+                    line: i + 1,
+                    expected: headers.length,
+                    actual: values.length,
+                });
             }
         }
 

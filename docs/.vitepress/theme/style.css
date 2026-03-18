@@ -37,3 +37,208 @@
     width: 28px;
     height: 28px;
 }
+
+/* ------------------------------------------------------------------ */
+/* Mermaid diagram enhancements — GitHub-style toolbar                 */
+/* ------------------------------------------------------------------ */
+
+/* Outer card */
+.mermaid-container {
+    border: 1px solid var(--vp-c-divider);
+    border-radius: 8px;
+    background: var(--vp-c-bg-soft);
+    margin: 16px 0;
+    overflow: hidden;
+}
+
+/* ── Toolbar ─────────────────────────────────────────────────────── */
+.mermaid-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 6px;
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--vp-c-divider);
+    background: var(--vp-c-bg);
+    flex-wrap: wrap;
+}
+
+/* ── Button group (joined pill) ──────────────────────────────────── */
+.mermaid-btn-group {
+    display: inline-flex;
+    border: 1px solid var(--vp-c-divider);
+    border-radius: 6px;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+/* All direct children of the group lose individual borders/radius */
+.mermaid-btn-group > * {
+    border-radius: 0;
+    border-width: 0;
+    border-left: 1px solid var(--vp-c-divider);
+    margin: 0;
+}
+
+/* First child has no left border — the group border covers it */
+.mermaid-btn-group > :first-child {
+    border-left: none !important;
+}
+
+/* ── Zoom percentage label (inside a .mermaid-btn-group) ─────────── */
+.mermaid-zoom-pct {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 42px;
+    height: 28px;
+    padding: 0 2px;
+    font-size: 11.5px;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.01em;
+    color: var(--vp-c-text-2);
+    background: var(--vp-c-bg);
+    user-select: none;
+    cursor: default;
+    white-space: nowrap;
+}
+
+/* ── Single action buttons ───────────────────────────────────────── */
+.mermaid-action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 1px solid var(--vp-c-divider);
+    border-radius: 6px;
+    background: var(--vp-c-bg);
+    color: var(--vp-c-text-2);
+    cursor: pointer;
+    line-height: 1;
+    flex-shrink: 0;
+    transition: color 0.12s, background 0.12s, border-color 0.12s;
+}
+
+.mermaid-action-btn:hover:not(:disabled) {
+    background: var(--vp-c-default-soft);
+    color: var(--vp-c-text-1);
+    border-color: var(--vp-c-border);
+    position: relative; /* keep above neighbours in group */
+    z-index: 1;
+}
+
+.mermaid-action-btn:focus-visible {
+    outline: 2px solid var(--vp-c-brand-1);
+    outline-offset: 1px;
+    z-index: 2;
+}
+
+.mermaid-action-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.mermaid-action-btn.success {
+    color: var(--vp-c-green-1, #22c55e);
+    border-color: var(--vp-c-green-2, #16a34a);
+    background: var(--vp-c-green-soft, rgba(34, 197, 94, 0.08));
+}
+
+/* Separator between button groups */
+.mermaid-toolbar-sep {
+    width: 1px;
+    height: 16px;
+    background: var(--vp-c-divider);
+    flex-shrink: 0;
+}
+
+/* ── Scrollable diagram area ─────────────────────────────────────── */
+/*
+ * IMPORTANT: do NOT use display:flex + justify-content:center here.
+ * That combination clips the left side of overflowing content and prevents
+ * proper horizontal scrolling. Use margin:auto on the child instead, which:
+ *  - centers the diagram when the SVG is narrower than the viewport, AND
+ *  - allows full left-to-right scroll when the SVG is wider.
+ */
+.mermaid-viewport {
+    overflow-x: auto;
+    overflow-y: visible;
+    padding: 20px;
+}
+
+.mermaid-viewport > .mermaid {
+    display: block;
+    width: fit-content;
+    /* Centers when content fits; left-aligns (scrollable) when it overflows */
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.mermaid-viewport svg {
+    display: block;
+    max-width: none;
+}
+
+/* ── Fullscreen dialog ───────────────────────────────────────────── */
+.mermaid-dialog {
+    /* Large fixed size so zoomed diagrams always have room to scroll */
+    width: min(96vw, 1600px);
+    height: 90vh;
+    border: 1px solid var(--vp-c-divider);
+    border-radius: 10px;
+    padding: 0;
+    background: var(--vp-c-bg);
+    color: var(--vp-c-text-1);
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.3);
+    /*
+     * overflow:clip clips visually (preserves border-radius) but does NOT
+     * prevent children from creating their own independent scroll contexts.
+     * overflow:hidden would suppress child scrollbars on most engines.
+     */
+    overflow: clip;
+    display: flex;
+    flex-direction: column;
+}
+
+.mermaid-dialog::backdrop {
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(4px);
+}
+
+/* Dialog reuses .mermaid-toolbar; remove bottom border rounding */
+.mermaid-dialog-toolbar {
+    border-bottom: 1px solid var(--vp-c-divider);
+    border-radius: 0;
+    flex-shrink: 0;
+}
+
+/* Scrollable body — same centering strategy as .mermaid-viewport */
+.mermaid-dialog-body {
+    overflow: auto;
+    padding: 24px;
+    flex: 1;
+    min-height: 0;
+}
+
+.mermaid-dialog-body > svg {
+    display: block;
+    max-width: none;
+    /* Centers when SVG < dialog width; left-aligns with scroll when wider */
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* Close button danger variant */
+.mermaid-close-btn:hover:not(:disabled) {
+    background: var(--vp-c-red-soft, rgba(239, 68, 68, 0.1));
+    color: var(--vp-c-red-1, #ef4444);
+    border-color: var(--vp-c-red-1, #ef4444);
+}
+
+/* Center diagrams that are NOT yet wrapped */
+.vp-doc .mermaid:not([data-mermaid-enhanced]) {
+    display: flex;
+    justify-content: center;
+}

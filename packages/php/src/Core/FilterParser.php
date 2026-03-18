@@ -2,6 +2,8 @@
 
 namespace SafeAccessInline\Core;
 
+use SafeAccessInline\Security\SecurityGuard;
+
 /**
  * Parses and evaluates filter expressions for JSONPath-like queries.
  *
@@ -58,7 +60,8 @@ final class FilterParser
 
         $result = self::evaluateCondition($item, $expr['conditions'][0]);
 
-        for ($i = 0; $i < count($expr['logicals']); $i++) {
+        $logicalCount = count($expr['logicals']);
+        for ($i = 0; $i < $logicalCount; $i++) {
             $nextResult = self::evaluateCondition($item, $expr['conditions'][$i + 1]);
             if ($expr['logicals'][$i] === '&&') {
                 $result = $result && $nextResult;
@@ -220,8 +223,8 @@ final class FilterParser
         $expected = $condition['value'];
 
         return match ($condition['operator']) {
-            '==' => $fieldValue == $expected,
-            '!=' => $fieldValue != $expected,
+            '==' => $fieldValue === $expected,
+            '!=' => $fieldValue !== $expected,
             '>' => $fieldValue > $expected,
             '<' => $fieldValue < $expected,
             '>=' => $fieldValue >= $expected,
@@ -280,7 +283,25 @@ final class FilterParser
         ) {
             $pattern = substr($pattern, 1, -1);
         }
-        return (bool) preg_match('/' . $pattern . '/', $val);
+        // ReDoS guard: reject patterns with nested quantifiers or excessive length
+        if (preg_match('/([+*])\)\1|\(\?[^)]*[+*]/', $pattern) === 1 || strlen($pattern) > 128) {
+            return false;
+        }
+        // Escape the PCRE delimiter to prevent flag injection (e.g. 'foo/i')
+        $safePattern = str_replace('/', '\\/', $pattern);
+        $prevBacktrack = ini_set('pcre.backtrack_limit', '1000');
+        $prevRecursion = ini_set('pcre.recursion_limit', '100');
+        try {
+            $result = @preg_match('/' . $safePattern . '/u', $val);
+        } finally {
+            if ($prevBacktrack !== false) {
+                ini_set('pcre.backtrack_limit', (string) $prevBacktrack);
+            }
+            if ($prevRecursion !== false) {
+                ini_set('pcre.recursion_limit', (string) $prevRecursion);
+            }
+        }
+        return $result === 1;
     }
 
     /**
@@ -323,6 +344,7 @@ final class FilterParser
         if (str_contains($field, '.')) {
             $current = $item;
             foreach (explode('.', $field) as $key) {
+                SecurityGuard::assertSafeKey($key);
                 if (is_array($current) && array_key_exists($key, $current)) {
                     $current = $current[$key];
                 } else {
@@ -331,6 +353,7 @@ final class FilterParser
             }
             return $current;
         }
+        SecurityGuard::assertSafeKey($field);
         return $item[$field] ?? null;
     }
 }

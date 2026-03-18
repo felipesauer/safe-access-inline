@@ -59,6 +59,34 @@ describe(PluginRegistry::class, function () {
         expect(PluginRegistry::getParser('yaml'))->toBe($parser2);
     });
 
+    it('triggers warning when overwriting a serializer', function () {
+        $serializer1 = new class () implements SerializerPluginInterface {
+            public function serialize(array $data): string
+            {
+                return 'v1';
+            }
+        };
+        $serializer2 = new class () implements SerializerPluginInterface {
+            public function serialize(array $data): string
+            {
+                return 'v2';
+            }
+        };
+
+        PluginRegistry::registerSerializer('yaml', $serializer1);
+
+        $warning = null;
+        set_error_handler(static function (int $errno, string $errstr) use (&$warning): bool {
+            $warning = $errstr;
+            return true;
+        }, E_USER_WARNING);
+        PluginRegistry::registerSerializer('yaml', $serializer2);
+        restore_error_handler();
+
+        expect($warning)->toContain('being overwritten');
+        expect(PluginRegistry::getSerializer('yaml'))->toBe($serializer2);
+    });
+
     // ── Serializer Registration ────────────────────
 
     it('registers and retrieves a serializer', function () {

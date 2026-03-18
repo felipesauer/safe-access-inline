@@ -38,6 +38,7 @@ package-lock.json
 *.swo
 *~
 .plans/
+.github/audit/
 
 # OS
 .DS_Store
@@ -45,3 +46,4 @@ Thumbs.db
 
 # VitePress
 docs/.vitepress/cache/
+docs/.vitepress/dist/

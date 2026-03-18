@@ -172,7 +172,7 @@ describe(SafeAccess::class, function () {
         $tmp = tempnam(sys_get_temp_dir(), 'sa-ext-');
         file_put_contents($tmp, '{"key":"value"}');
         try {
-            $accessor = SafeAccess::fromFile($tmp);
+            $accessor = SafeAccess::fromFile($tmp, null, [], true);
             expect($accessor)->toBeInstanceOf(JsonAccessor::class);
             expect($accessor->get('key'))->toBe('value');
         } finally {
@@ -235,6 +235,30 @@ describe(SafeAccess::class, function () {
         SafeAccess::setGlobalPolicy($policy);
         SafeAccess::resetAll();
         expect(SecurityPolicy::getGlobal())->toBeNull();
+    });
+
+    // ── clearGlobalPolicy ──────────────────────────
+
+    it('clearGlobalPolicy removes global policy', function () {
+        $policy = new SecurityPolicy(maxDepth: 50);
+        SafeAccess::setGlobalPolicy($policy);
+        expect(SecurityPolicy::getGlobal())->not->toBeNull();
+        SafeAccess::clearGlobalPolicy();
+        expect(SecurityPolicy::getGlobal())->toBeNull();
+    });
+
+    // ── layer with empty sources ────────────────────
+
+    it('layer with empty array returns empty accessor', function () {
+        $accessor = SafeAccess::layer([]);
+        expect($accessor->toArray())->toBe([]);
+    });
+
+    // ── from() with unknown format ──────────────────
+
+    it('from() throws for unknown unregistered format', function () {
+        expect(fn () => SafeAccess::from('data', 'protobuf'))
+            ->toThrow(\SafeAccessInline\Exceptions\InvalidFormatException::class, "Unknown format 'protobuf'");
     });
 
     // ── fromUrl with mock HTTP client ───────────────
@@ -308,5 +332,24 @@ describe(SafeAccess::class, function () {
         } finally {
             IoLoader::resetHttpClient();
         }
+    });
+
+    // ── LOGIC-02 regression: extend() cap & resetAll ──
+
+    it('extend — throws OverflowException when cap exceeded', function () {
+        SafeAccess::resetAll();
+        for ($i = 0; $i < 50; $i++) {
+            SafeAccess::extend("cap_test_{$i}", ArrayAccessor::class);
+        }
+        expect(fn () => SafeAccess::extend('cap_overflow', ArrayAccessor::class))
+            ->toThrow(\OverflowException::class);
+        SafeAccess::resetAll();
+    });
+
+    it('resetAll — clears custom accessors', function () {
+        SafeAccess::extend('reset_test', ArrayAccessor::class);
+        SafeAccess::resetAll();
+        expect(fn () => SafeAccess::custom('reset_test', []))
+            ->toThrow(\RuntimeException::class);
     });
 });

@@ -89,9 +89,10 @@ export function loadFromStdinOrFile(
         // Use SafeAccess.fromFileSync so the IoLoader path-traversal and null-byte checks apply
         return SafeAccess.fromFileSync(resolve(fileArg), {
             format: fromFormat,
+            allowAnyPath: true,
         });
     }
-    return SafeAccess.fromFileSync(resolve(fileArg));
+    return SafeAccess.fromFileSync(resolve(fileArg), { allowAnyPath: true });
 }
 
 export function formatOutput(
@@ -363,7 +364,7 @@ export function run(args: string[], io: CliIO): number {
                     );
                     return 1;
                 }
-                const accessors = positionals.map((f) =>
+                const accessors = positionals.map((f: string) =>
                     loadFromStdinOrFile(f, undefined, io.readFileSync),
                 );
                 const layered = SafeAccess.layer(accessors);
@@ -514,6 +515,9 @@ export function run(args: string[], io: CliIO): number {
     } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         io.stderr.write(`Error: ${message}\n`);
+        if (process.env.DEBUG === "1" && err instanceof Error && err.stack) {
+            io.stderr.write(`${err.stack}\n`);
+        }
         return 1;
     }
 }

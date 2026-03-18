@@ -3,6 +3,7 @@
 namespace SafeAccessInline\Plugins;
 
 use SafeAccessInline\Contracts\SerializerPluginInterface;
+use SafeAccessInline\Exceptions\InvalidFormatException;
 
 /**
  * YAML serializer plugin using symfony/yaml.
@@ -21,8 +22,19 @@ class SymfonyYamlSerializer implements SerializerPluginInterface
     ) {
     }
 
+    protected function isAvailable(): bool
+    {
+        return class_exists(\Symfony\Component\Yaml\Yaml::class);
+    }
+
     public function serialize(array $data): string
     {
+        if (!$this->isAvailable()) {
+            throw new InvalidFormatException(
+                'symfony/yaml is not installed. Run: composer require symfony/yaml'
+            );
+        }
+
         return \Symfony\Component\Yaml\Yaml::dump($data, $this->inline, $this->indent);
     }
 }

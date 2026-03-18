@@ -6,6 +6,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
+import * as ioLoader from '../../src/core/io-loader';
 import { SafeAccess } from '../../src/safe-access';
 import { diff, applyPatch, type JsonPatchOp } from '../../src/core/json-patch';
 import { mask } from '../../src/core/data-masker';
@@ -15,6 +16,16 @@ import { XmlAccessor } from '../../src/accessors/xml.accessor';
 import { optionalRequire } from '../../src/core/optional-require';
 import { PathCache } from '../../src/core/path-cache';
 import { PluginRegistry } from '../../src/core/plugin-registry';
+
+// Mock ip-range-checker to avoid real DNS lookups during tests.
+vi.mock('../../src/core/ip-range-checker', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('../../src/core/ip-range-checker')>();
+    return {
+        ...actual,
+        assertSafeUrl: vi.fn(),
+        resolveAndValidateIp: vi.fn().mockResolvedValue('93.184.216.34'),
+    };
+});
 
 // ── SafeAccess.from() with custom accessor via extend ──────────
 describe('SafeAccess — custom accessor through from()', () => {
@@ -48,7 +59,7 @@ describe('SafeAccess — fromFileSync auto-detect', () => {
         const tmpFile = path.join(os.tmpdir(), `sa-test-${Date.now()}.dat`);
         fs.writeFileSync(tmpFile, '{"auto":"detected"}');
         try {
-            const acc = SafeAccess.fromFileSync(tmpFile);
+            const acc = SafeAccess.fromFileSync(tmpFile, { allowAnyPath: true });
             expect(acc.get('auto')).toBe('detected');
         } finally {
             fs.unlinkSync(tmpFile);
@@ -62,7 +73,7 @@ describe('SafeAccess — fromFile auto-detect', () => {
         const tmpFile = path.join(os.tmpdir(), `sa-test-${Date.now()}.dat`);
         fs.writeFileSync(tmpFile, '{"async_auto":"detected"}');
         try {
-            const acc = await SafeAccess.fromFile(tmpFile);
+            const acc = await SafeAccess.fromFile(tmpFile, { allowAnyPath: true });
             expect(acc.get('async_auto')).toBe('detected');
         } finally {
             fs.unlinkSync(tmpFile);
@@ -77,50 +88,25 @@ describe('SafeAccess — fromUrl', () => {
     });
 
     it('fetches URL and parses with explicit format', async () => {
-        vi.stubGlobal(
-            'fetch',
-            vi.fn().mockResolvedValue({
-                ok: true,
-                text: () => Promise.resolve('{"url":"data"}'),
-            }),
-        );
+        vi.spyOn(ioLoader, 'fetchUrl').mockResolvedValueOnce('{"url":"data"}');
         const acc = await SafeAccess.fromUrl('https://example.com/data.json', { format: 'json' });
         expect(acc.get('url')).toBe('data');
     });
 
     it('fetches URL and detects format from URL path', async () => {
-        vi.stubGlobal(
-            'fetch',
-            vi.fn().mockResolvedValue({
-                ok: true,
-                text: () => Promise.resolve('{"detected":"yes"}'),
-            }),
-        );
+        vi.spyOn(ioLoader, 'fetchUrl').mockResolvedValueOnce('{"detected":"yes"}');
         const acc = await SafeAccess.fromUrl('https://example.com/config.json');
         expect(acc.get('detected')).toBe('yes');
     });
 
     it('fetches URL and auto-detects when no format hint', async () => {
-        vi.stubGlobal(
-            'fetch',
-            vi.fn().mockResolvedValue({
-                ok: true,
-                text: () => Promise.resolve('{"auto":"yes"}'),
-            }),
-        );
+        vi.spyOn(ioLoader, 'fetchUrl').mockResolvedValueOnce('{"auto":"yes"}');
         const acc = await SafeAccess.fromUrl('https://example.com/data');
         expect(acc.get('auto')).toBe('yes');
     });
 
     it('throws on HTTP error', async () => {
-        vi.stubGlobal(
-            'fetch',
-            vi.fn().mockResolvedValue({
-                ok: false,
-                status: 404,
-                text: () => Promise.resolve('Not Found'),
-            }),
-        );
+        vi.spyOn(ioLoader, 'fetchUrl').mockRejectedValueOnce(new Error('Failed to fetch URL'));
         await expect(SafeAccess.fromUrl('https://example.com/missing.json')).rejects.toThrow(
             'Failed to fetch URL',
         );
@@ -134,7 +120,7 @@ describe('SafeAccess — watchFile', () => {
         fs.writeFileSync(tmpFile, '{"v":1}');
 
         const onChange = vi.fn();
-        const unsub = SafeAccess.watchFile(tmpFile, onChange);
+        const unsub = SafeAccess.watchFile(tmpFile, onChange, { allowAnyPath: true });
 
         fs.writeFileSync(tmpFile, '{"v":2}');
         await new Promise((r) => setTimeout(r, 300));
@@ -290,6 +276,28 @@ describe('JSON Patch — array edge cases', () => {
     it('removeAtPointer empty pointer returns empty object', () => {
         const result = applyPatch({ a: 1, b: 2 }, [{ op: 'remove', path: '' }]);
         expect(result).toEqual({});
+    });
+
+    it('add with undefined value at root falls back to empty object', () => {
+        const result = applyPatch({ a: 1 }, [{ op: 'add', path: '', value: undefined }]);
+        expect(result).toEqual({});
+    });
+
+    it('move to root replaces entire document', () => {
+        const result = applyPatch({ a: 1, b: { x: 2 } }, [{ op: 'move', from: '/b', path: '' }]);
+        expect(result).toEqual({ x: 2 });
+    });
+
+    it('move from root clears document and sets target', () => {
+        const result = applyPatch({ a: 1, b: 2 }, [{ op: 'move', from: '', path: '/nested' }]);
+        expect(result).toEqual({ nested: { a: 1, b: 2 } });
+    });
+
+    it('copy to root replaces entire document', () => {
+        const result = applyPatch({ src: { x: 1 }, other: 2 }, [
+            { op: 'copy', from: '/src', path: '' },
+        ]);
+        expect(result).toEqual({ x: 1 });
     });
 
     it('diff with deeply nested arrays of objects', () => {
@@ -543,29 +551,20 @@ describe('IO Loader — fetchUrl', () => {
     });
 
     it('throws SecurityError on non-OK response', async () => {
-        const { fetchUrl } = await import('../../src/core/io-loader');
-        vi.stubGlobal(
-            'fetch',
-            vi.fn().mockResolvedValue({
-                ok: false,
-                status: 500,
-                text: () => Promise.resolve('Server Error'),
-            }),
+        const spy = vi
+            .spyOn(ioLoader, 'fetchUrl')
+            .mockRejectedValueOnce(new Error('Failed to fetch URL'));
+        await expect(ioLoader.fetchUrl('https://example.com/api')).rejects.toThrow(
+            'Failed to fetch URL',
         );
-        await expect(fetchUrl('https://example.com/api')).rejects.toThrow('Failed to fetch URL');
+        spy.mockRestore();
     });
 
     it('returns text on success', async () => {
-        const { fetchUrl } = await import('../../src/core/io-loader');
-        vi.stubGlobal(
-            'fetch',
-            vi.fn().mockResolvedValue({
-                ok: true,
-                text: () => Promise.resolve('response data'),
-            }),
-        );
-        const result = await fetchUrl('https://example.com/api');
+        const spy = vi.spyOn(ioLoader, 'fetchUrl').mockResolvedValueOnce('response data');
+        const result = await ioLoader.fetchUrl('https://example.com/api');
         expect(result).toBe('response data');
+        spy.mockRestore();
     });
 });
 

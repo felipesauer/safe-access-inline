@@ -92,7 +92,7 @@ tags = ["app", "session"]
     it('type', () => {
         const accessor = TomlAccessor.from(toml);
         expect(accessor.type('title')).toBe('string');
-        expect(accessor.type('debug')).toBe('boolean');
+        expect(accessor.type('debug')).toBe('bool');
         expect(accessor.type('database')).toBe('object');
         expect(accessor.type('database.port')).toBe('number');
     });

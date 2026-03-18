@@ -36,6 +36,11 @@ class TomlAccessor extends AbstractAccessor
         }
 
         try {
+            if (!class_exists(Toml::class)) {
+                throw new InvalidFormatException(
+                    'TOML support requires devium/toml. Install it via: composer require devium/toml'
+                );
+            }
             $decoded = Toml::decode($raw);
             $json = json_encode($decoded);
 

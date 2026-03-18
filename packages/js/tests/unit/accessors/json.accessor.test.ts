@@ -85,7 +85,7 @@ describe(JsonAccessor.name, () => {
         const accessor = JsonAccessor.from('{"s": "str", "n": 42, "b": true, "a": [1]}');
         expect(accessor.type('s')).toBe('string');
         expect(accessor.type('n')).toBe('number');
-        expect(accessor.type('b')).toBe('boolean');
+        expect(accessor.type('b')).toBe('bool');
         expect(accessor.type('a')).toBe('array');
         expect(accessor.type('missing')).toBeNull();
     });

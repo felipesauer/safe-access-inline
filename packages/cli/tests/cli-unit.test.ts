@@ -725,4 +725,40 @@ describe("run — error handling", () => {
         expect(exitCode).toBe(1);
         expect(stderr).toContain("Error:");
     });
+
+    it("prints stack trace when DEBUG=1 and error occurs", () => {
+        const orig = process.env.DEBUG;
+        process.env.DEBUG = "1";
+        try {
+            const { stderr, exitCode } = runCli([
+                "get",
+                "/nonexistent/file.json",
+                "key",
+            ]);
+            expect(exitCode).toBe(1);
+            expect(stderr).toContain("Error:");
+            expect(stderr).toMatch(/at\s/); // stack trace contains "at " frames
+        } finally {
+            if (orig === undefined) {
+                delete process.env.DEBUG;
+            } else {
+                process.env.DEBUG = orig;
+            }
+        }
+    });
+
+    it("does not print stack trace when DEBUG is not set", () => {
+        const orig = process.env.DEBUG;
+        delete process.env.DEBUG;
+        try {
+            const { stderr } = runCli(["get", "/nonexistent/file.json", "key"]);
+            // stderr should have "Error:" but not a full stack trace
+            expect(stderr).toContain("Error:");
+            expect(stderr).not.toMatch(/^\s+at\s/m);
+        } finally {
+            if (orig !== undefined) {
+                process.env.DEBUG = orig;
+            }
+        }
+    });
 });

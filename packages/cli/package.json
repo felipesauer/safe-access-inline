@@ -8,13 +8,16 @@
     },
     "files": [
         "dist",
-        "README.md"
+        "README.md",
+        "CHANGELOG.md"
     ],
     "scripts": {
         "build": "tsup",
         "test": "vitest run",
+        "test:coverage": "vitest run --coverage",
         "test:watch": "vitest",
-        "lint": "eslint src/ tests/"
+        "lint": "eslint src/ tests/",
+        "typecheck": "tsc --noEmit"
     },
     "keywords": [
         "safe-access",
@@ -36,6 +39,10 @@
     "bugs": {
         "url": "https://github.com/felipesauer/safe-access-inline/issues"
     },
+    "funding": {
+        "type": "github",
+        "url": "https://github.com/sponsors/felipesauer"
+    },
     "publishConfig": {
         "access": "public"
     },
@@ -48,9 +55,13 @@
         "smol-toml": "^1.0.0"
     },
     "devDependencies": {
+        "@eslint/js": "^10.0.1",
+        "@types/node": "^22.19.15",
         "@vitest/coverage-v8": "^4.1.0",
+        "eslint": "^10.0.0",
         "tsup": "^8.0.0",
         "typescript": "^5.5.0",
+        "typescript-eslint": "^8.57.0",
         "vitest": "^4.1.0"
     }
 }

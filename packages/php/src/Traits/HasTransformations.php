@@ -5,6 +5,7 @@ namespace SafeAccessInline\Traits;
 use SafeAccessInline\Core\PluginRegistry;
 use SafeAccessInline\Exceptions\InvalidFormatException;
 use SafeAccessInline\Exceptions\UnsupportedTypeException;
+use SafeAccessInline\Security\AuditLogger;
 use SafeAccessInline\Security\CsvSanitizer;
 use SafeAccessInline\Security\SecurityPolicy;
 
@@ -35,6 +36,13 @@ trait HasTransformations
     public function toCsv(?string $csvMode = null): string
     {
         $mode = $csvMode ?? SecurityPolicy::getGlobal()?->csvMode ?? 'none';
+        if ($csvMode === null && SecurityPolicy::getGlobal() === null) {
+            AuditLogger::emit('security.deprecation', [
+                'message' => "csvMode defaults to 'none' which does not sanitize CSV cells. "
+                    . "In a future version, the default will change to 'prefix'. "
+                    . "Pass an explicit \$csvMode to toCsv() or set it via setGlobalPolicy().",
+            ]);
+        }
         $rows = array_values($this->data);
         if ($rows === []) {
             return '';

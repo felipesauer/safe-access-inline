@@ -5,6 +5,10 @@ namespace SafeAccessInline\Core;
 /**
  * LRU-style path resolution cache for DotNotationParser segments.
  *
+ * **Long-running runtimes (Swoole, RoadRunner, FrankenPHP):** Static state persists
+ * across requests. Call {@see PathCache::clear()} in your worker boot/reset hook
+ * to prevent unbounded cache growth and stale entries between requests.
+ *
  * @phpstan-type Segment array{type: string, value?: string, expression?: mixed, key?: string}
  */
 final class PathCache
@@ -24,7 +28,14 @@ final class PathCache
         if (!self::$enabled) {
             return null;
         }
-        return self::$cache[$path] ?? null;
+        if (isset(self::$cache[$path])) {
+            // Promote to most-recently-used by reinserting
+            $value = self::$cache[$path];
+            unset(self::$cache[$path]);
+            self::$cache[$path] = $value;
+            return $value;
+        }
+        return null;
     }
 
     /**
@@ -54,6 +65,7 @@ final class PathCache
     public static function clear(): void
     {
         self::$cache = [];
+        self::$enabled = true; // restore default after clear — prevents permanent disable after resetAll()
     }
 
     public static function size(): int
