@@ -2,6 +2,8 @@
 
 namespace SafeAccessInline\Core;
 
+use SafeAccessInline\Security\SecurityGuard;
+
 /**
  * Parses and evaluates filter expressions for JSONPath-like queries.
  *
@@ -221,8 +223,8 @@ final class FilterParser
         $expected = $condition['value'];
 
         return match ($condition['operator']) {
-            '==' => $fieldValue == $expected,
-            '!=' => $fieldValue != $expected,
+            '==' => $fieldValue === $expected,
+            '!=' => $fieldValue !== $expected,
             '>' => $fieldValue > $expected,
             '<' => $fieldValue < $expected,
             '>=' => $fieldValue >= $expected,
@@ -282,7 +284,7 @@ final class FilterParser
             $pattern = substr($pattern, 1, -1);
         }
         // ReDoS guard: reject patterns with nested quantifiers or excessive length
-        if (preg_match('/([+*])\)\1|\(\?[^)]*[+*]/', $pattern) === 1 || strlen($pattern) > 256) {
+        if (preg_match('/([+*])\)\1|\(\?[^)]*[+*]/', $pattern) === 1 || strlen($pattern) > 128) {
             return false;
         }
         // Escape the PCRE delimiter to prevent flag injection (e.g. 'foo/i')
@@ -342,6 +344,7 @@ final class FilterParser
         if (str_contains($field, '.')) {
             $current = $item;
             foreach (explode('.', $field) as $key) {
+                SecurityGuard::assertSafeKey($key);
                 if (is_array($current) && array_key_exists($key, $current)) {
                     $current = $current[$key];
                 } else {
@@ -350,6 +353,7 @@ final class FilterParser
             }
             return $current;
         }
+        SecurityGuard::assertSafeKey($field);
         return $item[$field] ?? null;
     }
 }

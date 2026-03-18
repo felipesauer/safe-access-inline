@@ -3,6 +3,7 @@
 namespace SafeAccessInline\Core;
 
 use SafeAccessInline\Exceptions\JsonPatchTestFailedException;
+use SafeAccessInline\Security\SecurityGuard;
 
 /**
  * JSON Patch operations per RFC 6902.
@@ -104,13 +105,7 @@ final class JsonPatch
             $preflight = self::applyOneOp($preflight, $op);
         }
 
-        // All tests passed — apply for real on a fresh copy
-        $result = $data;
-        foreach ($ops as $op) {
-            $result = self::applyOneOp($result, $op);
-        }
-
-        return $result;
+        return $preflight;
     }
 
     /**
@@ -176,10 +171,11 @@ final class JsonPatch
         $keys = self::parsePointer($pointer);
         $current = $data;
         foreach ($keys as $key) {
-            if (is_array($current) && array_key_exists($key, $current)) {
-                $current = $current[$key];
-            } elseif (is_array($current) && is_numeric($key) && array_key_exists((int) $key, $current)) {
+            if (is_array($current) && is_numeric($key) && array_key_exists((int) $key, $current)) {
                 $current = $current[(int) $key];
+            } elseif (is_array($current) && array_key_exists($key, $current)) {
+                SecurityGuard::assertSafeKey($key);
+                $current = $current[$key];
             } else {
                 return null;
             }
@@ -205,6 +201,9 @@ final class JsonPatch
 
         for ($i = 0; $i < count($keys) - 1; $i++) {
             $key = is_numeric($keys[$i]) ? (int) $keys[$i] : $keys[$i];
+            if (is_string($key)) {
+                SecurityGuard::assertSafeKey($key);
+            }
             if (!is_array($current) || !array_key_exists($key, $current)) {
                 $current[$key] = [];
             }
@@ -216,6 +215,9 @@ final class JsonPatch
             $current[] = $value;
         } else {
             $key = is_numeric($lastKey) ? (int) $lastKey : $lastKey;
+            if (is_string($key)) {
+                SecurityGuard::assertSafeKey($key);
+            }
             $current[$key] = $value;
         }
 
@@ -239,6 +241,9 @@ final class JsonPatch
 
         for ($i = 0; $i < count($keys) - 1; $i++) {
             $key = is_numeric($keys[$i]) ? (int) $keys[$i] : $keys[$i];
+            if (is_string($key)) {
+                SecurityGuard::assertSafeKey($key);
+            }
             if (!is_array($current) || !array_key_exists($key, $current)) {
                 return $result;
             }
@@ -247,6 +252,9 @@ final class JsonPatch
 
         $lastKey = end($keys);
         $key = is_numeric($lastKey) ? (int) $lastKey : $lastKey;
+        if (is_string($key)) {
+            SecurityGuard::assertSafeKey($key);
+        }
         if (is_array($current)) {
             unset($current[$key]);
             if (array_is_list($current) || (is_int($key) && count($current) > 0)) {

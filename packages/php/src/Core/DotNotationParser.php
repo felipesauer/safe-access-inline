@@ -325,8 +325,12 @@ final class DotNotationParser
      * @param array<mixed> $source
      * @return array<mixed>
      */
-    private static function deepMerge(array $target, array $source): array
+    private static function deepMerge(array $target, array $source, int $depth = 0): array
     {
+        if ($depth > self::MAX_RESOLVE_DEPTH) {
+            throw new SecurityException('Deep merge exceeded maximum depth of ' . self::MAX_RESOLVE_DEPTH);
+        }
+
         $result = $target;
         foreach ($source as $key => $srcVal) {
             if (is_string($key)) {
@@ -339,7 +343,7 @@ final class DotNotationParser
                 && is_array($result[$key])
                 && !array_is_list($result[$key])
             ) {
-                $result[$key] = self::deepMerge($result[$key], $srcVal);
+                $result[$key] = self::deepMerge($result[$key], $srcVal, $depth + 1);
             } else {
                 $result[$key] = $srcVal;
             }
