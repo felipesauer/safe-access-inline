@@ -201,7 +201,7 @@ describe('fetchUrl()', () => {
         res.setEncoding = vi.fn();
 
         const req = makeReqMock();
-        vi.mocked(https.request).mockImplementation(
+        (vi.mocked(https.request) as ReturnType<typeof vi.fn>).mockImplementation(
             (
                 options: {
                     hostname?: string;
