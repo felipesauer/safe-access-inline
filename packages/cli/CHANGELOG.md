@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.1.2](https://github.com/felipesauer/safe-access-inline/compare/cli-v0.1.1...cli-v0.1.2) (2026-03-18)
+
+
+### Features
+
+* **cli:** add TypeScript ESLint flat config, update CLI source and dependencies ([aaca632](https://github.com/felipesauer/safe-access-inline/commit/aaca632fd7b5b0d0f157e386f80d1eab46e44264))
+
+
+### Bug Fixes
+
+* **cli:** add @types/node and resolve TypeScript type errors ([8533828](https://github.com/felipesauer/safe-access-inline/commit/853382894b6e7d0acd703f64b20c52def7ac5930))
+* **cli:** pass allowAnyPath to fromFileSync for user-supplied paths ([bce668c](https://github.com/felipesauer/safe-access-inline/commit/bce668ce73bff8705c6decf2f4b26a93274d86da))
+* **js:** resolve CRIT-001-005, ARCH-001-003, PERF-001-002, QUAL-001 ([506526f](https://github.com/felipesauer/safe-access-inline/commit/506526f3837207aa456c466d1e4c321a07d2415e))
+
 ## [0.1.1](https://github.com/felipesauer/safe-access-inline/compare/cli-v0.1.0...cli-v0.1.1) (2026-03-17)
 
 
