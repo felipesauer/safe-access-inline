@@ -6,6 +6,7 @@ import { SecurityError } from '../exceptions/security.error';
 import { assertSafeUrl, resolveAndValidateIp } from './ip-range-checker';
 import { Format } from '../format.enum';
 import { emitAudit } from './audit-emitter';
+import { DEFAULT_SECURITY_OPTIONS } from './security-options';
 
 /**
  * Maps file extensions to Format enum values.
@@ -144,9 +145,23 @@ export async function fetchUrl(
                     );
                     return;
                 }
+                const maxBytes = DEFAULT_SECURITY_OPTIONS.maxPayloadBytes;
                 let body = '';
+                let received = 0;
                 res.setEncoding('utf-8');
-                res.on('data', (chunk: string) => (body += chunk));
+                res.on('data', (chunk: string) => {
+                    received += Buffer.byteLength(chunk, 'utf-8');
+                    if (received > maxBytes) {
+                        req.destroy();
+                        reject(
+                            new SecurityError(
+                                `Response body exceeds maximum size of ${maxBytes} bytes.`,
+                            ),
+                        );
+                        return;
+                    }
+                    body += chunk;
+                });
                 res.on('end', () => resolve(body));
             },
         );

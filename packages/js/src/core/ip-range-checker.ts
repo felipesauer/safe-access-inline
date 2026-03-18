@@ -91,7 +91,10 @@ export function assertSafeUrl(
             // Node's URL parser normalizes ::ffff: mapped addresses to hex pairs
             // (e.g., ::ffff:127.0.0.1 → ::ffff:7f00:1), so we always parse hex.
             const hexMatch = mappedPart.match(/^([0-9a-f]{1,4}):([0-9a-f]{1,4})$/i);
-            /* v8 ignore next 5 — defensive: Node URL parser always normalises to hex pairs */
+            /* v8 ignore next 5 — defensive: WHATWG URL spec (§4.1) normalises IPv4-mapped
+               IPv6 addresses to hex pairs (e.g. ::ffff:127.0.0.1 → ::ffff:7f00:1).
+               The hexMatch RegExp covers all normalised forms; this branch guards
+               against hypothetical future parser changes. */
             if (!hexMatch) {
                 throw new SecurityError(
                     `Access to IPv4-mapped IPv6 address '${cleanedHost}' is blocked (SSRF protection).`,
@@ -115,7 +118,11 @@ export function assertSafeUrl(
         }
 
         // Block well-known metadata hostnames
-        if (hostname === 'metadata.google.internal' || hostname === 'instance-data') {
+        if (
+            hostname === 'metadata.google.internal' ||
+            hostname === 'instance-data' ||
+            hostname === 'metadata.oracle.internal'
+        ) {
             throw new SecurityError(`Access to cloud metadata hostname '${hostname}' is blocked.`);
         }
     }
@@ -160,7 +167,10 @@ export async function resolveAndValidateIp(
         }
 
         return v4Addresses[0] ?? null;
-        /* v8 ignore start — defensive: individual .catch() handlers absorb expected DNS errors */
+        /* v8 ignore start — defensive: the per-record .catch(() => []) handlers above absorb
+           expected DNS errors (ENOTFOUND, ENODATA). This outer catch only fires for truly
+           unexpected failures (e.g. OS-level or runtime errors). SecurityErrors are rethrown.
+           Testable via vi.spyOn(dns.promises, 'resolve4') throwing a non-DNS error. */
     } catch (err) {
         if (err instanceof SecurityError) throw err;
         return null;
