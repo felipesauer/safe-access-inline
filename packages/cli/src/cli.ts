@@ -363,7 +363,7 @@ export function run(args: string[], io: CliIO): number {
                     );
                     return 1;
                 }
-                const accessors = positionals.map((f) =>
+                const accessors = positionals.map((f: string) =>
                     loadFromStdinOrFile(f, undefined, io.readFileSync),
                 );
                 const layered = SafeAccess.layer(accessors);
