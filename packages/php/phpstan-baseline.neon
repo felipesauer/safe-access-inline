@@ -149,3 +149,45 @@ parameters:
 			identifier: match.alwaysTrue
 			count: 1
 			path: src/Security/CsvSanitizer.php
+
+		-
+			rawMessage: "Call to static method decode() on an unknown class Devium\\Toml\\Toml."
+			identifier: class.notFound
+			count: 1
+			path: src/Plugins/DeviumTomlParser.php
+
+		-
+			rawMessage: "Call to static method encode() on an unknown class Devium\\Toml\\Toml."
+			identifier: class.notFound
+			count: 1
+			path: src/Plugins/DeviumTomlSerializer.php
+
+		-
+			rawMessage: "Access to constant PARSE_EXCEPTION_ON_INVALID_TYPE on an unknown class Symfony\\Component\\Yaml\\Yaml."
+			identifier: class.notFound
+			count: 1
+			path: src/Plugins/SymfonyYamlParser.php
+
+		-
+			rawMessage: "Call to static method parse() on an unknown class Symfony\\Component\\Yaml\\Yaml."
+			identifier: class.notFound
+			count: 1
+			path: src/Plugins/SymfonyYamlParser.php
+
+		-
+			rawMessage: "Call to static method dump() on an unknown class Symfony\\Component\\Yaml\\Yaml."
+			identifier: class.notFound
+			count: 1
+			path: src/Plugins/SymfonyYamlSerializer.php
+
+		-
+			rawMessage: "Call to static method encode() on an unknown class Devium\\Toml\\Toml."
+			identifier: class.notFound
+			count: 1
+			path: src/Traits/HasTransformations.php
+
+		-
+			rawMessage: "Call to static method dump() on an unknown class Symfony\\Component\\Yaml\\Yaml."
+			identifier: class.notFound
+			count: 1
+			path: src/Traits/HasTransformations.php
