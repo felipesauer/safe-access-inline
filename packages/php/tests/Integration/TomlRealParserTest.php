@@ -4,6 +4,12 @@ use SafeAccessInline\SafeAccess;
 
 describe('TomlAccessor with real devium/toml', function () {
 
+    beforeEach(function () {
+        if (!class_exists(\Devium\Toml\Toml::class)) {
+            test()->skip('devium/toml not installed (run with deps=full to enable)');
+        }
+    });
+
     it('parses real TOML with sections', function () {
         $toml = <<<TOML
         title = "My Config"
