@@ -73,6 +73,20 @@ describe(DataMasker::class, function () {
         expect($result['TOKEN'])->toBe('[REDACTED]');
         expect($result['Api_Key'])->toBe('[REDACTED]');
     });
+
+    it('supports regex patterns delimited by slashes', function () {
+        $data = ['db_host' => 'localhost', 'db_pass' => 'secret', 'app_name' => 'test'];
+        $result = DataMasker::mask($data, ['/^db_/']);
+        expect($result['db_host'])->toBe('[REDACTED]');
+        expect($result['db_pass'])->toBe('[REDACTED]');
+        expect($result['app_name'])->toBe('test');
+    });
+
+    it('regex pattern that does not match leaves value intact', function () {
+        $data = ['app_name' => 'test'];
+        $result = DataMasker::mask($data, ['/^zzz_/']);
+        expect($result['app_name'])->toBe('test');
+    });
 });
 
 describe('AbstractAccessor::masked()', function () {

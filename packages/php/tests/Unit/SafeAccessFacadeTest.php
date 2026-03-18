@@ -237,6 +237,30 @@ describe(SafeAccess::class, function () {
         expect(SecurityPolicy::getGlobal())->toBeNull();
     });
 
+    // ── clearGlobalPolicy ──────────────────────────
+
+    it('clearGlobalPolicy removes global policy', function () {
+        $policy = new SecurityPolicy(maxDepth: 50);
+        SafeAccess::setGlobalPolicy($policy);
+        expect(SecurityPolicy::getGlobal())->not->toBeNull();
+        SafeAccess::clearGlobalPolicy();
+        expect(SecurityPolicy::getGlobal())->toBeNull();
+    });
+
+    // ── layer with empty sources ────────────────────
+
+    it('layer with empty array returns empty accessor', function () {
+        $accessor = SafeAccess::layer([]);
+        expect($accessor->toArray())->toBe([]);
+    });
+
+    // ── from() with unknown format ──────────────────
+
+    it('from() throws for unknown unregistered format', function () {
+        expect(fn () => SafeAccess::from('data', 'protobuf'))
+            ->toThrow(\SafeAccessInline\Exceptions\InvalidFormatException::class, "Unknown format 'protobuf'");
+    });
+
     // ── fromUrl with mock HTTP client ───────────────
 
     it('fromUrl returns accessor from mock HTTP response', function () {

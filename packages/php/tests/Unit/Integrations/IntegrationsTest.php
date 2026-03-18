@@ -158,6 +158,117 @@ describe('LaravelFacade', function (): void {
         $result = $ref->invoke(null);
         expect($result)->toBe('safe-access');
     });
+    it('__callStatic forwards method calls to resolved accessor', function (): void {
+        // We need a global app() function that returns our mock container
+        // Since app() is already required by LaravelServiceProvider::register, we can test via it
+        $mockAccessor = SafeAccess::fromArray(['name' => 'test']);
+        $mockApp = new class ($mockAccessor) {
+            private AbstractAccessor $accessor;
+
+            public function __construct(AbstractAccessor $accessor)
+            {
+                $this->accessor = $accessor;
+            }
+
+            public function make(string $abstract): AbstractAccessor
+            {
+                return $this->accessor;
+            }
+        };
+
+        // Override getApplication to return our mock app
+        $facade = new class () extends LaravelFacade {
+            public static ?object $testApp = null;
+
+            protected static function getApplication(): object
+            {
+                return static::$testApp;
+            }
+        };
+
+        $facade::$testApp = $mockApp;
+        // __callStatic will call resolve()->get('name')
+        $result = $facade::get('name');
+        expect($result)->toBe('test');
+        $facade::$testApp = null;
+    });
+
+    it('register singleton closure resolves accessor when called', function (): void {
+        $resolvedAccessor = null;
+        $bindings = [];
+        $aliases = [];
+
+        $mockConfig = new class () {
+            public function get(string $key, mixed $default = null): mixed
+            {
+                return match ($key) {
+                    'safe-access' => ['host' => 'localhost'],
+                    default => $default,
+                };
+            }
+        };
+
+        $mockApp = new class ($bindings, $aliases, $mockConfig) implements \ArrayAccess {
+            /** @var array<string, callable> */
+            public array $bindings;
+            /** @var array<string, string> */
+            public array $aliases;
+            public object $config;
+
+            public function __construct(array &$bindings, array &$aliases, object $config)
+            {
+                $this->bindings = &$bindings;
+                $this->aliases = &$aliases;
+                $this->config = $config;
+            }
+
+            public function singleton(string $abstract, callable $concrete): void
+            {
+                $this->bindings[$abstract] = $concrete;
+            }
+
+            public function alias(string $abstract, string $alias): void
+            {
+                $this->aliases[$abstract] = $alias;
+            }
+
+            public function offsetExists(mixed $offset): bool
+            {
+                return $offset === 'config';
+            }
+
+            public function offsetGet(mixed $offset): mixed
+            {
+                if ($offset === 'config') {
+                    return $this->config;
+                }
+                return null;
+            }
+
+            public function offsetSet(mixed $offset, mixed $value): void
+            {
+            }
+            public function offsetUnset(mixed $offset): void
+            {
+            }
+
+            public function __get(string $name): mixed
+            {
+                if ($name === 'config') {
+                    return $this->config;
+                }
+                return null;
+            }
+        };
+
+        LaravelServiceProvider::register($mockApp);
+
+        // Now resolve the singleton closure to cover lines 44-45
+        $factory = $mockApp->bindings['safe-access'];
+        $accessor = $factory($mockApp);
+        expect($accessor)->toBeInstanceOf(AbstractAccessor::class);
+        expect($accessor->get('host'))->toBe('localhost');
+    });
 });
 
 // ── SafeAccessBundle ────────────────────────────

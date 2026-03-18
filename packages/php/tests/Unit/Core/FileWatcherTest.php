@@ -78,6 +78,36 @@ describe(FileWatcher::class, function () {
         unlink($tmp);
     });
 
+    it('watch handles onChange callback exception gracefully', function () {
+        $tmp = tempnam(sys_get_temp_dir(), 'fw_err_');
+        file_put_contents($tmp, 'initial');
+
+        $iterations = 0;
+
+        $watcher = FileWatcher::watch(
+            $tmp,
+            function (string $path): void {
+                throw new \RuntimeException('callback error');
+            },
+            1000,
+            function (int $us) use (&$iterations, $tmp, &$watcher): void {
+                $iterations++;
+                if ($iterations === 1) {
+                    sleep(1);
+                    file_put_contents($tmp, 'changed');
+                } elseif ($iterations >= 2) {
+                    ($watcher['stop'])();
+                }
+            },
+        );
+
+        // Should not throw — error is caught internally via error_log
+        ($watcher['poll'])();
+        expect($iterations)->toBeGreaterThanOrEqual(2);
+
+        unlink($tmp);
+    });
+
     it('watch stop function prevents further polling', function () {
         $iterations = 0;
         $watcher = FileWatcher::watch(

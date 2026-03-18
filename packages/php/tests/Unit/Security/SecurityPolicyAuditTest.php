@@ -162,6 +162,16 @@ describe(AuditLogger::class, function () {
         AuditLogger::emit('file.read', ['filePath' => 'c.json']);
         expect($events)->toHaveCount(0);
     });
+
+    it('throws OverflowException when max listeners exceeded', function () {
+        for ($i = 0; $i < 100; $i++) {
+            AuditLogger::onAudit(function () {
+            });
+        }
+        // 101st listener should throw
+        AuditLogger::onAudit(function () {
+        });
+    })->throws(\OverflowException::class, 'Max listener count');
 });
 
 // ── SafeAccess Integration ──────────────────────────────

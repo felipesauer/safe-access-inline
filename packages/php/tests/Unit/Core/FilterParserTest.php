@@ -213,4 +213,26 @@ describe(FilterParser::class, function () {
         // Should complete quickly due to backtrack limit; result is false (no match)
         expect(FilterParser::evaluate(['val' => $evil], $expr))->toBeFalse();
     });
+
+    it('evaluate — length() on non-string/non-array returns 0', function () {
+        $expr = FilterParser::parse('length(@.val) == 0');
+        expect(FilterParser::evaluate(['val' => 42], $expr))->toBeTrue();
+    });
+
+    it('evaluate — match() on non-string value returns false', function () {
+        $expr = FilterParser::parse("match(@.val,'pattern')");
+        expect(FilterParser::evaluate(['val' => 123], $expr))->toBeFalse();
+    });
+
+    it('evaluate — keys() on list array returns 0', function () {
+        $expr = FilterParser::parse('keys(@.val) == 0');
+        expect(FilterParser::evaluate(['val' => [1, 2, 3]], $expr))->toBeTrue();
+    });
+
+    it('evaluate — match with ReDoS oversized pattern is rejected', function () {
+        $longPattern = str_repeat('a', 257);
+        $expr = FilterParser::parse("match(@.val,'{$longPattern}')");
+        // Pattern rejected by ReDoS guard (>256 chars) → returns false
+        expect(FilterParser::evaluate(['val' => 'aaaaab'], $expr))->toBeFalse();
+    });
 });

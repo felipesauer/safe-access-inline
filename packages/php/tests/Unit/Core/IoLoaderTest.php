@@ -262,4 +262,35 @@ describe(IoLoader::class, function () use (&$fixturesDir) {
         expect(fn () => IoLoader::fetchUrl('https://unreachable-test.invalid', ['allowPrivateIps' => true]))
             ->toThrow(SecurityException::class, 'Failed to fetch URL');
     });
+
+    // ── Path resolution edge cases ─────────────
+
+    it('assertPathWithinAllowedDirs resolves non-existent file within allowed dir', function () {
+        $tmpDir = sys_get_temp_dir();
+        // File doesn't exist, but directory does — should resolve through dirname
+        $nonExistent = $tmpDir . '/safe_access_nonexistent_' . uniqid() . '.json';
+        // Should NOT throw when allowedDirs contains the temp dir
+        IoLoader::assertPathWithinAllowedDirs($nonExistent, [$tmpDir]);
+        expect(true)->toBeTrue(); // no exception
+    });
+
+    it('assertPathWithinAllowedDirs throws for completely invalid directory', function () {
+        $fakePath = '/nonexistent_dir_' . uniqid() . '/subdir/file.json';
+        expect(fn () => IoLoader::assertPathWithinAllowedDirs($fakePath, ['/tmp']))
+            ->toThrow(SecurityException::class, 'outside allowed directories');
+    });
+
+    it('readFile throws for failed file read', function () {
+        $tmpDir = sys_get_temp_dir();
+        $path = $tmpDir . '/safe_access_missing_' . uniqid() . '.json';
+        expect(fn () => IoLoader::readFile($path, [$tmpDir]))
+            ->toThrow(SecurityException::class, 'Failed to read file');
+    });
+
+    // ── assertSafeUrl: invalid URL ───────────────
+
+    it('assertSafeUrl rejects completely invalid URL', function () {
+        expect(fn () => IoLoader::assertSafeUrl('not a url at all ://'))
+            ->toThrow(SecurityException::class, 'Invalid URL');
+    });
 });
