@@ -6,6 +6,45 @@
 
 - **php:** `type()` now returns normalized types: `"number"` instead of `"integer"`/`"double"`, `"bool"` instead of `"boolean"`, and `"null"` instead of `"NULL"`, aligning the cross-language type vocabulary (`"string"`, `"number"`, `"bool"`, `"array"`, `"object"`, `"null"`).
 
+## [0.3.0](https://github.com/felipesauer/safe-access-inline/compare/php-v0.2.3...php-v0.3.0) (2026-03-18)
+
+
+### ⚠ BREAKING CHANGES
+
+* **php:** type() now returns normalized types: "number" instead of "integer"/"double", "bool" instead of "boolean", and "null" instead of "NULL", aligning the cross-language type vocabulary ("string", "number", "bool", "array", "object", "null").
+
+### Features
+
+* **php:** add class_exists guards to optional-dep plugins ([d6e7ca1](https://github.com/felipesauer/safe-access-inline/commit/d6e7ca12b93eb343f57dad15c1850f74fe497b73))
+* **php:** normalize type() vocabulary, atomic JSON Patch, strict IoLoader and FileWatcher refactor ([b7e6248](https://github.com/felipesauer/safe-access-inline/commit/b7e62489cbc9e055e781f825c63da8c3f1ce8ac5))
+
+
+### Bug Fixes
+
+* **js:** resolve CRIT-001-005, ARCH-001-003, PERF-001-002, QUAL-001 ([506526f](https://github.com/felipesauer/safe-access-inline/commit/506526f3837207aa456c466d1e4c321a07d2415e))
+* **php,js:** cap custom accessors at 50 and clear on resetAll ([6054b7c](https://github.com/felipesauer/safe-access-inline/commit/6054b7cbcab6a1d4e9242b76a3087a6de791661c))
+* **php:** add Oracle cloud metadata hostname to SSRF block list ([e2a7536](https://github.com/felipesauer/safe-access-inline/commit/e2a7536894427ade602894bce1241f81f8d95e47))
+* **php:** emit security.violation audit event when allowedDirs unconfigured ([d67e706](https://github.com/felipesauer/safe-access-inline/commit/d67e706ca431be2d3ec3836e6bce7cfdbc9df491))
+* **php:** harden DeepMerger, DotNotationParser, FilterParser, JsonPatch ([ebb26a1](https://github.com/felipesauer/safe-access-inline/commit/ebb26a1da4398c56f7fe3878fd598ca1fd9cc219))
+* **php:** harden evalMatch against PCRE delimiter injection and ReDoS ([cb466c6](https://github.com/felipesauer/safe-access-inline/commit/cb466c6aa936463d14dc87b00d4531da090d7b05))
+* **php:** isolate audit listener errors and remove deprecated curl_close call ([23659ba](https://github.com/felipesauer/safe-access-inline/commit/23659baa77a7492b56babea26f6c25fa1ffaccf1))
+* **php:** regenerate PHPStan baseline for core profile without optional deps ([ac52264](https://github.com/felipesauer/safe-access-inline/commit/ac52264f58f33a7f1694be70d96c8b605bede1e8))
+* **php:** skip optional-dependency tests in core CI matrix ([8d91e23](https://github.com/felipesauer/safe-access-inline/commit/8d91e233adfbe447a0732281cad03b629a00562e))
+* **php:** skip TOML tests when devium/toml is not installed ([9414392](https://github.com/felipesauer/safe-access-inline/commit/9414392907def9aaeb7b5c691100fe8e70316d5a))
+* **php:** use markTestSkipped instead of test()-&gt;skip() for PHPUnit compat ([38a9967](https://github.com/felipesauer/safe-access-inline/commit/38a99677545d5b28c8bc4c10bfee293d706a43ba))
+* suppress file_get_contents warning in IoLoader::readFile ([4a1020b](https://github.com/felipesauer/safe-access-inline/commit/4a1020bdd3f10b0d1d0cff21b7ae35805d233a2e))
+
+
+### Performance Improvements
+
+* **php:** eliminate array_slice O(n²) allocations in DotNotationParser ([a2c5394](https://github.com/felipesauer/safe-access-inline/commit/a2c53941bc1f662af4d702e2abbf19747755a64e))
+* **php:** replace linear forbidden-key lookup with hash map and fix LRU in PathCache ([eed3fa2](https://github.com/felipesauer/safe-access-inline/commit/eed3fa2542ac56054cdaaa2a2bfb218ed87d7b48))
+
+
+### Miscellaneous Chores
+
+* **php:** remove PHPStan baseline suppressions for optional plugin classes ([6bd9342](https://github.com/felipesauer/safe-access-inline/commit/6bd9342d494aefa810bfe1f4baf6eacb9c1c4926))
+
 ## [0.2.3](https://github.com/felipesauer/safe-access-inline/compare/php-v0.2.2...php-v0.2.3) (2026-03-17)
 
 ### Features
