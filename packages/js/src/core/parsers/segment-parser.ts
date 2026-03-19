@@ -1,6 +1,6 @@
 import { FilterParser } from './filter-parser';
 import type { FilterExpression } from './filter-parser';
-import { SegmentType } from '../enums/segment-type.enum';
+import { SegmentType } from '../../enums/segment-type.enum';
 
 /**
  * Typed segment returned by {@link SegmentParser.parseSegments}.

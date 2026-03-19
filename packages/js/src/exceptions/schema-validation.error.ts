@@ -1,6 +1,7 @@
 import { AccessorError } from './accessor.error';
 import type { SchemaValidationIssue } from '../contracts/schema-adapter.interface';
 
+/** Thrown when schema validation fails, carrying the list of validation issues. */
 export class SchemaValidationError extends AccessorError {
     readonly issues: SchemaValidationIssue[];
 

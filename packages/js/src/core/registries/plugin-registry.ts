@@ -1,4 +1,5 @@
-import { UnsupportedTypeError } from '../exceptions/unsupported-type.error';
+import { UnsupportedTypeError } from '../../exceptions/unsupported-type.error';
+import { emitAudit } from '../../security/audit/audit-emitter';
 
 /**
  * Contract for parser plugins.
@@ -26,20 +27,27 @@ export class PluginRegistry {
 
     // ── Parsers ──
 
+    /** Registers (or overwrites) a parser plugin for the given `format`. */
     static registerParser(format: string, parser: ParserPlugin): void {
         if (PluginRegistry.parsers.has(format)) {
-            console.warn(
-                `[PluginRegistry] Parser for format '${format}' is being overwritten. ` +
-                    `Use PluginRegistry.reset() to clear all plugins first.`,
-            );
+            emitAudit('plugin.overwrite', {
+                kind: 'parser',
+                format,
+                message: `Parser for format '${format}' is being overwritten.`,
+            });
         }
         PluginRegistry.parsers.set(format, parser);
     }
 
+    /** Returns `true` if a parser is registered for `format`. */
     static hasParser(format: string): boolean {
         return PluginRegistry.parsers.has(format);
     }
 
+    /**
+     * Returns the registered parser for `format`.
+     * @throws {@link UnsupportedTypeError} When no parser is registered.
+     */
     static getParser(format: string): ParserPlugin {
         const parser = PluginRegistry.parsers.get(format);
         if (!parser) {
@@ -53,20 +61,27 @@ export class PluginRegistry {
 
     // ── Serializers ──
 
+    /** Registers (or overwrites) a serializer plugin for the given `format`. */
     static registerSerializer(format: string, serializer: SerializerPlugin): void {
         if (PluginRegistry.serializers.has(format)) {
-            console.warn(
-                `[PluginRegistry] Serializer for format '${format}' is being overwritten. ` +
-                    `Use PluginRegistry.reset() to clear all plugins first.`,
-            );
+            emitAudit('plugin.overwrite', {
+                kind: 'serializer',
+                format,
+                message: `Serializer for format '${format}' is being overwritten.`,
+            });
         }
         PluginRegistry.serializers.set(format, serializer);
     }
 
+    /** Returns `true` if a serializer is registered for `format`. */
     static hasSerializer(format: string): boolean {
         return PluginRegistry.serializers.has(format);
     }
 
+    /**
+     * Returns the registered serializer for `format`.
+     * @throws {@link UnsupportedTypeError} When no serializer is registered.
+     */
     static getSerializer(format: string): SerializerPlugin {
         const serializer = PluginRegistry.serializers.get(format);
         if (!serializer) {
@@ -80,6 +95,7 @@ export class PluginRegistry {
 
     // ── Reset (testing) ──
 
+    /** Removes all registered parsers and serializers. Intended for test teardown. */
     static reset(): void {
         PluginRegistry.parsers.clear();
         PluginRegistry.serializers.clear();

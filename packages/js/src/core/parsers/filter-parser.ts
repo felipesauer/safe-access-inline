@@ -1,37 +1,49 @@
-import { SecurityGuard } from './security-guard';
+import { SecurityGuard } from '../../security/guards/security-guard';
+import {
+    type FilterParserConfig,
+    DEFAULT_FILTER_PARSER_CONFIG,
+} from '../config/filter-parser-config';
+import type {
+    FilterCondition,
+    FilterExpression,
+} from '../../contracts/filter-expression.interface';
+
+export type {
+    FilterCondition,
+    FilterExpression,
+} from '../../contracts/filter-expression.interface';
 
 /**
  * Parses and evaluates filter expressions for JSONPath-like queries.
  *
  * Supported syntax:
- *   [?field>value]             — comparison
- *   [?field=='string']         — equality with string
- *   [?age>=18 && active==true] — logical AND
- *   [?env=='prod' || env=='staging'] — logical OR
- *   [?length(@.name)>3]       — function: length
- *   [?match(@.name,'Ana.*')]  — function: match
- *   [?keys(@)>2]              — function: keys (count of keys)
+ *   `[?field>value]` — comparison,
+ *   `[?age>=18 && active==true]` — logical AND,
+ *   `[?length(@.name)>3]` — function call.
  *
- * Operators: ==, !=, >, <, >=, <=
- * Logical:   &&, ||
- * Values:    number, 'string', "string", true, false, null
- * Functions: length(@.field), match(@.field, 'pattern'), keys(@)
+ * Operators: `==`, `!=`, `>`, `<`, `>=`, `<=`.
+ * Logical: `&&`, `||`.
+ * Functions: `length`, `match`, `keys`.
  */
-
-export interface FilterCondition {
-    field: string;
-    operator: '==' | '!=' | '>' | '<' | '>=' | '<=';
-    value: unknown;
-    func?: string;
-    funcArgs?: string[];
-}
-
-export interface FilterExpression {
-    conditions: FilterCondition[];
-    logicals: ('&&' | '||')[];
-}
-
 export class FilterParser {
+    private static config: FilterParserConfig = DEFAULT_FILTER_PARSER_CONFIG;
+
+    /**
+     * Overrides the default filter parser configuration.
+     *
+     * @param config - Partial config; unspecified keys retain their defaults.
+     */
+    static configure(config: Partial<FilterParserConfig>): void {
+        FilterParser.config = { ...DEFAULT_FILTER_PARSER_CONFIG, ...config };
+    }
+
+    /**
+     * Resets the configuration to defaults.
+     */
+    static resetConfig(): void {
+        FilterParser.config = DEFAULT_FILTER_PARSER_CONFIG;
+    }
+
     /**
      * Parses "[?expr]" content (without the [? and ] delimiters).
      */
@@ -235,7 +247,7 @@ export class FilterParser {
                 // ReDoS guard: reject patterns with nested quantifiers, alternation quantifiers,
                 // or excessive length. Covers: (x+)+ / (x+)* / (a|b)+ / (?...*) shapes.
                 if (
-                    pattern.length > 128 ||
+                    pattern.length > FilterParser.config.maxPatternLength ||
                     /(\+|\*|\{[\d,]+\})\)(\+|\*|\{[\d,]+\})/.test(pattern) || // (group)+ or (group)*
                     /\([^)]*\|[^)]*\)(\+|\*|\{[\d,]+\})/.test(pattern) || // (a|b)+  alternation
                     /\(\?[^)]*[+*]/.test(pattern) // (?...*)  non-capturing quantifier

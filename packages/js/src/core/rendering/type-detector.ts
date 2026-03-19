@@ -1,14 +1,14 @@
-import { AbstractAccessor } from './abstract-accessor';
-import { ArrayAccessor } from '../accessors/array.accessor';
-import { ObjectAccessor } from '../accessors/object.accessor';
-import { JsonAccessor } from '../accessors/json.accessor';
-import { XmlAccessor } from '../accessors/xml.accessor';
-import { YamlAccessor } from '../accessors/yaml.accessor';
-import { TomlAccessor } from '../accessors/toml.accessor';
-import { IniAccessor } from '../accessors/ini.accessor';
-import { EnvAccessor } from '../accessors/env.accessor';
-import { NdjsonAccessor } from '../accessors/ndjson.accessor';
-import { UnsupportedTypeError } from '../exceptions/unsupported-type.error';
+import { AbstractAccessor } from '../abstract-accessor';
+import { ArrayAccessor } from '../../accessors/array.accessor';
+import { ObjectAccessor } from '../../accessors/object.accessor';
+import { JsonAccessor } from '../../accessors/json.accessor';
+import { XmlAccessor } from '../../accessors/xml.accessor';
+import { YamlAccessor } from '../../accessors/yaml.accessor';
+import { TomlAccessor } from '../../accessors/toml.accessor';
+import { IniAccessor } from '../../accessors/ini.accessor';
+import { EnvAccessor } from '../../accessors/env.accessor';
+import { NdjsonAccessor } from '../../accessors/ndjson.accessor';
+import { UnsupportedTypeError } from '../../exceptions/unsupported-type.error';
 
 /**
  * Automatically detects the data format and returns the appropriate Accessor.

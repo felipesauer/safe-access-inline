@@ -2,11 +2,30 @@ import * as fs from 'node:fs';
 import * as fsp from 'node:fs/promises';
 import * as https from 'node:https';
 import * as path from 'node:path';
-import { SecurityError } from '../exceptions/security.error';
-import { assertSafeUrl, resolveAndValidateIp } from './ip-range-checker';
-import { Format } from '../format.enum';
-import { emitAudit } from './audit-emitter';
-import { DEFAULT_SECURITY_OPTIONS } from './security-options';
+import { SecurityError } from '../../exceptions/security.error';
+import { assertSafeUrl, resolveAndValidateIp } from '../../security/sanitizers/ip-range-checker';
+import { Format } from '../../enums/format.enum';
+import { emitAudit } from '../../security/audit/audit-emitter';
+import { DEFAULT_SECURITY_OPTIONS } from '../../security/guards/security-options';
+import { type IoLoaderConfig, DEFAULT_IO_LOADER_CONFIG } from '../config/io-loader-config';
+
+let ioConfig: IoLoaderConfig = DEFAULT_IO_LOADER_CONFIG;
+
+/**
+ * Overrides the default I/O loader configuration (request timeouts, etc.).
+ *
+ * @param overrides - Partial config; unspecified keys retain their defaults.
+ */
+export function configureIoLoader(overrides: Partial<IoLoaderConfig>): void {
+    ioConfig = { ...DEFAULT_IO_LOADER_CONFIG, ...overrides };
+}
+
+/**
+ * Resets the I/O loader configuration to defaults.
+ */
+export function resetIoLoaderConfig(): void {
+    ioConfig = DEFAULT_IO_LOADER_CONFIG;
+}
 
 /**
  * Maps file extensions to Format enum values.
@@ -25,11 +44,19 @@ const EXTENSION_FORMAT_MAP: Record<string, Format> = {
     '.jsonl': Format.Ndjson,
 };
 
+/** Detects the {@link Format} for `filePath` based on its extension, or returns `null`. */
 export function resolveFormatFromExtension(filePath: string): Format | null {
     const ext = path.extname(filePath).toLowerCase();
     return EXTENSION_FORMAT_MAP[ext] ?? null;
 }
 
+/**
+ * Validates that `filePath` is inside one of the `allowedDirs`.
+ *
+ * Resolves symlinks, blocks null-byte injection, and rejects paths outside the allowlist.
+ *
+ * @throws {@link SecurityError} When the path violates any constraint.
+ */
 export function assertPathWithinAllowedDirs(
     filePath: string,
     allowedDirs?: string[],
@@ -73,6 +100,11 @@ export function assertPathWithinAllowedDirs(
     }
 }
 
+/**
+ * Synchronously reads a file after verifying it is within `allowedDirs`.
+ *
+ * @throws {@link SecurityError} When path validation fails.
+ */
 export function readFileSync(
     filePath: string,
     options?: { allowedDirs?: string[]; allowAnyPath?: boolean },
@@ -84,6 +116,11 @@ export function readFileSync(
     return fs.readFileSync(filePath, 'utf-8');
 }
 
+/**
+ * Asynchronously reads a file after verifying it is within `allowedDirs`.
+ *
+ * @throws {@link SecurityError} When path validation fails.
+ */
 export async function readFile(
     filePath: string,
     options?: { allowedDirs?: string[]; allowAnyPath?: boolean },
@@ -95,6 +132,14 @@ export async function readFile(
     return fsp.readFile(filePath, 'utf-8');
 }
 
+/**
+ * Fetches a remote URL over HTTPS with full SSRF protection.
+ *
+ * Validates the URL, resolves DNS, pins the connection to the pre-validated IP,
+ * blocks redirects, and enforces payload-size limits.
+ *
+ * @throws {@link SecurityError} On any policy violation or connection failure.
+ */
 export async function fetchUrl(
     url: string,
     options?: {
@@ -129,7 +174,7 @@ export async function fetchUrl(
                 port: Number(parsed.port) || 443,
                 path: parsed.pathname + parsed.search,
                 method: 'GET',
-                timeout: 10_000,
+                timeout: ioConfig.requestTimeoutMs,
                 // Override DNS resolution to use the pre-validated IP (when available)
                 lookup:
                     resolvedIp !== null
@@ -168,7 +213,11 @@ export async function fetchUrl(
         req.on('error', reject);
         req.on('timeout', () => {
             req.destroy();
-            reject(new SecurityError(`Request to '${url}' timed out after 10s.`));
+            reject(
+                new SecurityError(
+                    `Request to '${url}' timed out after ${ioConfig.requestTimeoutMs}ms.`,
+                ),
+            );
         });
         req.end();
     });

@@ -1,5 +1,5 @@
-import { DotNotationParser } from './dot-notation-parser';
-import { InvalidFormatError } from '../exceptions/invalid-format.error';
+import { DotNotationParser } from '../parsers/dot-notation-parser';
+import { InvalidFormatError } from '../../exceptions/invalid-format.error';
 
 /**
  * Pure, immutable array operations on dot-notation paths.

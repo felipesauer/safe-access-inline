@@ -9,6 +9,7 @@ import { InvalidFormatError } from '../exceptions/invalid-format.error';
 export class IniAccessor<
     T extends Record<string, unknown> = Record<string, unknown>,
 > extends AbstractAccessor<T> {
+    /** Creates an accessor from an INI-format string. */
     static from(data: unknown): IniAccessor {
         if (typeof data !== 'string') {
             throw new InvalidFormatError('IniAccessor expects an INI string.');

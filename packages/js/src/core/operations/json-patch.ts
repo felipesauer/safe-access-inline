@@ -1,17 +1,14 @@
-import { JsonPatchTestFailedError } from '../exceptions/json-patch-test-failed.error';
-import { SecurityGuard } from './security-guard';
+import { JsonPatchTestFailedError } from '../../exceptions/json-patch-test-failed.error';
+import { SecurityGuard } from '../../security/guards/security-guard';
+import { PatchOperationType } from '../../enums/patch-operation-type.enum';
+import type { JsonPatchOp } from '../../contracts/json-patch-op.interface';
+
+export type { JsonPatchOp } from '../../contracts/json-patch-op.interface';
 
 /**
  * JSON Patch operations per RFC 6902.
  * Provides diff generation and patch application.
  */
-
-export type JsonPatchOp = {
-    op: 'add' | 'remove' | 'replace' | 'move' | 'copy' | 'test';
-    path: string;
-    value?: unknown;
-    from?: string;
-};
 
 /**
  * Generates a JSON Patch (RFC 6902) representing the differences between two objects.
@@ -29,7 +26,7 @@ export function diff(
     // Removed keys
     for (const key of aKeys) {
         if (!(key in b)) {
-            ops.push({ op: 'remove', path: `${basePath}/${escapePointer(key)}` });
+            ops.push({ op: PatchOperationType.REMOVE, path: `${basePath}/${escapePointer(key)}` });
         }
     }
 
@@ -38,7 +35,7 @@ export function diff(
         const pointer = `${basePath}/${escapePointer(key)}`;
 
         if (!(key in a)) {
-            ops.push({ op: 'add', path: pointer, value: b[key] });
+            ops.push({ op: PatchOperationType.ADD, path: pointer, value: b[key] });
         } else if (!deepEqual(a[key], b[key])) {
             const aVal = a[key];
             const bVal = b[key];
@@ -54,7 +51,7 @@ export function diff(
             } else if (Array.isArray(aVal) && Array.isArray(bVal)) {
                 ops.push(...diffArrays(aVal, bVal, pointer));
             } else {
-                ops.push({ op: 'replace', path: pointer, value: b[key] });
+                ops.push({ op: PatchOperationType.REPLACE, path: pointer, value: b[key] });
             }
         }
     }
@@ -69,10 +66,13 @@ function diffArrays(a: unknown[], b: unknown[], basePath: string): JsonPatchOp[]
     for (let i = 0; i < maxLen; i++) {
         const pointer = `${basePath}/${i}`;
         if (i >= a.length) {
-            ops.push({ op: 'add', path: pointer, value: b[i] });
+            ops.push({ op: PatchOperationType.ADD, path: pointer, value: b[i] });
         } else if (i >= b.length) {
             // Remove from end to avoid index shifting
-            ops.push({ op: 'remove', path: `${basePath}/${a.length - 1 - (i - b.length)}` });
+            ops.push({
+                op: PatchOperationType.REMOVE,
+                path: `${basePath}/${a.length - 1 - (i - b.length)}`,
+            });
         } else if (!deepEqual(a[i], b[i])) {
             if (isPlainObject(a[i]) && isPlainObject(b[i])) {
                 ops.push(
@@ -83,12 +83,31 @@ function diffArrays(a: unknown[], b: unknown[], basePath: string): JsonPatchOp[]
                     ),
                 );
             } else {
-                ops.push({ op: 'replace', path: pointer, value: b[i] });
+                ops.push({ op: PatchOperationType.REPLACE, path: pointer, value: b[i] });
             }
         }
     }
 
     return ops;
+}
+
+/**
+ * Validates a JSON Patch operations array without applying it.
+ *
+ * Checks that `move` and `copy` operations include the required `from` field.
+ *
+ * @param ops - JSON Patch operations to validate.
+ * @throws {@link Error} When a `move` or `copy` operation is missing `from`.
+ */
+export function validatePatch(ops: JsonPatchOp[]): void {
+    for (const op of ops) {
+        if (
+            (op.op === PatchOperationType.MOVE || op.op === PatchOperationType.COPY) &&
+            op.from === undefined
+        ) {
+            throw new Error(`JSON Patch '${op.op}' operation requires a 'from' field.`);
+        }
+    }
 }
 
 /**
@@ -99,17 +118,12 @@ export function applyPatch(
     data: Record<string, unknown>,
     ops: JsonPatchOp[],
 ): Record<string, unknown> {
-    // Validate move/copy 'from' fields before any mutation
-    for (const op of ops) {
-        if ((op.op === 'move' || op.op === 'copy') && op.from === undefined) {
-            throw new Error(`JSON Patch '${op.op}' operation requires a 'from' field.`);
-        }
-    }
+    validatePatch(ops);
 
     // RFC 6902 §5: operations MUST be atomic; preflight validates test assertions before
     // mutating state. Skip preflight when no 'test' ops are present (the common case)
     // to avoid the O(2n) cost of cloning + traversing the document twice.
-    const hasTestOps = ops.some((op) => op.op === 'test');
+    const hasTestOps = ops.some((op) => op.op === PatchOperationType.TEST);
 
     if (!hasTestOps) {
         let result = structuredClone(data);
@@ -130,22 +144,22 @@ export function applyPatch(
 
 function applyOneOp(result: Record<string, unknown>, op: JsonPatchOp): Record<string, unknown> {
     switch (op.op) {
-        case 'add':
-        case 'replace':
+        case PatchOperationType.ADD:
+        case PatchOperationType.REPLACE:
             if (op.path === '') {
                 result = (op.value ?? {}) as Record<string, unknown>;
             } else {
                 mutateAtPointer(result, op.path, op.value);
             }
             break;
-        case 'remove':
+        case PatchOperationType.REMOVE:
             if (op.path === '') {
                 result = {} as Record<string, unknown>;
             } else {
                 mutateRemoveAtPointer(result, op.path);
             }
             break;
-        case 'move': {
+        case PatchOperationType.MOVE: {
             const value = getAtPointer(result, op.from!);
             if (op.from === '') {
                 result = {} as Record<string, unknown>;
@@ -159,7 +173,7 @@ function applyOneOp(result: Record<string, unknown>, op: JsonPatchOp): Record<st
             }
             break;
         }
-        case 'copy': {
+        case PatchOperationType.COPY: {
             const value = getAtPointer(result, op.from!);
             const cloned = structuredClone(value);
             if (op.path === '') {
@@ -169,7 +183,7 @@ function applyOneOp(result: Record<string, unknown>, op: JsonPatchOp): Record<st
             }
             break;
         }
-        case 'test': {
+        case PatchOperationType.TEST: {
             const actual = getAtPointer(result, op.path);
             if (!deepEqual(actual, op.value)) {
                 throw new JsonPatchTestFailedError(

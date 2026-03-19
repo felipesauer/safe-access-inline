@@ -1,7 +1,7 @@
 import { AbstractAccessor } from '../core/abstract-accessor';
 import { InvalidFormatError } from '../exceptions/invalid-format.error';
 import { SecurityError } from '../exceptions/security.error';
-import { SecurityGuard } from '../core/security-guard';
+import { SecurityGuard } from '../security/guards/security-guard';
 
 /**
  * Accessor for XML strings.
@@ -18,6 +18,7 @@ export class XmlAccessor<
         this.originalXml = raw as string;
     }
 
+    /** Creates an accessor from an XML string. */
     static from(data: unknown): XmlAccessor {
         if (typeof data !== 'string') {
             throw new InvalidFormatError('XmlAccessor expects an XML string.');
@@ -45,6 +46,7 @@ export class XmlAccessor<
         return inst;
     }
 
+    /** Returns the original unparsed XML string. */
     getOriginalXml(): string {
         return this.originalXml;
     }

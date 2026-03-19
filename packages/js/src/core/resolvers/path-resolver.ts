@@ -1,7 +1,7 @@
-import { FilterParser } from './filter-parser';
-import { SegmentType } from '../enums/segment-type.enum';
-import { assertMaxDepth } from '../security/security-options';
-import type { Segment } from './segment-parser';
+import { FilterParser } from '../parsers/filter-parser';
+import { SegmentType } from '../../enums/segment-type.enum';
+import { assertMaxDepth } from '../../security/guards/security-options';
+import type { Segment } from '../parsers/segment-parser';
 
 /**
  * Recursive path resolution engine for dot-notation segments.

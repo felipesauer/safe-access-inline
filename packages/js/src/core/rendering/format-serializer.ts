@@ -1,11 +1,11 @@
 import type yaml from 'js-yaml';
 import type { stringify as tomlStringify } from 'smol-toml';
-import { optionalRequire } from './optional-require';
-import { PluginRegistry } from './plugin-registry';
-import { InvalidFormatError } from '../exceptions/invalid-format.error';
-import { getGlobalPolicy } from '../security/security-policy';
-import { sanitizeCsvCell } from '../security/csv-sanitizer';
-import { emitAudit } from '../security/audit-emitter';
+import { optionalRequire } from '../io/optional-require';
+import { PluginRegistry } from '../registries/plugin-registry';
+import { InvalidFormatError } from '../../exceptions/invalid-format.error';
+import { getGlobalPolicy } from '../../security/guards/security-policy';
+import { sanitizeCsvCell } from '../../security/sanitizers/csv-sanitizer';
+import { emitAudit } from '../../security/audit/audit-emitter';
 
 const getYaml = optionalRequire<typeof yaml>('js-yaml', 'YAML');
 const getSmolToml = optionalRequire<{ stringify: typeof tomlStringify }>('smol-toml', 'TOML');

@@ -1,6 +1,6 @@
 import type yaml from 'js-yaml';
-import { optionalRequire } from '../core/optional-require';
-import type { SerializerPlugin } from '../core/plugin-registry';
+import { optionalRequire } from '../core/io/optional-require';
+import type { SerializerPlugin } from '../core/registries/plugin-registry';
 
 const getYaml = optionalRequire<typeof yaml>('js-yaml', 'YAML');
 

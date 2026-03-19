@@ -1,6 +1,7 @@
-import { SecurityGuard } from './security-guard';
+import { SecurityGuard } from '../../security/guards/security-guard';
+import { DEFAULT_MERGER_CONFIG } from '../config/merger-config';
 
-const MAX_MERGE_DEPTH = 512;
+const MAX_MERGE_DEPTH = DEFAULT_MERGER_CONFIG.maxDepth;
 
 /**
  * Deep merge utility for layered configuration.
