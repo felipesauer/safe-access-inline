@@ -2,9 +2,10 @@
 
 declare(strict_types=1);
 
-namespace SafeAccessInline\Security;
+namespace SafeAccessInline\Security\Guards;
 
 use SafeAccessInline\Exceptions\SecurityException;
+use SafeAccessInline\Security\Audit\AuditLogger;
 
 final class SecurityGuard
 {

@@ -2,9 +2,10 @@
 
 declare(strict_types=1);
 
-namespace SafeAccessInline\Security;
+namespace SafeAccessInline\Security\Sanitizers;
 
-use SafeAccessInline\Core\MaskerConfig;
+use SafeAccessInline\Core\Config\MaskerConfig;
+use SafeAccessInline\Security\Audit\AuditLogger;
 
 final class DataMasker
 {

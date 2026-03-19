@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace SafeAccessInline\Traits;
 
-use SafeAccessInline\Core\PluginRegistry;
+use SafeAccessInline\Core\Registries\PluginRegistry;
 use SafeAccessInline\Exceptions\InvalidFormatException;
 use SafeAccessInline\Exceptions\UnsupportedTypeException;
 use SafeAccessInline\Plugins\DeviumTomlSerializer;
 use SafeAccessInline\Plugins\NativeYamlSerializer;
 use SafeAccessInline\Plugins\SimpleXmlSerializer;
 use SafeAccessInline\Plugins\SymfonyYamlSerializer;
-use SafeAccessInline\Security\AuditLogger;
-use SafeAccessInline\Security\CsvSanitizer;
-use SafeAccessInline\Security\SecurityPolicy;
+use SafeAccessInline\Security\Audit\AuditLogger;
+use SafeAccessInline\Security\Guards\SecurityPolicy;
+use SafeAccessInline\Security\Sanitizers\CsvSanitizer;
 
 /**
  * Default cross-format conversion implementations.

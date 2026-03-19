@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace SafeAccessInline\Security;
+namespace SafeAccessInline\Security\Audit;
 
-use SafeAccessInline\Core\AuditConfig;
+use SafeAccessInline\Core\Config\AuditConfig;
 
 /**
  * @phpstan-type AuditEventType 'file.read'|'file.watch'|'url.fetch'|'security.violation'|'security.deprecation'|'data.mask'|'data.freeze'|'schema.validate'|'plugin.overwrite'

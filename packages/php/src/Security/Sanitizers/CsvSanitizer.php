@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace SafeAccessInline\Security;
+namespace SafeAccessInline\Security\Sanitizers;
 
 use SafeAccessInline\Exceptions\SecurityException;
 
