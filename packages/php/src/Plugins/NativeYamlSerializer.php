@@ -15,7 +15,7 @@ use SafeAccessInline\Contracts\SerializerPluginInterface;
  * Requires: ext-yaml (pecl install yaml)
  *
  * @example
- * use SafeAccessInline\Core\PluginRegistry;
+ * use SafeAccessInline\Core\Registries\PluginRegistry;
  * use SafeAccessInline\Plugins\NativeYamlSerializer;
  *
  * PluginRegistry::registerSerializer('yaml', new NativeYamlSerializer());

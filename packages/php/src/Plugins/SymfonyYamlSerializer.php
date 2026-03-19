@@ -10,7 +10,7 @@ use SafeAccessInline\Contracts\SerializerPluginInterface;
  * YAML serializer plugin using symfony/yaml.
  *
  * @example
- * use SafeAccessInline\Core\PluginRegistry;
+ * use SafeAccessInline\Core\Registries\PluginRegistry;
  * use SafeAccessInline\Plugins\SymfonyYamlSerializer;
  *
  * PluginRegistry::registerSerializer('yaml', new SymfonyYamlSerializer());

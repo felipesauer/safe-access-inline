@@ -12,7 +12,7 @@ use SafeAccessInline\Contracts\ParserPluginInterface;
  * Requires: ext-yaml (pecl install yaml)
  *
  * @example
- * use SafeAccessInline\Core\PluginRegistry;
+ * use SafeAccessInline\Core\Registries\PluginRegistry;
  * use SafeAccessInline\Plugins\NativeYamlParser;
  *
  * PluginRegistry::registerParser('yaml', new NativeYamlParser());

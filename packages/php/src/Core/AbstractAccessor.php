@@ -1,13 +1,18 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SafeAccessInline\Core;
 
 use SafeAccessInline\Contracts\AccessorInterface;
 use SafeAccessInline\Contracts\SchemaAdapterInterface;
 use SafeAccessInline\Contracts\WritableInterface;
+use SafeAccessInline\Core\Operations\JsonPatch;
+use SafeAccessInline\Core\Parsers\DotNotationParser;
+use SafeAccessInline\Core\Registries\SchemaRegistry;
 use SafeAccessInline\Exceptions\ReadonlyViolationException;
 use SafeAccessInline\Exceptions\SchemaValidationException;
-use SafeAccessInline\Security\DataMasker;
+use SafeAccessInline\Security\Sanitizers\DataMasker;
 use SafeAccessInline\Traits\HasArrayOperations;
 use SafeAccessInline\Traits\HasFactory;
 use SafeAccessInline\Traits\HasTransformations;

@@ -16,20 +16,20 @@ use SafeAccessInline\Accessors\XmlAccessor;
 use SafeAccessInline\Accessors\YamlAccessor;
 use SafeAccessInline\Contracts\FileLoadOptions;
 use SafeAccessInline\Core\AbstractAccessor;
-use SafeAccessInline\Core\DeepMerger;
-use SafeAccessInline\Core\FileWatcher;
-use SafeAccessInline\Core\IoLoader;
-use SafeAccessInline\Core\PathCache;
-use SafeAccessInline\Core\PluginRegistry;
-use SafeAccessInline\Core\SafeAccessConfig;
-use SafeAccessInline\Core\SchemaRegistry;
-use SafeAccessInline\Core\TypeDetector;
+use SafeAccessInline\Core\Config\SafeAccessConfig;
+use SafeAccessInline\Core\Io\FileWatcher;
+use SafeAccessInline\Core\Io\IoLoader;
+use SafeAccessInline\Core\Operations\DeepMerger;
+use SafeAccessInline\Core\Registries\PluginRegistry;
+use SafeAccessInline\Core\Registries\SchemaRegistry;
+use SafeAccessInline\Core\Rendering\TypeDetector;
+use SafeAccessInline\Core\Resolvers\PathCache;
 use SafeAccessInline\Enums\AccessorFormat;
 use SafeAccessInline\Exceptions\InvalidFormatException;
 use SafeAccessInline\Exceptions\SecurityException;
-use SafeAccessInline\Security\AuditLogger;
-use SafeAccessInline\Security\SecurityOptions;
-use SafeAccessInline\Security\SecurityPolicy;
+use SafeAccessInline\Security\Audit\AuditLogger;
+use SafeAccessInline\Security\Guards\SecurityOptions;
+use SafeAccessInline\Security\Guards\SecurityPolicy;
 
 /**
  * Main entry point for the safe-access-inline library.

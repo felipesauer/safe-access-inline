@@ -10,7 +10,7 @@ use SafeAccessInline\Contracts\ParserPluginInterface;
  * TOML parser plugin using devium/toml.
  *
  * @example
- * use SafeAccessInline\Core\PluginRegistry;
+ * use SafeAccessInline\Core\Registries\PluginRegistry;
  * use SafeAccessInline\Plugins\DeviumTomlParser;
  *
  * PluginRegistry::registerParser('toml', new DeviumTomlParser());

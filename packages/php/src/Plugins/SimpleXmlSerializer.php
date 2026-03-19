@@ -12,7 +12,7 @@ use SafeAccessInline\Contracts\SerializerPluginInterface;
  * The root element name can be configured via the constructor.
  *
  * @example
- * use SafeAccessInline\Core\PluginRegistry;
+ * use SafeAccessInline\Core\Registries\PluginRegistry;
  * use SafeAccessInline\Plugins\SimpleXmlSerializer;
  *
  * PluginRegistry::registerSerializer('xml', new SimpleXmlSerializer('config'));

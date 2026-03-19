@@ -10,7 +10,7 @@ use SafeAccessInline\Contracts\SerializerPluginInterface;
  * TOML serializer plugin using devium/toml.
  *
  * @example
- * use SafeAccessInline\Core\PluginRegistry;
+ * use SafeAccessInline\Core\Registries\PluginRegistry;
  * use SafeAccessInline\Plugins\DeviumTomlSerializer;
  *
  * PluginRegistry::registerSerializer('toml', new DeviumTomlSerializer());
