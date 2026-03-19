@@ -6,6 +6,32 @@
 
 - **php:** `type()` now returns normalized types: `"number"` instead of `"integer"`/`"double"`, `"bool"` instead of `"boolean"`, and `"null"` instead of `"NULL"`, aligning the cross-language type vocabulary (`"string"`, `"number"`, `"bool"`, `"array"`, `"object"`, `"null"`).
 
+## [0.3.1](https://github.com/felipesauer/safe-access-inline/compare/php-v0.3.0...php-v0.3.1) (2026-03-19)
+
+
+### Features
+
+* add PHPStan stubs for devium/toml and symfony/yaml packages ([50ff598](https://github.com/felipesauer/safe-access-inline/commit/50ff5983d05f7b3bee554c05df6c2ecf66f3d06f))
+* **php:** add AuditEventType, PatchOperationType, and SegmentType enums ([f735fc6](https://github.com/felipesauer/safe-access-inline/commit/f735fc6e58b2fc3df9e637b485776549554859d1))
+* **php:** adopt FileLoadOptions DTO in fromFile, watchFile, and layerFiles ([a633e52](https://github.com/felipesauer/safe-access-inline/commit/a633e52d33b98c3dc2b88d8b893cbf61b6e33fe8))
+* **php:** extract PathResolver, SegmentParser, and TemplateRenderer ([fd8e3a9](https://github.com/felipesauer/safe-access-inline/commit/fd8e3a9ee025be7064ffc051915e4fb6dc247767))
+* **php:** introduce AbstractPlugin base class and extract SimpleXmlSerializer ([994b345](https://github.com/felipesauer/safe-access-inline/commit/994b345086cb31c448c376b8a568b47888d803d9))
+* **php:** introduce Config classes to replace hardcoded limits ([4055014](https://github.com/felipesauer/safe-access-inline/commit/4055014778b45c8a6bae060e6485446a9ab9063b))
+* **php:** introduce typed DTOs for structured data contracts ([a0b2152](https://github.com/felipesauer/safe-access-inline/commit/a0b215259b5d0896476675523d1bacc9948d4476))
+
+
+### Bug Fixes
+
+* **php:** add strict_types=1 and PHPDoc to all accessor classes ([5b80e61](https://github.com/felipesauer/safe-access-inline/commit/5b80e6136d6f7d44ce2fef3d458c278ee67c5235))
+* **php:** clear all phpstan-baseline suppressions ([338b9ee](https://github.com/felipesauer/safe-access-inline/commit/338b9eebcb15a29b0d2fb786fac52716eea25307))
+* **php:** improve type safety in JsonSchemaAdapter and SymfonyValidatorAdapter ([4712963](https://github.com/felipesauer/safe-access-inline/commit/4712963f1c30f4709b57493bc10ada99a0c030fc))
+
+
+### Miscellaneous Chores
+
+* **php:** add missing declare(strict_types=1) to source files ([394b997](https://github.com/felipesauer/safe-access-inline/commit/394b9971acb4c394f4e8583b3361c3c01616fa8b))
+* remove unused PHPStan stub files for devium/toml and symfony/yaml packages ([51eee9d](https://github.com/felipesauer/safe-access-inline/commit/51eee9db5bae8f4567c9f7b85200f601c9a7acbf))
+
 ## [0.3.0](https://github.com/felipesauer/safe-access-inline/compare/php-v0.2.3...php-v0.3.0) (2026-03-18)
 
 
