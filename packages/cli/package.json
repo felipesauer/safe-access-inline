@@ -50,7 +50,7 @@
         "node": ">=24"
     },
     "dependencies": {
-        "@safe-access-inline/safe-access-inline": "^0.2.1",
+        "@safe-access-inline/safe-access-inline": "*",
         "js-yaml": "^4.0.0",
         "smol-toml": "^1.0.0"
     },
