@@ -15,7 +15,7 @@ outline: deep
 
 ## Requirements
 
-- Node.js 22 or higher
+- Node.js 24 or higher
 - TypeScript 5.5+ (for TypeScript projects)
 
 ## Installation

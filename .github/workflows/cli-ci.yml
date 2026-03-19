@@ -25,7 +25,7 @@ jobs:
         strategy:
             fail-fast: false
             matrix:
-                node: ["22", "24"]
+                node: ["24"]
 
         defaults:
             run:
@@ -67,7 +67,7 @@ jobs:
               run: npm test -- --coverage
 
             - name: Upload coverage to Codecov
-              if: matrix.node == '22'
+              if: matrix.node == '24'
               uses: ./.github/actions/upload-coverage
               with:
                   token: ${{ secrets.CODECOV_TOKEN }}

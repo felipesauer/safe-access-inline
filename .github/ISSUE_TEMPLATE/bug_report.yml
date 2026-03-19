@@ -80,7 +80,7 @@ body:
       attributes:
           label: Node.js Version
           description: "Output of `node -v` (leave blank if not applicable)"
-          placeholder: "22.0.0"
+          placeholder: "24.0.0"
 
     - type: input
       id: os

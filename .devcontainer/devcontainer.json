@@ -7,7 +7,7 @@
             "installComposer": true
         },
         "ghcr.io/devcontainers/features/node:1": {
-            "version": "22"
+            "version": "24"
         }
     },
     "postCreateCommand": "cd packages/php && composer install && cd ../../packages/js && npm install && cd ../../packages/cli && npm install",
