@@ -1,5 +1,5 @@
-import { SecurityError } from '../exceptions/security.error';
-import { emitAudit } from './audit-emitter';
+import { SecurityError } from '../../exceptions/security.error';
+import { emitAudit } from '../audit/audit-emitter';
 
 const PRIVATE_IP_RANGES = [
     // 10.0.0.0/8

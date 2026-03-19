@@ -1,4 +1,4 @@
-import { SecurityError } from '../exceptions/security.error';
+import { SecurityError } from '../../exceptions/security.error';
 
 const _utf8Encoder = new TextEncoder();
 

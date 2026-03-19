@@ -1,5 +1,5 @@
-import { SecurityError } from '../exceptions/security.error';
-import { emitAudit } from './audit-emitter';
+import { SecurityError } from '../../exceptions/security.error';
+import { emitAudit } from '../audit/audit-emitter';
 
 const FORBIDDEN_KEYS = new Set([
     '__proto__',

@@ -1,10 +1,10 @@
-import type { AuditEventType } from '../enums/audit-event-type.enum';
-import type { AuditEvent, AuditListener } from '../contracts/audit-event.interface';
+import type { AuditEventType } from '../../enums/audit-event-type.enum';
+import type { AuditEvent, AuditListener } from '../../contracts/audit-event.interface';
 
-export type { AuditEventType } from '../enums/audit-event-type.enum';
-export type { AuditEvent, AuditListener } from '../contracts/audit-event.interface';
+export type { AuditEventType } from '../../enums/audit-event-type.enum';
+export type { AuditEvent, AuditListener } from '../../contracts/audit-event.interface';
 
-import { DEFAULT_AUDIT_CONFIG } from '../core/audit-config';
+import { DEFAULT_AUDIT_CONFIG } from '../../core/config/audit-config';
 
 const listeners: AuditListener[] = [];
 

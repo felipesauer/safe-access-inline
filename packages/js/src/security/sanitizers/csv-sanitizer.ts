@@ -1,4 +1,4 @@
-import { SecurityError } from '../exceptions/security.error';
+import { SecurityError } from '../../exceptions/security.error';
 
 type CsvSanitizeMode = 'prefix' | 'strip' | 'error' | 'none';
 

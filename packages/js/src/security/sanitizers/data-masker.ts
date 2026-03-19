@@ -1,5 +1,5 @@
-import { emitAudit } from './audit-emitter';
-import { DEFAULT_MASKER_CONFIG } from '../core/masker-config';
+import { emitAudit } from '../audit/audit-emitter';
+import { DEFAULT_MASKER_CONFIG } from '../../core/config/masker-config';
 
 /**
  * Common sensitive key names that are always masked, regardless of user-supplied patterns.

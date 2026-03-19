@@ -1,5 +1,5 @@
 import type { SecurityOptions } from './security-options';
-import type { MaskPattern } from './data-masker';
+import type { MaskPattern } from '../sanitizers/data-masker';
 
 /** Network-level restrictions applied when fetching remote data sources. */
 export interface UrlPolicy {
