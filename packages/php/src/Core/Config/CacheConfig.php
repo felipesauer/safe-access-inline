@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace SafeAccessInline\Core;
+namespace SafeAccessInline\Core\Config;
 
 /**
  * Configuration for the parsed-path LRU cache ({@see PathCache}).

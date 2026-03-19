@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace SafeAccessInline\Traits;
 
-use SafeAccessInline\Core\DotNotationParser;
+use SafeAccessInline\Core\Parsers\DotNotationParser;
 use SafeAccessInline\Exceptions\InvalidFormatException;
 use SafeAccessInline\Exceptions\ReadonlyViolationException;
 

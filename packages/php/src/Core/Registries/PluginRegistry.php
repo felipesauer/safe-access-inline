@@ -1,6 +1,8 @@
 <?php
 
-namespace SafeAccessInline\Core;
+declare(strict_types=1);
+
+namespace SafeAccessInline\Core\Registries;
 
 use SafeAccessInline\Contracts\ParserPluginInterface;
 use SafeAccessInline\Contracts\SerializerPluginInterface;

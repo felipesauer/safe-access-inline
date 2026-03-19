@@ -1,8 +1,11 @@
 <?php
 
-namespace SafeAccessInline\Core;
+declare(strict_types=1);
 
-use SafeAccessInline\Security\SecurityGuard;
+namespace SafeAccessInline\Core\Operations;
+
+use SafeAccessInline\Core\Config\MergerConfig;
+use SafeAccessInline\Security\Guards\SecurityGuard;
 
 /**
  * Deep merge utility for layered configuration.
@@ -10,8 +13,17 @@ use SafeAccessInline\Security\SecurityGuard;
  */
 final class DeepMerger
 {
-    private const MAX_MERGE_DEPTH = 512;
+    private static MergerConfig $config;
 
+    private static function config(): MergerConfig
+    {
+        return self::$config ??= new MergerConfig();
+    }
+
+    public static function configure(MergerConfig $config): void
+    {
+        self::$config = $config;
+    }
     /**
      * @param array<mixed> $base
      * @param array<mixed> ...$overrides
@@ -35,8 +47,8 @@ final class DeepMerger
      */
     private static function mergeTwo(array $target, array $source, int $depth = 0): array
     {
-        if ($depth > self::MAX_MERGE_DEPTH) {
-            throw new \RuntimeException('Deep merge exceeded maximum depth of ' . self::MAX_MERGE_DEPTH);
+        if ($depth > self::config()->maxMergeDepth) {
+            throw new \RuntimeException('Deep merge exceeded maximum depth of ' . self::config()->maxMergeDepth);
         }
 
         $result = $target;

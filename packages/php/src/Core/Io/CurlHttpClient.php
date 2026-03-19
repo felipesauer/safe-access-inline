@@ -2,18 +2,26 @@
 
 declare(strict_types=1);
 
-namespace SafeAccessInline\Core;
+namespace SafeAccessInline\Core\Io;
 
 use SafeAccessInline\Contracts\HttpClientInterface;
 use SafeAccessInline\Exceptions\SecurityException;
 
+/**
+ * HTTP client backed by ext-curl.
+ *
+ * Implements {@see HttpClientInterface} using PHP's native cURL functions.
+ */
 final class CurlHttpClient implements HttpClientInterface
 {
     /**
-     * @param string $url
-     * @param array<int, mixed> $curlOptions
-     * @return string
-     * @throws SecurityException
+     * Fetches remote content from a URL using cURL.
+     *
+     * @param  string             $url         The URL to fetch.
+     * @param  array<int, mixed>  $curlOptions cURL option constants mapped to their values.
+     * @return string Raw response body.
+     *
+     * @throws SecurityException If cURL initialisation or the request fails.
      */
     public function fetch(string $url, array $curlOptions): string
     {

@@ -1,6 +1,8 @@
 <?php
 
-namespace SafeAccessInline\Core;
+declare(strict_types=1);
+
+namespace SafeAccessInline\Core\Io;
 
 final class FileWatcher
 {
@@ -25,6 +27,7 @@ final class FileWatcher
         $running = true;
 
         $poll = function () use ($filePath, $onChange, &$lastMtime, &$running, $intervalMs, $sleep): void {
+            /** @phpstan-ignore while.alwaysTrue */
             while ($running) {
                 clearstatcache(true, $filePath);
                 $currentMtime = file_exists($filePath) ? filemtime($filePath) : 0;

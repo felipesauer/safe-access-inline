@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace SafeAccessInline\Core;
+namespace SafeAccessInline\Core\Rendering;
 
 /**
  * Renders template paths by replacing `{key}` placeholders with binding values.

@@ -1,9 +1,12 @@
 <?php
 
-namespace SafeAccessInline\Core;
+declare(strict_types=1);
 
+namespace SafeAccessInline\Core\Operations;
+
+use SafeAccessInline\Enums\PatchOperationType;
 use SafeAccessInline\Exceptions\JsonPatchTestFailedException;
-use SafeAccessInline\Security\SecurityGuard;
+use SafeAccessInline\Security\Guards\SecurityGuard;
 
 /**
  * JSON Patch operations per RFC 6902.
@@ -26,7 +29,7 @@ final class JsonPatch
         // Removed keys
         foreach (array_keys($a) as $key) {
             if (!array_key_exists($key, $b)) {
-                $ops[] = ['op' => 'remove', 'path' => $basePath . '/' . self::escapePointer((string) $key)];
+                $ops[] = ['op' => PatchOperationType::REMOVE->value, 'path' => $basePath . '/' . self::escapePointer((string) $key)];
             }
         }
 
@@ -35,7 +38,7 @@ final class JsonPatch
             $pointer = $basePath . '/' . self::escapePointer((string) $key);
 
             if (!array_key_exists($key, $a)) {
-                $ops[] = ['op' => 'add', 'path' => $pointer, 'value' => $bVal];
+                $ops[] = ['op' => PatchOperationType::ADD->value, 'path' => $pointer, 'value' => $bVal];
             } elseif (!self::deepEqual($a[$key], $bVal)) {
                 $aVal = $a[$key];
 
@@ -44,7 +47,7 @@ final class JsonPatch
                 } elseif (is_array($aVal) && is_array($bVal) && array_is_list($aVal) && array_is_list($bVal)) {
                     $ops = array_merge($ops, self::diffArrays($aVal, $bVal, $pointer));
                 } else {
-                    $ops[] = ['op' => 'replace', 'path' => $pointer, 'value' => $bVal];
+                    $ops[] = ['op' => PatchOperationType::REPLACE->value, 'path' => $pointer, 'value' => $bVal];
                 }
             }
         }
@@ -66,19 +69,38 @@ final class JsonPatch
         for ($i = 0; $i < $maxLen; $i++) {
             $pointer = $basePath . '/' . $i;
             if ($i >= count($a)) {
-                $ops[] = ['op' => 'add', 'path' => $pointer, 'value' => $b[$i]];
+                $ops[] = ['op' => PatchOperationType::ADD->value, 'path' => $pointer, 'value' => $b[$i]];
             } elseif ($i >= count($b)) {
-                $ops[] = ['op' => 'remove', 'path' => $basePath . '/' . (count($a) - 1 - ($i - count($b)))];
+                $ops[] = ['op' => PatchOperationType::REMOVE->value, 'path' => $basePath . '/' . (count($a) - 1 - ($i - count($b)))];
             } elseif (!self::deepEqual($a[$i], $b[$i])) {
                 if (is_array($a[$i]) && is_array($b[$i]) && !array_is_list($a[$i]) && !array_is_list($b[$i])) {
                     $ops = array_merge($ops, self::diff($a[$i], $b[$i], $pointer));
                 } else {
-                    $ops[] = ['op' => 'replace', 'path' => $pointer, 'value' => $b[$i]];
+                    $ops[] = ['op' => PatchOperationType::REPLACE->value, 'path' => $pointer, 'value' => $b[$i]];
                 }
             }
         }
 
         return $ops;
+    }
+
+    /**
+     * Validates a JSON Patch operations array without applying it.
+     *
+     * Checks that `move` and `copy` operations include the required `from` field.
+     *
+     * @param array<array{op: string, path: string, value?: mixed, from?: string}> $ops
+     * @throws \InvalidArgumentException When a `move` or `copy` operation is missing `from`.
+     */
+    public static function validatePatch(array $ops): void
+    {
+        foreach ($ops as $op) {
+            if (in_array($op['op'], [PatchOperationType::MOVE->value, PatchOperationType::COPY->value], true) && !isset($op['from'])) {
+                throw new \InvalidArgumentException(
+                    "JSON Patch '{$op['op']}' operation requires a 'from' field."
+                );
+            }
+        }
     }
 
     /**
@@ -90,14 +112,7 @@ final class JsonPatch
      */
     public static function applyPatch(array $data, array $ops): array
     {
-        // Validate move/copy 'from' fields before any mutation
-        foreach ($ops as $op) {
-            if (in_array($op['op'], ['move', 'copy'], true) && !isset($op['from'])) {
-                throw new \InvalidArgumentException(
-                    "JSON Patch '{$op['op']}' operation requires a 'from' field."
-                );
-            }
-        }
+        self::validatePatch($ops);
 
         // Pre-flight: run all operations on a copy to check test assertions (atomicity)
         $preflight = $data;
@@ -116,23 +131,23 @@ final class JsonPatch
     private static function applyOneOp(array $result, array $op): array
     {
         switch ($op['op']) {
-            case 'add':
-            case 'replace':
+            case PatchOperationType::ADD->value:
+            case PatchOperationType::REPLACE->value:
                 $result = self::setAtPointer($result, $op['path'], $op['value'] ?? null);
                 break;
-            case 'remove':
+            case PatchOperationType::REMOVE->value:
                 $result = self::removeAtPointer($result, $op['path']);
                 break;
-            case 'move':
+            case PatchOperationType::MOVE->value:
                 $value = self::getAtPointer($result, $op['from'] ?? '');
                 $result = self::removeAtPointer($result, $op['from'] ?? '');
                 $result = self::setAtPointer($result, $op['path'], $value);
                 break;
-            case 'copy':
+            case PatchOperationType::COPY->value:
                 $value = self::getAtPointer($result, $op['from'] ?? '');
                 $result = self::setAtPointer($result, $op['path'], $value);
                 break;
-            case 'test':
+            case PatchOperationType::TEST->value:
                 $actual = self::getAtPointer($result, $op['path']);
                 if (!self::deepEqual($actual, $op['value'] ?? null)) {
                     throw new JsonPatchTestFailedException(
@@ -204,13 +219,15 @@ final class JsonPatch
             if (is_string($key)) {
                 SecurityGuard::assertSafeKey($key);
             }
-            if (!is_array($current) || !array_key_exists($key, $current)) {
+            if (!array_key_exists($key, $current)) {
                 $current[$key] = [];
             }
             $current = &$current[$key];
+            assert(is_array($current));
         }
 
         $lastKey = end($keys);
+        // @phpstan-ignore-next-line function.alreadyNarrowedType
         if ($lastKey === '-' && is_array($current)) {
             $current[] = $value;
         } else {
@@ -257,6 +274,7 @@ final class JsonPatch
         }
         if (is_array($current)) {
             unset($current[$key]);
+            /** @phpstan-ignore greater.alwaysTrue */
             if (array_is_list($current) || (is_int($key) && count($current) > 0)) {
                 $current = array_values($current);
             }

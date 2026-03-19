@@ -1,6 +1,8 @@
 <?php
 
-namespace SafeAccessInline\Core;
+declare(strict_types=1);
+
+namespace SafeAccessInline\Core\Rendering;
 
 use SafeAccessInline\Accessors\ArrayAccessor;
 use SafeAccessInline\Accessors\EnvAccessor;
@@ -11,6 +13,7 @@ use SafeAccessInline\Accessors\ObjectAccessor;
 use SafeAccessInline\Accessors\TomlAccessor;
 use SafeAccessInline\Accessors\XmlAccessor;
 use SafeAccessInline\Accessors\YamlAccessor;
+use SafeAccessInline\Core\AbstractAccessor;
 use SafeAccessInline\Exceptions\UnsupportedTypeException;
 
 /**

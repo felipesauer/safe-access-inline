@@ -1,11 +1,14 @@
 <?php
 
-namespace SafeAccessInline\Core;
+declare(strict_types=1);
+
+namespace SafeAccessInline\Core\Io;
 
 use SafeAccessInline\Contracts\HttpClientInterface;
+use SafeAccessInline\Core\Config\IoLoaderConfig;
 use SafeAccessInline\Enums\AccessorFormat;
 use SafeAccessInline\Exceptions\SecurityException;
-use SafeAccessInline\Security\AuditLogger;
+use SafeAccessInline\Security\Audit\AuditLogger;
 
 /**
  * I/O loader for reading files and fetching URLs.
@@ -13,6 +16,32 @@ use SafeAccessInline\Security\AuditLogger;
 final class IoLoader
 {
     private static ?HttpClientInterface $httpClient = null;
+
+    private static IoLoaderConfig $config;
+
+    /**
+     * Returns the active I/O loader configuration, lazily initialised.
+     */
+    private static function config(): IoLoaderConfig
+    {
+        return self::$config ??= new IoLoaderConfig();
+    }
+
+    /**
+     * Overrides the default I/O loader configuration.
+     */
+    public static function configure(IoLoaderConfig $config): void
+    {
+        self::$config = $config;
+    }
+
+    /**
+     * Resets the configuration to defaults.
+     */
+    public static function resetConfig(): void
+    {
+        self::$config = new IoLoaderConfig();
+    }
 
     /** @var array<string, AccessorFormat> */
     private const EXTENSION_FORMAT_MAP = [
@@ -88,7 +117,13 @@ final class IoLoader
     {
         self::assertPathWithinAllowedDirs($filePath, $allowedDirs, $allowAnyPath);
         AuditLogger::emit('file.read', ['filePath' => $filePath]);
-        $content = @file_get_contents($filePath);
+
+        if (!file_exists($filePath) || !is_readable($filePath)) {
+            throw new SecurityException("Failed to read file: '{$filePath}'");
+        }
+
+        $content = file_get_contents($filePath);
+
         if ($content === false) {
             throw new SecurityException("Failed to read file: '{$filePath}'");
         }
@@ -112,8 +147,8 @@ final class IoLoader
         $curlOptions = [
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_FOLLOWLOCATION => false,
-            CURLOPT_TIMEOUT => 10,
-            CURLOPT_CONNECTTIMEOUT => 5,
+            CURLOPT_TIMEOUT => self::config()->curlTimeout,
+            CURLOPT_CONNECTTIMEOUT => self::config()->curlConnectTimeout,
             CURLOPT_SSL_VERIFYPEER => true,
             CURLOPT_SSL_VERIFYHOST => 2,
             CURLOPT_PROTOCOLS => CURLPROTO_HTTPS,

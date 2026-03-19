@@ -1,8 +1,11 @@
 <?php
 
-namespace SafeAccessInline\Core;
+declare(strict_types=1);
 
-use SafeAccessInline\Security\SecurityGuard;
+namespace SafeAccessInline\Core\Parsers;
+
+use SafeAccessInline\Core\Config\FilterParserConfig;
+use SafeAccessInline\Security\Guards\SecurityGuard;
 
 /**
  * Parses and evaluates filter expressions for JSONPath-like queries.
@@ -23,6 +26,32 @@ use SafeAccessInline\Security\SecurityGuard;
  */
 final class FilterParser
 {
+    private static FilterParserConfig $config;
+
+    /**
+     * Returns the active filter parser configuration, lazily initialised.
+     */
+    private static function config(): FilterParserConfig
+    {
+        return self::$config ??= new FilterParserConfig();
+    }
+
+    /**
+     * Overrides the default filter parser configuration.
+     */
+    public static function configure(FilterParserConfig $config): void
+    {
+        self::$config = $config;
+    }
+
+    /**
+     * Resets the configuration to defaults.
+     */
+    public static function resetConfig(): void
+    {
+        self::$config = new FilterParserConfig();
+    }
+
     /**
      * Parses a filter expression (without enclosing [? and ]).
      *
@@ -143,7 +172,7 @@ final class FilterParser
             $rawValue = trim($funcMatch[4]);
             $funcArgs = array_map('trim', explode(',', $argsRaw));
             return [
-                'field' => $funcArgs[0] ?? '@',
+                'field' => $funcArgs[0],
                 'operator' => $operator,
                 'value' => self::parseValue($rawValue),
                 'func' => $func,
@@ -157,7 +186,7 @@ final class FilterParser
             $argsRaw = $funcBoolMatch[2];
             $funcArgs = array_map('trim', explode(',', $argsRaw));
             return [
-                'field' => $funcArgs[0] ?? '@',
+                'field' => $funcArgs[0],
                 'operator' => '==',
                 'value' => true,
                 'func' => $func,
@@ -284,13 +313,13 @@ final class FilterParser
             $pattern = substr($pattern, 1, -1);
         }
         // ReDoS guard: reject patterns with nested quantifiers or excessive length
-        if (preg_match('/([+*])\)\1|\(\?[^)]*[+*]/', $pattern) === 1 || strlen($pattern) > 128) {
+        if (preg_match('/([+*])\)\1|\(\?[^)]*[+*]/', $pattern) === 1 || strlen($pattern) > self::config()->maxPatternLength) {
             return false;
         }
         // Escape the PCRE delimiter to prevent flag injection (e.g. 'foo/i')
         $safePattern = str_replace('/', '\\/', $pattern);
-        $prevBacktrack = ini_set('pcre.backtrack_limit', '1000');
-        $prevRecursion = ini_set('pcre.recursion_limit', '100');
+        $prevBacktrack = ini_set('pcre.backtrack_limit', (string) self::config()->pcreBacktrackLimit);
+        $prevRecursion = ini_set('pcre.recursion_limit', (string) self::config()->pcreRecursionLimit);
         try {
             $result = @preg_match('/' . $safePattern . '/u', $val);
         } finally {

@@ -2,8 +2,9 @@
 
 declare(strict_types=1);
 
-namespace SafeAccessInline\Core;
+namespace SafeAccessInline\Core\Resolvers;
 
+use SafeAccessInline\Core\Parsers\FilterParser;
 use SafeAccessInline\Enums\SegmentType;
 use SafeAccessInline\Exceptions\SecurityException;
 

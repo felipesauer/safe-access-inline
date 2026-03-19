@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
-namespace SafeAccessInline\Core;
+namespace SafeAccessInline\Core\Resolvers;
+
+use SafeAccessInline\Core\Config\CacheConfig;
 
 /**
  * LRU-style path resolution cache for DotNotationParser segments.
