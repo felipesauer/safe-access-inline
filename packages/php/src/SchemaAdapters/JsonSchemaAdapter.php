@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SafeAccessInline\SchemaAdapters;
 
 use SafeAccessInline\Contracts\SchemaAdapterInterface;
@@ -53,7 +55,10 @@ final class JsonSchemaAdapter implements SchemaAdapterInterface
         }
 
         if (isset($schema['required']) && is_array($data) && !array_is_list($data)) {
-            foreach ($schema['required'] as $key) {
+            /** @var array<mixed> $required */
+            $required = $schema['required'];
+            foreach ($required as $key) {
+                /** @var int|string $key */
                 if (!array_key_exists($key, $data)) {
                     $errors[] = new SchemaValidationIssue("{$path}.{$key}", 'Required field missing');
                 }
@@ -79,26 +84,30 @@ final class JsonSchemaAdapter implements SchemaAdapterInterface
         }
 
         if (isset($schema['minimum']) && is_numeric($data)) {
+            $minimum = is_scalar($schema['minimum']) ? (string) $schema['minimum'] : '';
             if ($data < $schema['minimum']) {
-                $errors[] = new SchemaValidationIssue($path, "Value {$data} is less than minimum {$schema['minimum']}");
+                $errors[] = new SchemaValidationIssue($path, "Value {$data} is less than minimum {$minimum}");
             }
         }
 
         if (isset($schema['maximum']) && is_numeric($data)) {
+            $maximum = is_scalar($schema['maximum']) ? (string) $schema['maximum'] : '';
             if ($data > $schema['maximum']) {
-                $errors[] = new SchemaValidationIssue($path, "Value {$data} exceeds maximum {$schema['maximum']}");
+                $errors[] = new SchemaValidationIssue($path, "Value {$data} exceeds maximum {$maximum}");
             }
         }
 
         if (isset($schema['minLength']) && is_string($data)) {
-            if (strlen($data) < $schema['minLength']) {
-                $errors[] = new SchemaValidationIssue($path, "String length " . strlen($data) . " is less than minLength {$schema['minLength']}");
+            $minLength = is_scalar($schema['minLength']) ? (int) $schema['minLength'] : 0;
+            if (strlen($data) < $minLength) {
+                $errors[] = new SchemaValidationIssue($path, 'String length ' . strlen($data) . " is less than minLength {$minLength}");
             }
         }
 
         if (isset($schema['maxLength']) && is_string($data)) {
-            if (strlen($data) > $schema['maxLength']) {
-                $errors[] = new SchemaValidationIssue($path, "String length " . strlen($data) . " exceeds maxLength {$schema['maxLength']}");
+            $maxLength = is_scalar($schema['maxLength']) ? (int) $schema['maxLength'] : 0;
+            if (strlen($data) > $maxLength) {
+                $errors[] = new SchemaValidationIssue($path, 'String length ' . strlen($data) . " exceeds maxLength {$maxLength}");
             }
         }
 
@@ -112,9 +121,10 @@ final class JsonSchemaAdapter implements SchemaAdapterInterface
         }
 
         if (isset($schema['pattern']) && is_string($data)) {
-            $pattern = '/' . str_replace('/', '\\/', $schema['pattern']) . '/';
+            $patternStr = is_string($schema['pattern']) ? $schema['pattern'] : '';
+            $pattern = '/' . str_replace('/', '\/', $patternStr) . '/';
             if (!preg_match($pattern, $data)) {
-                $errors[] = new SchemaValidationIssue($path, "Value does not match pattern '{$schema['pattern']}'");
+                $errors[] = new SchemaValidationIssue($path, "Value does not match pattern '{$patternStr}'");
             }
         }
 
