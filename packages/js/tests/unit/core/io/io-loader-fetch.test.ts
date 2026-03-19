@@ -10,12 +10,12 @@ vi.mock('node:https', () => ({
     request: vi.fn(),
 }));
 
-vi.mock('../../../src/core/ip-range-checker', () => ({
+vi.mock('../../../../src/security/sanitizers/ip-range-checker', () => ({
     assertSafeUrl: vi.fn(),
     resolveAndValidateIp: vi.fn(),
 }));
 
-vi.mock('../../../src/core/audit-emitter', () => ({
+vi.mock('../../../../src/security/audit/audit-emitter', () => ({
     emitAudit: vi.fn(),
 }));
 
@@ -32,8 +32,8 @@ describe('fetchUrl()', () => {
 
     async function getModules() {
         const https = await import('node:https');
-        const ipChecker = await import('../../../src/core/ip-range-checker');
-        const { fetchUrl } = await import('../../../src/core/io-loader');
+        const ipChecker = await import('../../../../src/security/sanitizers/ip-range-checker');
+        const { fetchUrl } = await import('../../../../src/core/io/io-loader');
         return { https, ipChecker, fetchUrl };
     }
 
@@ -119,7 +119,7 @@ describe('fetchUrl()', () => {
 
     it('rejects with SecurityError on 301 redirect', async () => {
         const { https, ipChecker, fetchUrl } = await getModules();
-        const { SecurityError } = await import('../../../src/exceptions/security.error');
+        const { SecurityError } = await import('../../../../src/exceptions/security.error');
         vi.mocked(ipChecker.resolveAndValidateIp).mockResolvedValue('1.2.3.4');
         mockRequest(vi.mocked(https.request), 301, []);
 
@@ -129,7 +129,7 @@ describe('fetchUrl()', () => {
 
     it('rejects with SecurityError on 302 redirect', async () => {
         const { https, ipChecker, fetchUrl } = await getModules();
-        const { SecurityError } = await import('../../../src/exceptions/security.error');
+        const { SecurityError } = await import('../../../../src/exceptions/security.error');
         vi.mocked(ipChecker.resolveAndValidateIp).mockResolvedValue('1.2.3.4');
         mockRequest(vi.mocked(https.request), 302, []);
 
@@ -155,7 +155,7 @@ describe('fetchUrl()', () => {
 
     it('rejects with SecurityError when request times out', async () => {
         const { https, ipChecker, fetchUrl } = await getModules();
-        const { SecurityError } = await import('../../../src/exceptions/security.error');
+        const { SecurityError } = await import('../../../../src/exceptions/security.error');
         vi.mocked(ipChecker.resolveAndValidateIp).mockResolvedValue('1.2.3.4');
         mockRequest(vi.mocked(https.request), 200, [], { triggerTimeout: true });
 
@@ -192,7 +192,7 @@ describe('fetchUrl()', () => {
 
     it('rejects with SecurityError when response body exceeds maxPayloadBytes', async () => {
         const { https, ipChecker, fetchUrl } = await getModules();
-        const { SecurityError } = await import('../../../src/exceptions/security.error');
+        const { SecurityError } = await import('../../../../src/exceptions/security.error');
         vi.mocked(ipChecker.resolveAndValidateIp).mockResolvedValue('1.2.3.4');
 
         // Create a chunk that exceeds the 10MB default limit
@@ -263,5 +263,56 @@ describe('fetchUrl()', () => {
         );
 
         await expect(fetchUrl('https://example.com/data')).resolves.toBe('body');
+    });
+});
+
+describe('configureIoLoader()', () => {
+    async function getModules() {
+        const https = await import('node:https');
+        const { fetchUrl, configureIoLoader, resetIoLoaderConfig } =
+            await import('../../../../src/core/io/io-loader');
+        return { https, fetchUrl, configureIoLoader, resetIoLoaderConfig };
+    }
+
+    beforeEach(() => {
+        vi.resetModules();
+    });
+
+    it('configures and resets request timeout', async () => {
+        const { https, fetchUrl, configureIoLoader, resetIoLoaderConfig } = await getModules();
+        const { DEFAULT_IO_LOADER_CONFIG } =
+            await import('../../../../src/core/config/io-loader-config');
+
+        // Mock request to capture options
+        vi.mocked(https.request).mockImplementation(
+            (options: { timeout?: number }, cb: (res: ResMock) => void) => {
+                const res = makeResMock(200);
+                const req = makeReqMock();
+
+                // Garantimos que o callback seja chamado com o mock do res
+                setImmediate(() => {
+                    cb(res);
+                    res.emit('end');
+                });
+
+                return req;
+            },
+        );
+
+        // Configure with a new timeout
+        configureIoLoader({ requestTimeoutMs: 1000 });
+        await fetchUrl('https://example.com');
+        expect(vi.mocked(https.request)).toHaveBeenCalledWith(
+            expect.objectContaining({ timeout: 1000 }),
+            expect.any(Function),
+        );
+
+        // Reset and check for default
+        resetIoLoaderConfig();
+        await fetchUrl('https://example.com');
+        expect(vi.mocked(https.request)).toHaveBeenCalledWith(
+            expect.objectContaining({ timeout: DEFAULT_IO_LOADER_CONFIG.requestTimeoutMs }),
+            expect.any(Function),
+        );
     });
 });

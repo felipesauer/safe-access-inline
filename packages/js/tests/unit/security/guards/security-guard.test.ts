@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { SecurityGuard } from '../../../src/core/security-guard';
-import { SecurityError } from '../../../src/exceptions/security.error';
-import { DotNotationParser } from '../../../src/core/dot-notation-parser';
+import { SecurityGuard } from '../../../../src/security/guards/security-guard';
+import { SecurityError } from '../../../../src/exceptions/security.error';
+import { DotNotationParser } from '../../../../src/core/parsers/dot-notation-parser';
 
-describe('SecurityGuard', () => {
+describe(SecurityGuard.name, () => {
     // ── assertSafeKey ────────────────────────────────
 
     it('allows normal keys', () => {

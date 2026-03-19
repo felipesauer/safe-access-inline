@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { DotNotationParser } from '../../../src/core/dot-notation-parser';
-import { PathCache } from '../../../src/core/path-cache';
+import { DotNotationParser } from '../../../../src/core/parsers/dot-notation-parser';
+import { PathCache } from '../../../../src/core/resolvers/path-cache';
 
 describe('JSONPath RFC 9535 Compliance', () => {
     const data = {

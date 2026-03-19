@@ -1,8 +1,11 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { PluginRegistry } from '../../../src/core/plugin-registry';
-import { UnsupportedTypeError } from '../../../src/exceptions/unsupported-type.error';
-import { SafeAccess } from '../../../src/safe-access';
-import type { ParserPlugin, SerializerPlugin } from '../../../src/core/plugin-registry';
+import { PluginRegistry } from '../../../../src/core/registries/plugin-registry';
+import { UnsupportedTypeError } from '../../../../src/exceptions/unsupported-type.error';
+import { SafeAccess } from '../../../../src/safe-access';
+import type {
+    ParserPlugin,
+    SerializerPlugin,
+} from '../../../../src/core/registries/plugin-registry';
 
 beforeEach(() => {
     PluginRegistry.reset();

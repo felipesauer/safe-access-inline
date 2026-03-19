@@ -1,14 +1,14 @@
 import { describe, it, expect } from 'vitest';
-import { TypeDetector } from '../../../src/core/type-detector';
-import { ArrayAccessor } from '../../../src/accessors/array.accessor';
-import { ObjectAccessor } from '../../../src/accessors/object.accessor';
-import { JsonAccessor } from '../../../src/accessors/json.accessor';
-import { XmlAccessor } from '../../../src/accessors/xml.accessor';
-import { YamlAccessor } from '../../../src/accessors/yaml.accessor';
-import { TomlAccessor } from '../../../src/accessors/toml.accessor';
-import { IniAccessor } from '../../../src/accessors/ini.accessor';
-import { EnvAccessor } from '../../../src/accessors/env.accessor';
-import { UnsupportedTypeError } from '../../../src/exceptions/unsupported-type.error';
+import { TypeDetector } from '../../../../src/core/rendering/type-detector';
+import { ArrayAccessor } from '../../../../src/accessors/array.accessor';
+import { ObjectAccessor } from '../../../../src/accessors/object.accessor';
+import { JsonAccessor } from '../../../../src/accessors/json.accessor';
+import { XmlAccessor } from '../../../../src/accessors/xml.accessor';
+import { YamlAccessor } from '../../../../src/accessors/yaml.accessor';
+import { TomlAccessor } from '../../../../src/accessors/toml.accessor';
+import { IniAccessor } from '../../../../src/accessors/ini.accessor';
+import { EnvAccessor } from '../../../../src/accessors/env.accessor';
+import { UnsupportedTypeError } from '../../../../src/exceptions/unsupported-type.error';
 
 describe(TypeDetector.name, () => {
     it('detects array', () => {
@@ -68,5 +68,19 @@ describe(TypeDetector.name, () => {
         // Starts with [ so tries JSON first, fails, then falls through
         // No other pattern matches, so UnsupportedTypeError is thrown
         expect(() => TypeDetector.resolve('[not json at all')).toThrow(UnsupportedTypeError);
+    });
+});
+
+// ── TypeDetector — NDJSON fallback ──────────────────────────────
+describe('TypeDetector — NDJSON fallback', () => {
+    it('detects NDJSON when JSON parse fails but lines are objects', () => {
+        const ndjson = '{"a":1}\n{"b":2}';
+        const acc = TypeDetector.resolve(ndjson);
+        expect(acc.all()).toBeTruthy();
+    });
+
+    it('falls through when invalid JSON with non-object lines', () => {
+        const data = '{invalid json\nstill broken';
+        expect(() => TypeDetector.resolve(data)).toThrow();
     });
 });

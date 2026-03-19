@@ -2,8 +2,8 @@
  * Tests for SecurityPolicy (Phase 16.9) and AuditLogger (Phase 16.10).
  */
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { SafeAccess } from '../../../src/safe-access';
-import * as ioLoader from '../../../src/core/io-loader';
+import { SafeAccess } from '../../../../src/safe-access';
+import * as ioLoader from '../../../../src/core/io/io-loader';
 import {
     defaultPolicy,
     mergePolicy,
@@ -12,11 +12,15 @@ import {
     setGlobalPolicy,
     clearGlobalPolicy,
     getGlobalPolicy,
-} from '../../../src/core/security-policy';
-import type { SecurityPolicy } from '../../../src/core/security-policy';
-import { onAudit, emitAudit, clearAuditListeners } from '../../../src/core/audit-emitter';
-import type { AuditEvent } from '../../../src/core/audit-emitter';
-import { mask } from '../../../src/core/data-masker';
+} from '../../../../src/security/guards/security-policy';
+import type { SecurityPolicy } from '../../../../src/security/guards/security-policy';
+import {
+    onAudit,
+    emitAudit,
+    clearAuditListeners,
+} from '../../../../src/security/audit/audit-emitter';
+import type { AuditEvent } from '../../../../src/security/audit/audit-emitter';
+import { mask } from '../../../../src/security/sanitizers/data-masker';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';

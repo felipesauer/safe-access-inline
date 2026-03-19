@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { deepFreeze } from '../../../src/core/deep-freeze';
-import { ReadonlyViolationError } from '../../../src/exceptions/readonly-violation.error';
-import { JsonAccessor } from '../../../src/accessors/json.accessor';
+import { deepFreeze } from '../../../../src/core/operations/deep-freeze';
+import { ReadonlyViolationError } from '../../../../src/exceptions/readonly-violation.error';
+import { JsonAccessor } from '../../../../src/accessors/json.accessor';
 
-describe('deepFreeze', () => {
+describe(deepFreeze.name, () => {
     it('freezes an object deeply', () => {
         const obj = { a: { b: { c: 1 } }, d: [1, 2, 3] };
         const frozen = deepFreeze(obj);
@@ -43,7 +43,7 @@ describe('deepFreeze', () => {
     });
 });
 
-describe('ReadonlyViolationError', () => {
+describe(ReadonlyViolationError.name, () => {
     it('has correct name and message', () => {
         const err = new ReadonlyViolationError();
         expect(err.name).toBe('ReadonlyViolationError');

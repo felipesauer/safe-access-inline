@@ -1,9 +1,10 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { ArrayAccessor } from '../../../src/accessors/array.accessor';
-import { PluginRegistry } from '../../../src/core/plugin-registry';
+import { PluginRegistry } from '../../../src/core/registries/plugin-registry';
 import { InvalidFormatError } from '../../../src/exceptions/invalid-format.error';
 import { UnsupportedTypeError } from '../../../src/exceptions/unsupported-type.error';
 import { AbstractAccessor } from '../../../src/core/abstract-accessor';
+import { SafeAccess } from '../../../src/safe-access';
 
 describe(AbstractAccessor.name, () => {
     beforeEach(() => {
@@ -400,5 +401,90 @@ describe(AbstractAccessor.name, () => {
         const csv = accessor.toCsv('none');
         expect(csv).toContain('name,age');
         expect(csv).toContain('Ana,25');
+    });
+});
+
+// ── AbstractAccessor — unique with key, sortAt with key ─────────
+describe('AbstractAccessor — array operations with key', () => {
+    it('unique(path, key) deduplicates by key field', () => {
+        const acc = SafeAccess.fromJson(
+            JSON.stringify({
+                items: [
+                    { id: 1, name: 'a' },
+                    { id: 2, name: 'b' },
+                    { id: 1, name: 'c' },
+                ],
+            }),
+        );
+        const result = acc.unique('items', 'id');
+        expect(result.get('items')).toEqual([
+            { id: 1, name: 'a' },
+            { id: 2, name: 'b' },
+        ]);
+    });
+
+    it('sortAt with key sorts by object property', () => {
+        const acc = SafeAccess.fromJson(
+            JSON.stringify({
+                items: [
+                    { name: 'Charlie', age: 30 },
+                    { name: 'Alice', age: 25 },
+                    { name: 'Bob', age: 35 },
+                ],
+            }),
+        );
+        const result = acc.sortAt('items', 'name', 'asc');
+        const items = result.get('items') as Record<string, unknown>[];
+        expect(items[0].name).toBe('Alice');
+        expect(items[1].name).toBe('Bob');
+        expect(items[2].name).toBe('Charlie');
+    });
+
+    it('sortAt with key handles null/undefined values', () => {
+        const acc = SafeAccess.fromJson(
+            JSON.stringify({
+                items: [
+                    { name: 'Bob', val: 2 },
+                    { name: 'Alice', val: null },
+                    { name: 'Charlie', val: 1 },
+                ],
+            }),
+        );
+        const result = acc.sortAt('items', 'val', 'asc');
+        const items = result.get('items') as Record<string, unknown>[];
+        expect(items[items.length - 1].val).toBeNull();
+    });
+
+    it('sortAt desc with key', () => {
+        const acc = SafeAccess.fromJson(
+            JSON.stringify({
+                items: [{ v: 1 }, { v: 3 }, { v: 2 }],
+            }),
+        );
+        const result = acc.sortAt('items', 'v', 'desc');
+        const items = result.get('items') as Record<string, unknown>[];
+        expect(items[0].v).toBe(3);
+        expect(items[1].v).toBe(2);
+        expect(items[2].v).toBe(1);
+    });
+});
+
+// ── AbstractAccessor — last() on empty / getArrayOrEmpty on non-array ──
+describe('AbstractAccessor — last/first edge cases', () => {
+    it('last() on empty array returns defaultValue', () => {
+        const acc = SafeAccess.fromJson('{"items":[]}');
+        expect(acc.last('items')).toBeNull();
+        expect(acc.last('items', 'fallback')).toBe('fallback');
+    });
+
+    it('last() on non-array path returns defaultValue (getArrayOrEmpty returns [])', () => {
+        const acc = SafeAccess.fromJson('{"items":"not-an-array"}');
+        expect(acc.last('items')).toBeNull();
+        expect(acc.last('items', 'fallback')).toBe('fallback');
+    });
+
+    it('first() on non-array path returns defaultValue', () => {
+        const acc = SafeAccess.fromJson('{"items":42}');
+        expect(acc.first('items')).toBeNull();
     });
 });

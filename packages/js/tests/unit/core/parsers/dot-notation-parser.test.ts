@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { DotNotationParser } from '../../../src/core/dot-notation-parser';
+import { DotNotationParser } from '../../../../src/core/parsers/dot-notation-parser';
 
 describe(DotNotationParser.name, () => {
     // ── get() ─────────────────────────────────────────
@@ -390,5 +390,53 @@ describe(DotNotationParser.name, () => {
         expect((result as { nested: { items: number[] } }).nested.items[0]).toBe(99);
         // Original must not be mutated
         expect(data.nested.items[0]).toBe(1);
+    });
+
+    // ── Edge cases: Unicode NFC/NFD ─────────────────
+
+    it('get — reads Unicode key in NFC form', () => {
+        // "café" in NFC (single codepoint é)
+        const nfc = 'caf\u00E9';
+        const data: Record<string, unknown> = { [nfc]: 42 };
+        expect(DotNotationParser.get(data, nfc)).toBe(42);
+    });
+
+    it('get — does not confuse NFC and NFD Unicode keys', () => {
+        // NFD form: 'e' + combining acute accent
+        const nfd = 'caf\u0065\u0301';
+        const nfc = 'caf\u00E9';
+        const data: Record<string, unknown> = { [nfc]: 'nfc-value', [nfd]: 'nfd-value' };
+        expect(DotNotationParser.get(data, nfc)).toBe('nfc-value');
+        expect(DotNotationParser.get(data, nfd)).toBe('nfd-value');
+    });
+
+    it('get — handles emoji keys', () => {
+        const data: Record<string, unknown> = { '🚀': { '⭐': 'star' } };
+        expect(DotNotationParser.get(data, '🚀.⭐')).toBe('star');
+    });
+
+    it('set — creates value under Unicode key', () => {
+        const result = DotNotationParser.set({}, '\u00FC.nested', 'value');
+        expect(DotNotationParser.get(result, '\u00FC.nested')).toBe('value');
+    });
+
+    it('has — detects Unicode key', () => {
+        const data: Record<string, unknown> = { über: { straße: true } };
+        expect(DotNotationParser.has(data, 'über.straße')).toBe(true);
+    });
+
+    // ── Edge cases: circular references ─────────────
+
+    it('get — returns default when path traverses a circular reference', () => {
+        const obj: Record<string, unknown> = { a: { b: 1 } };
+        (obj['a'] as Record<string, unknown>)['self'] = obj['a'];
+        // Should not hang — return default for non-existent deep path
+        expect(DotNotationParser.get(obj, 'a.self.self.self.missing', 'fallback')).toBe('fallback');
+    });
+
+    it('has — returns false for deep path through circular ref', () => {
+        const obj: Record<string, unknown> = { a: {} };
+        (obj['a'] as Record<string, unknown>)['loop'] = obj['a'];
+        expect(DotNotationParser.has(obj, 'a.loop.loop.nonexistent')).toBe(false);
     });
 });

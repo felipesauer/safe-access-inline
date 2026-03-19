@@ -1,15 +1,15 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import * as path from 'node:path';
 import {
     readFileSync,
     readFile,
     resolveFormatFromExtension,
     assertPathWithinAllowedDirs,
-} from '../../../src/core/io-loader';
-import { SecurityError } from '../../../src/exceptions/security.error';
-import { Format } from '../../../src/format.enum';
+} from '../../../../src/core/io/io-loader';
+import { SecurityError } from '../../../../src/exceptions/security.error';
+import { Format } from '../../../../src/enums/format.enum';
 
-const fixturesDir = path.resolve(__dirname, '../../fixtures');
+const fixturesDir = path.resolve(__dirname, '../../../fixtures');
 
 describe('io-loader', () => {
     describe('resolveFormatFromExtension()', () => {
@@ -115,5 +115,31 @@ describe('io-loader', () => {
                 SecurityError,
             );
         });
+    });
+});
+
+// ── IO Loader — fetchUrl HTTP error ─────────────────────────────
+describe('IO Loader — fetchUrl', () => {
+    afterEach(() => {
+        vi.restoreAllMocks();
+    });
+
+    it('throws SecurityError on non-OK response', async () => {
+        const ioLoader = await import('../../../../src/core/io/io-loader');
+        const spy = vi
+            .spyOn(ioLoader, 'fetchUrl')
+            .mockRejectedValueOnce(new Error('Failed to fetch URL'));
+        await expect(ioLoader.fetchUrl('https://example.com/api')).rejects.toThrow(
+            'Failed to fetch URL',
+        );
+        spy.mockRestore();
+    });
+
+    it('returns text on success', async () => {
+        const ioLoader = await import('../../../../src/core/io/io-loader');
+        const spy = vi.spyOn(ioLoader, 'fetchUrl').mockResolvedValueOnce('response data');
+        const result = await ioLoader.fetchUrl('https://example.com/api');
+        expect(result).toBe('response data');
+        spy.mockRestore();
     });
 });

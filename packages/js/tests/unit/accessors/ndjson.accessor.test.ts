@@ -3,7 +3,7 @@ import { NdjsonAccessor } from '../../../src/accessors/ndjson.accessor';
 import { SafeAccess } from '../../../src/safe-access';
 import { InvalidFormatError } from '../../../src/exceptions/invalid-format.error';
 
-describe('NdjsonAccessor', () => {
+describe(NdjsonAccessor.name, () => {
     const ndjson = '{"name":"Ana","age":30}\n{"name":"Bob","age":25}\n{"name":"Carlos","age":35}';
 
     it('parses NDJSON string into indexed records', () => {

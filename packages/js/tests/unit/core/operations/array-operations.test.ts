@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { SafeAccess } from '../../../src/safe-access';
-import { InvalidFormatError } from '../../../src/exceptions/invalid-format.error';
+import { SafeAccess } from '../../../../src/safe-access';
+import { InvalidFormatError } from '../../../../src/exceptions/invalid-format.error';
 
 const data = JSON.stringify({
     users: [
@@ -58,7 +58,10 @@ describe('Array Operations', () => {
 
     it('filterAt filters array elements', () => {
         const acc = SafeAccess.fromJson(data);
-        const result = acc.filterAt('users', (u: unknown) => (u as Record<string, unknown>).age === 30);
+        const result = acc.filterAt(
+            'users',
+            (u: unknown) => (u as Record<string, unknown>).age === 30,
+        );
         const users = result.get('users') as Record<string, unknown>[];
         expect(users).toHaveLength(2);
         expect(users[0]).toMatchObject({ name: 'Ana' });

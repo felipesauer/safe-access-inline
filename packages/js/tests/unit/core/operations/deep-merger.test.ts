@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { deepMerge } from '../../../src/core/deep-merger';
-import { SecurityError } from '../../../src/exceptions/security.error';
+import { deepMerge } from '../../../../src/core/operations/deep-merger';
+import { SecurityError } from '../../../../src/exceptions/security.error';
 
 describe('deepMerge', () => {
     it('merges flat objects', () => {

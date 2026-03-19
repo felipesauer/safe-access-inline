@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { SafeAccess } from '../../src/safe-access';
-import { PluginRegistry } from '../../src/core/plugin-registry';
+import { PluginRegistry } from '../../src/core/registries/plugin-registry';
 
 describe('Cross-format conversion', () => {
     it('Object → JSON → Object roundtrip', () => {

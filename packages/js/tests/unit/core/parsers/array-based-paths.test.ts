@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { SafeAccess } from '../../../src/safe-access';
-import { DotNotationParser } from '../../../src/core/dot-notation-parser';
-import { SecurityError } from '../../../src/exceptions/security.error';
+import { SafeAccess } from '../../../../src/safe-access';
+import { DotNotationParser } from '../../../../src/core/parsers/dot-notation-parser';
+import { SecurityError } from '../../../../src/exceptions/security.error';
 
 describe('Array-based Paths', () => {
     const acc = SafeAccess.fromJson('{"user":{"name":"Ana","address":{"city":"SP"}}}');

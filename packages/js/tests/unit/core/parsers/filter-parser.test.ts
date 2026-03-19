@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { FilterParser } from '../../../src/core/filter-parser';
+import { FilterParser } from '../../../../src/core/parsers/filter-parser';
 
 describe(FilterParser.name, () => {
     // ── parse() ───────────────────────────────────────
@@ -297,5 +297,21 @@ describe(FilterParser.name, () => {
         // 'missing' is not in { x: 1 } → hasOwnProperty returns false → undefined → comparison fails
         const expr = FilterParser.parse('missing==1');
         expect(FilterParser.evaluate({ x: 1 }, expr)).toBe(false);
+    });
+});
+
+describe('FilterParser configuration', () => {
+    it('configure and resetConfig', () => {
+        // Configure to a small value
+        FilterParser.configure({ maxPatternLength: 10 });
+        // This pattern is 14 chars long, which is > 10. ReDoS guard should reject.
+        let expr = FilterParser.parse("match(@.name,'a-long-pattern')");
+        expect(FilterParser.evaluate({ name: 'a-long-pattern' }, expr)).toBe(false);
+
+        // Reset the config
+        FilterParser.resetConfig();
+        // Default maxPatternLength is larger, so this should now pass
+        expr = FilterParser.parse("match(@.name,'a-long-pattern')");
+        expect(FilterParser.evaluate({ name: 'a-long-pattern' }, expr)).toBe(true);
     });
 });

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { mask } from '../../../src/core/data-masker';
-import { SafeAccess } from '../../../src/safe-access';
+import { mask } from '../../../../src/security/sanitizers/data-masker';
+import { SafeAccess } from '../../../../src/safe-access';
 
 describe('DataMasker', () => {
     describe('mask()', () => {
@@ -113,5 +113,54 @@ describe('DataMasker', () => {
             expect(masked.get('my_field')).toBe('[REDACTED]');
             expect(masked.get('other')).toBe('keep');
         });
+    });
+});
+
+// ── Data Masker — depth limit ───────────────────────────────────
+describe('DataMasker — edge cases', () => {
+    it('stops recursion at depth > 100', () => {
+        let obj: Record<string, unknown> = { password: 'secret' };
+        for (let i = 0; i < 110; i++) {
+            obj = { nested: obj };
+        }
+        const result = mask(obj);
+        let current: Record<string, unknown> = result;
+        for (let i = 0; i < 110; i++) {
+            current = current.nested as Record<string, unknown>;
+        }
+        expect(current.password).toBe('secret');
+    });
+
+    it('masks keys inside array items', () => {
+        const data = { items: [{ password: 'abc' }, { name: 'ok' }] };
+        const result = mask(data);
+        expect((result.items as Record<string, unknown>[])[0].password).toBe('[REDACTED]');
+        expect((result.items as Record<string, unknown>[])[1].name).toBe('ok');
+    });
+});
+
+// ── DataMasker — wildcard and edge cases ────────────────────────
+describe('DataMasker — wildcard edge cases', () => {
+    it('masks all keys with bare "*" wildcard pattern', () => {
+        const data = { name: 'visible', role: 'admin' };
+        const result = mask(data, ['*']);
+        expect(result.name).toBe('[REDACTED]');
+        expect(result.role).toBe('[REDACTED]');
+    });
+
+    it('handles pattern with wildcard AND regex special chars (non-* escaping)', () => {
+        const data = { price$usd: 100, other: 'keep' };
+        const result = mask(data, ['price$*']);
+        expect(result['price$usd']).toBe('[REDACTED]');
+        expect(result.other).toBe('keep');
+    });
+
+    it('skips primitive items (non-objects) inside arrays', () => {
+        const data = { items: ['string-value', 42, null, { password: 'secret' }] };
+        const result = mask(data) as { items: unknown[] };
+        expect(result.items[0]).toBe('string-value');
+        expect(result.items[1]).toBe(42);
+        expect(result.items[2]).toBeNull();
+        expect((result.items[3] as Record<string, unknown>).password).toBe('[REDACTED]');
     });
 });

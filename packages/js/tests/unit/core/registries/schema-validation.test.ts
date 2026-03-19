@@ -1,12 +1,12 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { SafeAccess } from '../../../src/safe-access';
-import { SchemaRegistry } from '../../../src/core/schema-registry';
-import { SchemaValidationError } from '../../../src/exceptions/schema-validation.error';
+import { SafeAccess } from '../../../../src/safe-access';
+import { SchemaRegistry } from '../../../../src/core/registries/schema-registry';
+import { SchemaValidationError } from '../../../../src/exceptions/schema-validation.error';
 import type {
     SchemaAdapterInterface,
     SchemaValidationResult,
     SchemaValidationIssue,
-} from '../../../src/contracts/schema-adapter.interface';
+} from '../../../../src/contracts/schema-adapter.interface';
 
 // Simple test adapter: schema is a record of field → required type string
 type SimpleSchema = Record<string, 'string' | 'number' | 'boolean'>;

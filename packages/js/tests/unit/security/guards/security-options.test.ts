@@ -5,8 +5,8 @@ import {
     assertMaxDepth,
     assertMaxStructuralDepth,
     DEFAULT_SECURITY_OPTIONS,
-} from '../../../src/core/security-options';
-import { SecurityError } from '../../../src/exceptions/security.error';
+} from '../../../../src/security/guards/security-options';
+import { SecurityError } from '../../../../src/exceptions/security.error';
 
 describe('SecurityOptions', () => {
     describe('assertPayloadSize', () => {
@@ -102,5 +102,57 @@ describe('SecurityOptions', () => {
             const data = { items: [1, 2, [3, 4]] };
             expect(() => assertMaxStructuralDepth(data, 10)).not.toThrow();
         });
+    });
+});
+
+// ── SecurityOptions — additional assertions ─────────────────────
+describe('SecurityOptions — assertions', () => {
+    it('assertPayloadSize passes for small input', () => {
+        expect(() => assertPayloadSize('small')).not.toThrow();
+    });
+
+    it('assertPayloadSize throws for oversized input', () => {
+        expect(() => assertPayloadSize('x'.repeat(100), 10)).toThrow('Payload size');
+    });
+
+    it('assertMaxKeys throws for excessive keys', () => {
+        const data: Record<string, unknown> = {};
+        for (let i = 0; i < 15; i++) data[`k${i}`] = i;
+        expect(() => assertMaxKeys(data, 5)).toThrow('exceeding maximum');
+    });
+
+    it('countKeys handles depth > 100', () => {
+        let obj: Record<string, unknown> = { leaf: 1 };
+        for (let i = 0; i < 110; i++) obj = { n: obj };
+        expect(() => assertMaxKeys(obj, 10000)).not.toThrow();
+    });
+});
+
+// ── Edge cases: large payloads ──────────────────────────────────
+describe('SecurityOptions — large payloads', () => {
+    it('rejects payload exceeding 10 MB', () => {
+        const tenMB = 10 * 1024 * 1024;
+        const payload = 'x'.repeat(tenMB + 1);
+        expect(() => assertPayloadSize(payload, tenMB)).toThrow(SecurityError);
+        expect(() => assertPayloadSize(payload, tenMB)).toThrow('Payload size');
+    });
+
+    it('allows payload at exactly 10 MB', () => {
+        const tenMB = 10 * 1024 * 1024;
+        const payload = 'x'.repeat(tenMB);
+        expect(() => assertPayloadSize(payload, tenMB)).not.toThrow();
+    });
+
+    it('assertMaxKeys handles object with thousands of keys', () => {
+        const big: Record<string, number> = {};
+        for (let i = 0; i < 5000; i++) big[`k${i}`] = i;
+        expect(() => assertMaxKeys(big, 5000)).not.toThrow();
+        expect(() => assertMaxKeys(big, 4999)).toThrow(SecurityError);
+    });
+
+    it('assertMaxStructuralDepth rejects extremely deep nesting', () => {
+        let deep: Record<string, unknown> = { leaf: true };
+        for (let i = 0; i < 50; i++) deep = { n: deep };
+        expect(() => assertMaxStructuralDepth(deep, 10)).toThrow(SecurityError);
     });
 });

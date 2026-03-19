@@ -5,8 +5,8 @@ import {
     isIpv6Loopback,
     assertSafeUrl,
     resolveAndValidateIp,
-} from '../../../src/core/ip-range-checker';
-import { SecurityError } from '../../../src/exceptions/security.error';
+} from '../../../../src/security/sanitizers/ip-range-checker';
+import { SecurityError } from '../../../../src/exceptions/security.error';
 
 vi.mock('node:dns/promises', () => ({
     resolve4: vi.fn().mockResolvedValue([]),
@@ -186,5 +186,32 @@ describe('ip-range-checker', () => {
             vi.mocked(dns.resolve6).mockResolvedValueOnce(['2001:db8::1']);
             await expect(resolveAndValidateIp('v6only.example.com')).resolves.toBeNull();
         });
+    });
+});
+
+// ── IpRangeChecker — edge branches ────────────────────────────
+describe('IpRangeChecker — edge branches', () => {
+    it('handles edge case IP ranges', () => {
+        expect(isPrivateIp('10.0.0.1')).toBe(true);
+        expect(isPrivateIp('172.16.0.1')).toBe(true);
+        expect(isPrivateIp('172.31.255.255')).toBe(true);
+        expect(isPrivateIp('172.32.0.1')).toBe(false);
+        expect(isPrivateIp('192.168.0.1')).toBe(true);
+        expect(isPrivateIp('8.8.8.8')).toBe(false);
+        expect(isPrivateIp('127.0.0.1')).toBe(true);
+        expect(isPrivateIp('169.254.0.1')).toBe(true);
+    });
+});
+
+// ── IpRangeChecker — positive allowedHosts and public IP ────────
+describe('IpRangeChecker — positive paths', () => {
+    it('allows URL when host IS in allowedHosts', () => {
+        expect(() =>
+            assertSafeUrl('https://example.com', { allowedHosts: ['example.com'] }),
+        ).not.toThrow();
+    });
+
+    it('allows public IP addresses (non-private)', () => {
+        expect(() => assertSafeUrl('https://8.8.8.8')).not.toThrow();
     });
 });

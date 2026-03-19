@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { PathCache } from '../../../src/core/path-cache';
-import { DotNotationParser } from '../../../src/core/dot-notation-parser';
+import { PathCache } from '../../../../src/core/resolvers/path-cache';
+import { DotNotationParser } from '../../../../src/core/parsers/dot-notation-parser';
 
-describe('PathCache', () => {
+describe(PathCache.name, () => {
     beforeEach(() => {
         PathCache.clear();
     });
@@ -75,6 +75,31 @@ describe('PathCache', () => {
         expect(PathCache.isEnabled).toBe(true);
         PathCache.set('y', [{ type: 'key' as const, value: 'y' }]);
         expect(PathCache.get('y')).toBeDefined();
+        PathCache.clear();
+    });
+
+    it('configure() sets a new max size and respects it', () => {
+        PathCache.configure({ maxSize: 5 });
+        for (let i = 0; i < 10; i++) {
+            PathCache.set(`key_${i}`, []);
+        }
+        expect(PathCache.size).toBe(5);
+        expect(PathCache.has('key_0')).toBe(false);
+        expect(PathCache.has('key_9')).toBe(true);
+        // Reset to default for other tests
+        PathCache.configure({});
+    });
+});
+
+// ── PathCache — cache eviction ──────────────────────────────────
+describe('PathCache — eviction', () => {
+    it('evicts oldest entry when cache is full', () => {
+        PathCache.clear();
+        for (let i = 0; i < 1001; i++) {
+            PathCache.set(`path.${i}`, [{ type: 'key' as const, value: String(i) }]);
+        }
+        expect(PathCache.has('path.0')).toBe(false);
+        expect(PathCache.has('path.1000')).toBe(true);
         PathCache.clear();
     });
 });

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { sanitizeCsvCell, sanitizeCsvRow } from '../../../src/core/csv-sanitizer';
-import { SecurityError } from '../../../src/exceptions/security.error';
+import { sanitizeCsvCell, sanitizeCsvRow } from '../../../../src/security/sanitizers/csv-sanitizer';
+import { SecurityError } from '../../../../src/exceptions/security.error';
 
 describe('CsvSanitizer', () => {
     describe('sanitizeCsvCell', () => {
@@ -69,5 +69,12 @@ describe('CsvSanitizer', () => {
             const row = ['=SUM(A1)'];
             expect(sanitizeCsvRow(row)).toEqual(['=SUM(A1)']);
         });
+    });
+});
+
+// ── CSV Sanitizer — default branch ──────────────────────────────
+describe('CsvSanitizer — edge cases', () => {
+    it('returns cell unchanged for unknown mode', () => {
+        expect(sanitizeCsvCell('=test', 'unknown' as 'prefix')).toBe('=test');
     });
 });
