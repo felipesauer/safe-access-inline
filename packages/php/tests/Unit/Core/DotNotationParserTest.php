@@ -346,4 +346,42 @@ describe(DotNotationParser::class, function () {
         expect($result)->toBe('fallback');
     });
 
+    // ── Edge cases: Unicode NFC/NFD ─────────────────
+
+    it('get — reads Unicode key in NFC form', function () {
+        $nfc = "caf\u{00E9}"; // é in NFC
+        $data = [$nfc => 42];
+        expect(DotNotationParser::get($data, $nfc))->toBe(42);
+    });
+
+    it('get — does not confuse NFC and NFD Unicode keys', function () {
+        $nfc = "caf\u{00E9}";
+        $nfd = "cafe\u{0301}";
+        $data = [$nfc => 'nfc-value', $nfd => 'nfd-value'];
+        expect(DotNotationParser::get($data, $nfc))->toBe('nfc-value');
+        expect(DotNotationParser::get($data, $nfd))->toBe('nfd-value');
+    });
+
+    it('get — handles emoji keys', function () {
+        $data = ['\u{1F680}' => ['\u{2B50}' => 'star']];
+        expect(DotNotationParser::get($data, '\u{1F680}.\u{2B50}'))->toBe('star');
+    });
+
+    it('set — creates value under Unicode key', function () {
+        $result = DotNotationParser::set([], "\u{00FC}.nested", 'value');
+        expect(DotNotationParser::get($result, "\u{00FC}.nested"))->toBe('value');
+    });
+
+    it('has — detects Unicode key', function () {
+        $data = ['über' => ['straße' => true]];
+        expect(DotNotationParser::has($data, 'über.straße'))->toBeTrue();
+    });
+
+    // ── Edge cases: circular-like deep traversal ─────
+
+    it('get — returns default for very deep non-existent path', function () {
+        $data = ['a' => ['b' => ['c' => 1]]];
+        expect(DotNotationParser::get($data, 'a.b.c.d.e.f.g', 'fallback'))->toBe('fallback');
+    });
+
 });

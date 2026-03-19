@@ -124,3 +124,27 @@ describe(FileWatcher::class, function () {
         expect($iterations)->toBe(1);
     });
 });
+
+// ── Edge cases: concurrent watchers ─────────────────────────
+
+describe(FileWatcher::class . ' — concurrent watchers', function (): void {
+    it('supports multiple watchers on the same file via checkOnce', function () {
+        $tmp = tempnam(sys_get_temp_dir(), 'fw_multi_');
+        file_put_contents($tmp, 'start');
+        clearstatcache(true, $tmp);
+        $mtime = (int) filemtime($tmp);
+
+        // Simulate a file change
+        sleep(1);
+        file_put_contents($tmp, 'updated');
+
+        // Both "watchers" detect the change independently
+        $resultA = FileWatcher::checkOnce($tmp, $mtime);
+        $resultB = FileWatcher::checkOnce($tmp, $mtime);
+
+        expect($resultA['changed'])->toBeTrue();
+        expect($resultB['changed'])->toBeTrue();
+
+        @unlink($tmp);
+    });
+});

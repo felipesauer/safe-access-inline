@@ -72,4 +72,40 @@ describe(SecurityOptions::class, function () {
             expect(fn () => SecurityOptions::assertMaxKeys($data, 200))->not->toThrow(SecurityException::class);
         });
     });
+
+    // ── Edge cases: large payloads ──────────────────────
+
+    describe('large payload edge cases', function () {
+        it('rejects payload exceeding 10 MB', function () {
+            $tenMB = 10 * 1024 * 1024;
+            $payload = str_repeat('x', $tenMB + 1);
+            expect(fn () => SecurityOptions::assertPayloadSize($payload, $tenMB))
+                ->toThrow(SecurityException::class, 'Payload size');
+        });
+
+        it('allows payload at exactly 10 MB', function () {
+            $tenMB = 10 * 1024 * 1024;
+            $payload = str_repeat('x', $tenMB);
+            expect(fn () => SecurityOptions::assertPayloadSize($payload, $tenMB))
+                ->not->toThrow(SecurityException::class);
+        });
+
+        it('assertMaxKeys handles object with thousands of keys', function () {
+            $big = [];
+            for ($i = 0; $i < 5000; $i++) {
+                $big['k' . $i] = $i;
+            }
+            expect(fn () => SecurityOptions::assertMaxKeys($big, 5000))->not->toThrow(SecurityException::class);
+            expect(fn () => SecurityOptions::assertMaxKeys($big, 4999))->toThrow(SecurityException::class);
+        });
+
+        it('assertMaxStructuralDepth rejects extremely deep nesting', function () {
+            $deep = ['leaf' => true];
+            for ($i = 0; $i < 50; $i++) {
+                $deep = ['n' => $deep];
+            }
+            expect(fn () => SecurityOptions::assertMaxStructuralDepth($deep, 10))
+                ->toThrow(SecurityException::class);
+        });
+    });
 });
