@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { Format } from '../../src/format.enum';
+import { Format } from '../../src/enums/format.enum';
 
 describe('Format enum', () => {
     it('has correct values for all members', () => {
