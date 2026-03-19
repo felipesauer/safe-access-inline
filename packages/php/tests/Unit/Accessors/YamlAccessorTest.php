@@ -2,7 +2,7 @@
 
 use SafeAccessInline\Accessors\YamlAccessor;
 use SafeAccessInline\Contracts\ParserPluginInterface;
-use SafeAccessInline\Core\PluginRegistry;
+use SafeAccessInline\Core\Registries\PluginRegistry;
 use SafeAccessInline\Exceptions\InvalidFormatException;
 use SafeAccessInline\SafeAccess;
 

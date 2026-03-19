@@ -1,6 +1,6 @@
 <?php
 
-use SafeAccessInline\Core\DeepMerger;
+use SafeAccessInline\Core\Operations\DeepMerger;
 use SafeAccessInline\Exceptions\SecurityException;
 
 describe(DeepMerger::class, function () {

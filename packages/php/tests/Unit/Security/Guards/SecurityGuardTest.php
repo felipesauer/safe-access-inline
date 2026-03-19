@@ -1,8 +1,8 @@
 <?php
 
-use SafeAccessInline\Core\DotNotationParser;
+use SafeAccessInline\Core\Parsers\DotNotationParser;
 use SafeAccessInline\Exceptions\SecurityException;
-use SafeAccessInline\Security\SecurityGuard;
+use SafeAccessInline\Security\Guards\SecurityGuard;
 
 describe(SecurityGuard::class, function () {
 

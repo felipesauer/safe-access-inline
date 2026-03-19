@@ -1,6 +1,6 @@
 <?php
 
-use SafeAccessInline\Core\JsonPatch;
+use SafeAccessInline\Core\Operations\JsonPatch;
 use SafeAccessInline\Exceptions\JsonPatchTestFailedException;
 use SafeAccessInline\Exceptions\ReadonlyViolationException;
 use SafeAccessInline\SafeAccess;

@@ -1,7 +1,7 @@
 <?php
 
 use SafeAccessInline\SafeAccess;
-use SafeAccessInline\Security\DataMasker;
+use SafeAccessInline\Security\Sanitizers\DataMasker;
 
 describe(DataMasker::class, function () {
 

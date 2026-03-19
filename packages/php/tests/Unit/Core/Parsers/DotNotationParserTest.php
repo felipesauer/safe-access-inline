@@ -1,6 +1,6 @@
 <?php
 
-use SafeAccessInline\Core\DotNotationParser;
+use SafeAccessInline\Core\Parsers\DotNotationParser;
 
 describe(DotNotationParser::class, function () {
 

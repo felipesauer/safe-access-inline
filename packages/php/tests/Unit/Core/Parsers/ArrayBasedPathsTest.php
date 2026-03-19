@@ -1,6 +1,6 @@
 <?php
 
-use SafeAccessInline\Core\DotNotationParser;
+use SafeAccessInline\Core\Parsers\DotNotationParser;
 use SafeAccessInline\SafeAccess;
 
 describe('Array-based paths', function () {

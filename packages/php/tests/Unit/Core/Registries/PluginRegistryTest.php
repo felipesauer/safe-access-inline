@@ -2,7 +2,7 @@
 
 use SafeAccessInline\Contracts\ParserPluginInterface;
 use SafeAccessInline\Contracts\SerializerPluginInterface;
-use SafeAccessInline\Core\PluginRegistry;
+use SafeAccessInline\Core\Registries\PluginRegistry;
 use SafeAccessInline\Exceptions\UnsupportedTypeException;
 
 beforeEach(function () {

@@ -1,6 +1,6 @@
 <?php
 
-use SafeAccessInline\Core\FileWatcher;
+use SafeAccessInline\Core\Io\FileWatcher;
 
 describe(FileWatcher::class, function () {
 

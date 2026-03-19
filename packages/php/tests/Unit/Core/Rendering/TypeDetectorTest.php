@@ -7,8 +7,8 @@ use SafeAccessInline\Accessors\JsonAccessor;
 use SafeAccessInline\Accessors\ObjectAccessor;
 use SafeAccessInline\Accessors\XmlAccessor;
 use SafeAccessInline\Contracts\ParserPluginInterface;
-use SafeAccessInline\Core\PluginRegistry;
-use SafeAccessInline\Core\TypeDetector;
+use SafeAccessInline\Core\Registries\PluginRegistry;
+use SafeAccessInline\Core\Rendering\TypeDetector;
 use SafeAccessInline\Exceptions\UnsupportedTypeException;
 
 describe(TypeDetector::class, function () {

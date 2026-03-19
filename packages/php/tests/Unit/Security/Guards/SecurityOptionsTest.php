@@ -1,7 +1,7 @@
 <?php
 
 use SafeAccessInline\Exceptions\SecurityException;
-use SafeAccessInline\Security\SecurityOptions;
+use SafeAccessInline\Security\Guards\SecurityOptions;
 
 describe(SecurityOptions::class, function () {
 

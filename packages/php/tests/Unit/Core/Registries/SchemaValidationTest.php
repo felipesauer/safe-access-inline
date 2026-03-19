@@ -3,7 +3,7 @@
 use SafeAccessInline\Contracts\SchemaAdapterInterface;
 use SafeAccessInline\Contracts\SchemaValidationIssue;
 use SafeAccessInline\Contracts\SchemaValidationResult;
-use SafeAccessInline\Core\SchemaRegistry;
+use SafeAccessInline\Core\Registries\SchemaRegistry;
 use SafeAccessInline\Exceptions\SchemaValidationException;
 use SafeAccessInline\SafeAccess;
 

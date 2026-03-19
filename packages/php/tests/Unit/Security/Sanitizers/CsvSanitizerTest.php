@@ -1,7 +1,7 @@
 <?php
 
 use SafeAccessInline\Exceptions\SecurityException;
-use SafeAccessInline\Security\CsvSanitizer;
+use SafeAccessInline\Security\Sanitizers\CsvSanitizer;
 
 describe(CsvSanitizer::class, function () {
 

@@ -1,6 +1,6 @@
 <?php
 
-use SafeAccessInline\Core\FilterParser;
+use SafeAccessInline\Core\Parsers\FilterParser;
 
 describe(FilterParser::class, function () {
 

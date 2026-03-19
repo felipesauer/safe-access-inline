@@ -1,7 +1,7 @@
 <?php
 
-use SafeAccessInline\Core\DotNotationParser;
-use SafeAccessInline\Core\PathCache;
+use SafeAccessInline\Core\Parsers\DotNotationParser;
+use SafeAccessInline\Core\Resolvers\PathCache;
 
 beforeEach(function () {
     PathCache::clear();

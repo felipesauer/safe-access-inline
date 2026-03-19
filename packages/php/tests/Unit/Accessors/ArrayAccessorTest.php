@@ -2,7 +2,7 @@
 
 use SafeAccessInline\Accessors\ArrayAccessor;
 use SafeAccessInline\Contracts\SerializerPluginInterface;
-use SafeAccessInline\Core\PluginRegistry;
+use SafeAccessInline\Core\Registries\PluginRegistry;
 use SafeAccessInline\Exceptions\InvalidFormatException;
 use SafeAccessInline\Exceptions\UnsupportedTypeException;
 

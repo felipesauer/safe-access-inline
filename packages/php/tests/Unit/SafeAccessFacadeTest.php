@@ -8,12 +8,12 @@ use SafeAccessInline\Accessors\JsonAccessor;
 use SafeAccessInline\Accessors\ObjectAccessor;
 use SafeAccessInline\Accessors\XmlAccessor;
 use SafeAccessInline\Contracts\HttpClientInterface;
-use SafeAccessInline\Core\IoLoader;
+use SafeAccessInline\Core\Io\IoLoader;
 use SafeAccessInline\Enums\AccessorFormat;
 use SafeAccessInline\Exceptions\InvalidFormatException;
 use SafeAccessInline\Exceptions\SecurityException;
 use SafeAccessInline\SafeAccess;
-use SafeAccessInline\Security\SecurityPolicy;
+use SafeAccessInline\Security\Guards\SecurityPolicy;
 
 describe(SafeAccess::class, function () {
 

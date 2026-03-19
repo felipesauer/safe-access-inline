@@ -1,11 +1,11 @@
 <?php
 
 use SafeAccessInline\Contracts\HttpClientInterface;
-use SafeAccessInline\Core\IoLoader;
+use SafeAccessInline\Core\Io\IoLoader;
 use SafeAccessInline\Enums\AccessorFormat;
 use SafeAccessInline\Exceptions\SecurityException;
 
-$fixturesDir = realpath(__DIR__ . '/../../fixtures');
+$fixturesDir = realpath(__DIR__ . '/../../../fixtures');
 
 describe(IoLoader::class, function () use (&$fixturesDir) {
 

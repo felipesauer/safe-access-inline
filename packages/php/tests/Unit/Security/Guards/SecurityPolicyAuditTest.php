@@ -2,10 +2,10 @@
 
 use SafeAccessInline\Exceptions\SecurityException;
 use SafeAccessInline\SafeAccess;
-use SafeAccessInline\Security\AuditLogger;
-use SafeAccessInline\Security\DataMasker;
-use SafeAccessInline\Security\SecurityGuard;
-use SafeAccessInline\Security\SecurityPolicy;
+use SafeAccessInline\Security\Audit\AuditLogger;
+use SafeAccessInline\Security\Guards\SecurityGuard;
+use SafeAccessInline\Security\Guards\SecurityPolicy;
+use SafeAccessInline\Security\Sanitizers\DataMasker;
 
 // ── SecurityPolicy ──────────────────────────────────────
 
