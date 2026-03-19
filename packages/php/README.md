@@ -46,10 +46,7 @@ $accessor->get('..name');                 // ["Ana"] — recursive descent
 
 Supports **Array · Object · JSON · XML · YAML · TOML · INI · CSV · ENV · NDJSON**.
 
-## Contributing
+## Documentation
 
-See [CONTRIBUTING.md](../../CONTRIBUTING.md) for development setup, coding standards, and commit conventions.
-
-## License
-
-[MIT](../../LICENSE) © Felipe Sauer
+> **Full API reference, configuration options, plugins, and advanced guides:**
+> [safe-access-inline PHP docs →](https://felipesauer.github.io/safe-access-inline/php/getting-started)
