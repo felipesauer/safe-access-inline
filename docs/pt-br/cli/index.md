@@ -161,6 +161,98 @@ O CLI detecta automaticamente o formato do arquivo pela extensão:
 
 `.json` · `.yaml` / `.yml` · `.toml` · `.xml` · `.ini` · `.csv` · `.env` · `.ndjson`
 
+## Piping & Stdin
+
+Use `-` como argumento de arquivo para ler do stdin. O CLI detecta automaticamente o formato do conteúdo de entrada.
+
+```bash
+# Fazer pipe de JSON de outro comando
+echo '{"user": {"name": "Ana"}}' | safe-access get - "user.name"
+
+# Encadear comandos: definir um valor e depois lê-lo
+safe-access set config.json "version" '"2.0"' | safe-access get - "version"
+
+# Converter entre formatos via pipe
+cat config.yaml | safe-access convert --from yaml --to json
+
+# Pipe a partir do curl
+curl -s https://api.example.com/config.json | safe-access get - "database.host"
+```
+
+Ao usar pipe com `convert`, use `--from` para especificar o formato de entrada explicitamente:
+
+```bash
+safe-access convert --from yaml --to toml < config.yaml
+```
+
+A saída sempre vai para o **stdout**, erros para o **stderr** — então você pode redirecionar a saída para arquivos com segurança:
+
+```bash
+safe-access transform config.yaml --to json --pretty > config.json
+safe-access mask config.json --patterns "password,secret" > config-safe.json
+```
+
+## Códigos de Saída
+
+| Código | Significado                                                                                             |
+| ------ | ------------------------------------------------------------------------------------------------------- |
+| `0`    | Sucesso                                                                                                 |
+| `1`    | Erro — uso inválido, comando desconhecido, arquivo não encontrado, ou `has` quando o caminho não existe |
+
+O comando `has` usa códigos de saída para resultados booleanos:
+
+```bash
+safe-access has config.json "database.host" && echo "existe" || echo "ausente"
+```
+
+Defina `DEBUG=1` para incluir stack traces no stderr:
+
+```bash
+DEBUG=1 safe-access get config.json "invalid..path"
+```
+
+## Uso em CI/CD
+
+### Validação de Config no CI
+
+```bash
+# Validar config contra um schema — sai com 1 em caso de falha
+safe-access validate config.json --schema schema.json
+
+# Saída JSON estruturada para processamento posterior
+safe-access validate config.json --schema schema.json --format json
+```
+
+### Verificar Chaves Obrigatórias
+
+```bash
+# Falhar o build se uma chave obrigatória estiver ausente
+safe-access has config.json "database.host" || exit 1
+safe-access has config.json "database.port" || exit 1
+```
+
+### Extrair Valores para Scripts
+
+```bash
+# Usar em variáveis do shell
+DB_HOST=$(safe-access get config.json "database.host")
+APP_VERSION=$(safe-access get package.json "version")
+```
+
+### Mascarar Segredos Antes de Logar
+
+```bash
+# Seguro para log/commit — todos os campos sensíveis ocultados
+safe-access mask config.json --patterns "password,secret,*_KEY,*_TOKEN" --to json --pretty
+```
+
+### Mesclagem de Camadas de Config
+
+```bash
+# Mesclar base → ambiente → overrides locais
+safe-access layer defaults.json production.json local.json --to json --pretty > merged.json
+```
+
 ## Exemplos
 
 ```bash

@@ -186,7 +186,7 @@ Throws `SecurityException` on SSRF attempts, private IPs, non-HTTPS, or disallow
 Auto-detects format and enforces security limits from the policy (`maxPayloadBytes`, `maxKeys`, `maxDepth`). Also applies mask patterns if present.
 
 ```php
-use SafeAccessInline\Security\SecurityPolicy;
+use SafeAccessInline\Security\Guards\SecurityPolicy;
 
 $policy = new SecurityPolicy(maskPatterns: ['password', 'secret']);
 $accessor = SafeAccess::withPolicy($jsonString, $policy);
@@ -434,7 +434,7 @@ $safe = $accessor->masked(['*_key', 'credentials.*']);
 Validates data against a schema. Uses `SchemaRegistry` default adapter if none provided. Throws `SchemaValidationException` on failure. Returns `$this` for fluent chaining.
 
 ```php
-use SafeAccessInline\Core\SchemaRegistry;
+use SafeAccessInline\Core\Registries\SchemaRegistry;
 
 SchemaRegistry::setDefaultAdapter($myAdapter);
 $accessor->validate($schema)->get('name'); // fluent chaining

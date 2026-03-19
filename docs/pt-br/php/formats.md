@@ -90,7 +90,7 @@ Para proteger contra ataques de CSV injection (células que começam com `=`, `+
 - `'error'` — lança `SecurityError` ao detectar
 
 ```php
-use SafeAccessInline\Security\SecurityPolicy;
+use SafeAccessInline\Security\Guards\SecurityPolicy;
 
 $policy = new SecurityPolicy(csvMode: 'strip');
 $accessor = SafeAccess::withPolicy($csvString, $policy);
