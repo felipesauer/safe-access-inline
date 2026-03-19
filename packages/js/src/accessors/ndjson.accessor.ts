@@ -13,6 +13,7 @@ import { InvalidFormatError } from '../exceptions/invalid-format.error';
 export class NdjsonAccessor<
     T extends Record<string, unknown> = Record<string, unknown>,
 > extends AbstractAccessor<T> {
+    /** Creates an accessor from a newline-delimited JSON string. */
     static from(data: unknown): NdjsonAccessor {
         if (typeof data !== 'string') {
             throw new InvalidFormatError('NdjsonAccessor expects an NDJSON string.');

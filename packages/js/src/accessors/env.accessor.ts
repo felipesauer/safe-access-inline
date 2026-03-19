@@ -8,6 +8,7 @@ import { InvalidFormatError } from '../exceptions/invalid-format.error';
 export class EnvAccessor<
     T extends Record<string, unknown> = Record<string, unknown>,
 > extends AbstractAccessor<T> {
+    /** Creates an accessor from a `.env`-format string. */
     static from(data: unknown): EnvAccessor {
         if (typeof data !== 'string') {
             throw new InvalidFormatError('EnvAccessor expects an ENV string.');

@@ -2,7 +2,7 @@
 
 use SafeAccessInline\SchemaAdapters\JsonSchemaAdapter;
 
-describe('JsonSchemaAdapter', function () {
+describe(JsonSchemaAdapter::class, function () {
     it('validates valid data', function () {
         $adapter = new JsonSchemaAdapter();
         $schema = [

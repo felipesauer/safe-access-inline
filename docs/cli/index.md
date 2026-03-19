@@ -161,6 +161,98 @@ The CLI auto-detects file format from the extension:
 
 `.json` · `.yaml` / `.yml` · `.toml` · `.xml` · `.ini` · `.csv` · `.env` · `.ndjson`
 
+## Piping & Stdin
+
+Use `-` as the file argument to read from stdin. The CLI auto-detects the format from the input content.
+
+```bash
+# Pipe JSON from another command
+echo '{"user": {"name": "Ana"}}' | safe-access get - "user.name"
+
+# Chain commands: set a value, then read it back
+safe-access set config.json "version" '"2.0"' | safe-access get - "version"
+
+# Convert between formats via pipe
+cat config.yaml | safe-access convert --from yaml --to json
+
+# Pipe from curl
+curl -s https://api.example.com/config.json | safe-access get - "database.host"
+```
+
+When piping with `convert`, use `--from` to specify the input format explicitly:
+
+```bash
+safe-access convert --from yaml --to toml < config.yaml
+```
+
+Output always goes to **stdout**, errors to **stderr** — so you can safely redirect output to files:
+
+```bash
+safe-access transform config.yaml --to json --pretty > config.json
+safe-access mask config.json --patterns "password,secret" > config-safe.json
+```
+
+## Exit Codes
+
+| Code | Meaning                                                                                   |
+| ---- | ----------------------------------------------------------------------------------------- |
+| `0`  | Success                                                                                   |
+| `1`  | Error — invalid usage, unknown command, file not found, or `has` when path does not exist |
+
+The `has` command uses exit codes for boolean results:
+
+```bash
+safe-access has config.json "database.host" && echo "exists" || echo "missing"
+```
+
+Set `DEBUG=1` to include stack traces on stderr:
+
+```bash
+DEBUG=1 safe-access get config.json "invalid..path"
+```
+
+## CI/CD Usage
+
+### Config Validation in CI
+
+```bash
+# Validate config against a schema — exits 1 on failure
+safe-access validate config.json --schema schema.json
+
+# Structured JSON output for further processing
+safe-access validate config.json --schema schema.json --format json
+```
+
+### Check Required Keys
+
+```bash
+# Fail the build if a required key is missing
+safe-access has config.json "database.host" || exit 1
+safe-access has config.json "database.port" || exit 1
+```
+
+### Extract Values for Scripts
+
+```bash
+# Use in shell variables
+DB_HOST=$(safe-access get config.json "database.host")
+APP_VERSION=$(safe-access get package.json "version")
+```
+
+### Mask Secrets Before Logging
+
+```bash
+# Safe to log/commit — all sensitive fields redacted
+safe-access mask config.json --patterns "password,secret,*_KEY,*_TOKEN" --to json --pretty
+```
+
+### Config Layer Merging
+
+```bash
+# Merge base → environment → local overrides
+safe-access layer defaults.json production.json local.json --to json --pretty > merged.json
+```
+
 ## Examples
 
 ```bash

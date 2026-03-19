@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SafeAccessInline\Accessors;
 
 use SafeAccessInline\Core\AbstractAccessor;
@@ -11,6 +13,15 @@ use SafeAccessInline\Exceptions\InvalidFormatException;
  */
 class ArrayAccessor extends AbstractAccessor
 {
+    /**
+     * Creates an ArrayAccessor from a native PHP array.
+     *
+     * @param  mixed $data     PHP array to wrap.
+     * @param  bool  $readonly Whether the accessor should be immutable.
+     * @return static
+     *
+     * @throws InvalidFormatException If $data is not an array.
+     */
     public static function from(mixed $data, bool $readonly = false): static
     {
         if (!is_array($data)) {

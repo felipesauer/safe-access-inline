@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SafeAccessInline\SchemaAdapters;
 
 use SafeAccessInline\Contracts\SchemaAdapterInterface;
@@ -24,6 +26,11 @@ final class SymfonyValidatorAdapter implements SchemaAdapterInterface
 {
     private readonly object $validator;
 
+    /**
+     * @param object|null $validator Custom ValidatorInterface instance, or null to auto-create one.
+     *
+     * @throws \RuntimeException If symfony/validator is not installed and no validator is provided.
+     */
     public function __construct(?object $validator = null)
     {
         if ($validator !== null) {
@@ -37,23 +44,29 @@ final class SymfonyValidatorAdapter implements SchemaAdapterInterface
         }
     }
 
+    /**
+     * Validates data against Symfony Validator constraints.
+     *
+     * @param  mixed                    $data   The data to validate.
+     * @param  mixed                    $schema Symfony Constraint or Constraint[] to validate against.
+     * @return SchemaValidationResult   Result containing validity flag and any constraint violations.
+     */
     public function validate(mixed $data, mixed $schema): SchemaValidationResult
     {
-        /** @var \Symfony\Component\Validator\Validator\ValidatorInterface $validator */
-        $validator = $this->validator;
-        $violations = $validator->validate($data, $schema);
+        // @phpstan-ignore-next-line class.notFound
+        $violations = $this->validator->validate($data, $schema);
 
         if (count($violations) === 0) {
             return new SchemaValidationResult(valid: true);
         }
 
         $errors = [];
-        /** @var \Symfony\Component\Validator\ConstraintViolationInterface $violation */
         foreach ($violations as $violation) {
             $path = $violation->getPropertyPath();
+            $message = $violation->getMessage();
             $errors[] = new SchemaValidationIssue(
                 path: $path !== '' ? '$.' . $this->normalizePath($path) : '$',
-                message: (string) $violation->getMessage(),
+                message: (string) $message,
             );
         }
 

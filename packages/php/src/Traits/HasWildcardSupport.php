@@ -1,6 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SafeAccessInline\Traits;
+
+use SafeAccessInline\Core\AbstractAccessor;
 
 /**
  * Wildcard (*) support for dot notation paths.

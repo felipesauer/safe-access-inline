@@ -145,3 +145,41 @@ describe(XmlAccessor.name, () => {
         expect(() => XmlAccessor.from(protoXml)).toThrow(SecurityError);
     });
 });
+
+// ── XmlAccessor — clone and getOriginalXml ──────────────────────
+describe('XmlAccessor — clone and getOriginalXml', () => {
+    it('clone creates new instance with modified data', () => {
+        const xml = '<root><name>Ana</name></root>';
+        const acc = XmlAccessor.from(xml);
+        const modified = acc.set('name', 'Bob');
+        expect(modified.get('name')).toBe('Bob');
+        expect(acc.get('name')).toBe('Ana');
+    });
+
+    it('getOriginalXml returns the original XML string', () => {
+        const xml = '<root><name>Ana</name></root>';
+        const acc = XmlAccessor.from(xml) as XmlAccessor;
+        expect(acc.getOriginalXml()).toBe(xml);
+    });
+
+    it('getOriginalXml persists after set operations', () => {
+        const xml = '<root><val>1</val></root>';
+        const acc = XmlAccessor.from(xml) as XmlAccessor;
+        const modified = acc.set('val', '2') as XmlAccessor;
+        expect(modified.getOriginalXml()).toBe(xml);
+    });
+});
+
+// ── XmlAccessor — non-SecurityError parse failure ───────────────
+describe('XmlAccessor — parse errors', () => {
+    it('wraps non-SecurityError parse failure as InvalidFormatError', () => {
+        expect(() => new XmlAccessor('just plain text without tags')).toThrow(
+            'XmlAccessor failed to parse XML string.',
+        );
+    });
+
+    it('rejects XML with ENTITY declaration', () => {
+        const xmlWithEntity = '<!ENTITY foo "bar"><root><a>1</a></root>';
+        expect(() => new XmlAccessor(xmlWithEntity)).toThrow('XML ENTITY declarations are blocked');
+    });
+});

@@ -1,3 +1,4 @@
+/** Base error for all safe-access-inline accessor operations. */
 export class AccessorError extends Error {
     constructor(message: string) {
         super(message);

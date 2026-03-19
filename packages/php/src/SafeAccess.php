@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SafeAccessInline;
 
 use SafeAccessInline\Accessors\ArrayAccessor;
@@ -12,19 +14,22 @@ use SafeAccessInline\Accessors\ObjectAccessor;
 use SafeAccessInline\Accessors\TomlAccessor;
 use SafeAccessInline\Accessors\XmlAccessor;
 use SafeAccessInline\Accessors\YamlAccessor;
+use SafeAccessInline\Contracts\FileLoadOptions;
 use SafeAccessInline\Core\AbstractAccessor;
-use SafeAccessInline\Core\DeepMerger;
-use SafeAccessInline\Core\FileWatcher;
-use SafeAccessInline\Core\IoLoader;
-use SafeAccessInline\Core\PathCache;
-use SafeAccessInline\Core\PluginRegistry;
-use SafeAccessInline\Core\SchemaRegistry;
-use SafeAccessInline\Core\TypeDetector;
+use SafeAccessInline\Core\Config\SafeAccessConfig;
+use SafeAccessInline\Core\Io\FileWatcher;
+use SafeAccessInline\Core\Io\IoLoader;
+use SafeAccessInline\Core\Operations\DeepMerger;
+use SafeAccessInline\Core\Registries\PluginRegistry;
+use SafeAccessInline\Core\Registries\SchemaRegistry;
+use SafeAccessInline\Core\Rendering\TypeDetector;
+use SafeAccessInline\Core\Resolvers\PathCache;
 use SafeAccessInline\Enums\AccessorFormat;
 use SafeAccessInline\Exceptions\InvalidFormatException;
-use SafeAccessInline\Security\AuditLogger;
-use SafeAccessInline\Security\SecurityOptions;
-use SafeAccessInline\Security\SecurityPolicy;
+use SafeAccessInline\Exceptions\SecurityException;
+use SafeAccessInline\Security\Audit\AuditLogger;
+use SafeAccessInline\Security\Guards\SecurityOptions;
+use SafeAccessInline\Security\Guards\SecurityPolicy;
 
 /**
  * Main entry point for the safe-access-inline library.
@@ -82,53 +87,69 @@ final class SafeAccess
 
     // ── Typed Factories ──────────────────────────────
 
-    /** @param array<mixed> $data */
+    /**
+     * Creates an {@see ArrayAccessor} from an array.
+     *
+     * @param array<mixed> $data
+     */
     public static function fromArray(array $data, bool $readonly = false): ArrayAccessor
     {
         return ArrayAccessor::from($data, $readonly);
     }
 
+    /** Creates an {@see ObjectAccessor} from a plain object. */
     public static function fromObject(object $data, bool $readonly = false): ObjectAccessor
     {
         return ObjectAccessor::from($data, $readonly);
     }
 
+    /** Creates a {@see JsonAccessor} from a JSON string. */
     public static function fromJson(string $data, bool $readonly = false): JsonAccessor
     {
         return JsonAccessor::from($data, $readonly);
     }
 
-    /** @param string|\SimpleXMLElement $data */
+    /**
+     * Creates an {@see XmlAccessor} from an XML string or SimpleXMLElement.
+     *
+     * @param string|\SimpleXMLElement $data
+     */
     public static function fromXml(string|\SimpleXMLElement $data, bool $readonly = false): XmlAccessor
     {
         return XmlAccessor::from($data, $readonly);
     }
 
+    /** Creates a {@see YamlAccessor} from a YAML string. */
     public static function fromYaml(string $data, bool $readonly = false): YamlAccessor
     {
         return YamlAccessor::from($data, $readonly);
     }
 
+    /** Creates a {@see TomlAccessor} from a TOML string. */
     public static function fromToml(string $data, bool $readonly = false): TomlAccessor
     {
         return TomlAccessor::from($data, $readonly);
     }
 
+    /** Creates an {@see IniAccessor} from an INI-format string. */
     public static function fromIni(string $data, bool $readonly = false): IniAccessor
     {
         return IniAccessor::from($data, $readonly);
     }
 
+    /** Creates a {@see CsvAccessor} from a CSV string. */
     public static function fromCsv(string $data, bool $readonly = false): CsvAccessor
     {
         return CsvAccessor::from($data, $readonly);
     }
 
+    /** Creates an {@see EnvAccessor} from a .env-format string. */
     public static function fromEnv(string $data, bool $readonly = false): EnvAccessor
     {
         return EnvAccessor::from($data, $readonly);
     }
 
+    /** Creates an {@see NdjsonAccessor} from a newline-delimited JSON string. */
     public static function fromNdjson(string $data, bool $readonly = false): NdjsonAccessor
     {
         return NdjsonAccessor::from($data, $readonly);
@@ -146,7 +167,7 @@ final class SafeAccess
 
     // ── Extensibility ───────────────────────────────────
 
-    private const MAX_CUSTOM_ACCESSORS = 50;
+    private const MAX_CUSTOM_ACCESSORS = SafeAccessConfig::DEFAULT_MAX_CUSTOM_ACCESSORS;
 
     /**
      * Registers a custom Accessor for non-native formats.
@@ -178,14 +199,29 @@ final class SafeAccess
     // ── File/URL I/O ────────────────────────────────────
 
     /**
-     * @param string[] $allowedDirs
+     * Loads data from a file and returns an accessor.
+     *
+     * Accepts either individual parameters (legacy) or a FileLoadOptions DTO.
+     *
+     * @param string                     $filePath     Path to the file.
+     * @param FileLoadOptions|string|null $formatOrOptions Format string, FileLoadOptions DTO, or null for auto-detect.
+     * @param array<string>              $allowedDirs  Directories the file must reside within (ignored when using DTO).
+     * @param bool                       $allowAnyPath When true, allows any filesystem path (ignored when using DTO).
      */
     public static function fromFile(
         string $filePath,
-        ?string $format = null,
+        FileLoadOptions|string|null $formatOrOptions = null,
         array $allowedDirs = [],
         bool $allowAnyPath = false,
     ): AbstractAccessor {
+        if ($formatOrOptions instanceof FileLoadOptions) {
+            $format = $formatOrOptions->format;
+            $allowedDirs = $formatOrOptions->allowedDirs;
+            $allowAnyPath = $formatOrOptions->allowAnyPath;
+        } else {
+            $format = $formatOrOptions;
+        }
+
         $content = IoLoader::readFile($filePath, $allowedDirs, $allowAnyPath);
         $resolvedFormat = $format ?? IoLoader::resolveFormatFromExtension($filePath)?->value;
         if ($resolvedFormat === null) {
@@ -194,11 +230,25 @@ final class SafeAccess
         return self::from($content, $resolvedFormat);
     }
 
+    /**
+     * Loads remote content from a URL and returns the appropriate accessor.
+     *
+     * Format is resolved from the URL path extension when not specified.
+     *
+     * @param  string                    $url     Remote URL to fetch content from.
+     * @param  string|null               $format  Explicit format identifier, or null for auto-detection.
+     * @param  array<string, mixed>      $options cURL options forwarded to the HTTP client.
+     * @return AbstractAccessor Accessor wrapping the fetched content.
+     *
+     * @throws SecurityException         If the URL violates the active security policy.
+     * @throws InvalidFormatException    If the content cannot be parsed.
+     */
     public static function fromUrl(
         string $url,
         ?string $format = null,
         array $options = [],
     ): AbstractAccessor {
+        /** @var array{allowPrivateIps?: bool, allowedHosts?: array<string>, allowedPorts?: array<int>} $options */
         $content = IoLoader::fetchUrl($url, $options);
         if ($format !== null) {
             return self::from($content, $format);
@@ -216,7 +266,12 @@ final class SafeAccess
     // ── Layered Config ──────────────────────────────────
 
     /**
-     * @param AbstractAccessor[] $sources
+     * Merges multiple accessors into a single accessor using deep-merge.
+     *
+     * Later sources override earlier ones for conflicting keys.
+     *
+     * @param  AbstractAccessor[] $sources Ordered list of accessors to merge.
+     * @return AbstractAccessor   A new ObjectAccessor containing the merged result.
      */
     public static function layer(array $sources): AbstractAccessor
     {
@@ -229,13 +284,22 @@ final class SafeAccess
     }
 
     /**
-     * @param string[] $paths
-     * @param string[] $allowedDirs
+     * Layers multiple files into a single merged accessor.
+     *
+     * @param array<string>              $paths        File paths to layer.
+     * @param FileLoadOptions|array<string> $optionsOrAllowedDirs FileLoadOptions DTO or legacy allowedDirs array.
+     * @param bool                       $allowAnyPath Legacy parameter (ignored when using DTO).
      */
-    public static function layerFiles(array $paths, array $allowedDirs = [], bool $allowAnyPath = false): AbstractAccessor
+    public static function layerFiles(array $paths, FileLoadOptions|array $optionsOrAllowedDirs = [], bool $allowAnyPath = false): AbstractAccessor
     {
+        if ($optionsOrAllowedDirs instanceof FileLoadOptions) {
+            $options = $optionsOrAllowedDirs;
+        } else {
+            $options = new FileLoadOptions(allowedDirs: $optionsOrAllowedDirs, allowAnyPath: $allowAnyPath);
+        }
+
         $accessors = array_map(
-            fn (string $p) => self::fromFile($p, allowedDirs: $allowedDirs, allowAnyPath: $allowAnyPath),
+            fn (string $p) => self::fromFile($p, $options),
             $paths,
         );
         return self::layer($accessors);
@@ -245,25 +309,45 @@ final class SafeAccess
      * Watches a file for changes and calls the callback with a fresh accessor.
      * Returns an array with 'poll' (blocking loop) and 'stop' callables.
      *
-     * @param callable(AbstractAccessor): void $onChange
-     * @param string[] $allowedDirs
+     * @param string                          $filePath     Path to the file.
+     * @param callable(AbstractAccessor): void $onChange     Callback invoked on file changes.
+     * @param FileLoadOptions|string|null      $formatOrOptions Format string, FileLoadOptions DTO, or null for auto-detect.
+     * @param array<string>                   $allowedDirs  Legacy parameter (ignored when using DTO).
+     * @param bool                            $allowAnyPath Legacy parameter (ignored when using DTO).
      * @return array{poll: callable(): void, stop: callable(): void}
      */
     public static function watchFile(
         string $filePath,
         callable $onChange,
-        ?string $format = null,
+        FileLoadOptions|string|null $formatOrOptions = null,
         array $allowedDirs = [],
         bool $allowAnyPath = false,
     ): array {
-        return FileWatcher::watch($filePath, function () use ($filePath, $format, $allowedDirs, $allowAnyPath, $onChange): void {
-            $accessor = self::fromFile($filePath, $format, $allowedDirs, $allowAnyPath);
+        if ($formatOrOptions instanceof FileLoadOptions) {
+            $options = $formatOrOptions;
+        } else {
+            $options = new FileLoadOptions(format: $formatOrOptions, allowedDirs: $allowedDirs, allowAnyPath: $allowAnyPath);
+        }
+
+        return FileWatcher::watch($filePath, function () use ($filePath, $options, $onChange): void {
+            $accessor = self::fromFile($filePath, $options);
             $onChange($accessor);
         });
     }
 
     // ── SecurityPolicy ──────────────────────────────────
 
+    /**
+     * Wraps data in an accessor after enforcing the given security policy.
+     *
+     * Validates payload size, key count, depth, and applies mask patterns.
+     *
+     * @param  mixed          $data   Raw data (string, array, object, etc.).
+     * @param  SecurityPolicy $policy Policy constraints to enforce.
+     * @return AbstractAccessor Accessor wrapping the validated data.
+     *
+     * @throws SecurityException If any policy constraint is violated.
+     */
     public static function withPolicy(mixed $data, SecurityPolicy $policy): AbstractAccessor
     {
         if (is_string($data) && $policy->maxPayloadBytes > 0) {
@@ -287,6 +371,18 @@ final class SafeAccess
         return $accessor;
     }
 
+    /**
+     * Reads a local file and wraps it in an accessor after enforcing a security policy.
+     *
+     * Combines file I/O with payload-size, key-count, depth, and mask enforcement.
+     *
+     * @param  string         $filePath Absolute or relative path to the file.
+     * @param  SecurityPolicy $policy   Policy constraints to enforce.
+     * @return AbstractAccessor Accessor wrapping the validated file content.
+     *
+     * @throws SecurityException      If any policy constraint is violated.
+     * @throws InvalidFormatException If the file content cannot be parsed.
+     */
     public static function fromFileWithPolicy(string $filePath, SecurityPolicy $policy): AbstractAccessor
     {
         $content = IoLoader::readFile($filePath, $policy->allowedDirs);
@@ -313,6 +409,18 @@ final class SafeAccess
         return $accessor;
     }
 
+    /**
+     * Fetches remote content from a URL and wraps it in an accessor after enforcing a security policy.
+     *
+     * Combines URL fetching with payload-size, key-count, and mask enforcement.
+     *
+     * @param  string         $url    Remote URL to fetch.
+     * @param  SecurityPolicy $policy Policy constraints to enforce.
+     * @return AbstractAccessor Accessor wrapping the validated remote content.
+     *
+     * @throws SecurityException      If any policy constraint is violated.
+     * @throws InvalidFormatException If the content cannot be parsed.
+     */
     public static function fromUrlWithPolicy(string $url, SecurityPolicy $policy): AbstractAccessor
     {
         $content = IoLoader::fetchUrl($url, $policy->url ?? []);
@@ -340,11 +448,19 @@ final class SafeAccess
         return $accessor;
     }
 
+    /**
+     * Sets a global security policy applied to every subsequent accessor creation.
+     *
+     * @param SecurityPolicy $policy The policy to install globally.
+     */
     public static function setGlobalPolicy(SecurityPolicy $policy): void
     {
         SecurityPolicy::setGlobal($policy);
     }
 
+    /**
+     * Removes the global security policy so that accessor creation is unrestricted.
+     */
     public static function clearGlobalPolicy(): void
     {
         SecurityPolicy::clearGlobal();
@@ -353,14 +469,21 @@ final class SafeAccess
     // ── Audit ───────────────────────────────────────────
 
     /**
-     * @param callable(array{type: string, timestamp: float, detail: array<string, mixed>}): void $listener
-     * @return callable(): void
+     * Registers an audit listener invoked on every auditable accessor operation.
+     *
+     * Returns an unsubscribe callable that removes the listener when invoked.
+     *
+     * @param  callable(array{type: string, timestamp: float, detail: array<string, mixed>}): void $listener Callback receiving audit events.
+     * @return callable(): void Unsubscribe callable.
      */
     public static function onAudit(callable $listener): callable
     {
         return AuditLogger::onAudit($listener);
     }
 
+    /**
+     * Removes all registered audit listeners.
+     */
     public static function clearAuditListeners(): void
     {
         AuditLogger::clearListeners();

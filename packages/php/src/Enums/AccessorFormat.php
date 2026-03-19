@@ -1,7 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SafeAccessInline\Enums;
 
+/** Supported data-source formats for the SafeAccess façade. */
 enum AccessorFormat: string
 {
     case Array = 'array';

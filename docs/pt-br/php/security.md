@@ -25,7 +25,7 @@ outline: deep
 Combine todas as configurações de segurança em uma única política:
 
 ```php
-use SafeAccessInline\Security\SecurityPolicy;
+use SafeAccessInline\Security\Guards\SecurityPolicy;
 
 $policy = new SecurityPolicy(
     maxDepth: 128,
@@ -99,7 +99,7 @@ $readonly->set('key', 'new');    // lança ReadonlyViolationException
 ## Validação de Schema
 
 ```php
-use SafeAccessInline\Core\SchemaRegistry;
+use SafeAccessInline\Core\Registries\SchemaRegistry;
 
 // Registrar um adaptador padrão (implemente SchemaAdapterInterface)
 SchemaRegistry::setDefaultAdapter($myAdapter);

@@ -2,6 +2,9 @@
     "private": true,
     "name": "safe-access-inline-monorepo",
     "type": "module",
+    "workspaces": [
+        "packages/*"
+    ],
     "description": "Monorepo tooling for safe-access-inline",
     "scripts": {
         "prepare": "husky",
@@ -19,14 +22,17 @@
     "devDependencies": {
         "@commitlint/cli": "^20.4",
         "@commitlint/config-conventional": "^20.4",
+        "@eslint/js": "^10.0.1",
+        "eslint": "^10.0.3",
         "husky": "^9.0",
         "lint-staged": "^16.3",
         "mermaid": "^11.13.0",
         "prettier": "^3.0",
+        "typescript-eslint": "^8.57.1",
         "vitepress": "^1.6.4",
         "vitepress-plugin-mermaid": "^2.0.17"
     },
     "engines": {
-        "node": ">=22"
+        "node": ">=24"
     }
 }

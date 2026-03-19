@@ -1,7 +1,7 @@
 import type yaml from 'js-yaml';
-import { optionalRequire } from '../core/optional-require';
+import { optionalRequire } from '../core/io/optional-require';
 import { AbstractAccessor } from '../core/abstract-accessor';
-import { PluginRegistry } from '../core/plugin-registry';
+import { PluginRegistry } from '../core/registries/plugin-registry';
 import { InvalidFormatError } from '../exceptions/invalid-format.error';
 
 const getYaml = optionalRequire<typeof yaml>('js-yaml', 'YAML');
@@ -13,6 +13,7 @@ const getYaml = optionalRequire<typeof yaml>('js-yaml', 'YAML');
 export class YamlAccessor<
     T extends Record<string, unknown> = Record<string, unknown>,
 > extends AbstractAccessor<T> {
+    /** Creates an accessor from a YAML string. */
     static from(data: unknown): YamlAccessor {
         if (typeof data !== 'string') {
             throw new InvalidFormatError('YamlAccessor expects a YAML string.');

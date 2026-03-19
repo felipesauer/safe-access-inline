@@ -1,6 +1,6 @@
 import { AbstractAccessor } from '../core/abstract-accessor';
 import { InvalidFormatError } from '../exceptions/invalid-format.error';
-import { emitAudit } from '../core/audit-emitter';
+import { emitAudit } from '../security/audit/audit-emitter';
 
 /**
  * Accessor for CSV strings.
@@ -10,6 +10,7 @@ import { emitAudit } from '../core/audit-emitter';
 export class CsvAccessor<
     T extends Record<string, unknown> = Record<string, unknown>,
 > extends AbstractAccessor<T> {
+    /** Creates an accessor from a CSV string. */
     static from(data: unknown): CsvAccessor {
         if (typeof data !== 'string') {
             throw new InvalidFormatError('CsvAccessor expects a CSV string.');

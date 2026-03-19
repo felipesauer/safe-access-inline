@@ -122,12 +122,12 @@ Remove todos os listeners de auditoria registrados.
 
 ### SecurityPolicy
 
-**Namespace:** `SafeAccessInline\Security\SecurityPolicy`
+**Namespace:** `SafeAccessInline\Security\Guards\SecurityPolicy`
 
 Agrega todas as configurações de segurança em um único objeto de política imutável.
 
 ```php
-use SafeAccessInline\Security\SecurityPolicy;
+use SafeAccessInline\Security\Guards\SecurityPolicy;
 
 $policy = new SecurityPolicy(
     maxDepth: 512,
@@ -154,7 +154,7 @@ $strict = $policy->merge(['maxDepth' => 64, 'maxKeys' => 1000]);
 
 ### SecurityOptions
 
-**Namespace:** `SafeAccessInline\Security\SecurityOptions`
+**Namespace:** `SafeAccessInline\Security\Guards\SecurityOptions`
 
 Métodos de asserção estáticos para segurança de payload.
 
@@ -178,7 +178,7 @@ Lança `SecurityException` se o aninhamento exceder a profundidade máxima.
 
 ### SecurityGuard
 
-**Namespace:** `SafeAccessInline\Security\SecurityGuard`
+**Namespace:** `SafeAccessInline\Security\Guards\SecurityGuard`
 
 #### `SecurityGuard::assertSafeKey(string $key): void`
 
@@ -190,7 +190,7 @@ Remove recursivamente chaves proibidas dos dados.
 
 ### CsvSanitizer
 
-**Namespace:** `SafeAccessInline\Security\CsvSanitizer`
+**Namespace:** `SafeAccessInline\Security\Sanitizers\CsvSanitizer`
 
 Protege contra ataques de CSV injection (`=`, `+`, `-`, `@`, `\t`, `\r`, `\n`).
 
@@ -209,7 +209,7 @@ Aplica `sanitizeCell` a cada célula de uma linha.
 
 ### DataMasker
 
-**Namespace:** `SafeAccessInline\Security\DataMasker`
+**Namespace:** `SafeAccessInline\Security\Sanitizers\DataMasker`
 
 #### `DataMasker::mask(array $data, array $patterns = []): array`
 
@@ -223,7 +223,7 @@ Padrões glob customizados estendem (não substituem) a lista embutida.
 
 ### SchemaRegistry
 
-**Namespace:** `SafeAccessInline\Core\SchemaRegistry`
+**Namespace:** `SafeAccessInline\Core\Registries\SchemaRegistry`
 
 #### `SchemaRegistry::setDefaultAdapter(SchemaAdapterInterface $adapter): void`
 

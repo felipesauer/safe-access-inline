@@ -11,7 +11,7 @@ YAML and TOML work out of the box (`ext-yaml` or `symfony/yaml` for YAML, `deviu
 ## Overriding Defaults
 
 ```php
-use SafeAccessInline\Core\PluginRegistry;
+use SafeAccessInline\Core\Registries\PluginRegistry;
 use SafeAccessInline\Plugins\SymfonyYamlParser;
 use SafeAccessInline\Plugins\SymfonyYamlSerializer;
 use SafeAccessInline\Plugins\DeviumTomlParser;
@@ -170,7 +170,7 @@ PluginRegistry::registerParser('parameters', new ParameterBagParser($container->
 In test suites, call `reset()` to clear all registered plugins between tests:
 
 ```php
-use SafeAccessInline\Core\PluginRegistry;
+use SafeAccessInline\Core\Registries\PluginRegistry;
 
 afterEach(function () {
     PluginRegistry::reset();

@@ -1,7 +1,7 @@
 import type { parse as tomlParse } from 'smol-toml';
-import { optionalRequire } from '../core/optional-require';
+import { optionalRequire } from '../core/io/optional-require';
 import { AbstractAccessor } from '../core/abstract-accessor';
-import { PluginRegistry } from '../core/plugin-registry';
+import { PluginRegistry } from '../core/registries/plugin-registry';
 import { InvalidFormatError } from '../exceptions/invalid-format.error';
 
 const getSmolToml = optionalRequire<{ parse: typeof tomlParse }>('smol-toml', 'TOML');
@@ -13,6 +13,7 @@ const getSmolToml = optionalRequire<{ parse: typeof tomlParse }>('smol-toml', 'T
 export class TomlAccessor<
     T extends Record<string, unknown> = Record<string, unknown>,
 > extends AbstractAccessor<T> {
+    /** Creates an accessor from a TOML string. */
     static from(data: unknown): TomlAccessor {
         if (typeof data !== 'string') {
             throw new InvalidFormatError('TomlAccessor expects a TOML string.');

@@ -54,12 +54,12 @@ This project is governed by the [Contributor Covenant Code of Conduct](CODE_OF_C
 | -------- | ------- | ------------------------- |
 | PHP      | >= 8.2  | PHP package development   |
 | Composer | >= 2.x  | PHP dependency management |
-| Node.js  | >= 22   | JS/TS package development |
+| Node.js  | >= 24   | JS/TS package development |
 | npm      | >= 9.x  | JS dependency management  |
 
 You only need the tools for the package you're working on. PHP contributors don't need Node.js and vice versa.
 
-> **Node version note:** The repository's `.nvmrc` specifies Node 22 for local development. The package supports Node 22+ (tested in CI against 22 and 24). Run `nvm use` to switch to the recommended development version.
+> **Node version note:** The repository's `.nvmrc` specifies Node 24 for local development. The package supports Node 24+ (tested in CI against 24). Run `nvm use` to switch to the recommended development version.
 
 ## Development Setup
 
@@ -353,7 +353,7 @@ This project uses [Husky](https://typicode.github.io/husky/) to enforce quality 
 git commit -m "feat(js): add MessagePack accessor"
 git commit -m "fix(php): handle empty XML string in XmlAccessor"
 git commit -m "docs: update getting started guide"
-git commit -m "chore(ci): upgrade Node matrix to v22"
+git commit -m "chore(ci): upgrade Node matrix to v24"
 git commit -m "test(php): add edge cases for DotNotationParser"
 
 # ⚠️ Accepted with warning

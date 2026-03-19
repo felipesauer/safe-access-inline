@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SafeAccessInline\Accessors;
 
 use SafeAccessInline\Core\AbstractAccessor;
@@ -15,6 +17,15 @@ class XmlAccessor extends AbstractAccessor
 {
     private \SimpleXMLElement|string $originalXml;
 
+    /**
+     * Creates an XmlAccessor from an XML string or SimpleXMLElement.
+     *
+     * @param  mixed $data     XML string or SimpleXMLElement instance.
+     * @param  bool  $readonly Whether the accessor should be immutable.
+     * @return static
+     *
+     * @throws InvalidFormatException If $data is neither a string nor SimpleXMLElement.
+     */
     public static function from(mixed $data, bool $readonly = false): static
     {
         if (!is_string($data) && !$data instanceof \SimpleXMLElement) {

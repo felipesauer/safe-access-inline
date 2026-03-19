@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SafeAccessInline\Accessors;
 
 use SafeAccessInline\Core\AbstractAccessor;
@@ -11,6 +13,15 @@ use SafeAccessInline\Exceptions\InvalidFormatException;
  */
 class JsonAccessor extends AbstractAccessor
 {
+    /**
+     * Creates a JsonAccessor from a JSON-encoded string.
+     *
+     * @param  mixed $data     JSON string to parse.
+     * @param  bool  $readonly Whether the accessor should be immutable.
+     * @return static
+     *
+     * @throws InvalidFormatException If $data is not a string.
+     */
     public static function from(mixed $data, bool $readonly = false): static
     {
         if (!is_string($data)) {

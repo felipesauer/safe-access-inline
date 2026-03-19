@@ -1,0 +1,20 @@
+name: Setup Node with cache
+description: Sets up Node.js with npm cache for consistent CI configuration.
+
+inputs:
+    node-version:
+        description: Node.js version to install
+        required: true
+    working-directory:
+        description: Package directory for cache-dependency-path resolution
+        required: true
+
+runs:
+    using: composite
+    steps:
+        - name: Setup Node.js
+          uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
+          with:
+              node-version: ${{ inputs.node-version }}
+              cache: "npm"
+              cache-dependency-path: ${{ inputs.working-directory }}/package.json

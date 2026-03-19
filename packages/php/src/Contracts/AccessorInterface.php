@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SafeAccessInline\Contracts;
 
 interface AccessorInterface extends ReadableInterface, TransformableInterface

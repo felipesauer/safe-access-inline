@@ -1,7 +1,14 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SafeAccessInline\Contracts;
 
+/**
+ * Contract for immutable write operations.
+ *
+ * All mutations return a new accessor instance — the original is never modified.
+ */
 interface WritableInterface
 {
     /**

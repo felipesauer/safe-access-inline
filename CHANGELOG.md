@@ -55,7 +55,7 @@ Per-package changelogs are maintained automatically by [release-please](https://
 
 - **PHP Package** — 9 built-in accessors (Array, Object, JSON, XML, YAML, TOML, INI, CSV, ENV), `SafeAccess` facade, `DotNotationParser`, `TypeDetector`, immutable `set()`/`remove()`, cross-format transformations, full interface contracts
 - **JS/TS Package** — feature parity with PHP, zero external dependencies, dual ESM/CJS output via tsup, full TypeScript types
-- **CI/CD** — GitHub Actions for PHP (8.2/8.3/8.4) and JS (Node 22/24), release-please for automated versioning
+- **CI/CD** — GitHub Actions for PHP (8.2/8.3/8.4) and JS (Node 24), release-please for automated versioning
 - **Documentation** — architecture guide, getting started guides, API references for both languages
 - **Community** — `SECURITY.md`, `CODE_OF_CONDUCT.md` (Contributor Covenant v2.1), `CONTRIBUTING.md`
 

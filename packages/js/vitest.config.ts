@@ -8,7 +8,13 @@ export default defineConfig({
             provider: 'v8',
             reporter: ['text', 'lcov', 'clover'],
             include: ['src/**/*.ts'],
-            exclude: ['src/index.ts', 'src/contracts/**', 'src/types/**'],
+            exclude: [
+                'src/index.ts',
+                'src/contracts/**',
+                'src/types/**',
+                'src/enums/**',
+                'src/core/parser-config.ts',
+            ],
             thresholds: {
                 lines: 100,
                 functions: 100,

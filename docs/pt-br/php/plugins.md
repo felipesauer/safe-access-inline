@@ -11,7 +11,7 @@ YAML e TOML funcionam sem configuração (`ext-yaml` ou `symfony/yaml` para YAML
 ## Substituindo Padrões
 
 ```php
-use SafeAccessInline\Core\PluginRegistry;
+use SafeAccessInline\Core\Registries\PluginRegistry;
 use SafeAccessInline\Plugins\SymfonyYamlParser;
 use SafeAccessInline\Plugins\SymfonyYamlSerializer;
 use SafeAccessInline\Plugins\DeviumTomlParser;
@@ -170,7 +170,7 @@ PluginRegistry::registerParser('parameters', new ParameterBagParser($container->
 Em suítes de teste, chame `reset()` para limpar todos os plugins registrados entre testes:
 
 ```php
-use SafeAccessInline\Core\PluginRegistry;
+use SafeAccessInline\Core\Registries\PluginRegistry;
 
 afterEach(function () {
     PluginRegistry::reset();

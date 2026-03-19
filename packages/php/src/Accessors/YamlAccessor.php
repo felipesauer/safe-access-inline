@@ -1,9 +1,11 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SafeAccessInline\Accessors;
 
 use SafeAccessInline\Core\AbstractAccessor;
-use SafeAccessInline\Core\PluginRegistry;
+use SafeAccessInline\Core\Registries\PluginRegistry;
 use SafeAccessInline\Exceptions\InvalidFormatException;
 use Symfony\Component\Yaml\Yaml;
 
@@ -16,6 +18,15 @@ use Symfony\Component\Yaml\Yaml;
  */
 class YamlAccessor extends AbstractAccessor
 {
+    /**
+     * Creates a YamlAccessor from a YAML-encoded string.
+     *
+     * @param  mixed $data     YAML string to parse.
+     * @param  bool  $readonly Whether the accessor should be immutable.
+     * @return static
+     *
+     * @throws InvalidFormatException If $data is not a string.
+     */
     public static function from(mixed $data, bool $readonly = false): static
     {
         if (!is_string($data)) {

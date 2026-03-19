@@ -197,13 +197,14 @@ safe-access-inline/
 │   │   ├── src/
 │   │   │   ├── Accessors/   # 10 format accessors (incl. NDJSON)
 │   │   │   ├── Contracts/   # Interfaces (incl. ParserPlugin, SerializerPlugin, SchemaAdapter)
-│   │   │   ├── Core/        # AbstractAccessor, DotNotationParser, PathCache, TypeDetector, PluginRegistry, SchemaRegistry, JsonPatch, IoLoader, FileWatcher, DeepMerger
-│   │   │   ├── Enums/       # AccessorFormat enum
+│   │   │   ├── Core/        # AbstractAccessor (root) + Parsers/, Resolvers/, Operations/, Rendering/, Io/, Registries/, Config/ subdirs
+│   │   │   ├── Enums/       # AccessorFormat, AuditEventType, PatchOperationType, SegmentType
 │   │   │   ├── Exceptions/  # Exception hierarchy (incl. SecurityException, SchemaValidationException, ReadonlyViolationException)
-│   │   │   ├── Integrations/# LaravelServiceProvider, SymfonyIntegration
-│   │   │   ├── Plugins/     # Shipped plugins (SymfonyYaml*, NativeYaml*, DeviumToml*)
-│   │   │   ├── Security/    # SecurityPolicy, SecurityOptions, SecurityGuard, CsvSanitizer, DataMasker, AuditLogger
-│   │   │   ├── Traits/      # HasFactory, HasTransformations, HasWildcardSupport
+│   │   │   ├── Integrations/# LaravelServiceProvider, SymfonyIntegration, SafeAccessBundle
+│   │   │   ├── Plugins/     # Shipped plugins (SymfonyYaml*, NativeYaml*, DeviumToml*, SimpleXmlSerializer)
+│   │   │   ├── SchemaAdapters/ # JsonSchemaAdapter, SymfonyValidatorAdapter
+│   │   │   ├── Security/    # Guards/ (SecurityPolicy, SecurityOptions, SecurityGuard), Audit/ (AuditLogger), Sanitizers/ (CsvSanitizer, DataMasker)
+│   │   │   ├── Traits/      # HasFactory, HasTransformations, HasWildcardSupport, HasArrayOperations
 │   │   │   └── SafeAccess.php
 │   │   └── tests/
 │   │       ├── Unit/        # Mock-based unit tests
@@ -212,10 +213,13 @@ safe-access-inline/
 │   │   ├── src/
 │   │   │   ├── accessors/   # 10 format accessors (incl. NDJSON)
 │   │   │   ├── contracts/   # TypeScript interfaces
-│   │   │   ├── core/        # AbstractAccessor, DotNotationParser, PathCache, TypeDetector, PluginRegistry, SchemaRegistry, JsonPatch, IoLoader, FileWatcher, DeepMerger, AuditEmitter
+│   │   │   ├── core/        # abstract-accessor.ts (root) + parsers/, resolvers/, operations/, rendering/, io/, registries/, config/ subdirs
+│   │   │   ├── enums/       # Format, AuditEventType, PatchOperationType, SegmentType
 │   │   │   ├── exceptions/  # Error hierarchy (incl. SecurityError, SchemaValidationError, ReadonlyViolationError)
 │   │   │   ├── integrations/# NestJS module, Vite plugin
 │   │   │   ├── plugins/     # Shipped plugins (JsYaml*, SmolToml*)
+│   │   │   ├── schema-adapters/ # JsonSchemaAdapter, ZodAdapter, YupAdapter, ValibotAdapter
+│   │   │   ├── security/    # guards/ (SecurityPolicy, SecurityOptions, SecurityGuard), audit/ (AuditEmitter), sanitizers/ (CsvSanitizer, DataMasker, IpRangeChecker)
 │   │   │   ├── types/       # DeepPaths, ValueAtPath utility types
 │   │   │   ├── safe-access.ts
 │   │   │   └── index.ts     # Barrel export
@@ -223,7 +227,7 @@ safe-access-inline/
 │   │       ├── unit/        # Mock-based unit tests
 │   │       └── integration/ # Cross-format pipeline tests
 │   └── cli/                 # CLI package (@safe-access-inline/cli)
-│       ├── src/cli.ts       # CLI entry point (get, set, remove, transform, convert, diff, mask, layer, keys, type, has, count, validate)
+│       ├── src/            # cli.ts (dispatcher), command-handlers.ts (shared utils), handlers/ (12 individual command handlers)
 │       └── tests/
 ├── docs/                    # Documentation (VitePress, English + pt-BR)
 ├── .github/workflows/       # CI/CD

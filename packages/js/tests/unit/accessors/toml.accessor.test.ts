@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { TomlAccessor } from '../../../src/accessors/toml.accessor';
-import { PluginRegistry } from '../../../src/core/plugin-registry';
+import { PluginRegistry } from '../../../src/core/registries/plugin-registry';
 import { InvalidFormatError } from '../../../src/exceptions/invalid-format.error';
 
 describe(TomlAccessor.name, () => {

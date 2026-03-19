@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { YamlAccessor } from '../../../src/accessors/yaml.accessor';
-import { PluginRegistry } from '../../../src/core/plugin-registry';
+import { PluginRegistry } from '../../../src/core/registries/plugin-registry';
 import { InvalidFormatError } from '../../../src/exceptions/invalid-format.error';
 
 describe(YamlAccessor.name, () => {

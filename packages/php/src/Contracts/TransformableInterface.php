@@ -1,7 +1,14 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SafeAccessInline\Contracts;
 
+/**
+ * Contract for data serialization and format-conversion operations.
+ *
+ * Provides methods to export accessor data as JSON, XML, YAML, TOML, CSV, NDJSON, or plain objects/arrays.
+ */
 interface TransformableInterface
 {
     /** @return array<mixed> */

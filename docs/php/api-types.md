@@ -15,7 +15,7 @@ outline: deep
 
 ## PluginRegistry
 
-**Namespace:** `SafeAccessInline\Core\PluginRegistry`
+**Namespace:** `SafeAccessInline\Core\Registries\PluginRegistry`
 
 Static registry for parser and serializer plugins. Parsers convert raw strings to arrays; serializers convert arrays to formatted strings.
 
@@ -134,7 +134,7 @@ Check if the cache is currently enabled.
 
 ## DotNotationParser
 
-**Namespace:** `SafeAccessInline\Core\DotNotationParser`
+**Namespace:** `SafeAccessInline\Core\Parsers\DotNotationParser`
 
 Static utility class. Typically used internally, but available for direct use.
 

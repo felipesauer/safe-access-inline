@@ -1,5 +1,12 @@
 name: Manual Release Publish
 
+# This workflow publishes JS and CLI packages to npm via manual dispatch.
+# PHP is NOT included here because:
+#   - PHP releases are handled automatically by release-please (release.yml)
+#   - The PHP split repo tag triggers Packagist auto-update via webhook
+#   - No manual npm publish step is needed for PHP
+# See release.yml → sync-php-tag for the automated PHP release flow.
+
 on:
     workflow_dispatch:
         inputs:
@@ -81,7 +88,7 @@ jobs:
             - name: Setup Node
               uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
               with:
-                  node-version: 22
+                  node-version: 24
                   registry-url: "https://registry.npmjs.org"
 
             - name: Install dependencies
