@@ -19,37 +19,37 @@ vi.mock('../../../../src/security/audit/audit-emitter', () => ({
     emitAudit: vi.fn(),
 }));
 
-describe('fetchUrl()', () => {
-    type ResMock = EventEmitter & {
-        statusCode: number;
-        resume: ReturnType<typeof vi.fn>;
-        setEncoding: ReturnType<typeof vi.fn>;
-    };
-    type ReqMock = EventEmitter & {
-        end: ReturnType<typeof vi.fn>;
-        destroy: ReturnType<typeof vi.fn>;
-    };
+type ResMock = EventEmitter & {
+    statusCode: number;
+    resume: ReturnType<typeof vi.fn>;
+    setEncoding: ReturnType<typeof vi.fn>;
+};
+type ReqMock = EventEmitter & {
+    end: ReturnType<typeof vi.fn>;
+    destroy: ReturnType<typeof vi.fn>;
+};
 
+function makeResMock(statusCode: number): ResMock {
+    const res = new EventEmitter() as ResMock;
+    res.statusCode = statusCode;
+    res.resume = vi.fn();
+    res.setEncoding = vi.fn();
+    return res;
+}
+
+function makeReqMock(): ReqMock {
+    const req = new EventEmitter() as ReqMock;
+    req.end = vi.fn();
+    req.destroy = vi.fn();
+    return req;
+}
+
+describe('fetchUrl()', () => {
     async function getModules() {
         const https = await import('node:https');
         const ipChecker = await import('../../../../src/security/sanitizers/ip-range-checker');
         const { fetchUrl } = await import('../../../../src/core/io/io-loader');
         return { https, ipChecker, fetchUrl };
-    }
-
-    function makeResMock(statusCode: number): ResMock {
-        const res = new EventEmitter() as ResMock;
-        res.statusCode = statusCode;
-        res.resume = vi.fn();
-        res.setEncoding = vi.fn();
-        return res;
-    }
-
-    function makeReqMock(): ReqMock {
-        const req = new EventEmitter() as ReqMock;
-        req.end = vi.fn();
-        req.destroy = vi.fn();
-        return req;
     }
 
     function mockRequest(

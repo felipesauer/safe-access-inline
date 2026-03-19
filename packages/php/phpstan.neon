@@ -7,3 +7,6 @@ parameters:
     paths:
         - src
     tmpDir: .phpstan.cache
+    stubFiles:
+        - stubs/Devium/Toml/Toml.php
+        - stubs/Symfony/Component/Yaml/Yaml.php
