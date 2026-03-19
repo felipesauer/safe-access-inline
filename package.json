@@ -2,6 +2,9 @@
     "private": true,
     "name": "safe-access-inline-monorepo",
     "type": "module",
+    "workspaces": [
+        "packages/*"
+    ],
     "description": "Monorepo tooling for safe-access-inline",
     "scripts": {
         "prepare": "husky",
