@@ -97,6 +97,15 @@ describe(SafeAccess.name, () => {
         expect(accessor.get('a')).toBe(1);
     });
 
+    it('clearCustomAccessors removes all registered custom accessors', () => {
+        SafeAccess.extend(
+            'tmp_format',
+            ArrayAccessor as unknown as new (data: unknown) => ArrayAccessor,
+        );
+        SafeAccess.clearCustomAccessors();
+        expect(() => SafeAccess.custom('tmp_format', {})).toThrow();
+    });
+
     it('custom — unregistered throws', () => {
         expect(() => SafeAccess.custom('nonexistent', {})).toThrow();
     });
