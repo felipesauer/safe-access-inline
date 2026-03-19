@@ -38,11 +38,8 @@ jobs:
                   node-version: ${{ matrix.node }}
                   working-directory: packages/js
 
-            - name: Install root dependencies
-              working-directory: .
-              run: npm install
-
             - name: Install dependencies
+              working-directory: .
               run: npm install
 
             - name: Build

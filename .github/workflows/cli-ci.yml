@@ -40,20 +40,17 @@ jobs:
                   node-version: ${{ matrix.node }}
                   working-directory: packages/cli
 
-            - name: Install JS package dependencies
-              working-directory: packages/js
+            # 👇 1. Instala TUDO de uma vez na raiz (Workspaces faz a mágica)
+            - name: Install dependencies
+              working-directory: .
               run: npm install
 
+            # 👇 2. Compila o pacote JS primeiro (porque o CLI depende dele)
             - name: Build JS package
               working-directory: packages/js
               run: npm run build
 
-            - name: Install CLI dependencies
-              run: npm install
-
-            - name: Link local JS build
-              run: npm install ../js
-
+            # 👇 3. Volta para o comportamento padrão (packages/cli) para compilar e testar
             - name: Build
               run: npm run build
 
