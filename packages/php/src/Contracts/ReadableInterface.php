@@ -1,7 +1,14 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SafeAccessInline\Contracts;
 
+/**
+ * Contract for read-only accessor operations.
+ *
+ * Provides dot-notation path traversal, multi-path retrieval, and full-data access.
+ */
 interface ReadableInterface
 {
     /**
