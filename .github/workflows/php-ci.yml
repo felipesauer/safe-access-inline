@@ -70,9 +70,9 @@ jobs:
                   files: packages/php/coverage.xml
 
             - name: Run PHPStan
-              if: matrix.deps == 'core' && matrix.php == '8.4'
+              if: matrix.deps == 'full' && matrix.php == '8.4'
               run: vendor/bin/phpstan analyse
 
             - name: Check code style
-              if: matrix.deps == 'core' && matrix.php == '8.4'
+              if: matrix.deps == 'full' && matrix.php == '8.4'
               run: vendor/bin/php-cs-fixer fix --dry-run --diff
