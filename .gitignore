@@ -39,6 +39,9 @@ package-lock.json
 *~
 .plans/
 .github/audit/
+.github/prompts/
+.agents/
+.github/copilot-instructions.md
 
 # OS
 .DS_Store

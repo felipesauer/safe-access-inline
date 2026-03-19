@@ -5,7 +5,7 @@
 <h1 align="center">@safe-access-inline/cli</h1>
 
 <p align="center">
-  Query, transform, and manipulate data files from the terminal.
+  Query, transform, and manipulate data files from the terminal — 14 commands, 8 formats, piping support.
 </p>
 
 <p align="center">
@@ -33,15 +33,16 @@ npm install -g @safe-access-inline/cli
 
 ```bash
 safe-access get config.json "user.name"
-safe-access transform config.yaml --to json --pretty
-safe-access mask config.json --patterns "password,secret"
-echo '{"a":1}' | safe-access get - "a"
+safe-access get data.yaml "items.*.price"                        # wildcard
+safe-access set config.json "user.email" "a@b.com" --to json     # set & output
+safe-access transform config.yaml --to json --pretty              # convert formats
+safe-access diff config.json config-updated.json                  # structural diff
+safe-access mask config.json --patterns "password,secret,api_*"   # redact secrets
+safe-access layer defaults.yaml overrides.json --to json          # merge layers
+echo '{"a":1}' | safe-access get - "a"                           # stdin piping
 ```
 
-## Contributing
+## Documentation
 
-See [CONTRIBUTING.md](../../CONTRIBUTING.md) for development setup, coding standards, and commit conventions.
-
-## License
-
-[MIT](../../LICENSE) © Felipe Sauer
+> **Full command reference, piping examples, CI/CD recipes, and exit codes:**
+> [safe-access-inline CLI docs →](https://felipesauer.github.io/safe-access-inline/cli/)

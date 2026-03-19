@@ -63,12 +63,11 @@ jobs:
 
             - name: Upload coverage to Codecov
               if: matrix.php == '8.4' && matrix.deps == 'full'
-              uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5
+              uses: ./.github/actions/upload-coverage
               with:
                   token: ${{ secrets.CODECOV_TOKEN }}
                   flags: php
                   files: packages/php/coverage.xml
-                  fail_ci_if_error: false
 
             - name: Run PHPStan
               if: matrix.deps == 'core' && matrix.php == '8.4'

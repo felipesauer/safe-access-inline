@@ -57,6 +57,11 @@ $accessor->get('items[?price>20].price'); // [50] — filter
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, coding standards, and commit conventions.
 
+## Documentation
+
+> **Full guides, API reference, plugins, security, and architecture:**
+> [safe-access-inline docs →](https://felipesauer.github.io/safe-access-inline/)
+
 ## License
 
 [MIT](LICENSE) © Felipe Sauer
