@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { SafeAccess } from '../../src/safe-access';
 import { ArrayAccessor } from '../../src/accessors/array.accessor';
 import { ObjectAccessor } from '../../src/accessors/object.accessor';
@@ -10,6 +10,13 @@ import { IniAccessor } from '../../src/accessors/ini.accessor';
 import { CsvAccessor } from '../../src/accessors/csv.accessor';
 import { EnvAccessor } from '../../src/accessors/env.accessor';
 import { InvalidFormatError } from '../../src/exceptions/invalid-format.error';
+import * as ioLoader from '../../src/core/io/io-loader';
+import { PathCache } from '../../src/core/resolvers/path-cache';
+import { PluginRegistry } from '../../src/core/registries/plugin-registry';
+import { optionalRequire } from '../../src/core/io/optional-require';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import * as os from 'node:os';
 
 describe(SafeAccess.name, () => {
     it('fromArray', () => {
@@ -210,5 +217,153 @@ describe(SafeAccess.name, () => {
         );
         SafeAccess.resetAll();
         expect(() => SafeAccess.custom('reset_test', {})).toThrow();
+    });
+});
+
+// ── SafeAccess.from() with custom accessor via extend ──────────
+describe('SafeAccess — custom accessor through from()', () => {
+    afterEach(() => {
+        SafeAccess.resetAll();
+    });
+
+    it('from() routes to registered custom accessor', () => {
+        SafeAccess.extend(
+            'my_custom',
+            class {
+                data: Record<string, unknown>;
+                constructor(data: unknown) {
+                    this.data = data as Record<string, unknown>;
+                }
+                get(key: string) {
+                    return (this.data as Record<string, unknown>)[key];
+                }
+            } as unknown as new (
+                data: unknown,
+            ) => InstanceType<typeof import('../../src/core/abstract-accessor').AbstractAccessor>,
+        );
+        const accessor = SafeAccess.from({ x: 42 }, 'my_custom');
+        expect(accessor.get('x')).toBe(42);
+    });
+});
+
+// ── SafeAccess.fromFileSync auto-detect ─────────────────────────
+describe('SafeAccess — fromFileSync auto-detect', () => {
+    it('auto-detects format when file has no recognizable extension', () => {
+        const tmpFile = path.join(os.tmpdir(), `sa-test-${Date.now()}.dat`);
+        fs.writeFileSync(tmpFile, '{"auto":"detected"}');
+        try {
+            const acc = SafeAccess.fromFileSync(tmpFile, { allowAnyPath: true });
+            expect(acc.get('auto')).toBe('detected');
+        } finally {
+            fs.unlinkSync(tmpFile);
+        }
+    });
+});
+
+// ── SafeAccess.fromFile auto-detect ─────────────────────────────
+describe('SafeAccess — fromFile auto-detect', () => {
+    it('auto-detects format when file has no recognizable extension', async () => {
+        const tmpFile = path.join(os.tmpdir(), `sa-test-${Date.now()}.dat`);
+        fs.writeFileSync(tmpFile, '{"async_auto":"detected"}');
+        try {
+            const acc = await SafeAccess.fromFile(tmpFile, { allowAnyPath: true });
+            expect(acc.get('async_auto')).toBe('detected');
+        } finally {
+            fs.unlinkSync(tmpFile);
+        }
+    });
+});
+
+// ── SafeAccess.fromUrl ──────────────────────────────────────────
+vi.mock('../../src/security/sanitizers/ip-range-checker', async (importOriginal) => {
+    const actual =
+        await importOriginal<typeof import('../../src/security/sanitizers/ip-range-checker')>();
+    return {
+        ...actual,
+        assertSafeUrl: vi.fn(),
+        resolveAndValidateIp: vi.fn().mockResolvedValue('93.184.216.34'),
+    };
+});
+
+describe('SafeAccess — fromUrl', () => {
+    afterEach(() => {
+        vi.restoreAllMocks();
+    });
+
+    it('fetches URL and parses with explicit format', async () => {
+        vi.spyOn(ioLoader, 'fetchUrl').mockResolvedValueOnce('{"url":"data"}');
+        const acc = await SafeAccess.fromUrl('https://example.com/data.json', { format: 'json' });
+        expect(acc.get('url')).toBe('data');
+    });
+
+    it('fetches URL and detects format from URL path', async () => {
+        vi.spyOn(ioLoader, 'fetchUrl').mockResolvedValueOnce('{"detected":"yes"}');
+        const acc = await SafeAccess.fromUrl('https://example.com/config.json');
+        expect(acc.get('detected')).toBe('yes');
+    });
+
+    it('fetches URL and auto-detects when no format hint', async () => {
+        vi.spyOn(ioLoader, 'fetchUrl').mockResolvedValueOnce('{"auto":"yes"}');
+        const acc = await SafeAccess.fromUrl('https://example.com/data');
+        expect(acc.get('auto')).toBe('yes');
+    });
+
+    it('throws on HTTP error', async () => {
+        vi.spyOn(ioLoader, 'fetchUrl').mockRejectedValueOnce(new Error('Failed to fetch URL'));
+        await expect(SafeAccess.fromUrl('https://example.com/missing.json')).rejects.toThrow(
+            'Failed to fetch URL',
+        );
+    });
+});
+
+// ── SafeAccess.watchFile ────────────────────────────────────────
+describe('SafeAccess — watchFile', () => {
+    it('calls onChange with accessor when file changes', async () => {
+        const tmpFile = path.join(os.tmpdir(), `sa-watch-${Date.now()}.json`);
+        fs.writeFileSync(tmpFile, '{"v":1}');
+
+        const onChange = vi.fn();
+        const unsub = SafeAccess.watchFile(tmpFile, onChange, { allowAnyPath: true });
+
+        fs.writeFileSync(tmpFile, '{"v":2}');
+        await new Promise((r) => setTimeout(r, 300));
+
+        expect(onChange).toHaveBeenCalled();
+        const acc = onChange.mock.calls[0][0];
+        expect(acc.get('v')).toBe(2);
+
+        unsub();
+        fs.unlinkSync(tmpFile);
+    });
+});
+
+// ── SafeAccess.resetAll — state reset helper ────────────────────
+describe('SafeAccess.resetAll() — comprehensive', () => {
+    it('resets all global/static state', () => {
+        PathCache.set('test.path', [{ type: 'key' as const, value: 'test' }]);
+        PluginRegistry.registerSerializer('test-fmt', {
+            serialize: () => 'test',
+        });
+
+        SafeAccess.resetAll();
+
+        expect(PathCache.has('test.path')).toBe(false);
+        expect(PluginRegistry.hasSerializer('test-fmt')).toBe(false);
+    });
+
+    it('private constructor is callable via reflection', () => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const instance = new (SafeAccess as any)();
+        expect(instance).toBeDefined();
+    });
+});
+
+// ── optionalRequire — missing module throws ─────────────────────
+describe('optionalRequire — missing module', () => {
+    it('throws descriptive error when required module is not installed', () => {
+        const getter = optionalRequire('nonexistent-module-safe-access-test', 'TestFeature');
+        expect(() => getter()).toThrow(
+            'nonexistent-module-safe-access-test is required for TestFeature support',
+        );
     });
 });
