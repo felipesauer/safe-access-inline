@@ -1,9 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SafeAccessInline\Plugins;
 
 use SafeAccessInline\Contracts\ParserPluginInterface;
-use SafeAccessInline\Exceptions\InvalidFormatException;
 
 /**
  * YAML parser plugin using symfony/yaml.
@@ -14,20 +15,29 @@ use SafeAccessInline\Exceptions\InvalidFormatException;
  *
  * PluginRegistry::registerParser('yaml', new SymfonyYamlParser());
  */
-class SymfonyYamlParser implements ParserPluginInterface
+class SymfonyYamlParser extends AbstractPlugin implements ParserPluginInterface
 {
     protected function isAvailable(): bool
     {
         return class_exists(\Symfony\Component\Yaml\Yaml::class);
     }
 
+    protected function installHint(): string
+    {
+        return 'symfony/yaml is not installed. Run: composer require symfony/yaml';
+    }
+
+    /**
+     * Parses a YAML string into an associative array using symfony/yaml.
+     *
+     * @param  string              $raw Raw YAML content.
+     * @return array<string, mixed> Parsed data.
+     *
+     * @throws \RuntimeException If symfony/yaml is not installed.
+     */
     public function parse(string $raw): array
     {
-        if (!$this->isAvailable()) {
-            throw new InvalidFormatException(
-                'symfony/yaml is not installed. Run: composer require symfony/yaml'
-            );
-        }
+        $this->assertAvailable();
 
         $parsed = \Symfony\Component\Yaml\Yaml::parse($raw, \Symfony\Component\Yaml\Yaml::PARSE_EXCEPTION_ON_INVALID_TYPE);
 

@@ -1,10 +1,16 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SafeAccessInline\Traits;
 
 use SafeAccessInline\Core\PluginRegistry;
 use SafeAccessInline\Exceptions\InvalidFormatException;
 use SafeAccessInline\Exceptions\UnsupportedTypeException;
+use SafeAccessInline\Plugins\DeviumTomlSerializer;
+use SafeAccessInline\Plugins\NativeYamlSerializer;
+use SafeAccessInline\Plugins\SimpleXmlSerializer;
+use SafeAccessInline\Plugins\SymfonyYamlSerializer;
 use SafeAccessInline\Security\AuditLogger;
 use SafeAccessInline\Security\CsvSanitizer;
 use SafeAccessInline\Security\SecurityPolicy;
@@ -35,7 +41,7 @@ trait HasTransformations
      */
     public function toCsv(?string $csvMode = null): string
     {
-        $mode = $csvMode ?? SecurityPolicy::getGlobal()?->csvMode ?? 'none';
+        $mode = $csvMode ?? (SecurityPolicy::getGlobal() !== null ? SecurityPolicy::getGlobal()->csvMode : null) ?? 'none';
         if ($csvMode === null && SecurityPolicy::getGlobal() === null) {
             AuditLogger::emit('security.deprecation', [
                 'message' => "csvMode defaults to 'none' which does not sanitize CSV cells. "
@@ -59,11 +65,11 @@ trait HasTransformations
         };
 
         /** @var 'none'|'prefix'|'strip'|'error' $mode */
-        $lines = [implode(',', array_map(fn (string $h) => $escapeCsv(CsvSanitizer::sanitizeCell((string) $h, $mode)), $headers))];
+        $lines = [implode(',', array_map(fn (int|string $h) => $escapeCsv(CsvSanitizer::sanitizeCell((string) $h, $mode)), $headers))];
         foreach ($rows as $row) {
             $r = (array) $row;
             $lines[] = implode(',', array_map(
-                fn (string $h) => $escapeCsv(CsvSanitizer::sanitizeCell((string) ($r[$h] ?? ''), $mode)),
+                fn (int|string $h) => $escapeCsv(CsvSanitizer::sanitizeCell(is_scalar($r[$h]) ? (string) $r[$h] : '', $mode)),
                 $headers,
             ));
         }
@@ -92,9 +98,7 @@ trait HasTransformations
             return PluginRegistry::getSerializer('xml')->serialize($this->data);
         }
 
-        $xml = new \SimpleXMLElement("<{$rootElement}/>");
-        $this->arrayToXml($this->data, $xml);
-        return $xml->asXML() ?: '';
+        return (new SimpleXmlSerializer($rootElement))->serialize($this->data);
     }
 
     public function toToml(): string
@@ -103,10 +107,7 @@ trait HasTransformations
             return PluginRegistry::getSerializer('toml')->serialize($this->data);
         }
 
-        /** @var array<string, mixed>|\stdClass */
-        $tomlData = json_decode(json_encode($this->data) ?: '{}');
-
-        return \Devium\Toml\Toml::encode($tomlData);
+        return (new DeviumTomlSerializer())->serialize($this->data);
     }
 
     public function toYaml(): string
@@ -115,16 +116,11 @@ trait HasTransformations
             return PluginRegistry::getSerializer('yaml')->serialize($this->data);
         }
 
-        if ($this->hasNativeYamlEmit()) {
-            return yaml_emit($this->data);
+        if (function_exists('yaml_emit')) {
+            return (new NativeYamlSerializer())->serialize($this->data);
         }
 
-        return \Symfony\Component\Yaml\Yaml::dump($this->data, 4, 2);
-    }
-
-    protected function hasNativeYamlEmit(): bool
-    {
-        return function_exists('yaml_emit');
+        return (new SymfonyYamlSerializer())->serialize($this->data);
     }
 
     /**
@@ -152,26 +148,4 @@ trait HasTransformations
         return PluginRegistry::getSerializer($format)->serialize($this->data);
     }
 
-    /**
-     * Recursively converts an array to a SimpleXMLElement.
-     *
-     * @param array<mixed> $data
-     * @param \SimpleXMLElement $xml
-     */
-    private function arrayToXml(array $data, \SimpleXMLElement &$xml): void
-    {
-        foreach ($data as $key => $value) {
-            $safeKey = is_numeric($key) ? "item_{$key}" : (string) $key;
-
-            if (is_array($value)) {
-                $child = $xml->addChild($safeKey);
-                if ($child !== null) {
-                    $this->arrayToXml($value, $child);
-                }
-            } else {
-                $strValue = is_scalar($value) ? (string) $value : '';
-                $xml->addChild($safeKey, htmlspecialchars($strValue, ENT_XML1));
-            }
-        }
-    }
 }

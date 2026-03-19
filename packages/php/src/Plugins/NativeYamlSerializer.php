@@ -1,9 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SafeAccessInline\Plugins;
 
 use SafeAccessInline\Contracts\SerializerPluginInterface;
-use SafeAccessInline\Exceptions\InvalidFormatException;
 
 /**
  * YAML serializer plugin using PHP's native ext-yaml.
@@ -19,20 +20,29 @@ use SafeAccessInline\Exceptions\InvalidFormatException;
  *
  * PluginRegistry::registerSerializer('yaml', new NativeYamlSerializer());
  */
-class NativeYamlSerializer implements SerializerPluginInterface
+class NativeYamlSerializer extends AbstractPlugin implements SerializerPluginInterface
 {
     protected function isAvailable(): bool
     {
         return function_exists('yaml_emit');
     }
 
+    protected function installHint(): string
+    {
+        return 'ext-yaml is not installed. Run: pecl install yaml';
+    }
+
+    /**
+     * Serializes an associative array into a YAML string using ext-yaml.
+     *
+     * @param  array<string, mixed> $data Data to serialize.
+     * @return string YAML-encoded string.
+     *
+     * @throws \RuntimeException If ext-yaml is not installed.
+     */
     public function serialize(array $data): string
     {
-        if (!$this->isAvailable()) {
-            throw new InvalidFormatException(
-                'ext-yaml is not installed. Run: pecl install yaml'
-            );
-        }
+        $this->assertAvailable();
 
         return yaml_emit($data);
     }
