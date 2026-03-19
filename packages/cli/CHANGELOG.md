@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.4](https://github.com/felipesauer/safe-access-inline/compare/cli-v0.1.3...cli-v0.1.4) (2026-03-19)
+
+
+### Bug Fixes
+
+* update safe-access-inline dependency version to allow any version ([16f83af](https://github.com/felipesauer/safe-access-inline/commit/16f83af68258ac720fa1f5a38567f88c94d34d95))
+
 ## [0.1.3](https://github.com/felipesauer/safe-access-inline/compare/cli-v0.1.2...cli-v0.1.3) (2026-03-19)
 
 
