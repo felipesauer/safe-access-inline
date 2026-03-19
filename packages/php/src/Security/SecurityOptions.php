@@ -1,9 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SafeAccessInline\Security;
 
 use SafeAccessInline\Exceptions\SecurityException;
 
+/** Runtime security limits applied to parsing and traversal operations. */
 final class SecurityOptions
 {
     public const MAX_DEPTH = 512;

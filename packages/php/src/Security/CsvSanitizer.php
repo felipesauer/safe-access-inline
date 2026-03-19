@@ -1,15 +1,23 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SafeAccessInline\Security;
 
 use SafeAccessInline\Exceptions\SecurityException;
 
+/** Sanitises CSV cell values to prevent formula-injection attacks (OWASP). */
 final class CsvSanitizer
 {
     private const DANGEROUS_PREFIXES = ['=', '+', '-', '@', "\t", "\r", "\n"];
 
     /**
-     * @param 'prefix'|'strip'|'error'|'none' $mode
+     * Sanitises a single CSV cell to prevent formula injection.
+     *
+     * @param string $cell The raw cell value.
+     * @param 'prefix'|'strip'|'error'|'none' $mode Sanitisation strategy.
+     * @return string The sanitised cell.
+     * @throws SecurityException When mode is 'error' and the cell starts with a dangerous character.
      */
     public static function sanitizeCell(string $cell, string $mode = 'none'): string
     {
@@ -32,6 +40,7 @@ final class CsvSanitizer
         return match ($mode) {
             'prefix' => "'" . $cell,
             'strip' => ltrim($cell, "=+-@\t\r\n"),
+            /** @phpstan-ignore match.alwaysTrue */
             'error' => throw new SecurityException(
                 "CSV cell starts with dangerous character: '{$cell[0]}'"
             ),
@@ -40,9 +49,11 @@ final class CsvSanitizer
     }
 
     /**
-     * @param string[] $row
-     * @param 'prefix'|'strip'|'error'|'none' $mode
-     * @return string[]
+     * Sanitises every cell in a CSV row.
+     *
+     * @param string[] $row Array of raw cell values.
+     * @param 'prefix'|'strip'|'error'|'none' $mode Sanitisation strategy.
+     * @return string[] Array of sanitised cell strings.
      */
     public static function sanitizeRow(array $row, string $mode = 'none'): array
     {
