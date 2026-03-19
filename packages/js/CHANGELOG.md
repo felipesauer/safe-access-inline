@@ -6,6 +6,17 @@
 
 - **js:** `type()` now returns `"bool"` instead of `"boolean"` and `"null"` instead of `"object"` for null values, aligning the cross-language type vocabulary (`"string"`, `"number"`, `"bool"`, `"array"`, `"object"`, `"null"`, `"undefined"`).
 
+## [0.3.1](https://github.com/felipesauer/safe-access-inline/compare/js-v0.3.0...js-v0.3.1) (2026-03-19)
+
+
+### Features
+
+* **js:** add AuditEventType, Format, PatchOperationType, and SegmentType enums ([4c67586](https://github.com/felipesauer/safe-access-inline/commit/4c67586832f62de1b61d7d0f7c63207e0986d0ad))
+* **js:** add security subsystem under packages/js/src/security ([f2fcf5f](https://github.com/felipesauer/safe-access-inline/commit/f2fcf5f44e28d2d4ec9b733a78673435d4c0fa02))
+* **js:** extract core path-resolution and serialization classes ([f5a0a19](https://github.com/felipesauer/safe-access-inline/commit/f5a0a19147347f214d38145ea0604fc032c8b9fe))
+* **js:** introduce Config interfaces to replace hardcoded limits ([edf5a58](https://github.com/felipesauer/safe-access-inline/commit/edf5a58d004e8670da85b7fdec8f5cc2ffaa5c52))
+* **js:** introduce typed interfaces for audit events, filter expressions, and JSON Patch ([a2139be](https://github.com/felipesauer/safe-access-inline/commit/a2139beec72a0cf9f5838fb9c3e6d07b35396e2a))
+
 ## [0.3.0](https://github.com/felipesauer/safe-access-inline/compare/js-v0.2.3...js-v0.3.0) (2026-03-18)
 
 
