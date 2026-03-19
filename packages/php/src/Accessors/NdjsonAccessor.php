@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SafeAccessInline\Accessors;
 
 use SafeAccessInline\Core\AbstractAccessor;
@@ -12,6 +14,17 @@ use SafeAccessInline\Exceptions\InvalidFormatException;
  */
 class NdjsonAccessor extends AbstractAccessor
 {
+    /**
+     * Creates an NdjsonAccessor from a Newline Delimited JSON string.
+     *
+     * Each line is parsed as a separate JSON object.
+     *
+     * @param  mixed $data     NDJSON string to parse.
+     * @param  bool  $readonly Whether the accessor should be immutable.
+     * @return static
+     *
+     * @throws InvalidFormatException If $data is not a string.
+     */
     public static function from(mixed $data, bool $readonly = false): static
     {
         if (!is_string($data)) {

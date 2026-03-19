@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SafeAccessInline\Accessors;
 
 use SafeAccessInline\Core\AbstractAccessor;
@@ -18,6 +20,17 @@ use SafeAccessInline\Exceptions\InvalidFormatException;
  */
 class CsvAccessor extends AbstractAccessor
 {
+    /**
+     * Creates a CsvAccessor from a CSV-formatted string.
+     *
+     * The first line is treated as the header row.
+     *
+     * @param  mixed $data     CSV string to parse.
+     * @param  bool  $readonly Whether the accessor should be immutable.
+     * @return static
+     *
+     * @throws InvalidFormatException If $data is not a string.
+     */
     public static function from(mixed $data, bool $readonly = false): static
     {
         if (!is_string($data)) {

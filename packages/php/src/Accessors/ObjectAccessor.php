@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace SafeAccessInline\Accessors;
 
 use SafeAccessInline\Core\AbstractAccessor;
@@ -11,6 +13,15 @@ use SafeAccessInline\Exceptions\InvalidFormatException;
  */
 class ObjectAccessor extends AbstractAccessor
 {
+    /**
+     * Creates an ObjectAccessor from a PHP object.
+     *
+     * @param  mixed $data     Object (stdClass, DTO, etc.) to wrap.
+     * @param  bool  $readonly Whether the accessor should be immutable.
+     * @return static
+     *
+     * @throws InvalidFormatException If $data is not an object.
+     */
     public static function from(mixed $data, bool $readonly = false): static
     {
         if (!is_object($data)) {
