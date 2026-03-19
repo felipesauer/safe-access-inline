@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { JsYamlSerializer } from '../../../src/plugins/js-yaml.serializer';
 import { JsYamlParser } from '../../../src/plugins/js-yaml.parser';
 
-describe('JsYamlSerializer', () => {
+describe(JsYamlSerializer.name, () => {
     it('serializes a flat object', () => {
         const serializer = new JsYamlSerializer();
         const result = serializer.serialize({ name: 'Ana', age: 30 });
@@ -33,7 +33,7 @@ describe('JsYamlSerializer', () => {
     });
 });
 
-describe('JsYamlParser', () => {
+describe(JsYamlParser.name, () => {
     it('parses a flat YAML string', () => {
         const parser = new JsYamlParser();
         const result = parser.parse('name: Ana\nage: 30');

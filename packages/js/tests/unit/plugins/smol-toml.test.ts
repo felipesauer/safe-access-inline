@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { SmolTomlSerializer } from '../../../src/plugins/smol-toml.serializer';
 import { SmolTomlParser } from '../../../src/plugins/smol-toml.parser';
 
-describe('SmolTomlSerializer', () => {
+describe(SmolTomlSerializer.name, () => {
     it('serializes a flat object', () => {
         const serializer = new SmolTomlSerializer();
         const result = serializer.serialize({ name: 'Ana', age: 30 });
@@ -27,7 +27,7 @@ describe('SmolTomlSerializer', () => {
     });
 });
 
-describe('SmolTomlParser', () => {
+describe(SmolTomlParser.name, () => {
     it('parses a flat TOML string', () => {
         const parser = new SmolTomlParser();
         const result = parser.parse('name = "Ana"\nage = 30');
