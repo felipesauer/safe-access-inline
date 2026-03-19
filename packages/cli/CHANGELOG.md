@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.3](https://github.com/felipesauer/safe-access-inline/compare/cli-v0.1.2...cli-v0.1.3) (2026-03-19)
+
+
+### Features
+
+* **cli:** extract command handlers to dedicated module ([a4a9789](https://github.com/felipesauer/safe-access-inline/commit/a4a97893f817193adf5e0f7d08adf319445b70f5))
+
 ## [0.1.2](https://github.com/felipesauer/safe-access-inline/compare/cli-v0.1.1...cli-v0.1.2) (2026-03-18)
 
 
