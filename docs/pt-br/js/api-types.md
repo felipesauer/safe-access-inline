@@ -97,6 +97,34 @@ Armazena um resultado de análise no cache.
 
 Remove todas as entradas do cache.
 
+#### `PathCache.has(path: string): boolean`
+
+Retorna `true` se o cache contiver uma entrada para o caminho fornecido.
+
+#### `PathCache.size: number` _(getter)_
+
+Número atual de entradas em cache.
+
+#### `PathCache.configure(config: Partial<CacheConfig>): void`
+
+Sobrescreve a configuração do cache (ex. `maxSize`). Mescla com a configuração padrão.
+
+```typescript
+PathCache.configure({ maxSize: 500 });
+```
+
+#### `PathCache.disable(): void`
+
+Desativa o cache — chamadas subsequentes a `get()` sempre retornam `undefined`.
+
+#### `PathCache.enable(): void`
+
+Reativa o cache após uma chamada anterior a `disable()`.
+
+#### `PathCache.isEnabled: boolean` _(getter)_
+
+Indica se o cache está atualmente ativo.
+
 ---
 
 ## DotNotationParser
@@ -208,7 +236,11 @@ interface AccessorInterface {
 interface ParserPlugin {
     parse(raw: string): Record<string, unknown>;
 }
+
+type ReadonlyAccessor = AbstractAccessor;
 ```
+
+`ReadonlyAccessor` é um alias de conveniência para `AbstractAccessor` quando você quer anotar fluxos readonly ou imutáveis sem repetir o nome da classe concreta.
 
 ### Plugins Incluídos
 
@@ -258,6 +290,52 @@ Enum de string cobrindo todos os formatos built-in. Use como alternativa tipada 
 | `Format.Csv`    | `'csv'`    |
 | `Format.Env`    | `'env'`    |
 | `Format.Ndjson` | `'ndjson'` |
+
+### `AuditEventType`
+
+Identifica a categoria de um evento de auditoria emitido.
+
+| Membro                                | Valor                    |
+| ------------------------------------- | ------------------------ |
+| `AuditEventType.FILE_READ`            | `'file.read'`            |
+| `AuditEventType.FILE_WATCH`           | `'file.watch'`           |
+| `AuditEventType.URL_FETCH`            | `'url.fetch'`            |
+| `AuditEventType.SECURITY_VIOLATION`   | `'security.violation'`   |
+| `AuditEventType.SECURITY_DEPRECATION` | `'security.deprecation'` |
+| `AuditEventType.DATA_MASK`            | `'data.mask'`            |
+| `AuditEventType.DATA_FREEZE`          | `'data.freeze'`          |
+| `AuditEventType.DATA_FORMAT_WARNING`  | `'data.format_warning'`  |
+| `AuditEventType.SCHEMA_VALIDATE`      | `'schema.validate'`      |
+| `AuditEventType.PLUGIN_OVERWRITE`     | `'plugin.overwrite'`     |
+
+### `SegmentType`
+
+Discriminador para os tipos de segmento produzidos pelo parser de dot-notation.
+
+| Membro                      | Valor             |
+| --------------------------- | ----------------- |
+| `SegmentType.KEY`           | `'key'`           |
+| `SegmentType.INDEX`         | `'index'`         |
+| `SegmentType.WILDCARD`      | `'wildcard'`      |
+| `SegmentType.DESCENT`       | `'descent'`       |
+| `SegmentType.DESCENT_MULTI` | `'descent-multi'` |
+| `SegmentType.MULTI_INDEX`   | `'multi-index'`   |
+| `SegmentType.MULTI_KEY`     | `'multi-key'`     |
+| `SegmentType.FILTER`        | `'filter'`        |
+| `SegmentType.SLICE`         | `'slice'`         |
+
+### `PatchOperationType`
+
+Enum string que espelha os nomes das operações RFC 6902 JSON Patch.
+
+| Membro                       | Valor       |
+| ---------------------------- | ----------- |
+| `PatchOperationType.ADD`     | `'add'`     |
+| `PatchOperationType.REMOVE`  | `'remove'`  |
+| `PatchOperationType.REPLACE` | `'replace'` |
+| `PatchOperationType.MOVE`    | `'move'`    |
+| `PatchOperationType.COPY`    | `'copy'`    |
+| `PatchOperationType.TEST`    | `'test'`    |
 
 ### Utilitários de Inferência de Caminho
 

@@ -390,6 +390,121 @@ accessor.transform("yaml"); // uses registered 'yaml' serializer
 accessor.transform("csv"); // uses registered 'csv' serializer
 ```
 
+### Array Operations (Immutable)
+
+All array operations return **new instances** — the original is never mutated.
+
+#### `push(path: string, ...items: unknown[]): AbstractAccessor`
+
+Appends items to the end of the array at `path`.
+
+```typescript
+const updated = accessor.push("tags", "typescript", "safe");
+```
+
+#### `pop(path: string): AbstractAccessor`
+
+Removes the last item from the array at `path`.
+
+```typescript
+const updated = accessor.pop("tags");
+```
+
+#### `shift(path: string): AbstractAccessor`
+
+Removes the first item from the array at `path`.
+
+```typescript
+const updated = accessor.shift("queue");
+```
+
+#### `unshift(path: string, ...items: unknown[]): AbstractAccessor`
+
+Prepends items to the beginning of the array at `path`.
+
+```typescript
+const updated = accessor.unshift("queue", "first");
+```
+
+#### `insert(path: string, index: number, ...items: unknown[]): AbstractAccessor`
+
+Inserts items at a specific index in the array at `path`. Supports negative indices.
+
+```typescript
+const updated = accessor.insert("items", 1, "inserted");
+const updated2 = accessor.insert("items", -1, "before-last");
+```
+
+#### `filterAt(path: string, predicate: (item: unknown, index: number) => boolean): AbstractAccessor`
+
+Filters array items at `path` using a predicate.
+
+```typescript
+const updated = accessor.filterAt("users", (u) => (u as any).active === true);
+```
+
+#### `mapAt(path: string, transform: (item: unknown, index: number) => unknown): AbstractAccessor`
+
+Transforms each array item at `path` using `transform`.
+
+```typescript
+const updated = accessor.mapAt("prices", (p) => (p as number) * 1.1);
+```
+
+#### `sortAt(path: string, key?: string, direction?: 'asc' | 'desc'): AbstractAccessor`
+
+Sorts the array at `path`. Optionally by a sub-key. Direction: `'asc'` (default) or `'desc'`.
+
+```typescript
+const sorted = accessor.sortAt("users", "name");
+const desc = accessor.sortAt("scores", undefined, "desc");
+```
+
+#### `unique(path: string, key?: string): AbstractAccessor`
+
+Removes duplicate values from the array at `path`. Optionally de-duplicates by a sub-key.
+
+```typescript
+const updated = accessor.unique("tags");
+const updated2 = accessor.unique("users", "email");
+```
+
+#### `flatten(path: string, depth?: number): AbstractAccessor`
+
+Flattens nested arrays at `path` by `depth` levels (default `1`).
+
+```typescript
+const updated = accessor.flatten("matrix"); // 1 level
+const updated2 = accessor.flatten("deep", Infinity); // fully flat
+```
+
+#### `first(path: string, defaultValue?: unknown): unknown`
+
+Returns the first element of the array at `path`.
+
+```typescript
+accessor.first("items"); // first item or null
+accessor.first("items", "none"); // first item or "none"
+```
+
+#### `last(path: string, defaultValue?: unknown): unknown`
+
+Returns the last element of the array at `path`.
+
+```typescript
+accessor.last("items"); // last item or null
+```
+
+#### `nth(path: string, index: number, defaultValue?: unknown): unknown`
+
+Returns the element at `index`. Supports negative indices (`-1` = last).
+
+```typescript
+accessor.nth("items", 0); // first
+accessor.nth("items", -1); // last
+accessor.nth("items", 99, "fallback"); // "fallback"
+```
+
 ### Security & Validation
 
 #### `masked(patterns?: MaskPattern[]): AbstractAccessor`

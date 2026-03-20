@@ -22,7 +22,7 @@ outline: deep
 
 ## Requisitos
 
-- Node.js 24 ou superior
+- Node.js 22 ou superior
 - TypeScript 5.5+ (para projetos TypeScript)
 
 ## Instalação
@@ -30,6 +30,8 @@ outline: deep
 ```bash
 npm install @safe-access-inline/safe-access-inline
 ```
+
+> **Tree-shaking:** O pacote é marcado com `"sideEffects": false` e distribui bundles ESM/CJS. Bundlers ESM modernos (Vite, Rollup, webpack 5+) fazem tree-shaking de código não utilizado automaticamente.
 
 ## Uso Básico
 

@@ -236,21 +236,73 @@ DotNotationParser::renderTemplate('users.{id}.name', ['id' => '42']);
 
 ## Enums
 
-### `AccessorFormat`
+### `Format`
 
-**Namespace:** `SafeAccessInline\Enums\AccessorFormat`
+**Namespace:** `SafeAccessInline\Enums\Format`
 
 Enum backed por string cobrindo todos os formatos built-in. Use como alternativa tipada a passar strings brutas para `SafeAccess::from()`.
 
-| Caso                     | Valor      |
-| ------------------------ | ---------- |
-| `AccessorFormat::Array`  | `'array'`  |
-| `AccessorFormat::Object` | `'object'` |
-| `AccessorFormat::Json`   | `'json'`   |
-| `AccessorFormat::Xml`    | `'xml'`    |
-| `AccessorFormat::Yaml`   | `'yaml'`   |
-| `AccessorFormat::Toml`   | `'toml'`   |
-| `AccessorFormat::Ini`    | `'ini'`    |
-| `AccessorFormat::Csv`    | `'csv'`    |
-| `AccessorFormat::Env`    | `'env'`    |
-| `AccessorFormat::Ndjson` | `'ndjson'` |
+| Caso             | Valor      |
+| ---------------- | ---------- |
+| `Format::Array`  | `'array'`  |
+| `Format::Object` | `'object'` |
+| `Format::Json`   | `'json'`   |
+| `Format::Xml`    | `'xml'`    |
+| `Format::Yaml`   | `'yaml'`   |
+| `Format::Toml`   | `'toml'`   |
+| `Format::Ini`    | `'ini'`    |
+| `Format::Csv`    | `'csv'`    |
+| `Format::Env`    | `'env'`    |
+| `Format::Ndjson` | `'ndjson'` |
+
+### `AuditEventType`
+
+**Namespace:** `SafeAccessInline\Enums\AuditEventType`
+
+Identifica a categoria de um evento de auditoria emitido.
+
+| Caso                                   | Valor                    |
+| -------------------------------------- | ------------------------ |
+| `AuditEventType::FILE_READ`            | `'file.read'`            |
+| `AuditEventType::FILE_WATCH`           | `'file.watch'`           |
+| `AuditEventType::URL_FETCH`            | `'url.fetch'`            |
+| `AuditEventType::SECURITY_VIOLATION`   | `'security.violation'`   |
+| `AuditEventType::SECURITY_DEPRECATION` | `'security.deprecation'` |
+| `AuditEventType::DATA_MASK`            | `'data.mask'`            |
+| `AuditEventType::DATA_FREEZE`          | `'data.freeze'`          |
+| `AuditEventType::DATA_FORMAT_WARNING`  | `'data.format_warning'`  |
+| `AuditEventType::SCHEMA_VALIDATE`      | `'schema.validate'`      |
+| `AuditEventType::PLUGIN_OVERWRITE`     | `'plugin.overwrite'`     |
+
+### `SegmentType`
+
+**Namespace:** `SafeAccessInline\Enums\SegmentType`
+
+Discriminador para os tipos de segmento produzidos pelo parser de dot-notation.
+
+| Caso                         | Valor             |
+| ---------------------------- | ----------------- |
+| `SegmentType::KEY`           | `'key'`           |
+| `SegmentType::INDEX`         | `'index'`         |
+| `SegmentType::WILDCARD`      | `'wildcard'`      |
+| `SegmentType::DESCENT`       | `'descent'`       |
+| `SegmentType::DESCENT_MULTI` | `'descent-multi'` |
+| `SegmentType::MULTI_INDEX`   | `'multi-index'`   |
+| `SegmentType::MULTI_KEY`     | `'multi-key'`     |
+| `SegmentType::FILTER`        | `'filter'`        |
+| `SegmentType::SLICE`         | `'slice'`         |
+
+### `PatchOperationType`
+
+**Namespace:** `SafeAccessInline\Enums\PatchOperationType`
+
+Enum backed por string que espelha os nomes das operações RFC 6902 JSON Patch.
+
+| Caso                          | Valor       |
+| ----------------------------- | ----------- |
+| `PatchOperationType::ADD`     | `'add'`     |
+| `PatchOperationType::REMOVE`  | `'remove'`  |
+| `PatchOperationType::REPLACE` | `'replace'` |
+| `PatchOperationType::MOVE`    | `'move'`    |
+| `PatchOperationType::COPY`    | `'copy'`    |
+| `PatchOperationType::TEST`    | `'test'`    |
