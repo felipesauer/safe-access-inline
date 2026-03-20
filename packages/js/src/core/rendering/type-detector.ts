@@ -25,6 +25,16 @@ import { UnsupportedTypeError } from '../../exceptions/unsupported-type.error';
  * 9. string ENV        → EnvAccessor
  */
 export class TypeDetector {
+    /**
+     * Auto-detects the format of `data` and returns the appropriate accessor.
+     *
+     * Detection order: arrays → `ArrayAccessor`, plain objects → `ObjectAccessor`,
+     * then strings are probed as JSON, NDJSON, XML, YAML, TOML, INI, and ENV in turn.
+     *
+     * @param data - Raw input value (array, object, or string).
+     * @returns The matching format-specific accessor.
+     * @throws {@link UnsupportedTypeError} When the format cannot be determined.
+     */
     static resolve(data: unknown): AbstractAccessor {
         if (Array.isArray(data)) return ArrayAccessor.from(data);
         if (typeof data === 'object' && data !== null) return ObjectAccessor.from(data);

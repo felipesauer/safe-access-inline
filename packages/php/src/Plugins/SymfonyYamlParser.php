@@ -17,11 +17,21 @@ use SafeAccessInline\Contracts\ParserPluginInterface;
  */
 class SymfonyYamlParser extends AbstractPlugin implements ParserPluginInterface
 {
+    /**
+     * Returns true when the symfony/yaml package is installed.
+     *
+     * @return bool Whether the dependency is available at runtime.
+     */
     protected function isAvailable(): bool
     {
         return class_exists(\Symfony\Component\Yaml\Yaml::class);
     }
 
+    /**
+     * Returns an installation hint for symfony/yaml.
+     *
+     * @return string Human-readable install instructions.
+     */
     protected function installHint(): string
     {
         return 'symfony/yaml is not installed. Run: composer require symfony/yaml';

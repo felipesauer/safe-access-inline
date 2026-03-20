@@ -100,6 +100,25 @@ accessor.get("1.city"); // "São Paulo"
 accessor.get("*.name"); // ["Ana", "Bob"]
 ```
 
+#### Proteção contra injeção CSV
+
+A prevenção de injeção CSV é aplicada durante a **serialização** (`.toCsv()`), não durante o parsing. Para proteger contra injeção de fórmulas (células iniciando com `=`, `+`, `-`, `@`), passe um `csvMode` na `SecurityPolicy`. Valores aceitos:
+
+- `'none'` _(padrão)_ — sem sanitização
+- `'prefix'` — adiciona aspas simples antes de células perigosas
+- `'strip'` — remove o caractere inicial perigoso
+- `'error'` — lança `SecurityError` ao detectar
+
+```typescript
+import {
+    mergePolicy,
+    defaultPolicy,
+} from "@safe-access-inline/safe-access-inline";
+
+const policy = mergePolicy(defaultPolicy, { csvMode: "strip" });
+const accessor = SafeAccess.withPolicy(csvString, policy);
+```
+
 ### Accessors customizados
 
 ```typescript

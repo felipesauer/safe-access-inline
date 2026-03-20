@@ -19,11 +19,21 @@ use SafeAccessInline\Contracts\ParserPluginInterface;
  */
 class NativeYamlParser extends AbstractPlugin implements ParserPluginInterface
 {
+    /**
+     * Returns true when the ext-yaml PHP extension is available.
+     *
+     * @return bool Whether `yaml_parse` is available at runtime.
+     */
     protected function isAvailable(): bool
     {
         return function_exists('yaml_parse');
     }
 
+    /**
+     * Returns an installation hint for ext-yaml.
+     *
+     * @return string Human-readable install instructions.
+     */
     protected function installHint(): string
     {
         return 'ext-yaml is not installed. Run: pecl install yaml';

@@ -7,6 +7,6 @@ export interface AuditConfig {
 }
 
 /** Sensible defaults for {@link AuditConfig}. */
-export const DEFAULT_AUDIT_CONFIG: AuditConfig = {
+export const DEFAULT_AUDIT_CONFIG: AuditConfig = Object.freeze({
     maxListeners: 100,
-};
+});

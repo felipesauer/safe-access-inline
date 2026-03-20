@@ -83,6 +83,7 @@ $accessor->transform('yaml');     // "name: Ana\n"
 | `NativeYamlSerializer`  | yaml   | Serializer | `ext-yaml` (PHP extension) |
 | `DeviumTomlParser`      | toml   | Parser     | `devium/toml`              |
 | `DeviumTomlSerializer`  | toml   | Serializer | `devium/toml`              |
+| `SimpleXmlSerializer`   | xml    | Serializer | `ext-simplexml` (bundled)  |
 
 ---
 

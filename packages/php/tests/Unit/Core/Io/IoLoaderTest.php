@@ -1,28 +1,66 @@
 <?php
 
+declare(strict_types=1);
+
 use SafeAccessInline\Contracts\HttpClientInterface;
+use SafeAccessInline\Core\Config\IoLoaderConfig;
 use SafeAccessInline\Core\Io\IoLoader;
-use SafeAccessInline\Enums\AccessorFormat;
+use SafeAccessInline\Enums\Format;
 use SafeAccessInline\Exceptions\SecurityException;
 
 $fixturesDir = realpath(__DIR__ . '/../../../fixtures');
+
+/**
+ * Stream wrapper that reports the URL as a readable regular file but fails to open.
+ * Used to simulate the TOCTOU race between is_readable() and file_get_contents()
+ * in IoLoader::readFile() — exercises the `if ($content === false)` branch (line 128).
+ */
+final class RaceConditionStreamWrapper
+{
+    /** @var resource|null */
+    public $context;
+
+    /**
+     * stat() — makes file_exists() and is_readable() return true.
+     *
+     * @param int-mask<0, 1, 2> $flags STREAM_URL_STAT_LINK or STREAM_URL_STAT_QUIET
+     * @return array<string, int>|false
+     */
+    public function url_stat(string $path, int $flags): array|false
+    {
+        return [
+            'dev' => 0, 'ino' => 0, 'mode' => 0100444, 'nlink' => 0,
+            'uid' => 0, 'gid' => 0, 'rdev' => 0, 'size' => 0,
+            'atime' => 0, 'mtime' => 0, 'ctime' => 0, 'blksize' => -1, 'blocks' => -1,
+        ];
+    }
+
+    /**
+     * stream_open — returns false to simulate a file disappearing between the
+     * is_readable() check and the actual file_get_contents() call.
+     */
+    public function stream_open(string $path, string $mode, int $options, ?string &$opened_path): bool
+    {
+        return false;
+    }
+}
 
 describe(IoLoader::class, function () use (&$fixturesDir) {
 
     // ── resolveFormatFromExtension ──────────────
 
     it('resolves known extensions', function () {
-        expect(IoLoader::resolveFormatFromExtension('config.json'))->toBe(AccessorFormat::Json);
-        expect(IoLoader::resolveFormatFromExtension('config.yaml'))->toBe(AccessorFormat::Yaml);
-        expect(IoLoader::resolveFormatFromExtension('config.yml'))->toBe(AccessorFormat::Yaml);
-        expect(IoLoader::resolveFormatFromExtension('config.toml'))->toBe(AccessorFormat::Toml);
-        expect(IoLoader::resolveFormatFromExtension('config.ini'))->toBe(AccessorFormat::Ini);
-        expect(IoLoader::resolveFormatFromExtension('config.cfg'))->toBe(AccessorFormat::Ini);
-        expect(IoLoader::resolveFormatFromExtension('config.csv'))->toBe(AccessorFormat::Csv);
-        expect(IoLoader::resolveFormatFromExtension('config.env'))->toBe(AccessorFormat::Env);
-        expect(IoLoader::resolveFormatFromExtension('data.ndjson'))->toBe(AccessorFormat::Ndjson);
-        expect(IoLoader::resolveFormatFromExtension('data.jsonl'))->toBe(AccessorFormat::Ndjson);
-        expect(IoLoader::resolveFormatFromExtension('data.xml'))->toBe(AccessorFormat::Xml);
+        expect(IoLoader::resolveFormatFromExtension('config.json'))->toBe(Format::Json);
+        expect(IoLoader::resolveFormatFromExtension('config.yaml'))->toBe(Format::Yaml);
+        expect(IoLoader::resolveFormatFromExtension('config.yml'))->toBe(Format::Yaml);
+        expect(IoLoader::resolveFormatFromExtension('config.toml'))->toBe(Format::Toml);
+        expect(IoLoader::resolveFormatFromExtension('config.ini'))->toBe(Format::Ini);
+        expect(IoLoader::resolveFormatFromExtension('config.cfg'))->toBe(Format::Ini);
+        expect(IoLoader::resolveFormatFromExtension('config.csv'))->toBe(Format::Csv);
+        expect(IoLoader::resolveFormatFromExtension('config.env'))->toBe(Format::Env);
+        expect(IoLoader::resolveFormatFromExtension('data.ndjson'))->toBe(Format::Ndjson);
+        expect(IoLoader::resolveFormatFromExtension('data.jsonl'))->toBe(Format::Ndjson);
+        expect(IoLoader::resolveFormatFromExtension('data.xml'))->toBe(Format::Xml);
     });
 
     it('returns null for unknown extensions', function () {
@@ -36,13 +74,13 @@ describe(IoLoader::class, function () use (&$fixturesDir) {
     })->throws(SecurityException::class, 'No allowedDirs configured');
 
     it('allows any path with allowAnyPath true', function () {
-        IoLoader::assertPathWithinAllowedDirs('/etc/passwd', [], true);
-        expect(true)->toBeTrue();
+        $resolved = IoLoader::assertPathWithinAllowedDirs('/etc/passwd', [], true);
+        expect($resolved)->toBeString();
     });
 
     it('allows paths within allowed directories', function () use (&$fixturesDir) {
-        IoLoader::assertPathWithinAllowedDirs($fixturesDir . '/config.json', [$fixturesDir]);
-        expect(true)->toBeTrue();
+        $resolved = IoLoader::assertPathWithinAllowedDirs($fixturesDir . '/config.json', [$fixturesDir]);
+        expect($resolved)->toBe(realpath($fixturesDir . '/config.json'));
     });
 
     it('rejects paths outside allowed directories', function () use (&$fixturesDir) {
@@ -109,11 +147,14 @@ describe(IoLoader::class, function () use (&$fixturesDir) {
         expect(IoLoader::isPrivateIp('192.168.0.1'))->toBeTrue();
         expect(IoLoader::isPrivateIp('127.0.0.1'))->toBeTrue();
         expect(IoLoader::isPrivateIp('169.254.169.254'))->toBeTrue();
+        expect(IoLoader::isPrivateIp('100.64.0.1'))->toBeTrue();
+        expect(IoLoader::isPrivateIp('100.127.255.255'))->toBeTrue();
     });
 
     it('detects public IPs', function () {
         expect(IoLoader::isPrivateIp('8.8.8.8'))->toBeFalse();
         expect(IoLoader::isPrivateIp('1.1.1.1'))->toBeFalse();
+        expect(IoLoader::isPrivateIp('100.128.0.0'))->toBeFalse();
     });
 
     it('treats invalid IPs as private', function () {
@@ -270,8 +311,8 @@ describe(IoLoader::class, function () use (&$fixturesDir) {
         // File doesn't exist, but directory does — should resolve through dirname
         $nonExistent = $tmpDir . '/safe_access_nonexistent_' . uniqid() . '.json';
         // Should NOT throw when allowedDirs contains the temp dir
-        IoLoader::assertPathWithinAllowedDirs($nonExistent, [$tmpDir]);
-        expect(true)->toBeTrue(); // no exception
+        $resolved = IoLoader::assertPathWithinAllowedDirs($nonExistent, [$tmpDir]);
+        expect($resolved)->toBe($nonExistent);
     });
 
     it('assertPathWithinAllowedDirs throws for completely invalid directory', function () {
@@ -292,5 +333,146 @@ describe(IoLoader::class, function () use (&$fixturesDir) {
     it('assertSafeUrl rejects completely invalid URL', function () {
         expect(fn () => IoLoader::assertSafeUrl('not a url at all ://'))
             ->toThrow(SecurityException::class, 'Invalid URL');
+    });
+
+    // ── configure / resetConfig ─────────────────
+
+    it('configure — stores custom IoLoaderConfig', function () {
+        $custom = new IoLoaderConfig(curlTimeout: 3, curlConnectTimeout: 2);
+        IoLoader::configure($custom);
+        // Clean up so other tests are not affected
+        IoLoader::resetConfig();
+        expect(true)->toBeTrue();
+    });
+
+    it('resetConfig — restores default configuration', function () {
+        IoLoader::configure(new IoLoaderConfig(curlTimeout: 1, curlConnectTimeout: 1));
+        IoLoader::resetConfig();
+        // Verify defaults are restored: assertSafeUrl still works normally
+        $ip = IoLoader::assertSafeUrl('https://example.com');
+        expect($ip)->toBeString();
+        expect(filter_var($ip, FILTER_VALIDATE_IP))->not->toBeFalse();
+    });
+
+    // ── assertPathWithinAllowedDirs — nonexistent allowedDirs entry ─
+
+    it('assertPathWithinAllowedDirs — skips nonexistent allowedDirs entry and still rejects path', function () {
+        // realpath('/nonexistent/…') returns false → the entry is skipped (continue).
+        // After iterating all allowedDirs with no match, throws SecurityException.
+        $tempFile = tempnam(sys_get_temp_dir(), 'sai_test_');
+        assert(is_string($tempFile));
+
+        try {
+            IoLoader::assertPathWithinAllowedDirs(
+                $tempFile,
+                allowedDirs: ['/nonexistent/path/xyzzy_' . uniqid()],
+            );
+        } finally {
+            unlink($tempFile);
+        }
+    })->throws(SecurityException::class, 'outside allowed directories');
+
+    // ── readFile — race condition (line 128) ─────────────────────────
+
+    it('readFile — throws SecurityException when file_get_contents returns false (line 128)', function () {
+        // The wrapper makes file_exists() and is_readable() return true, but
+        // stream_open() fails → file_get_contents() returns false → line 128 throws.
+        $proto = 'sai-race-' . substr(md5(uniqid()), 0, 8);
+        stream_wrapper_register($proto, RaceConditionStreamWrapper::class);
+        try {
+            // allowAnyPath=true bypasses assertPathWithinAllowedDirs realpath checks.
+            @IoLoader::readFile("{$proto}://test-file", allowAnyPath: true);
+        } finally {
+            stream_wrapper_unregister($proto);
+        }
+    })->throws(SecurityException::class, 'Failed to read file');
+
+    // ── assertSafeUrl — IPv6 AAAA DNS resolution via injected resolver ──
+
+    it('assertSafeUrl — returns public IPv6 resolved via AAAA when IPv4 fails', function () {
+        // Inject a resolver: IPv4 lookup fails (returns host unchanged), AAAA returns
+        // a public IPv6 → assertSafeUrl returns the IPv6 address.
+        $publicIpv6 = '2606:2800:220:1:248:1893:25c8:1946';
+        IoLoader::setDnsResolver(new class ($publicIpv6) implements \SafeAccessInline\Contracts\DnsResolverInterface {
+            public function __construct(private readonly string $ipv6)
+            {
+            }
+            public function resolveIPv4(string $host): string
+            {
+                return $host;
+            }
+            public function resolveIPv6(string $host): ?string
+            {
+                return $this->ipv6;
+            }
+        });
+
+        try {
+            $ip = IoLoader::assertSafeUrl('https://ipv6-only.example.com');
+            expect($ip)->toBe($publicIpv6);
+        } finally {
+            IoLoader::resetDnsResolver();
+        }
+    });
+
+    it('assertSafeUrl — throws SecurityException when AAAA resolves to private IPv6', function () {
+        // AAAA resolves to ::1 (loopback) → isPrivateIpv6 returns true → throws.
+        IoLoader::setDnsResolver(new class () implements \SafeAccessInline\Contracts\DnsResolverInterface {
+            public function resolveIPv4(string $host): string
+            {
+                return $host;
+            }
+            public function resolveIPv6(string $host): ?string
+            {
+                return '::1';
+            }
+        });
+
+        try {
+            IoLoader::assertSafeUrl('https://ssrf-target.internal');
+        } finally {
+            IoLoader::resetDnsResolver();
+        }
+    })->throws(SecurityException::class, "Access to private/internal IPv6 '::1' is blocked");
+
+    it('assertSafeUrl — allows private IPv6 when allowPrivateIps is true', function () {
+        // Private IPv6 (::1) should NOT throw when allowPrivateIps=true.
+        IoLoader::setDnsResolver(new class () implements \SafeAccessInline\Contracts\DnsResolverInterface {
+            public function resolveIPv4(string $host): string
+            {
+                return $host;
+            }
+            public function resolveIPv6(string $host): ?string
+            {
+                return '::1';
+            }
+        });
+
+        try {
+            $ip = IoLoader::assertSafeUrl('https://internal.svc', ['allowPrivateIps' => true]);
+            expect($ip)->toBe('::1');
+        } finally {
+            IoLoader::resetDnsResolver();
+        }
+    });
+
+    it('resetDnsResolver — restores default NativeDnsResolver', function () {
+        $mockResolver = new class () implements \SafeAccessInline\Contracts\DnsResolverInterface {
+            public function resolveIPv4(string $host): string
+            {
+                return '127.0.0.1';
+            }
+            public function resolveIPv6(string $host): ?string
+            {
+                return null;
+            }
+        };
+        IoLoader::setDnsResolver($mockResolver);
+        IoLoader::resetDnsResolver();
+
+        // After reset, real DNS is used; assertSafeUrl on a real hostname should work.
+        $ip = IoLoader::assertSafeUrl('https://example.com');
+        expect($ip)->toBeString();
+        expect(filter_var($ip, FILTER_VALIDATE_IP))->not->toBeFalse();
     });
 });

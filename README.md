@@ -57,6 +57,12 @@ $accessor->get('items[?price>20].price'); // [50] — filter
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, coding standards, and commit conventions.
 
+## Long-Running Environments
+
+Internal caches (path parser, plugin registry, audit logger) use static state for performance.
+In long-running processes — FrankenPHP, RoadRunner, SSR Node servers — call `SafeAccess.resetAll()`
+between requests to avoid stale data.
+
 ## Documentation
 
 > **Full guides, API reference, plugins, security, and architecture:**

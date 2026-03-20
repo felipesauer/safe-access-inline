@@ -86,6 +86,7 @@ export function printValue(
     value: unknown,
     stdout: { write(s: string): void },
 ): void {
+    // Stryker disable next-line ConditionalExpression -- equivalent: JSON.stringify(null) === "null" in both branches
     if (value === null || value === undefined) {
         stdout.write("null\n");
     } else if (typeof value === "string") {
@@ -117,4 +118,30 @@ export function parseJsonValue(raw: string): unknown {
     } catch {
         return raw;
     }
+}
+
+/**
+ * Extracts a string option from a `parseArgs` values map.
+ *
+ * Returns `undefined` when the value is absent or not a string, eliminating
+ * the need for unsafe `as string | undefined` casts on `parseArgs` results.
+ *
+ * @param val - Raw value from the parseArgs values map.
+ * @returns The string value, or `undefined`.
+ */
+export function strOpt(val: string | boolean | undefined): string | undefined {
+    return typeof val === "string" ? val : undefined;
+}
+
+/**
+ * Extracts a boolean option from a `parseArgs` values map.
+ *
+ * Returns `false` when the value is absent or not strictly `true`, eliminating
+ * the need for unsafe `as boolean` casts on `parseArgs` results.
+ *
+ * @param val - Raw value from the parseArgs values map.
+ * @returns The boolean value, defaulting to `false`.
+ */
+export function boolOpt(val: string | boolean | undefined): boolean {
+    return val === true;
 }

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use SafeAccessInline\SchemaAdapters\JsonSchemaAdapter;
 
 describe(JsonSchemaAdapter::class, function () {
@@ -123,5 +125,26 @@ describe(JsonSchemaAdapter::class, function () {
         $schema = '{"type": "object", "required": ["name"]}';
         $result = $adapter->validate(['name' => 'Ana'], $schema);
         expect($result->valid)->toBeTrue();
+    });
+
+    it('validates null value against null type', function () {
+        $adapter = new JsonSchemaAdapter();
+        $result = $adapter->validate(null, ['type' => 'null']);
+        expect($result->valid)->toBeTrue();
+    });
+
+    it('validates boolean value against boolean type', function () {
+        $adapter = new JsonSchemaAdapter();
+        $result = $adapter->validate(true, ['type' => 'boolean']);
+        expect($result->valid)->toBeTrue();
+    });
+
+    it('reports unknown type for non-standard PHP values', function () {
+        $adapter = new JsonSchemaAdapter();
+        $fh = fopen('php://memory', 'r');
+        $result = $adapter->validate($fh, ['type' => 'string']);
+        fclose($fh);
+        expect($result->valid)->toBeFalse();
+        expect($result->errors[0]->message)->toContain('unknown');
     });
 });

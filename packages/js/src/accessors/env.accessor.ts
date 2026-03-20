@@ -8,7 +8,13 @@ import { InvalidFormatError } from '../exceptions/invalid-format.error';
 export class EnvAccessor<
     T extends Record<string, unknown> = Record<string, unknown>,
 > extends AbstractAccessor<T> {
-    /** Creates an accessor from a `.env`-format string. */
+    /**
+     * Creates an accessor from a `.env`-format string.
+     *
+     * @param data - A valid `.env` string (KEY=VALUE per line).
+     * @returns A new {@link EnvAccessor} instance.
+     * @throws {InvalidFormatError} If `data` is not a string.
+     */
     static from(data: unknown): EnvAccessor {
         if (typeof data !== 'string') {
             throw new InvalidFormatError('EnvAccessor expects an ENV string.');
@@ -16,6 +22,13 @@ export class EnvAccessor<
         return new EnvAccessor(data);
     }
 
+    /**
+     * Parses a `.env`-format string into a plain record.
+     * Strips comments, blank lines, and surrounding quotes.
+     *
+     * @param raw - The raw `.env` string.
+     * @returns A plain record of environment variable key/value pairs.
+     */
     protected parse(raw: unknown): Record<string, unknown> {
         const env = raw as string;
         const result: Record<string, unknown> = {};
@@ -48,6 +61,12 @@ export class EnvAccessor<
         return result;
     }
 
+    /**
+     * Returns a new {@link EnvAccessor} wrapping the given data.
+     *
+     * @param data - The record to wrap.
+     * @returns A new {@link EnvAccessor} instance.
+     */
     clone(data: Record<string, unknown>): EnvAccessor<T> {
         const inst = Object.create(EnvAccessor.prototype) as EnvAccessor<T>;
         inst.raw = this.raw;

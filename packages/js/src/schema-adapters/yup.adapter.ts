@@ -16,6 +16,14 @@ import type {
  * accessor.validate(schema, new YupSchemaAdapter());
  */
 export class YupSchemaAdapter implements SchemaAdapterInterface<YupSchema> {
+    /**
+     * Validates `data` against the given Yup schema.
+     *
+     * @param data - The value to validate.
+     * @param schema - The Yup schema to validate against.
+     * @returns A {@link SchemaValidationResult} with `valid` flag and any errors.
+     * @throws Re-throws non-Yup errors encountered during validation.
+     */
     validate(data: unknown, schema: YupSchema): SchemaValidationResult {
         try {
             schema.validateSync(data, { abortEarly: false });
@@ -59,6 +67,12 @@ interface YupValidationError {
     inner?: YupInnerError[];
 }
 
+/**
+ * Type guard that checks whether an unknown error is a Yup `ValidationError`.
+ *
+ * @param err - The value to test.
+ * @returns `true` if `err` is a Yup `ValidationError`.
+ */
 function isYupValidationError(err: unknown): err is YupValidationError {
     return (
         typeof err === 'object' &&

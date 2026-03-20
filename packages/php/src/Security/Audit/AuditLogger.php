@@ -7,24 +7,35 @@ namespace SafeAccessInline\Security\Audit;
 use SafeAccessInline\Core\Config\AuditConfig;
 
 /**
- * @phpstan-type AuditEventType 'file.read'|'file.watch'|'url.fetch'|'security.violation'|'security.deprecation'|'data.mask'|'data.freeze'|'schema.validate'|'plugin.overwrite'
+ * @phpstan-type AuditEventType 'file.read'|'file.watch'|'url.fetch'|'security.violation'|'security.deprecation'|'data.mask'|'data.freeze'|'data.format_warning'|'schema.validate'|'plugin.overwrite'
  * @phpstan-type AuditEvent array{type: AuditEventType, timestamp: float, detail: array<string, mixed>}
  */
 final class AuditLogger
 {
+    /** Active audit configuration, lazily initialised on first access. */
     private static AuditConfig $config;
 
+    /**
+     * Returns the active audit configuration, lazily initialised with defaults.
+     *
+     * @return AuditConfig The current configuration.
+     */
     private static function config(): AuditConfig
     {
         return self::$config ??= new AuditConfig();
     }
 
+    /**
+     * Replaces the active configuration.
+     *
+     * @param AuditConfig $config New configuration to apply.
+     */
     public static function configure(AuditConfig $config): void
     {
         self::$config = $config;
     }
 
-    /** @var list<callable(array{type: string, timestamp: float, detail: array<string, mixed>}): void> */
+    /** @var list<callable(array{type: string, timestamp: float, detail: array<string, mixed>}): void> Registered audit listeners. */
     private static array $listeners = [];
 
     /**
@@ -50,8 +61,14 @@ final class AuditLogger
     }
 
     /**
-     * @param string $type
-     * @param array<string, mixed> $detail
+     * Dispatches an audit event to all registered listeners.
+     *
+     * Each listener receives an event array containing `type`, `timestamp`,
+     * and `detail` keys. Listener exceptions are caught and silenced so that
+     * a failing listener never interrupts application flow.
+     *
+     * @param string               $type   Audit event type (e.g. `'file.read'`).
+     * @param array<string, mixed> $detail Contextual data attached to the event.
      */
     public static function emit(string $type, array $detail): void
     {
@@ -73,6 +90,9 @@ final class AuditLogger
         }
     }
 
+    /**
+     * Removes all registered audit listeners.
+     */
     public static function clearListeners(): void
     {
         self::$listeners = [];

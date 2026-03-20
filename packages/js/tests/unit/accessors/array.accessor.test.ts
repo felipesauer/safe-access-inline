@@ -108,4 +108,32 @@ describe(ArrayAccessor.name, () => {
             missing: 'default',
         });
     });
+
+    // ── Array parse branch (L24 ConditionalExpression=false / BlockStatement) ──
+
+    it('from — array input is converted to index-keyed plain object (kills L24 mutations)', () => {
+        // With mutation (if (Array.isArray(raw)) skipped), the raw array is returned as-is.
+        // toObject() would then return an array, not a plain object.
+        const accessor = ArrayAccessor.from([10, 20, 30]);
+        const obj = accessor.toObject();
+        expect(Array.isArray(obj)).toBe(false);
+        expect(obj).toEqual({ '0': 10, '1': 20, '2': 30 });
+    });
+
+    // ── Error message content (L18 StringLiteral="") ──
+
+    it('from — error message is not empty for invalid input', () => {
+        // L18: error string is mutated to "".
+        expect(() => ArrayAccessor.from('not-an-array-or-object')).toThrow(
+            /ArrayAccessor expects an array or object/i,
+        );
+    });
+
+    // ── from() null guard (L17 ConditionalExpression=false) ──
+
+    it('from — null input throws InvalidFormatError (kills L17 ConditionalExpression=false)', () => {
+        // With mutation L17=false: null passes the guard → new ArrayAccessor(null),
+        // parse(null) falls through to `return null as Record` → data=null → later crash.
+        expect(() => ArrayAccessor.from(null)).toThrow(InvalidFormatError);
+    });
 });

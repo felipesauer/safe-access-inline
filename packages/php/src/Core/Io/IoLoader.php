@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace SafeAccessInline\Core\Io;
 
+use SafeAccessInline\Contracts\DnsResolverInterface;
 use SafeAccessInline\Contracts\HttpClientInterface;
 use SafeAccessInline\Core\Config\IoLoaderConfig;
-use SafeAccessInline\Enums\AccessorFormat;
+use SafeAccessInline\Enums\Format;
 use SafeAccessInline\Exceptions\SecurityException;
 use SafeAccessInline\Security\Audit\AuditLogger;
 
@@ -15,8 +16,13 @@ use SafeAccessInline\Security\Audit\AuditLogger;
  */
 final class IoLoader
 {
+    /** Optional HTTP client override; null uses the built-in {@see CurlHttpClient}. */
     private static ?HttpClientInterface $httpClient = null;
 
+    /** Optional DNS resolver override; null uses the built-in {@see NativeDnsResolver}. */
+    private static ?DnsResolverInterface $dnsResolver = null;
+
+    /** Active I/O loader configuration, lazily initialised on first access. */
     private static IoLoaderConfig $config;
 
     /**
@@ -43,52 +49,75 @@ final class IoLoader
         self::$config = new IoLoaderConfig();
     }
 
-    /** @var array<string, AccessorFormat> */
+    /** @var array<string, Format> */
     private const EXTENSION_FORMAT_MAP = [
-        'json' => AccessorFormat::Json,
-        'xml' => AccessorFormat::Xml,
-        'yaml' => AccessorFormat::Yaml,
-        'yml' => AccessorFormat::Yaml,
-        'toml' => AccessorFormat::Toml,
-        'ini' => AccessorFormat::Ini,
-        'cfg' => AccessorFormat::Ini,
-        'csv' => AccessorFormat::Csv,
-        'env' => AccessorFormat::Env,
-        'ndjson' => AccessorFormat::Ndjson,
-        'jsonl' => AccessorFormat::Ndjson,
+        'json' => Format::Json,
+        'xml' => Format::Xml,
+        'yaml' => Format::Yaml,
+        'yml' => Format::Yaml,
+        'toml' => Format::Toml,
+        'ini' => Format::Ini,
+        'cfg' => Format::Ini,
+        'csv' => Format::Csv,
+        'env' => Format::Env,
+        'ndjson' => Format::Ndjson,
+        'jsonl' => Format::Ndjson,
     ];
 
-    public static function resolveFormatFromExtension(string $filePath): ?AccessorFormat
+    /**
+     * Resolves a {@see Format} from a file path's extension.
+     *
+     * Returns null when the extension is not in the known format map.
+     *
+     * @param  string $filePath Absolute or relative file path.
+     * @return Format|null Resolved format, or null when unrecognised.
+     */
+    public static function resolveFormatFromExtension(string $filePath): ?Format
     {
         $ext = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
         return self::EXTENSION_FORMAT_MAP[$ext] ?? null;
     }
 
     /**
-     * @param string[] $allowedDirs
-     * @throws SecurityException
+     * Validates that `$filePath` resolves to a path within one of the `$allowedDirs`.
+     *
+     * Resolves symlinks before comparing, blocks null-byte injection, and rejects paths
+     * outside the allowlist. Returns the canonical resolved path so the caller can use
+     * it directly for subsequent I/O operations, eliminating the TOCTOU window between
+     * path validation and the actual file read/write.
+     *
+     * @param  string   $filePath    Path to validate.
+     * @param  string[] $allowedDirs Allowlisted directory roots.
+     * @param  bool     $allowAnyPath When true, no directory restriction is applied.
+     * @return string The canonical resolved path (result of `realpath()`, or logical dirname + basename
+     *                for paths that do not exist yet).
+     * @throws SecurityException When the path violates any constraint.
      */
     public static function assertPathWithinAllowedDirs(
         string $filePath,
         array $allowedDirs = [],
         bool $allowAnyPath = false,
-    ): void {
+    ): string {
         if (str_contains($filePath, "\0")) {
             throw new SecurityException('File path contains null bytes.');
         }
 
         if (count($allowedDirs) === 0) {
             if ($allowAnyPath) {
-                return;
+                // No directory restriction — resolve the path best-effort and return the canonical form.
+                $resolved = realpath($filePath);
+                return $resolved !== false ? $resolved : $filePath;
             }
             throw new SecurityException(
                 'No allowedDirs configured. Provide allowedDirs or set allowAnyPath: true to bypass path restrictions.'
             );
         }
 
+        // Resolve symlinks before comparing — realpath() follows the full symlink chain.
+        // The returned canonical path is used by readFile/writeFile to close TOCTOU windows.
         $resolved = realpath($filePath);
         if ($resolved === false) {
-            // File doesn't exist yet — resolve the directory part
+            // File doesn't exist yet (e.g. a write target) — resolve the directory part.
             $dir = realpath(dirname($filePath));
             if ($dir === false) {
                 throw new SecurityException("Path '{$filePath}' is outside allowed directories.");
@@ -102,7 +131,7 @@ final class IoLoader
                 continue;
             }
             if (str_starts_with($resolved, $resolvedDir . DIRECTORY_SEPARATOR) || $resolved === $resolvedDir) {
-                return;
+                return $resolved;
             }
         }
 
@@ -115,14 +144,16 @@ final class IoLoader
      */
     public static function readFile(string $filePath, array $allowedDirs = [], bool $allowAnyPath = false): string
     {
-        self::assertPathWithinAllowedDirs($filePath, $allowedDirs, $allowAnyPath);
+        // Use the canonical resolved path for I/O to close the TOCTOU window between
+        // symlink validation and the actual read (the path could be swapped between the two).
+        $resolved = self::assertPathWithinAllowedDirs($filePath, $allowedDirs, $allowAnyPath);
         AuditLogger::emit('file.read', ['filePath' => $filePath]);
 
-        if (!file_exists($filePath) || !is_readable($filePath)) {
+        if (!file_exists($resolved) || !is_readable($resolved)) {
             throw new SecurityException("Failed to read file: '{$filePath}'");
         }
 
-        $content = file_get_contents($filePath);
+        $content = file_get_contents($resolved);
 
         if ($content === false) {
             throw new SecurityException("Failed to read file: '{$filePath}'");
@@ -158,19 +189,60 @@ final class IoLoader
         return self::getHttpClient()->fetch($url, $curlOptions);
     }
 
+    /**
+     * Overrides the HTTP client used by {@see fetchUrl()}.
+     *
+     * Inject a test double here instead of relying on live network calls.
+     *
+     * @param HttpClientInterface $client Replacement HTTP client.
+     */
     public static function setHttpClient(HttpClientInterface $client): void
     {
         self::$httpClient = $client;
     }
 
+    /**
+     * Resets the HTTP client to the default {@see CurlHttpClient}.
+     */
     public static function resetHttpClient(): void
     {
         self::$httpClient = null;
     }
 
+    /**
+     * Returns the active HTTP client, lazily creating the default on first call.
+     *
+     * @return HttpClientInterface Active HTTP client.
+     */
     private static function getHttpClient(): HttpClientInterface
     {
         return self::$httpClient ??= new CurlHttpClient();
+    }
+
+    /**
+     * Overrides the DNS resolver used by {@see assertSafeUrl()}. Useful in tests.
+     */
+    public static function setDnsResolver(DnsResolverInterface $resolver): void
+    {
+        self::$dnsResolver = $resolver;
+    }
+
+    /**
+     * Resets the DNS resolver to the default {@see NativeDnsResolver}.
+     */
+    public static function resetDnsResolver(): void
+    {
+        self::$dnsResolver = null;
+    }
+
+    /**
+     * Returns the active DNS resolver, lazily creating the default on first call.
+     *
+     * @return DnsResolverInterface Active DNS resolver.
+     */
+    private static function getDnsResolver(): DnsResolverInterface
+    {
+        return self::$dnsResolver ??= new NativeDnsResolver();
     }
 
     /**
@@ -248,21 +320,20 @@ final class IoLoader
         }
 
         // Resolve hostname to IP — try IPv4 first, then AAAA fallback
-        $ip = gethostbyname($host);
+        $resolver = self::getDnsResolver();
+        $ip = $resolver->resolveIPv4($host);
 
         if ($ip === $host) {
-            // gethostbyname failed (returned hostname unchanged) — try IPv6 AAAA records
-            $records = @dns_get_record($host, DNS_AAAA);
-            if (is_array($records) && count($records) > 0 && isset($records[0]['ipv6'])) {
-                $ip = $records[0]['ipv6'];
-
-                if (!$allowPrivateIps && self::isPrivateIpv6($ip)) {
+            // IPv4 resolution failed — try IPv6 AAAA records
+            $ipv6 = $resolver->resolveIPv6($host);
+            if ($ipv6 !== null) {
+                if (!$allowPrivateIps && self::isPrivateIpv6($ipv6)) {
                     throw new SecurityException(
-                        "Access to private/internal IPv6 '{$ip}' is blocked (SSRF protection)."
+                        "Access to private/internal IPv6 '{$ipv6}' is blocked (SSRF protection)."
                     );
                 }
 
-                return $ip;
+                return $ipv6;
             }
         }
 
@@ -275,6 +346,15 @@ final class IoLoader
         return $ip;
     }
 
+    /**
+     * Determines whether an IPv6 address falls within a private or reserved range.
+     *
+     * Covers: loopback (::1), link-local (fe80::/10), ULA (fc00::/7), and
+     * IPv4-mapped (::ffff:0:0/96) ranges.
+     *
+     * @param  string $ip Normalized IPv6 address string.
+     * @return bool True when the address is private or reserved.
+     */
     public static function isPrivateIpv6(string $ip): bool
     {
         $lower = strtolower($ip);
@@ -304,6 +384,16 @@ final class IoLoader
         return false;
     }
 
+    /**
+     * Determines whether an IPv4 address falls within a private or reserved range.
+     *
+     * Covers: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 127.0.0.0/8,
+     * 169.254.0.0/16, 0.0.0.0/8, and 100.64.0.0/10 (CGNAT — RFC 6598).
+     * Invalid addresses return true (treated as private).
+     *
+     * @param  string $ip Dotted-decimal IPv4 address string.
+     * @return bool True when the address is private, reserved, or invalid.
+     */
     public static function isPrivateIp(string $ip): bool
     {
         $long = ip2long($ip);
@@ -316,8 +406,9 @@ final class IoLoader
             [0xac100000, 0xac1fffff], // 172.16.0.0/12
             [0xc0a80000, 0xc0a8ffff], // 192.168.0.0/16
             [0x7f000000, 0x7fffffff], // 127.0.0.0/8
-            [0xa9fe0000, 0xa9feffff], // 169.254.0.0/16
+            [0xa9fe0000, 0xa9feffff], // 169.254.0.0/16 (link-local, AWS metadata)
             [0x00000000, 0x00ffffff], // 0.0.0.0/8
+            [0x64400000, 0x647fffff], // 100.64.0.0/10 (CGNAT — RFC 6598)
         ];
 
         foreach ($ranges as [$start, $end]) {

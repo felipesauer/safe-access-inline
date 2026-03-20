@@ -1,0 +1,14 @@
+{
+    "$schema": "https://phpbench.readthedocs.io/en/latest/configuration.html",
+    "runner.bootstrap": "vendor/autoload.php",
+    "runner.path": "benchmarks",
+    "report.generators": {
+        "aggregate": {
+            "generator": "component",
+            "component": "table_aggregate",
+            "sort": {
+                "mean": "asc"
+            }
+        }
+    }
+}

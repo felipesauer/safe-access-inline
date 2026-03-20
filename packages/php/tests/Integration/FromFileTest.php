@@ -1,11 +1,13 @@
 <?php
 
+declare(strict_types=1);
+
 use SafeAccessInline\Exceptions\SecurityException;
 use SafeAccessInline\SafeAccess;
 
 $fixturesDir = realpath(__DIR__ . '/../fixtures');
 
-describe('SafeAccess::fromFile', function () use (&$fixturesDir) {
+describe(SafeAccess::class . ' fromFile', function () use (&$fixturesDir) {
 
     it('loads JSON file', function () use (&$fixturesDir) {
         $acc = SafeAccess::fromFile($fixturesDir . '/config.json', null, [$fixturesDir]);
@@ -38,7 +40,7 @@ describe('SafeAccess::fromFile', function () use (&$fixturesDir) {
     })->throws(SecurityException::class);
 });
 
-describe('SafeAccess::layer / layerFiles', function () use (&$fixturesDir) {
+describe(SafeAccess::class . ' layer/layerFiles', function () use (&$fixturesDir) {
 
     it('merges multiple accessors (last wins)', function () {
         $base = SafeAccess::fromJson('{"app":{"name":"base","debug":false},"server":{"port":3000}}');

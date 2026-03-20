@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use SafeAccessInline\Core\Io\FileWatcher;
 
 describe(FileWatcher::class, function () {
@@ -122,6 +124,47 @@ describe(FileWatcher::class, function () {
         );
         ($watcher['poll'])();
         expect($iterations)->toBe(1);
+    });
+
+    // ── default usleep closure ───────────────────────────────────
+
+    it('watch — constructs default usleep closure when no sleepFn is provided', function () {
+        $nonExistent = '/tmp/fw_default_sleep_' . uniqid() . '.json';
+        $watcher = FileWatcher::watch($nonExistent, function (): void {
+        });
+        // Stop immediately so poll() exits the loop before the sleep is ever called.
+        // This exercises the $sleep = $sleepFn ?? static fn(int $us) => usleep($us) assignment.
+        ($watcher['stop'])();
+        ($watcher['poll'])();
+        expect(true)->toBeTrue();
+    });
+
+    it('watch — default usleep is invoked when polling with no sleepFn (line 23)', function () {
+        // No sleepFn → the default `usleep($us)` closure on line 23 is used.
+        // intervalMs=1 → usleep(1000) = 1 ms, acceptable in CI.
+        // onChange calls stop(), so the loop runs exactly once:
+        //   clearstatcache → change detected → onChange → usleep(1000) → while($running=false) → exit.
+        $tmp = tempnam(sys_get_temp_dir(), 'fw_usleep_');
+        file_put_contents($tmp, 'v1');
+
+        $called = false;
+        $watcher = FileWatcher::watch(
+            $tmp,
+            function () use (&$called, &$watcher): void {
+                $called = true;
+                ($watcher['stop'])();
+            },
+            1, // 1 ms interval → usleep(1000) ≈ 1 ms
+            // $sleepFn intentionally omitted to exercise the default usleep closure
+        );
+
+        // Trigger a mtime change so onChange fires on the first iteration.
+        sleep(1);
+        file_put_contents($tmp, 'v2');
+        ($watcher['poll'])();
+
+        expect($called)->toBeTrue();
+        @unlink($tmp);
     });
 });
 

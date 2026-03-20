@@ -1,6 +1,6 @@
 import { AbstractAccessor } from '../core/abstract-accessor';
 import { InvalidFormatError } from '../exceptions/invalid-format.error';
-import { emitAudit } from '../security/audit/audit-emitter';
+import { AuditEventType, emitAudit } from '../security/audit/audit-emitter';
 
 /**
  * Accessor for CSV strings.
@@ -10,7 +10,13 @@ import { emitAudit } from '../security/audit/audit-emitter';
 export class CsvAccessor<
     T extends Record<string, unknown> = Record<string, unknown>,
 > extends AbstractAccessor<T> {
-    /** Creates an accessor from a CSV string. */
+    /**
+     * Creates an accessor from a CSV string.
+     *
+     * @param data - A valid CSV string (first row treated as headers).
+     * @returns A new {@link CsvAccessor} instance.
+     * @throws {InvalidFormatError} If `data` is not a string.
+     */
     static from(data: unknown): CsvAccessor {
         if (typeof data !== 'string') {
             throw new InvalidFormatError('CsvAccessor expects a CSV string.');
@@ -18,6 +24,12 @@ export class CsvAccessor<
         return new CsvAccessor(data);
     }
 
+    /**
+     * Parses a CSV string into an indexed record of row objects.
+     *
+     * @param raw - The raw CSV string.
+     * @returns A plain record keyed by row index strings.
+     */
     protected parse(raw: unknown): Record<string, unknown> {
         const csv = raw as string;
         const lines = csv
@@ -39,7 +51,9 @@ export class CsvAccessor<
                 }
                 result[String(i - 1)] = row;
             } else {
-                emitAudit('security.violation', {
+                // A column-count mismatch is a data-format issue, not a security violation;
+                // emitting 'security.violation' would inflate security-event counters.
+                emitAudit(AuditEventType.DATA_FORMAT_WARNING, {
                     reason: 'csv_column_mismatch',
                     line: i + 1,
                     expected: headers.length,
@@ -51,6 +65,12 @@ export class CsvAccessor<
         return result;
     }
 
+    /**
+     * Returns a new {@link CsvAccessor} wrapping the given data.
+     *
+     * @param data - The record to wrap.
+     * @returns A new {@link CsvAccessor} instance.
+     */
     clone(data: Record<string, unknown>): CsvAccessor<T> {
         const inst = Object.create(CsvAccessor.prototype) as CsvAccessor<T>;
         inst.raw = this.raw;
@@ -58,6 +78,12 @@ export class CsvAccessor<
         return inst;
     }
 
+    /**
+     * Parses a single CSV line, respecting quoted fields and escaped quotes.
+     *
+     * @param line - A single CSV line string.
+     * @returns An array of field values.
+     */
     private static parseCsvLine(line: string): string[] {
         const result: string[] = [];
         let current = '';

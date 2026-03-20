@@ -1,5 +1,5 @@
 import { SecurityError } from '../../exceptions/security.error';
-import { emitAudit } from '../audit/audit-emitter';
+import { AuditEventType, emitAudit } from '../audit/audit-emitter';
 
 const PRIVATE_IP_RANGES = [
     // 10.0.0.0/8
@@ -14,6 +14,10 @@ const PRIVATE_IP_RANGES = [
     { start: 0xa9fe0000, end: 0xa9feffff },
     // 0.0.0.0/8
     { start: 0x00000000, end: 0x00ffffff },
+    // 100.64.0.0/10 (Carrier-Grade NAT — RFC 6598)
+    // Cloud, Docker overlay networks, and mobile ISPs may route internal
+    // services via CGNAT addresses; block to prevent SSRF bypass.
+    { start: 0x64400000, end: 0x647fffff },
 ];
 
 /**
@@ -123,7 +127,7 @@ export function assertSafeUrl(
             const hexMatch = mappedPart.match(/^([0-9a-f]{1,4}):([0-9a-f]{1,4})$/i);
             /* v8 ignore next 5 — defensive: WHATWG URL spec (§4.1) normalises IPv4-mapped
                IPv6 addresses to hex pairs (e.g. ::ffff:127.0.0.1 → ::ffff:7f00:1).
-               The hexMatch RegExp covers all normalised forms; this branch guards
+               The hexMatch RegExp covers all Normalized forms; this branch guards
                against hypothetical future parser changes. */
             if (!hexMatch) {
                 throw new SecurityError(
@@ -178,7 +182,11 @@ export async function resolveAndValidateIp(
         const v4Addresses = await dns.resolve4(hostname).catch(() => [] as string[]);
         for (const ip of v4Addresses) {
             if (isPrivateIp(ip)) {
-                emitAudit('security.violation', { reason: 'ssrf_dns_resolution', hostname, ip });
+                emitAudit(AuditEventType.SECURITY_VIOLATION, {
+                    reason: 'ssrf_dns_resolution',
+                    hostname,
+                    ip,
+                });
                 throw new SecurityError(
                     `Host '${hostname}' resolves to private IP '${ip}' (SSRF protection).`,
                 );
@@ -189,14 +197,23 @@ export async function resolveAndValidateIp(
         const v6Addresses = await dns.resolve6(hostname).catch(() => [] as string[]);
         for (const ip of v6Addresses) {
             if (isIpv6Loopback(ip)) {
-                emitAudit('security.violation', { reason: 'ssrf_dns_resolution', hostname, ip });
+                emitAudit(AuditEventType.SECURITY_VIOLATION, {
+                    reason: 'ssrf_dns_resolution',
+                    hostname,
+                    ip,
+                });
                 throw new SecurityError(
                     `Host '${hostname}' resolves to private IPv6 '${ip}' (SSRF protection).`,
                 );
             }
         }
 
-        return v4Addresses[0] ?? null;
+        // For IPv6-only hostnames (no A records), return the first validated AAAA address
+        // for DNS pinning. Without this, resolvedIp would be null and fetchUrl would fall
+        // back to an unpinned OS lookup, re-opening a DNS rebinding window.
+        if (v4Addresses.length > 0) return v4Addresses[0];
+        if (v6Addresses.length > 0) return v6Addresses[0];
+        return null;
         /* v8 ignore start — defensive: the per-record .catch(() => []) handlers above absorb
            expected DNS errors (ENOTFOUND, ENODATA). This outer catch only fires for truly
            unexpected failures (e.g. OS-level or runtime errors). SecurityErrors are rethrown.

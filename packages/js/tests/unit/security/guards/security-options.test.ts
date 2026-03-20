@@ -78,6 +78,14 @@ describe('SecurityOptions', () => {
             expect(DEFAULT_SECURITY_OPTIONS.maxDepth).toBe(512);
             expect(DEFAULT_SECURITY_OPTIONS.maxPayloadBytes).toBe(10 * 1024 * 1024);
             expect(DEFAULT_SECURITY_OPTIONS.maxKeys).toBe(10_000);
+            expect(DEFAULT_SECURITY_OPTIONS.maxCountDepth).toBe(100);
+        });
+
+        // ── Security regression: maxCountDepth must be in config, not hardcoded ──
+        it('maxCountDepth is defined and is a finite positive integer', () => {
+            expect(typeof DEFAULT_SECURITY_OPTIONS.maxCountDepth).toBe('number');
+            expect(Number.isFinite(DEFAULT_SECURITY_OPTIONS.maxCountDepth)).toBe(true);
+            expect(DEFAULT_SECURITY_OPTIONS.maxCountDepth).toBeGreaterThan(0);
         });
     });
 

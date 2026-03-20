@@ -11,6 +11,28 @@ namespace SafeAccessInline\Security\Guards;
  */
 final class SecurityPolicy
 {
+    // ── Strict preset limits ────────────────────────────────────────────────
+
+    /** @internal Structural depth cap for strict environments (user-facing / sensitive data). */
+    private const STRICT_MAX_DEPTH = 20;
+
+    /** @internal Payload byte cap for strict environments (1 MB). */
+    private const STRICT_MAX_PAYLOAD_BYTES = 1_048_576;
+
+    /** @internal Key count cap for strict environments. */
+    private const STRICT_MAX_KEYS = 1_000;
+
+    // ── Permissive preset limits ────────────────────────────────────────────
+
+    /** @internal Structural depth cap for permissive environments (trusted internal data). */
+    private const PERMISSIVE_MAX_DEPTH = 1_024;
+
+    /** @internal Payload byte cap for permissive environments (100 MB). */
+    private const PERMISSIVE_MAX_PAYLOAD_BYTES = 104_857_600;
+
+    /** @internal Key count cap for permissive environments. */
+    private const PERMISSIVE_MAX_KEYS = 100_000;
+
     public function __construct(
         public readonly int $maxDepth = 512,
         public readonly int $maxPayloadBytes = 10_485_760,
@@ -27,40 +49,69 @@ final class SecurityPolicy
     ) {
     }
 
+    /**
+     * Returns a strict policy suitable for user-facing or sensitive environments.
+     *
+     * Applies tight limits: 20 depth, 1 MB payload, 1 000 keys, HTTPS-only URLs,
+     * and CSV injection errors.
+     *
+     * @return self Pre-configured strict policy instance.
+     */
     public static function strict(): self
     {
         return new self(
-            maxDepth: 20,
-            maxPayloadBytes: 1_048_576,
-            maxKeys: 1_000,
+            maxDepth: self::STRICT_MAX_DEPTH,
+            maxPayloadBytes: self::STRICT_MAX_PAYLOAD_BYTES,
+            maxKeys: self::STRICT_MAX_KEYS,
             csvMode: 'error', // reject injection attempts — never silently mutate in a strict context
             url: ['allowedPorts' => [443]], // HTTPS only; callers must supply allowedHosts
         );
     }
 
+    /**
+     * Returns a permissive policy suitable for trusted internal data processing.
+     *
+     * Applies relaxed limits: 1 024 depth, 100 MB payload, 100 000 keys.
+     *
+     * @return self Pre-configured permissive policy instance.
+     */
     public static function permissive(): self
     {
         return new self(
-            maxDepth: 1_024,
-            maxPayloadBytes: 104_857_600,
-            maxKeys: 100_000,
+            maxDepth: self::PERMISSIVE_MAX_DEPTH,
+            maxPayloadBytes: self::PERMISSIVE_MAX_PAYLOAD_BYTES,
+            maxKeys: self::PERMISSIVE_MAX_KEYS,
         );
     }
 
     // ── Global Policy ───────────────────────────────────
 
+    /** @var self|null The process-wide policy applied when none is supplied per-call. */
     private static ?self $global = null;
 
+    /**
+     * Registers a process-wide default policy.
+     *
+     * @param self $policy Policy to apply globally.
+     */
     public static function setGlobal(self $policy): void
     {
         self::$global = $policy;
     }
 
+    /**
+     * Removes the process-wide default policy.
+     */
     public static function clearGlobal(): void
     {
         self::$global = null;
     }
 
+    /**
+     * Returns the current process-wide default policy, or null if none is set.
+     *
+     * @return self|null The globally registered policy, or null.
+     */
     public static function getGlobal(): ?self
     {
         return self::$global;

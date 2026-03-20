@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use SafeAccessInline\Accessors\XmlAccessor;
 use SafeAccessInline\Exceptions\InvalidFormatException;
 use SafeAccessInline\Exceptions\SecurityException;

@@ -69,6 +69,10 @@ jobs:
                   flags: php
                   files: packages/php/coverage.xml
 
+            - name: Mutation testing
+              if: matrix.deps == 'full' && matrix.php == '8.4'
+              run: composer test:mutation
+
             - name: Run PHPStan
               if: matrix.deps == 'full' && matrix.php == '8.4'
               run: vendor/bin/phpstan analyse
@@ -76,3 +80,14 @@ jobs:
             - name: Check code style
               if: matrix.deps == 'full' && matrix.php == '8.4'
               run: vendor/bin/php-cs-fixer fix --dry-run --diff
+
+            # Cross-parity ensures PHP and JS produce identical results
+            - name: Cross-parity tests
+              if: matrix.deps == 'full' && matrix.php == '8.4'
+              run: composer test:parity
+
+            # Benchmark is a report, not a quality gate — never fails the build
+            - name: Benchmark (report only)
+              if: matrix.deps == 'full' && matrix.php == '8.4'
+              continue-on-error: true
+              run: composer bench

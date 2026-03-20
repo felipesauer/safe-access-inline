@@ -77,3 +77,33 @@ describe('SafeAccess.fromNdjson()', () => {
         expect(acc).toBeInstanceOf(NdjsonAccessor);
     });
 });
+
+// ── NdjsonAccessor — mutation-targeted edge cases ────────────────
+describe('NdjsonAccessor — trim and line number mutations', () => {
+    it('from — error message is not empty for non-string input (kills L19 StringLiteral)', () => {
+        // L19: error string is mutated to "".
+        expect(() => NdjsonAccessor.from(42)).toThrow(/NdjsonAccessor expects an NDJSON string/i);
+    });
+
+    it('silently skips whitespace-only lines (kills L28 MethodExpression: trim removed)', () => {
+        // Without trim(): " " is not filtered (not equal to "") → JSON.parse(" ") throws.
+        const acc = NdjsonAccessor.from('{"a":1}\n   \n{"b":2}');
+        expect(acc.count()).toBe(2);
+        expect(acc.get('0.a')).toBe(1);
+        expect(acc.get('1.b')).toBe(2);
+    });
+
+    it('error message references correct 1-based line number (kills L28 ArithmeticOperator: idx-1)', () => {
+        // originalLine = idx + 1 (1-based); mutation changes to idx - 1 (0-based, off by 2).
+        // First line (idx=0) has originalLine=1; mutation gives originalLine=-1.
+        // Second line (idx=1) has originalLine=2; mutation gives originalLine=0.
+        expect(() => NdjsonAccessor.from('{"ok":true}\ninvalid-json')).toThrow(/line 2/);
+    });
+
+    it('parse error message is not empty (kills L41 StringLiteral template empty)', () => {
+        // L41: the template literal for the error message is mutated to ``.
+        expect(() => NdjsonAccessor.from('{"ok":1}\nbad')).toThrow(
+            /NdjsonAccessor failed to parse/i,
+        );
+    });
+});

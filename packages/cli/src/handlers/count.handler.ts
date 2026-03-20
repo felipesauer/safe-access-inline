@@ -13,6 +13,7 @@ export function handleCount(rest: string[], io: CliIO): number {
         return 1;
     }
     const accessor = loadFromStdinOrFile(rest[0], undefined, io.readFileSync);
+    // Stryker disable next-line ConditionalExpression -- equivalent: accessor.count(undefined) === accessor.count()
     const c = rest.length >= 2 ? accessor.count(rest[1]) : accessor.count();
     io.stdout.write(c.toString() + "\n");
     return 0;

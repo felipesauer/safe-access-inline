@@ -161,8 +161,13 @@ final class JsonPatch
     }
 
     /**
-     * @param string $pointer
-     * @return array<string>
+     * Parses a JSON Pointer (RFC 6901) string into an array of key segments.
+     *
+     * An empty pointer returns an empty array (refers to the root document).
+     * Tilde-escape sequences `~1` and `~0` are unescaped in each segment.
+     *
+     * @param  string $pointer JSON Pointer string, e.g. `/foo/bar/0`.
+     * @return array<string> Ordered array of decoded path segments.
      */
     private static function parsePointer(string $pointer): array
     {
@@ -176,11 +181,29 @@ final class JsonPatch
         );
     }
 
+    /**
+     * Escapes a key segment for use in a JSON Pointer (RFC 6901).
+     *
+     * Replaces `~` with `~0` and `/` with `~1` in that order.
+     *
+     * @param  string $key Raw key to escape.
+     * @return string Escaped key safe for use in a Pointer path segment.
+     */
     private static function escapePointer(string $key): string
     {
         return str_replace(['~', '/'], ['~0', '~1'], $key);
     }
 
+    /**
+     * Retrieves the value at the given JSON Pointer within `$data`.
+     *
+     * Returns null when any segment along the pointer path does not exist.
+     * String keys are validated via {@see SecurityGuard::assertSafeKey()}.
+     *
+     * @param  mixed  $data    Data structure to traverse.
+     * @param  string $pointer JSON Pointer path string.
+     * @return mixed  The value at `$pointer`, or null when the path is absent.
+     */
     private static function getAtPointer(mixed $data, string $pointer): mixed
     {
         $keys = self::parsePointer($pointer);
@@ -227,6 +250,9 @@ final class JsonPatch
         }
 
         $lastKey = end($keys);
+        // PHPStan considers $current already narrowed to array after the assert() call above, making the is_array()
+        // check redundant from its perspective; the explicit check is kept so the code remains safe when
+        // assert() is disabled (assert.active=0 in php.ini), which is common in production environments.
         // @phpstan-ignore-next-line function.alreadyNarrowedType
         if ($lastKey === '-' && is_array($current)) {
             $current[] = $value;
@@ -274,7 +300,9 @@ final class JsonPatch
         }
         if (is_array($current)) {
             unset($current[$key]);
-            /** @phpstan-ignore greater.alwaysTrue */
+            // array_is_list() alone does not cover the case of an int key in a non-list (associative numeric) array;
+            // the second condition is intentionally broader to re-index after any integer-keyed removal.
+            // @phpstan-ignore greater.alwaysTrue
             if (array_is_list($current) || (is_int($key) && count($current) > 0)) {
                 $current = array_values($current);
             }
@@ -283,6 +311,16 @@ final class JsonPatch
         return $result;
     }
 
+    /**
+     * Performs a deep equality check between two values.
+     *
+     * Arrays are compared recursively; strict (`===`) equality is used for
+     * scalars and mismatched types.
+     *
+     * @param  mixed $a First value.
+     * @param  mixed $b Second value.
+     * @return bool True when `$a` and `$b` are deeply equal.
+     */
     private static function deepEqual(mixed $a, mixed $b): bool
     {
         if ($a === $b) {

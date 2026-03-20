@@ -13,7 +13,13 @@ import { InvalidFormatError } from '../exceptions/invalid-format.error';
 export class NdjsonAccessor<
     T extends Record<string, unknown> = Record<string, unknown>,
 > extends AbstractAccessor<T> {
-    /** Creates an accessor from a newline-delimited JSON string. */
+    /**
+     * Creates an accessor from a newline-delimited JSON string.
+     *
+     * @param data - A valid NDJSON string (one JSON object per line).
+     * @returns A new {@link NdjsonAccessor} instance.
+     * @throws {InvalidFormatError} If `data` is not a string or any line fails to parse.
+     */
     static from(data: unknown): NdjsonAccessor {
         if (typeof data !== 'string') {
             throw new InvalidFormatError('NdjsonAccessor expects an NDJSON string.');
@@ -21,6 +27,14 @@ export class NdjsonAccessor<
         return new NdjsonAccessor(data);
     }
 
+    /**
+     * Parses a newline-delimited JSON string into an indexed record.
+     * Empty lines are skipped; any malformed line throws immediately.
+     *
+     * @param raw - The raw NDJSON string.
+     * @returns A plain record keyed by sequential index strings.
+     * @throws {InvalidFormatError} If any non-empty line is not valid JSON.
+     */
     protected parse(raw: unknown): Record<string, unknown> {
         const input = raw as string;
         const allLines = input.split('\n');
@@ -46,6 +60,12 @@ export class NdjsonAccessor<
         return result;
     }
 
+    /**
+     * Returns a new {@link NdjsonAccessor} wrapping the given data.
+     *
+     * @param data - The record to wrap.
+     * @returns A new {@link NdjsonAccessor} instance.
+     */
     clone(data: Record<string, unknown>): NdjsonAccessor<T> {
         const inst = Object.create(NdjsonAccessor.prototype) as NdjsonAccessor<T>;
         inst.raw = this.raw;

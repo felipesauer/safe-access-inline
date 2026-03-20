@@ -9,6 +9,9 @@ packages/php/.php-cs-fixer.cache
 packages/php/.phpstan.cache/
 packages/php/coverage/
 packages/php/coverage.xml
+packages/php/.infection.cache/
+packages/php/coverage-infection/
+packages/php/reports/
 
 # JS/TS
 packages/js/node_modules/
@@ -17,12 +20,16 @@ packages/js/coverage/
 # Lock files are intentionally excluded for library packages.
 # See: https://docs.npmjs.com/cli/v10/configuring-npm/package-lock-json#package-lockjson-vs-npm-shrinkwrapjson
 packages/js/package-lock.json
+packages/js/.stryker-tmp/
+packages/js/reports/
 
 # CLI
 packages/cli/node_modules/
 packages/cli/dist/
 packages/cli/coverage/
 packages/cli/package-lock.json
+packages/cli/.stryker-tmp/
+packages/cli/reports/
 
 # Root tooling (husky, commitlint, lint-staged)
 node_modules/

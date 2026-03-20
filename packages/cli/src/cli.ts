@@ -20,6 +20,8 @@ export {
     printValue,
     parseMaskPatterns,
     parseJsonValue,
+    strOpt,
+    boolOpt,
 } from "./command-handlers.js";
 
 export const HELP = `

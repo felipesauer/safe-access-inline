@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use SafeAccessInline\Core\Parsers\DotNotationParser;
 use SafeAccessInline\Exceptions\SecurityException;
 use SafeAccessInline\Security\Guards\SecurityGuard;

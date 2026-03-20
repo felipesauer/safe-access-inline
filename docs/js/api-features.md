@@ -181,6 +181,19 @@ interface SchemaValidationIssue {
 }
 ```
 
+### Shipped adapters
+
+The package exports ready-to-use adapters for common schema libraries:
+
+| Adapter                | Peer dependency | Notes                                                                                                                                             |
+| ---------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ZodSchemaAdapter`     | `zod`           | Validates with `schema.safeParse(data)`                                                                                                           |
+| `ValibotSchemaAdapter` | `valibot`       | Accepts Valibot's `safeParse` function in the constructor                                                                                         |
+| `YupSchemaAdapter`     | `yup`           | Uses `schema.validateSync(data, { abortEarly: false })`                                                                                           |
+| `JsonSchemaAdapter`    | None            | Built-in draft-07 subset adapter supporting `type`, `required`, `properties`, `items`, `minimum`, `maximum`, `minLength`, `maxLength`, and `enum` |
+
+These shipped adapters are intentionally ecosystem-specific. The JS package ships adapters for common JS validators (`zod`, `valibot`, `yup`), while the PHP package ships `JsonSchemaAdapter` and `SymfonyValidatorAdapter`.
+
 ---
 
 ## Security
@@ -307,6 +320,8 @@ const accessor = SafeAccess.fromFileSync("./config.yaml", {
 const accessor = await SafeAccess.fromFile("./config.json");
 ```
 
+JavaScript exposes both synchronous and asynchronous file-loading APIs. This is a deliberate cross-language difference: the PHP package exposes synchronous I/O only, while the JS package provides async variants for Node runtimes and sync variants for bootstrap or CLI use cases.
+
 ### URL Loading
 
 ```typescript
@@ -343,6 +358,10 @@ const stop = SafeAccess.watchFile("./config.yaml", (accessor) => {
 stop();
 ```
 
+In the JS package, `watchFile()` returns a single unsubscribe function and uses the platform watcher (`fs.watch`) under the hood.
+
+This differs intentionally from PHP, where `watchFile()` returns `{ poll, stop }` because the polling loop must be driven explicitly in a synchronous runtime.
+
 ---
 
 ## Audit Logging
@@ -357,7 +376,7 @@ const unsubscribe = SafeAccess.onAudit((event) => {
 });
 
 // Event types: 'file.read', 'url.fetch', 'security.violation', 'data.mask',
-//              'file.watch', 'data.freeze', 'schema.validate'
+//              'file.watch', 'data.freeze', 'data.format_warning', 'schema.validate'
 
 // Cleanup
 SafeAccess.clearAuditListeners();
@@ -381,6 +400,7 @@ type AuditEventType =
     | "security.deprecation"
     | "data.mask"
     | "data.freeze"
+    | "data.format_warning"
     | "schema.validate";
 ```
 

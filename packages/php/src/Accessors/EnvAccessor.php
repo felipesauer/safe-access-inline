@@ -37,6 +37,10 @@ class EnvAccessor extends AbstractAccessor
         return new static($data, $readonly); // @phpstan-ignore new.static
     }
 
+    /**
+     * @param mixed $raw
+     * @return array<mixed>
+     */
     protected function parse(mixed $raw): array
     {
         assert(is_string($raw));

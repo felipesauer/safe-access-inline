@@ -186,18 +186,41 @@ afterEach(fn () => \SafeAccessInline\SafeAccess::resetAll());
 
 All pull requests must pass:
 
-| Check           | PHP                                     | JS/TS              |
-| --------------- | --------------------------------------- | ------------------ |
-| Tests           | `vendor/bin/pest`                       | `npm test`         |
-| Static analysis | `vendor/bin/phpstan analyse` (Level 9)  | `npx tsc --noEmit` |
-| Code style      | `vendor/bin/php-cs-fixer fix --dry-run` | `npm run lint`     |
+| Check            | PHP                                     | JS/TS                              |
+| ---------------- | --------------------------------------- | ---------------------------------- |
+| Tests            | `vendor/bin/pest`                       | `npm test`                         |
+| Static analysis  | `vendor/bin/phpstan analyse` (Level 9)  | `npx tsc --noEmit`                 |
+| Code style       | `vendor/bin/php-cs-fixer fix --dry-run` | `npm run lint`                     |
+| Mutation testing | `composer test:mutation` (100% MSI)     | `npm run test:mutation` (100% MSI) |
 
 ### Future Quality Improvements
 
 The following tools are planned for v1.0:
 
-- **Mutation testing** — [Stryker](https://stryker-mutator.io/) (JS) and [Infection](https://infection.github.io/) (PHP) to validate test quality beyond coverage metrics.
-- **Performance benchmarks** — per-format parsing and serialization benchmarks to track regressions.
+- **Performance benchmarks** — per-format parsing and serialization benchmarks integrated into CI to track regressions.
+
+### Mutation Testing
+
+Mutation testing is enforced across all packages with **100% Mutation Score Index (MSI)**:
+
+| Package | Tool                                      | Config                | Threshold |
+| ------- | ----------------------------------------- | --------------------- | --------- |
+| JS/TS   | [Stryker](https://stryker-mutator.io/)    | `stryker.config.json` | 100% MSI  |
+| CLI     | [Stryker](https://stryker-mutator.io/)    | `stryker.config.json` | 100% MSI  |
+| PHP     | [Infection](https://infection.github.io/) | `infection.json5`     | 100% MSI  |
+
+Run mutation tests per package:
+
+```bash
+# JS/TS
+cd packages/js && npm run test:mutation
+
+# CLI
+cd packages/cli && npm run test:mutation
+
+# PHP
+cd packages/php && composer test:mutation
+```
 
 ### Documentation
 

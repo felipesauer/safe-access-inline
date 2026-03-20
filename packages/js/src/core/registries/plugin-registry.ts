@@ -1,5 +1,5 @@
 import { UnsupportedTypeError } from '../../exceptions/unsupported-type.error';
-import { emitAudit } from '../../security/audit/audit-emitter';
+import { AuditEventType, emitAudit } from '../../security/audit/audit-emitter';
 
 /**
  * Contract for parser plugins.
@@ -30,7 +30,7 @@ export class PluginRegistry {
     /** Registers (or overwrites) a parser plugin for the given `format`. */
     static registerParser(format: string, parser: ParserPlugin): void {
         if (PluginRegistry.parsers.has(format)) {
-            emitAudit('plugin.overwrite', {
+            emitAudit(AuditEventType.PLUGIN_OVERWRITE, {
                 kind: 'parser',
                 format,
                 message: `Parser for format '${format}' is being overwritten.`,
@@ -64,7 +64,7 @@ export class PluginRegistry {
     /** Registers (or overwrites) a serializer plugin for the given `format`. */
     static registerSerializer(format: string, serializer: SerializerPlugin): void {
         if (PluginRegistry.serializers.has(format)) {
-            emitAudit('plugin.overwrite', {
+            emitAudit(AuditEventType.PLUGIN_OVERWRITE, {
                 kind: 'serializer',
                 format,
                 message: `Serializer for format '${format}' is being overwritten.`,

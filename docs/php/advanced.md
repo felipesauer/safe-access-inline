@@ -10,6 +10,7 @@ outline: deep
 - [JSON Patch & Diff](#json-patch--diff)
 - [I/O & File Loading](#io--file-loading)
 - [Layered Configuration](#layered-configuration)
+- [Configuration reference](#configuration-reference)
 
 ## Array Operations
 
@@ -177,3 +178,134 @@ $stop = SafeAccess::watchFile('/app/config.json', function ($accessor) {
 // Later: stop watching
 $stop();
 ```
+
+---
+
+## Configuration reference
+
+The package exposes configuration classes for advanced consumers who want to tune limits explicitly.
+
+### `SafeAccessConfig`
+
+```php
+<?php
+declare(strict_types=1);
+
+use SafeAccessInline\Core\Config\SafeAccessConfig;
+
+$config = new SafeAccessConfig(
+    maxCustomAccessors: 50,
+);
+```
+
+Limits how many custom accessor classes can be registered through `SafeAccess::extend()`.
+
+### `CacheConfig`
+
+```php
+<?php
+declare(strict_types=1);
+
+use SafeAccessInline\Core\Config\CacheConfig;
+
+$config = new CacheConfig(
+    maxSize: 1000,
+);
+```
+
+Controls the maximum number of parsed dot-notation paths retained by `PathCache`.
+
+### `ParserConfig`
+
+```php
+<?php
+declare(strict_types=1);
+
+use SafeAccessInline\Core\Config\ParserConfig;
+
+$config = new ParserConfig(
+    maxResolveDepth: 512,
+    maxXmlDepth: 100,
+);
+```
+
+Bounds recursive path resolution and XML nesting depth.
+
+### `MergerConfig`
+
+```php
+<?php
+declare(strict_types=1);
+
+use SafeAccessInline\Core\Config\MergerConfig;
+
+$config = new MergerConfig(
+    maxDepth: 512,
+);
+```
+
+Limits recursion depth during deep-merge operations.
+
+### `MaskerConfig`
+
+```php
+<?php
+declare(strict_types=1);
+
+use SafeAccessInline\Core\Config\MaskerConfig;
+
+$config = new MaskerConfig(
+    defaultMaskValue: '[REDACTED]',
+    maxRecursionDepth: 100,
+);
+```
+
+Configures the replacement value and recursion bound used by `DataMasker`.
+
+### `AuditConfig`
+
+```php
+<?php
+declare(strict_types=1);
+
+use SafeAccessInline\Core\Config\AuditConfig;
+
+$config = new AuditConfig(
+    maxListeners: 100,
+);
+```
+
+Caps the number of concurrent audit listeners.
+
+### `FilterParserConfig`
+
+```php
+<?php
+declare(strict_types=1);
+
+use SafeAccessInline\Core\Config\FilterParserConfig;
+
+$config = new FilterParserConfig(
+    maxPatternLength: 128,
+    pcreBacktrackLimit: 1000,
+    pcreRecursionLimit: 100,
+);
+```
+
+Sets the regex length and PCRE engine limits used by `match()` filter expressions.
+
+### `IoLoaderConfig`
+
+```php
+<?php
+declare(strict_types=1);
+
+use SafeAccessInline\Core\Config\IoLoaderConfig;
+
+$config = new IoLoaderConfig(
+    curlTimeout: 10,
+    curlConnectTimeout: 5,
+);
+```
+
+Controls total cURL timeout and connection timeout, in seconds, for `IoLoader::fetchUrl()`.

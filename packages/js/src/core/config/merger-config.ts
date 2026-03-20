@@ -7,6 +7,6 @@ export interface MergerConfig {
 }
 
 /** Sensible defaults for {@link MergerConfig}. */
-export const DEFAULT_MERGER_CONFIG: MergerConfig = {
+export const DEFAULT_MERGER_CONFIG: MergerConfig = Object.freeze({
     maxDepth: 512,
-};
+});

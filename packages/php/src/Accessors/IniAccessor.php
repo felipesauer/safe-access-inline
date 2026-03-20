@@ -32,15 +32,22 @@ class IniAccessor extends AbstractAccessor
         return new static($data, $readonly); // @phpstan-ignore new.static
     }
 
+    /**
+     * @param mixed $raw
+     * @return array<mixed>
+     */
     protected function parse(mixed $raw): array
     {
         assert(is_string($raw));
         set_error_handler(fn () => true);
+
         $parsed = parse_ini_string($raw, true, INI_SCANNER_TYPED);
+
         restore_error_handler();
         if ($parsed === false) {
             throw new InvalidFormatException('IniAccessor failed to parse INI string.');
         }
+
         return $parsed;
     }
 }

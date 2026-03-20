@@ -198,7 +198,7 @@ safe-access-inline/
 │   │   │   ├── Accessors/   # 10 accessors de formato (incl. NDJSON)
 │   │   │   ├── Contracts/   # Interfaces (incl. ParserPlugin, SerializerPlugin, SchemaAdapter)
 │   │   │   ├── Core/        # AbstractAccessor (root) + Parsers/, Resolvers/, Operations/, Rendering/, Io/, Registries/, Config/ subdirs
-│   │   │   ├── Enums/       # AccessorFormat, AuditEventType, PatchOperationType, SegmentType
+│   │   │   ├── Enums/       # Format, AuditEventType, PatchOperationType, SegmentType
 │   │   │   ├── Exceptions/  # Hierarquia de exceções (incl. SecurityException, SchemaValidationException, ReadonlyViolationException)
 │   │   │   ├── Integrations/# LaravelServiceProvider, SymfonyIntegration, SafeAccessBundle
 │   │   │   ├── Plugins/     # Plugins incluídos (SymfonyYaml*, NativeYaml*, DeviumToml*, SimpleXmlSerializer)
@@ -274,7 +274,14 @@ Carregamento de arquivos e URLs segue um pipeline seguro:
 4. **Emissão de auditoria** — Evento `file.read` ou `url.fetch`
 5. **Criação do accessor** — Delegado ao método `SafeAccess.from*()` apropriado
 
-File watching usa polling (`FileWatcher`) — verifica mtime em intervalos configuráveis. Retorna uma função stop para cleanup.
+As restrições do runtime de cada linguagem importam aqui:
+
+- **JS/TS** expõe APIs de carregamento de arquivo síncronas e assíncronas (`fromFileSync()` e `fromFile()`), além de carregamento assíncrono de URL.
+- **PHP** expõe apenas carregamento síncrono de arquivos e URLs.
+- **JS/TS** retorna uma única função de unsubscribe em file watching e delega para `fs.watch`.
+- **PHP** retorna `{ poll, stop }` em file watching e usa polling explícito porque não há um contrato de event loop embutido.
+
+Por isso, o file watching em PHP usa polling (`FileWatcher`) — verifica `mtime` em intervalos configuráveis e exige que o chamador dirija explicitamente o loop bloqueante.
 
 - **PathCache** — Cache LRU em memória entre `AbstractAccessor` e `DotNotationParser`. Arrays de segmentos de caminhos parseados são armazenados indexados pela string do caminho, eliminando re-parsing redundante em acessos frequentes.
 
@@ -294,13 +301,18 @@ flowchart LR
     SAI -->|retorna| SVR
 ```
 
-Usuários implementam `SchemaAdapterInterface` com sua biblioteca de validação preferida (Zod, Joi, JSON Schema, etc.) e registram via `SchemaRegistry.setDefaultAdapter()`.
+Usuários implementam `SchemaAdapterInterface` com sua biblioteca de validação preferida e registram via `SchemaRegistry.setDefaultAdapter()`.
+
+Os adapters incluídos no pacote são intencionalmente específicos de ecossistema, e não espelhados rigidamente entre linguagens:
+
+- **JS/TS:** `JsonSchemaAdapter`, `ZodSchemaAdapter`, `ValibotSchemaAdapter`, `YupSchemaAdapter`
+- **PHP:** `JsonSchemaAdapter`, `SymfonyValidatorAdapter`
 
 ## Sistema de Auditoria
 
 O sistema de auditoria fornece observabilidade para operações relevantes à segurança:
 
-- **Tipos de evento:** `file.read`, `file.watch`, `url.fetch`, `security.violation`, `security.deprecation`, `data.mask`, `data.freeze`, `schema.validate`
+- **Tipos de evento:** `file.read`, `file.watch`, `url.fetch`, `security.violation`, `security.deprecation`, `data.mask`, `data.freeze`, `data.format_warning`, `schema.validate`
 - **Assinatura:** `SafeAccess.onAudit(listener)` retorna uma função de unsubscribe
 - **Emissão:** Interna — disparada automaticamente por IoLoader, DataMasker, validação de schema, etc.
 - **Design:** Padrão pub/sub. Listeners são síncronos. Eventos incluem campos `type`, `timestamp` e `detail`.

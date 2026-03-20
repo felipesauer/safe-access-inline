@@ -26,6 +26,7 @@ use SafeAccessInline\Security\Guards\SecurityGuard;
  */
 final class FilterParser
 {
+    /** Active filter parser configuration, lazily initialised on first access. */
     private static FilterParserConfig $config;
 
     /**
@@ -103,8 +104,13 @@ final class FilterParser
     }
 
     /**
-     * @param string $expression
-     * @return array{tokens: array<string>, operators: array<string>}
+     * Splits a filter expression string into condition tokens and logical operators.
+     *
+     * Respects quoted strings so that `&&` or `||` inside quoted values are not treated
+     * as logical operators.
+     *
+     * @param  string $expression Full filter expression, e.g. `age>=18 && active==true`.
+     * @return array{tokens: array<string>, operators: array<string>} Condition tokens and logical operators.
      */
     private static function splitLogical(string $expression): array
     {
@@ -157,8 +163,13 @@ final class FilterParser
     }
 
     /**
-     * @param string $token
-     * @return array{field: string, operator: string, value: mixed, func?: string, funcArgs?: array<string>}
+     * Parses a single condition token into a structured condition array.
+     *
+     * Handles plain comparisons (`field op value`), function+operator forms
+     * (`length(@.field) > 3`), and boolean function forms (`match(@.name,'Ana.*')`).
+     *
+     * @param  string $token Single condition token, e.g. `age>=18` or `length(@.name)>3`.
+     * @return array{field: string, operator: string, value: mixed, func?: string, funcArgs?: array<string>} Parsed condition.
      */
     private static function parseCondition(string $token): array
     {
@@ -207,8 +218,12 @@ final class FilterParser
     }
 
     /**
-     * @param string $raw
-     * @return mixed
+     * Parses a raw scalar string from a filter expression into its PHP type.
+     *
+     * Handles `true`, `false`, `null`, quoted strings, integers, and floats.
+     *
+     * @param  string $raw Raw value token, e.g. `'Ana'`, `18`, `true`.
+     * @return mixed Typed PHP value corresponding to the raw token.
      */
     public static function parseValue(string $raw): mixed
     {
@@ -237,9 +252,14 @@ final class FilterParser
     }
 
     /**
-     * @param array<mixed> $item
-     * @param array{field: string, operator: string, value: mixed, func?: string, funcArgs?: array<string>} $condition
-     * @return bool
+     * Evaluates a single condition against one item in the dataset.
+     *
+     * Resolves the field value (or calls a function), then compares it to the
+     * expected value using the condition's operator.
+     *
+     * @param  array<mixed> $item      Data item to evaluate.
+     * @param  array{field: string, operator: string, value: mixed, func?: string, funcArgs?: array<string>} $condition Parsed condition descriptor.
+     * @return bool True when the item satisfies the condition.
      */
     private static function evaluateCondition(array $item, array $condition): bool
     {
@@ -263,10 +283,16 @@ final class FilterParser
     }
 
     /**
-     * @param array<mixed> $item
-     * @param string $func
-     * @param array<string> $funcArgs
-     * @return mixed
+     * Dispatches a filter function call and returns its computed value.
+     *
+     * Supports `length`, `match`, and `keys`. Throws for unknown functions.
+     *
+     * @param  array<mixed>  $item     Data item to operate on.
+     * @param  string        $func     Function name, e.g. `'length'`, `'match'`.
+     * @param  array<string> $funcArgs Parsed function arguments.
+     * @return mixed Computed result of the function call.
+     *
+     * @throws \RuntimeException When `$func` is not a known filter function.
      */
     private static function evaluateFunction(array $item, string $func, array $funcArgs): mixed
     {
@@ -279,8 +305,14 @@ final class FilterParser
     }
 
     /**
-     * @param array<mixed> $item
-     * @param array<string> $funcArgs
+     * Evaluates the `length()` filter function.
+     *
+     * Returns the character count for strings and the element count for arrays;
+     * returns 0 for any other type.
+     *
+     * @param  array<mixed>  $item     Data item to operate on.
+     * @param  array<string> $funcArgs Parsed function arguments; first arg is the field path.
+     * @return int Length of the resolved value.
      */
     private static function evalLength(array $item, array $funcArgs): int
     {
@@ -297,6 +329,16 @@ final class FilterParser
     /**
      * @param array<mixed> $item
      * @param array<string> $funcArgs
+     */
+    /**
+     * Evaluates the `match()` filter function.
+     *
+     * Applies the PCRE pattern in `$funcArgs[1]` against the resolved string value.
+     * Enforces ReDoS guards from {@see FilterParserConfig} before executing the match.
+     *
+     * @param  array<mixed>  $item     Data item to operate on.
+     * @param  array<string> $funcArgs Arguments: [0] = field path, [1] = regex pattern.
+     * @return bool True when the resolved string matches the pattern.
      */
     private static function evalMatch(array $item, array $funcArgs): bool
     {
@@ -334,8 +376,14 @@ final class FilterParser
     }
 
     /**
-     * @param array<mixed> $item
-     * @param array<string> $funcArgs
+     * Evaluates the `keys()` filter function.
+     *
+     * Returns the number of keys in the resolved associative array;
+     * returns 0 for non-associative arrays or non-array values.
+     *
+     * @param  array<mixed>  $item     Data item to operate on.
+     * @param  array<string> $funcArgs Parsed function arguments; first arg is the field path.
+     * @return int Number of keys in the resolved associative array.
      */
     private static function evalKeys(array $item, array $funcArgs): int
     {
@@ -347,9 +395,14 @@ final class FilterParser
     }
 
     /**
-     * @param array<mixed> $item
-     * @param string $arg
-     * @return mixed
+     * Resolves a filter argument string to a value within `$item`.
+     *
+     * `@` and `''` resolve to the full item; `@.field` resolves a sub-field;
+     * plain strings resolve the same as sub-fields.
+     *
+     * @param  array<mixed> $item Data item to operate on.
+     * @param  string       $arg  Argument token, e.g. `@`, `@.name`, or `fieldName`.
+     * @return mixed Resolved value.
      */
     private static function resolveFilterArg(array $item, string $arg): mixed
     {
@@ -364,9 +417,14 @@ final class FilterParser
     }
 
     /**
-     * @param array<mixed> $item
-     * @param string $field
-     * @return mixed
+     * Resolves a dot-separated field path against a data item.
+     *
+     * For multi-segment paths, each segment is traversed in order.
+     * Forbidden keys are rejected via {@see SecurityGuard::assertSafeKey()}.
+     *
+     * @param  array<mixed> $item  Data item to traverse.
+     * @param  string       $field Dot-separated field path, e.g. `profile.name`.
+     * @return mixed Value at the resolved path, or `null` if any segment is missing.
      */
     private static function resolveField(array $item, string $field): mixed
     {

@@ -5,7 +5,7 @@ import * as path from 'node:path';
 import { SecurityError } from '../../exceptions/security.error';
 import { assertSafeUrl, resolveAndValidateIp } from '../../security/sanitizers/ip-range-checker';
 import { Format } from '../../enums/format.enum';
-import { emitAudit } from '../../security/audit/audit-emitter';
+import { emitAudit, AuditEventType } from '../../security/audit/audit-emitter';
 import { DEFAULT_SECURITY_OPTIONS } from '../../security/guards/security-options';
 import { type IoLoaderConfig, DEFAULT_IO_LOADER_CONFIG } from '../config/io-loader-config';
 
@@ -44,7 +44,12 @@ const EXTENSION_FORMAT_MAP: Record<string, Format> = {
     '.jsonl': Format.Ndjson,
 };
 
-/** Detects the {@link Format} for `filePath` based on its extension, or returns `null`. */
+/**
+ * Detects the {@link Format} for `filePath` based on its file extension.
+ *
+ * @param filePath - File path or URL path whose extension is inspected.
+ * @returns The matching {@link Format} enum value, or `null` when unrecognised.
+ */
 export function resolveFormatFromExtension(filePath: string): Format | null {
     const ext = path.extname(filePath).toLowerCase();
     return EXTENSION_FORMAT_MAP[ext] ?? null;
@@ -55,13 +60,21 @@ export function resolveFormatFromExtension(filePath: string): Format | null {
  *
  * Resolves symlinks, blocks null-byte injection, and rejects paths outside the allowlist.
  *
+ * Returns the canonical resolved path so the caller can use it directly for subsequent
+ * I/O operations, eliminating the TOCTOU window between path validation and the actual
+ * file read/write.
+ *
+ * @param filePath - Path to validate.
+ * @param allowedDirs - Allowlisted directory roots.
+ * @param options - Optional flags; `allowAnyPath: true` bypasses directory restrictions.
+ * @returns The canonical resolved path.
  * @throws {@link SecurityError} When the path violates any constraint.
  */
 export function assertPathWithinAllowedDirs(
     filePath: string,
     allowedDirs?: string[],
     options?: { allowAnyPath?: boolean },
-): void {
+): string {
     // Block null bytes
     if (filePath.includes('\0')) {
         throw new SecurityError('File path contains null bytes.');
@@ -69,14 +82,20 @@ export function assertPathWithinAllowedDirs(
 
     if (!allowedDirs || allowedDirs.length === 0) {
         if (options?.allowAnyPath) {
-            return;
+            // No directory restriction — resolve the path best-effort and return the canonical form.
+            try {
+                return fs.realpathSync(filePath);
+            } catch {
+                return path.resolve(filePath);
+            }
         }
         throw new SecurityError(
             'No allowedDirs configured. Provide allowedDirs or set allowAnyPath: true to bypass path restrictions.',
         );
     }
 
-    // Resolve symlinks before comparing — path.resolve() alone does not follow symlinks
+    // Resolve symlinks before comparing — path.resolve() alone does not follow symlinks.
+    // The returned canonical path is used by readFileSync/readFile to close TOCTOU windows.
     let resolved: string;
     try {
         resolved = fs.realpathSync(filePath);
@@ -98,6 +117,8 @@ export function assertPathWithinAllowedDirs(
     if (!allowed) {
         throw new SecurityError(`Path '${filePath}' is outside allowed directories.`);
     }
+
+    return resolved;
 }
 
 /**
@@ -109,11 +130,13 @@ export function readFileSync(
     filePath: string,
     options?: { allowedDirs?: string[]; allowAnyPath?: boolean },
 ): string {
-    assertPathWithinAllowedDirs(filePath, options?.allowedDirs, {
+    // Use the canonical resolved path for I/O to close the TOCTOU window between
+    // symlink validation and the actual read (the path could be swapped between the two).
+    const resolved = assertPathWithinAllowedDirs(filePath, options?.allowedDirs, {
         allowAnyPath: options?.allowAnyPath,
     });
-    emitAudit('file.read', { filePath });
-    return fs.readFileSync(filePath, 'utf-8');
+    emitAudit(AuditEventType.FILE_READ, { filePath });
+    return fs.readFileSync(resolved, 'utf-8');
 }
 
 /**
@@ -125,11 +148,13 @@ export async function readFile(
     filePath: string,
     options?: { allowedDirs?: string[]; allowAnyPath?: boolean },
 ): Promise<string> {
-    assertPathWithinAllowedDirs(filePath, options?.allowedDirs, {
+    // Use the canonical resolved path for I/O to close the TOCTOU window between
+    // symlink validation and the actual read (the path could be swapped between the two).
+    const resolved = assertPathWithinAllowedDirs(filePath, options?.allowedDirs, {
         allowAnyPath: options?.allowAnyPath,
     });
-    emitAudit('file.read', { filePath });
-    return fsp.readFile(filePath, 'utf-8');
+    emitAudit(AuditEventType.FILE_READ, { filePath });
+    return fsp.readFile(resolved, 'utf-8');
 }
 
 /**
@@ -146,6 +171,8 @@ export async function fetchUrl(
         allowPrivateIps?: boolean;
         allowedHosts?: string[];
         allowedPorts?: number[];
+        /** Maximum allowed response body size in bytes. Defaults to {@link DEFAULT_SECURITY_OPTIONS.maxPayloadBytes}. */
+        maxPayloadBytes?: number;
     },
 ): Promise<string> {
     assertSafeUrl(url, options);
@@ -157,14 +184,14 @@ export async function fetchUrl(
         allowPrivateIps: options?.allowPrivateIps,
     });
 
-    emitAudit('url.fetch', { url });
+    emitAudit(AuditEventType.URL_FETCH, { url });
 
     // Pin the pre-validated IP to the HTTPS connection to prevent DNS rebinding (TOCTOU).
     // native fetch() performs its own independent DNS lookup after our security check, opening
     // a race window. Using https.request() with a custom lookup overrides the resolver,
     // equivalent to PHP's CURLOPT_RESOLVE option in IoLoader::fetchUrl().
-    // resolvedIp is null only when allowPrivateIps=true (testing/internal use); in that case
-    // we let the OS resolve normally since there is no security constraint to enforce.
+    // resolvedIp is null when allowPrivateIps=true (testing/internal use) OR when no IPv4
+    // address could be resolved (e.g. IPv6-only hostnames). Only pin when a resolved IP is available.
     const isIPv6 = resolvedIp !== null && resolvedIp.includes(':');
 
     return new Promise<string>((resolve, reject) => {
@@ -190,7 +217,8 @@ export async function fetchUrl(
                     );
                     return;
                 }
-                const maxBytes = DEFAULT_SECURITY_OPTIONS.maxPayloadBytes;
+                const maxBytes =
+                    options?.maxPayloadBytes ?? DEFAULT_SECURITY_OPTIONS.maxPayloadBytes;
                 let body = '';
                 let received = 0;
                 res.setEncoding('utf-8');
@@ -210,6 +238,18 @@ export async function fetchUrl(
                 res.on('end', () => resolve(body));
             },
         );
+        req.on('socket', (socket) => {
+            socket.setTimeout(ioConfig.connectTimeoutMs);
+            socket.once('connect', () => socket.setTimeout(0));
+            socket.once('timeout', () => {
+                req.destroy();
+                reject(
+                    new SecurityError(
+                        `Connection to '${url}' timed out after ${ioConfig.connectTimeoutMs}ms.`,
+                    ),
+                );
+            });
+        });
         req.on('error', reject);
         req.on('timeout', () => {
             req.destroy();

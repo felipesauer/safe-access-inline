@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
     createSafeAccessProvider,
     createSafeAccessServiceProvider,
@@ -7,9 +7,14 @@ import {
     SAFE_ACCESS,
 } from '../../src/integrations/nestjs';
 import { safeAccessPlugin, loadConfig } from '../../src/integrations/vite';
+import { SafeAccess } from '../../src/safe-access';
 import { resolve } from 'node:path';
 
 const FIXTURES = resolve(__dirname, '../fixtures');
+
+afterEach(() => {
+    vi.restoreAllMocks();
+});
 
 describe('NestJS Integration', () => {
     it('createSafeAccessProvider with inline data', async () => {
@@ -202,6 +207,40 @@ describe('Vite Integration', () => {
         };
         plugin.handleHotUpdate(ctx);
         expect(reloaded).toBe(false);
+    });
+
+    it('safeAccessPlugin handleHotUpdate sends an error payload when reload fails', () => {
+        const plugin = safeAccessPlugin({
+            files: [resolve(FIXTURES, 'config.json')],
+            allowedDirs: [FIXTURES],
+        });
+        (plugin.buildStart as () => void)();
+
+        vi.spyOn(SafeAccess, 'fromFileSync').mockImplementation(() => {
+            throw new Error('invalid config');
+        });
+
+        let message: unknown = null;
+        const ctx = {
+            file: resolve(FIXTURES, 'config.json'),
+            server: {
+                ws: {
+                    send: (payload: unknown) => {
+                        message = payload;
+                    },
+                },
+            },
+        };
+
+        plugin.handleHotUpdate(ctx);
+
+        expect(message).toEqual({
+            type: 'error',
+            err: {
+                message: 'invalid config',
+                stack: '',
+            },
+        });
     });
 
     it('safeAccessPlugin with empty files produces empty config', () => {

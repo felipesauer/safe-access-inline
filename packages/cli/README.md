@@ -5,7 +5,7 @@
 <h1 align="center">@safe-access-inline/cli</h1>
 
 <p align="center">
-  Query, transform, and manipulate data files from the terminal — 14 commands, 8 formats, piping support.
+  Query, transform, and manipulate data files from the terminal — 13 commands, 8 formats, piping support.
 </p>
 
 <p align="center">
@@ -32,14 +32,52 @@ npm install -g @safe-access-inline/cli
 ## Usage
 
 ```bash
+# Read values
 safe-access get config.json "user.name"
-safe-access get data.yaml "items.*.price"                        # wildcard
-safe-access set config.json "user.email" "a@b.com" --to json     # set & output
-safe-access transform config.yaml --to json --pretty              # convert formats
-safe-access diff config.json config-updated.json                  # structural diff
-safe-access mask config.json --patterns "password,secret,api_*"   # redact secrets
-safe-access layer defaults.yaml overrides.json --to json          # merge layers
-echo '{"a":1}' | safe-access get - "a"                           # stdin piping
+safe-access get data.yaml "items.*.price"                         # wildcard
+safe-access get config.toml "database.host" --default localhost   # default value
+
+# Modify data
+safe-access set config.json "user.email" "a@b.com" --to json --pretty
+safe-access remove config.json "user.token" --to yaml
+
+# Inspect structure
+safe-access keys config.json "database"           # list keys at a path
+safe-access type config.json "database.port"      # "number"
+safe-access has config.json "database.host"       # exits 0=exists, 1=missing
+safe-access count config.json "items"             # number of elements
+
+# Convert formats
+safe-access transform config.yaml --to json --pretty
+safe-access convert --file config.yaml --to toml
+safe-access convert --from yaml --to json < input.yaml
+
+# Compare and merge
+safe-access diff config.json config-updated.json
+safe-access layer defaults.yaml overrides.json --to json --pretty
+
+# Redact secrets
+safe-access mask config.json --patterns "password,secret,api_*" --pretty
+
+# Validate against JSON Schema
+safe-access validate config.json --schema schema.json
+safe-access validate config.json --schema schema.json --format json   # machine-readable
+
+# Stdin piping
+echo '{"a":1}' | safe-access get - "a"
+```
+
+## Exit Codes
+
+| Code | Meaning                                                                   |
+| ---- | ------------------------------------------------------------------------- |
+| `0`  | Success                                                                   |
+| `1`  | Error (missing args, file not found, validation failure, unknown command) |
+
+The `has` command uses exit codes as a boolean signal: exits `0` when the path exists, `1` when it does not — suitable for shell scripting:
+
+```bash
+safe-access has config.json "database.host" && echo "host configured"
 ```
 
 ## Documentation

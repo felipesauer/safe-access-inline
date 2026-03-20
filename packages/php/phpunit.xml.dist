@@ -1,20 +1,43 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
-         bootstrap="vendor/autoload.php"
-         colors="true"
-         cacheDirectory=".phpunit.cache">
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd" bootstrap="vendor/autoload.php" colors="true">
+
     <testsuites>
+        <!-- Unit: isolated, fast tests with no I/O — run always -->
         <testsuite name="Unit">
             <directory>tests/Unit</directory>
         </testsuite>
+        <!-- Integration: real parsers, can be slow — run before PRs -->
         <testsuite name="Integration">
             <directory>tests/Integration</directory>
         </testsuite>
+        <!-- Readme: validates public examples — run before changing README.md -->
+        <testsuite name="Readme">
+            <file>tests/ReadmeExamplesTest.php</file>
+        </testsuite>
+        <!-- Snapshot: freezes complex outputs — update with SPATIE_SNAPSHOT_OVERWRITES=true -->
+        <testsuite name="Snapshot">
+            <file>tests/SnapshotTest.php</file>
+        </testsuite>
+        <!-- Property: random generation, timeout 30s — run in pre-push -->
+        <testsuite name="Property">
+            <file>tests/PropertyTest.php</file>
+        </testsuite>
+        <!-- Fuzzing: hostile inputs, timeout 30s — run in pre-push -->
+        <testsuite name="Fuzzing">
+            <file>tests/FuzzingTest.php</file>
+        </testsuite>
+        <!-- CrossParity: reads fixtures/cross-parity/cases.json — run after fixture changes -->
+        <testsuite name="CrossParity">
+            <file>tests/CrossParityTest.php</file>
+        </testsuite>
     </testsuites>
+
     <source>
         <include>
             <directory>src</directory>
         </include>
+        <exclude>
+            <directory>src/Integrations</directory>
+        </exclude>
     </source>
 </phpunit>

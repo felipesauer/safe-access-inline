@@ -18,6 +18,8 @@ outline: deep
 
 **Namespace:** `SafeAccessInline\Core\IoLoader`
 
+O I/O em PHP é síncrono por definição. Diferentemente do pacote JS, o pacote PHP não expõe variantes assíncronas de `fromFile()` / `fromUrl()`; toda leitura de arquivo ou URL é concluída antes do retorno do accessor.
+
 #### `IoLoader::readFile(string $filePath, array $allowedDirs = []): string`
 
 Lê um arquivo com proteção contra path-traversal. Emite evento de auditoria `file.read`.
@@ -38,15 +40,15 @@ Valida se um caminho de arquivo está dentro dos diretórios permitidos.
 
 Verifica se um endereço IP está em uma faixa privada (RFC 1918, link-local, loopback, metadados cloud).
 
-#### `IoLoader::resolveFormatFromExtension(string $filePath): ?AccessorFormat`
+#### `IoLoader::resolveFormatFromExtension(string $filePath): ?Format`
 
-Deriva o caso do enum `AccessorFormat` a partir da extensão do caminho de arquivo (ex.: `config.yaml` → `AccessorFormat::Yaml`). Retorna `null` quando a extensão não é reconhecida.
+Deriva o caso do enum `Format` a partir da extensão do caminho de arquivo (ex.: `config.yaml` → `Format::Yaml`). Retorna `null` quando a extensão não é reconhecida.
 
 ```php
 use SafeAccessInline\Core\IoLoader;
 
-$format = IoLoader::resolveFormatFromExtension('/app/config.yaml'); // AccessorFormat::Yaml
-$format = IoLoader::resolveFormatFromExtension('/app/data.ndjson');  // AccessorFormat::Ndjson
+$format = IoLoader::resolveFormatFromExtension('/app/config.yaml'); // Format::Yaml
+$format = IoLoader::resolveFormatFromExtension('/app/data.ndjson');  // Format::Ndjson
 $format = IoLoader::resolveFormatFromExtension('/app/file.txt');     // null
 ```
 
@@ -64,32 +66,42 @@ $override = SafeAccess::fromFile('/app/config/local.json');
 $merged   = SafeAccess::layer([$base, $override]);
 ```
 
-#### `SafeAccess::layerFiles(array $paths, array $allowedDirs = []): AbstractAccessor`
+#### `SafeAccess::layerFiles(array $paths, FileLoadOptions|array $optionsOrAllowedDirs = [], bool $allowAnyPath = false): AbstractAccessor`
 
-Carrega múltiplos arquivos e faz deep-merge deles. Wrapper de conveniência para `fromFile()` + `layer()`.
+Carrega múltiplos arquivos e faz deep-merge deles. Aceita um DTO `FileLoadOptions` ou os parâmetros legados `array $allowedDirs` + `bool $allowAnyPath`.
 
 ```php
+use SafeAccessInline\Contracts\FileLoadOptions;
+
 $config = SafeAccess::layerFiles([
     '/app/config/defaults.yaml',
     '/app/config/production.yaml',
 ], ['/app/config']);
+
+$config = SafeAccess::layerFiles(
+    ['/app/config/defaults.yaml', '/app/config/production.yaml'],
+    new FileLoadOptions(allowedDirs: ['/app/config']),
+);
 ```
 
 ---
 
 ## Observação de Arquivos
 
-#### `SafeAccess::watchFile(string $filePath, callable $onChange, ?string $format = null, array $allowedDirs = []): callable`
+#### `SafeAccess::watchFile(string $filePath, callable $onChange, ?string $format = null, array $allowedDirs = []): array{poll: callable(): void, stop: callable(): void}`
 
-Observa um arquivo por mudanças usando polling. Chama `$onChange(AbstractAccessor)` quando o arquivo é modificado. Retorna uma função de parada.
+Observa um arquivo por mudanças usando polling. Chama `$onChange(AbstractAccessor)` quando o arquivo é modificado. Retorna um array com dois callables: `poll` (inicia o loop de polling bloqueante) e `stop` (para de observar).
 
 ```php
-$stop = SafeAccess::watchFile('/app/config.json', function ($accessor) {
+$watcher = SafeAccess::watchFile('/app/config.json', function ($accessor) {
     echo "Config atualizada!\n";
 });
 
-// Depois: parar de observar
-$stop();
+// Iniciar polling (bloqueante — execute em processo/fiber separado conforme necessário)
+$watcher['poll']();
+
+// Parar de observar em outro contexto
+$watcher['stop']();
 ```
 
 ---
@@ -100,7 +112,7 @@ $stop();
 
 Inscreve-se em eventos de auditoria. Retorna uma função de cancelamento de inscrição.
 
-Tipos de evento: `file.read`, `file.watch`, `url.fetch`, `security.violation`, `security.deprecation`, `data.mask`, `data.freeze`, `schema.validate`.
+Tipos de evento: `file.read`, `file.watch`, `url.fetch`, `security.violation`, `security.deprecation`, `data.mask`, `data.freeze`, `data.format_warning`, `schema.validate`.
 
 ```php
 $unsub = SafeAccess::onAudit(function (array $event) {
@@ -268,6 +280,15 @@ readonly class SchemaValidationIssue
     public string $message;
 }
 ```
+
+### Adapters incluídos
+
+O pacote exporta adapters prontos para os sistemas de schema que suporta:
+
+| Adapter                   | Dependência         | Notas                                                                                                                                          |
+| ------------------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `JsonSchemaAdapter`       | Nenhuma             | Validador built-in com suporte a `type`, `required`, `properties`, `items`, `minimum`, `maximum`, `minLength`, `maxLength`, `enum` e `pattern` |
+| `SymfonyValidatorAdapter` | `symfony/validator` | Aceita uma instância opcional de validator ou cria uma automaticamente quando o pacote está instalado                                          |
 
 ---
 

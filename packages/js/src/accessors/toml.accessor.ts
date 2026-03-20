@@ -13,7 +13,13 @@ const getSmolToml = optionalRequire<{ parse: typeof tomlParse }>('smol-toml', 'T
 export class TomlAccessor<
     T extends Record<string, unknown> = Record<string, unknown>,
 > extends AbstractAccessor<T> {
-    /** Creates an accessor from a TOML string. */
+    /**
+     * Creates an accessor from a TOML string.
+     *
+     * @param data - A valid TOML string.
+     * @returns A new {@link TomlAccessor} instance.
+     * @throws {InvalidFormatError} If `data` is not a string or fails to parse.
+     */
     static from(data: unknown): TomlAccessor {
         if (typeof data !== 'string') {
             throw new InvalidFormatError('TomlAccessor expects a TOML string.');
@@ -21,6 +27,13 @@ export class TomlAccessor<
         return new TomlAccessor(data);
     }
 
+    /**
+     * Parses a TOML string into a plain record.
+     *
+     * @param raw - The raw TOML string.
+     * @returns A plain record from the parsed TOML.
+     * @throws {InvalidFormatError} If the string is not valid TOML.
+     */
     protected parse(raw: unknown): Record<string, unknown> {
         const input = raw as string;
 
@@ -35,6 +48,12 @@ export class TomlAccessor<
         }
     }
 
+    /**
+     * Returns a new {@link TomlAccessor} wrapping the given data.
+     *
+     * @param data - The record to wrap.
+     * @returns A new {@link TomlAccessor} instance.
+     */
     clone(data: Record<string, unknown>): TomlAccessor<T> {
         const inst = Object.create(TomlAccessor.prototype) as TomlAccessor<T>;
         inst.raw = this.raw;

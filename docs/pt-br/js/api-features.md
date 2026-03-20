@@ -179,6 +179,30 @@ interface SchemaValidationIssue {
 }
 ```
 
+### Adapters incluídos
+
+O pacote exporta adapters prontos para bibliotecas comuns de validação de schema:
+
+| Adapter                | Peer dependency | Observações                                                                                                                                                    |
+| ---------------------- | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ZodSchemaAdapter`     | `zod`           | Valida com `schema.safeParse(data)`                                                                                                                            |
+| `ValibotSchemaAdapter` | `valibot`       | Aceita a função `safeParse` do Valibot no construtor                                                                                                           |
+| `YupSchemaAdapter`     | `yup`           | Usa `schema.validateSync(data, { abortEarly: false })`                                                                                                         |
+| `JsonSchemaAdapter`    | Nenhuma         | Adapter embutido para subconjunto do draft-07 com suporte a `type`, `required`, `properties`, `items`, `minimum`, `maximum`, `minLength`, `maxLength` e `enum` |
+
+Esses adapters incluídos são intencionalmente específicos de ecossistema. O pacote JS inclui adapters para validadores comuns do ecossistema JavaScript (`zod`, `valibot`, `yup`), enquanto o pacote PHP inclui `JsonSchemaAdapter` e `SymfonyValidatorAdapter`.
+
+### Adapters incluídos
+
+O pacote exporta adapters prontos para as bibliotecas de schema mais comuns:
+
+| Adapter                | Peer dependency | Notas                                                                                                                             |
+| ---------------------- | --------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `ZodSchemaAdapter`     | `zod`           | Valida com `schema.safeParse(data)`                                                                                               |
+| `ValibotSchemaAdapter` | `valibot`       | Recebe a função `safeParse` do Valibot no construtor                                                                              |
+| `YupSchemaAdapter`     | `yup`           | Usa `schema.validateSync(data, { abortEarly: false })`                                                                            |
+| `JsonSchemaAdapter`    | Nenhuma         | Adapter built-in com suporte a `type`, `required`, `properties`, `items`, `minimum`, `maximum`, `minLength`, `maxLength` e `enum` |
+
 ---
 
 ## Segurança
@@ -305,6 +329,8 @@ const accessor = SafeAccess.fromFileSync("./config.yaml", {
 const accessor = await SafeAccess.fromFile("./config.json");
 ```
 
+JavaScript expõe APIs de carregamento de arquivos síncronas e assíncronas. Essa é uma diferença intencional entre linguagens: o pacote PHP expõe apenas I/O síncrono, enquanto o pacote JS fornece variantes assíncronas para runtimes Node e variantes síncronas para bootstrap, scripts ou CLI.
+
 ### Carregamento via URL
 
 ```typescript
@@ -341,6 +367,10 @@ const stop = SafeAccess.watchFile("./config.yaml", (accessor) => {
 stop();
 ```
 
+No pacote JS, `watchFile()` retorna uma única função de unsubscribe e usa o watcher da plataforma (`fs.watch`) internamente.
+
+Isso difere intencionalmente do PHP, onde `watchFile()` retorna `{ poll, stop }` porque o loop de polling precisa ser dirigido explicitamente em um runtime síncrono.
+
 ---
 
 ## Log de Auditoria
@@ -355,7 +385,7 @@ const unsubscribe = SafeAccess.onAudit((event) => {
 });
 
 // Tipos de evento: 'file.read', 'url.fetch', 'security.violation', 'security.deprecation',
-//                  'data.mask', 'file.watch', 'data.freeze', 'schema.validate'
+//                  'data.mask', 'file.watch', 'data.freeze', 'data.format_warning', 'schema.validate'
 
 // Limpeza
 SafeAccess.clearAuditListeners();
@@ -379,6 +409,7 @@ type AuditEventType =
     | "security.deprecation"
     | "data.mask"
     | "data.freeze"
+    | "data.format_warning"
     | "schema.validate";
 ```
 

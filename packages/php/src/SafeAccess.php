@@ -20,16 +20,18 @@ use SafeAccessInline\Core\Config\SafeAccessConfig;
 use SafeAccessInline\Core\Io\FileWatcher;
 use SafeAccessInline\Core\Io\IoLoader;
 use SafeAccessInline\Core\Operations\DeepMerger;
+use SafeAccessInline\Core\Parsers\FilterParser;
 use SafeAccessInline\Core\Registries\PluginRegistry;
 use SafeAccessInline\Core\Registries\SchemaRegistry;
 use SafeAccessInline\Core\Rendering\TypeDetector;
 use SafeAccessInline\Core\Resolvers\PathCache;
-use SafeAccessInline\Enums\AccessorFormat;
+use SafeAccessInline\Enums\Format;
 use SafeAccessInline\Exceptions\InvalidFormatException;
 use SafeAccessInline\Exceptions\SecurityException;
 use SafeAccessInline\Security\Audit\AuditLogger;
 use SafeAccessInline\Security\Guards\SecurityOptions;
 use SafeAccessInline\Security\Guards\SecurityPolicy;
+use SimpleXMLElement;
 
 /**
  * Main entry point for the safe-access-inline library.
@@ -42,7 +44,7 @@ use SafeAccessInline\Security\Guards\SecurityPolicy;
  */
 final class SafeAccess
 {
-    /** @var array<string, class-string<AbstractAccessor>> */
+    /** @var array<string, class-string<AbstractAccessor>> Map of custom format name to accessor class. */
     private static array $customAccessors = [];
 
     // ── Unified Factory ─────────────────────────────
@@ -52,13 +54,13 @@ final class SafeAccess
      * Without format, auto-detects the type (same as detect()).
      *
      * @param mixed $data The input data
-     * @param string|AccessorFormat $format Optional format: 'array','object','json','xml','yaml','toml','ini','csv','env', an AccessorFormat enum value, or a custom name
+     * @param string|Format $format Optional format: 'array','object','json','xml','yaml','toml','ini','csv','env', a Format enum value, or a custom name
      *
      * @throws InvalidFormatException When the format is unknown
      */
-    public static function from(mixed $data, string|AccessorFormat $format = ''): AbstractAccessor
+    public static function from(mixed $data, string|Format $format = ''): AbstractAccessor
     {
-        if ($format instanceof AccessorFormat) {
+        if ($format instanceof Format) {
             $format = $format->value;
         }
 
@@ -90,20 +92,34 @@ final class SafeAccess
     /**
      * Creates an {@see ArrayAccessor} from an array.
      *
-     * @param array<mixed> $data
+     * @param  array<mixed>  $data     Input array.
+     * @param  bool          $readonly When true the returned accessor is frozen.
+     * @return ArrayAccessor Configured accessor instance.
      */
     public static function fromArray(array $data, bool $readonly = false): ArrayAccessor
     {
         return ArrayAccessor::from($data, $readonly);
     }
 
-    /** Creates an {@see ObjectAccessor} from a plain object. */
+    /**
+     * Creates an {@see ObjectAccessor} from a plain object.
+     *
+     * @param  object         $data     Plain PHP object to wrap.
+     * @param  bool           $readonly When true the returned accessor is frozen.
+     * @return ObjectAccessor Configured accessor instance.
+     */
     public static function fromObject(object $data, bool $readonly = false): ObjectAccessor
     {
         return ObjectAccessor::from($data, $readonly);
     }
 
-    /** Creates a {@see JsonAccessor} from a JSON string. */
+    /**
+     * Creates a {@see JsonAccessor} from a JSON string.
+     *
+     * @param  string       $data     Valid JSON string.
+     * @param  bool         $readonly When true the returned accessor is frozen.
+     * @return JsonAccessor Configured accessor instance.
+     */
     public static function fromJson(string $data, bool $readonly = false): JsonAccessor
     {
         return JsonAccessor::from($data, $readonly);
@@ -112,44 +128,94 @@ final class SafeAccess
     /**
      * Creates an {@see XmlAccessor} from an XML string or SimpleXMLElement.
      *
-     * @param string|\SimpleXMLElement $data
+     * @param  string|\SimpleXMLElement $data     XML string or already-parsed element.
+     * @param  bool                     $readonly When true the returned accessor is frozen.
+     * @return XmlAccessor              Configured accessor instance.
+     *
+     * @throws \SafeAccessInline\Exceptions\InvalidFormatException When the XML cannot be parsed.
      */
     public static function fromXml(string|\SimpleXMLElement $data, bool $readonly = false): XmlAccessor
     {
         return XmlAccessor::from($data, $readonly);
     }
 
-    /** Creates a {@see YamlAccessor} from a YAML string. */
+    /**
+     * Creates a {@see YamlAccessor} from a YAML string.
+     *
+     * @param  string       $data     YAML string.
+     * @param  bool         $readonly When true the returned accessor is frozen.
+     * @return YamlAccessor Configured accessor instance.
+     *
+     * @throws \SafeAccessInline\Exceptions\InvalidFormatException When `$data` cannot be parsed as YAML.
+     */
     public static function fromYaml(string $data, bool $readonly = false): YamlAccessor
     {
         return YamlAccessor::from($data, $readonly);
     }
 
-    /** Creates a {@see TomlAccessor} from a TOML string. */
+    /**
+     * Creates a {@see TomlAccessor} from a TOML string.
+     *
+     * @param  string       $data     TOML string.
+     * @param  bool         $readonly When true the returned accessor is frozen.
+     * @return TomlAccessor Configured accessor instance.
+     *
+     * @throws \SafeAccessInline\Exceptions\InvalidFormatException When `$data` cannot be parsed as TOML.
+     */
     public static function fromToml(string $data, bool $readonly = false): TomlAccessor
     {
         return TomlAccessor::from($data, $readonly);
     }
 
-    /** Creates an {@see IniAccessor} from an INI-format string. */
+    /**
+     * Creates an {@see IniAccessor} from an INI-format string.
+     *
+     * @param  string      $data     INI string.
+     * @param  bool        $readonly When true the returned accessor is frozen.
+     * @return IniAccessor Configured accessor instance.
+     *
+     * @throws \SafeAccessInline\Exceptions\InvalidFormatException When `$data` cannot be parsed as INI.
+     */
     public static function fromIni(string $data, bool $readonly = false): IniAccessor
     {
         return IniAccessor::from($data, $readonly);
     }
 
-    /** Creates a {@see CsvAccessor} from a CSV string. */
+    /**
+     * Creates a {@see CsvAccessor} from a CSV string.
+     *
+     * @param  string      $data     CSV string.
+     * @param  bool        $readonly When true the returned accessor is frozen.
+     * @return CsvAccessor Configured accessor instance.
+     *
+     * @throws \SafeAccessInline\Exceptions\InvalidFormatException When `$data` cannot be parsed as CSV.
+     */
     public static function fromCsv(string $data, bool $readonly = false): CsvAccessor
     {
         return CsvAccessor::from($data, $readonly);
     }
 
-    /** Creates an {@see EnvAccessor} from a .env-format string. */
+    /**
+     * Creates an {@see EnvAccessor} from a .env-format string.
+     *
+     * @param  string      $data     .env format string.
+     * @param  bool        $readonly When true the returned accessor is frozen.
+     * @return EnvAccessor Configured accessor instance.
+     *
+     * @throws \SafeAccessInline\Exceptions\InvalidFormatException When `$data` cannot be parsed as .env.
+     */
     public static function fromEnv(string $data, bool $readonly = false): EnvAccessor
     {
         return EnvAccessor::from($data, $readonly);
     }
 
-    /** Creates an {@see NdjsonAccessor} from a newline-delimited JSON string. */
+    /**
+     * Creates an {@see NdjsonAccessor} from a newline-delimited JSON string.
+     *
+     * @param  string          $data     NDJSON string (one JSON value per line).
+     * @param  bool            $readonly When true the returned accessor is frozen.
+     * @return NdjsonAccessor  Configured accessor instance.
+     */
     public static function fromNdjson(string $data, bool $readonly = false): NdjsonAccessor
     {
         return NdjsonAccessor::from($data, $readonly);
@@ -167,13 +233,16 @@ final class SafeAccess
 
     // ── Extensibility ───────────────────────────────────
 
+    /** Maximum number of custom accessor formats that may be registered at one time. */
     private const MAX_CUSTOM_ACCESSORS = SafeAccessConfig::DEFAULT_MAX_CUSTOM_ACCESSORS;
 
     /**
      * Registers a custom Accessor for non-native formats.
      *
-     * @param string $name Identifier (e.g. 'protobuf', 'msgpack')
-     * @param class-string<AbstractAccessor> $class Accessor class
+     * @param  string                         $name  Identifier (e.g. `'protobuf'`, `'msgpack'`).
+     * @param  class-string<AbstractAccessor> $class Accessor class to associate with `$name`.
+     *
+     * @throws \OverflowException When the maximum number of custom accessors is already registered.
      */
     public static function extend(string $name, string $class): void
     {
@@ -186,7 +255,23 @@ final class SafeAccess
     }
 
     /**
-     * Creates an instance of a custom Accessor registered via extend().
+     * Removes all custom accessors registered via {@see extend()}.
+     *
+     * Intended for test teardown or when re-registering a clean set of formats.
+     */
+    public static function clearCustomAccessors(): void
+    {
+        self::$customAccessors = [];
+    }
+
+    /**
+     * Creates an instance of a custom Accessor registered via {@see extend()}.
+     *
+     * @param  string           $name Format name passed to {@see extend()}.
+     * @param  mixed            $data Input data to wrap.
+     * @return AbstractAccessor A new accessor instance.
+     *
+     * @throws \RuntimeException When `$name` has not been registered.
      */
     public static function custom(string $name, mixed $data): AbstractAccessor
     {
@@ -365,7 +450,7 @@ final class SafeAccess
         }
 
         if ($policy->maskPatterns !== []) {
-            $accessor = $accessor->masked($policy->maskPatterns);
+            $accessor = $accessor->mask($policy->maskPatterns);
         }
 
         return $accessor;
@@ -403,7 +488,7 @@ final class SafeAccess
         }
 
         if ($policy->maskPatterns !== []) {
-            $accessor = $accessor->masked($policy->maskPatterns);
+            $accessor = $accessor->mask($policy->maskPatterns);
         }
 
         return $accessor;
@@ -442,7 +527,7 @@ final class SafeAccess
         }
 
         if ($policy->maskPatterns !== []) {
-            $accessor = $accessor->masked($policy->maskPatterns);
+            $accessor = $accessor->mask($policy->maskPatterns);
         }
 
         return $accessor;
@@ -504,6 +589,8 @@ final class SafeAccess
         SecurityPolicy::clearGlobal();
         PluginRegistry::reset();
         SchemaRegistry::clearDefaultAdapter();
+        FilterParser::resetConfig();
+        IoLoader::resetConfig();
         IoLoader::resetHttpClient();
     }
 

@@ -1,5 +1,8 @@
 <?php
 
+declare(strict_types=1);
+
+use SafeAccessInline\Contracts\JsonPatchOperation;
 use SafeAccessInline\Core\Operations\JsonPatch;
 use SafeAccessInline\Exceptions\JsonPatchTestFailedException;
 use SafeAccessInline\Exceptions\ReadonlyViolationException;
@@ -33,6 +36,14 @@ describe(JsonPatch::class, function () {
 
     it('returns empty for identical objects', function () {
         $ops = JsonPatch::diff(['a' => 1, 'b' => ['c' => 2]], ['a' => 1, 'b' => ['c' => 2]]);
+        expect($ops)->toBe([]);
+    });
+
+    it('deepEqual — returns true for same-content arrays with different key insertion order (line 302)', function () {
+        // In PHP, ['a'=>1,'b'=>2] !== ['b'=>2,'a'=>1] strictly (key order differs),
+        // so deepEqual() cannot short-circuit at the `$a === $b` check (line 288).
+        // It must iterate all keys and reach `return true` at line 302.
+        $ops = JsonPatch::diff(['a' => 1, 'b' => 2], ['b' => 2, 'a' => 1]);
         expect($ops)->toBe([]);
     });
 
@@ -199,6 +210,30 @@ describe(JsonPatch::class, function () {
         expect($result['a']['b']['c'])->toBe(42);
     });
 
+    // ── JsonPatchOperation DTO ────────────────────────────
+
+    it('JsonPatchOperation — constructor stores op, path, value and from', function () {
+        $op = new JsonPatchOperation(
+            op:    'replace',
+            path:  '/user/name',
+            value: 'Bob',
+            from:  null,
+        );
+
+        expect($op->op)->toBe('replace')
+            ->and($op->path)->toBe('/user/name')
+            ->and($op->value)->toBe('Bob')
+            ->and($op->from)->toBeNull();
+    });
+
+    it('JsonPatchOperation — constructor stores from field for move/copy ops', function () {
+        $op = new JsonPatchOperation(op: 'move', path: '/b', from: '/a');
+
+        expect($op->op)->toBe('move')
+            ->and($op->from)->toBe('/a')
+            ->and($op->value)->toBeNull();
+    });
+
     it('remove at nonexistent nested path is safe', function () {
         $result = JsonPatch::applyPatch(
             ['a' => 1],
@@ -230,6 +265,27 @@ describe(JsonPatch::class, function () {
         );
         expect($result)->toBe(['b' => 2]);
     });
+
+    // ── getAtPointer — null when traversing through a scalar ────
+
+    it('getAtPointer — returns null when intermediate is a non-array value', function () {
+        // 'a' is scalar 42; accessing '/a/nested' returns null via the else branch
+        $result = JsonPatch::applyPatch(
+            ['a' => 42],
+            [['op' => 'copy', 'from' => '/a/nested', 'path' => '/b']],
+        );
+        expect($result)->toHaveKey('b');
+        expect($result['b'])->toBeNull();
+    });
+
+    // ── deepEqual — false when types differ (array vs scalar) ───
+
+    it('deepEqual — returns false and test-op throws when array compared to scalar', function () {
+        JsonPatch::applyPatch(
+            ['a' => 42],
+            [['op' => 'test', 'path' => '/a', 'value' => ['not' => 'a scalar']]],
+        );
+    })->throws(JsonPatchTestFailedException::class);
 });
 
 describe('AbstractAccessor readonly mode', function () {
@@ -335,5 +391,12 @@ describe('AbstractAccessor getTemplate and merge(array)', function () {
         $merged = $acc->merge('a', ['y' => 2]);
         expect($merged->get('a.x'))->toBe(1);
         expect($merged->get('a.y'))->toBe(2);
+    });
+
+    it('diff produces empty patch when arrays have same keys in different order', function () {
+        $a = ['x' => ['a' => 1, 'b' => 2]];
+        $b = ['x' => ['b' => 2, 'a' => 1]];
+        $ops = JsonPatch::diff($a, $b);
+        expect($ops)->toBe([]);
     });
 });

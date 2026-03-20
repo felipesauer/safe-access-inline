@@ -7,8 +7,21 @@ namespace SafeAccessInline\Security\Guards;
 use SafeAccessInline\Exceptions\SecurityException;
 use SafeAccessInline\Security\Audit\AuditLogger;
 
+/**
+ * Validates object keys against a deny-list to prevent prototype-pollution attacks.
+ *
+ * All keys that could alter prototype behaviour in JavaScript (and analogous
+ * PHP objects) are blocked. {@see assertSafeKey()} throws {@see SecurityException}
+ * on any match and emits a `security.violation` audit event.
+ */
 final class SecurityGuard
 {
+    /**
+     * Keys that are unconditionally forbidden to prevent prototype-pollution
+     * and object-hijacking vulnerabilities.
+     *
+     * @var string[]
+     */
     private const FORBIDDEN_KEYS = [
         '__proto__',
         'constructor',
@@ -23,11 +36,15 @@ final class SecurityGuard
         'isPrototypeOf',
     ];
 
-    /** @var array<string, true>|null */
+    /** @var array<string, true>|null Lazy-initialised map keyed by forbidden string for O(1) lookup. */
     private static ?array $forbiddenKeysMap = null;
 
     /**
-     * @return array<string, true>
+     * Returns a map of forbidden keys for O(1) membership testing.
+     *
+     * The map is built once and cached on the first call.
+     *
+     * @return array<string, true> Forbidden keys mapped to `true`.
      */
     private static function getForbiddenKeysMap(): array
     {

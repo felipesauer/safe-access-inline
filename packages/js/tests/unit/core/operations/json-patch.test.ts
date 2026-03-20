@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { diff, applyPatch } from '../../../../src/core/operations/json-patch';
-import type { JsonPatchOp } from '../../../../src/core/operations/json-patch';
+import type { JsonPatchOperation } from '../../../../src/core/operations/json-patch';
 import { SafeAccess } from '../../../../src/safe-access';
 import { JsonPatchTestFailedError } from '../../../../src/exceptions/json-patch-test-failed.error';
 
@@ -80,17 +80,17 @@ describe('JSON Patch — applyPatch()', () => {
     });
 
     it('test operation succeeds for matching value', () => {
-        const ops: JsonPatchOp[] = [{ op: 'test', path: '/a', value: 1 }];
+        const ops: JsonPatchOperation[] = [{ op: 'test', path: '/a', value: 1 }];
         expect(() => applyPatch({ a: 1 }, ops)).not.toThrow();
     });
 
     it('test operation fails for non-matching value', () => {
-        const ops: JsonPatchOp[] = [{ op: 'test', path: '/a', value: 999 }];
+        const ops: JsonPatchOperation[] = [{ op: 'test', path: '/a', value: 999 }];
         expect(() => applyPatch({ a: 1 }, ops)).toThrow('Test operation failed');
     });
 
     it('test operation throws JsonPatchTestFailedError', () => {
-        const ops: JsonPatchOp[] = [{ op: 'test', path: '/a', value: 999 }];
+        const ops: JsonPatchOperation[] = [{ op: 'test', path: '/a', value: 999 }];
         try {
             applyPatch({ a: 1 }, ops);
             expect.unreachable('should throw');
@@ -101,7 +101,7 @@ describe('JSON Patch — applyPatch()', () => {
     });
 
     it('applies multiple operations sequentially', () => {
-        const ops: JsonPatchOp[] = [
+        const ops: JsonPatchOperation[] = [
             { op: 'add', path: '/b', value: 2 },
             { op: 'replace', path: '/a', value: 10 },
             { op: 'remove', path: '/b' },
@@ -140,15 +140,15 @@ describe('AbstractAccessor.diff() and applyPatch()', () => {
     });
 
     it('applyPatch — throws when move operation is missing from field', () => {
-        expect(() => applyPatch({ a: 1 }, [{ op: 'move', path: '/b' } as JsonPatchOp])).toThrow(
-            "JSON Patch 'move' operation requires a 'from' field",
-        );
+        expect(() =>
+            applyPatch({ a: 1 }, [{ op: 'move', path: '/b' } as JsonPatchOperation]),
+        ).toThrow("JSON Patch 'move' operation requires a 'from' field");
     });
 
     it('applyPatch — throws when copy operation is missing from field', () => {
-        expect(() => applyPatch({ a: 1 }, [{ op: 'copy', path: '/b' } as JsonPatchOp])).toThrow(
-            "JSON Patch 'copy' operation requires a 'from' field",
-        );
+        expect(() =>
+            applyPatch({ a: 1 }, [{ op: 'copy', path: '/b' } as JsonPatchOperation]),
+        ).toThrow("JSON Patch 'copy' operation requires a 'from' field");
     });
 });
 
@@ -220,12 +220,12 @@ describe('JSON Patch — array edge cases', () => {
     });
 
     it('applyPatch — test passes for equal nested objects', () => {
-        const ops: JsonPatchOp[] = [{ op: 'test', path: '/a', value: { x: 1 } }];
+        const ops: JsonPatchOperation[] = [{ op: 'test', path: '/a', value: { x: 1 } }];
         expect(() => applyPatch({ a: { x: 1 } }, ops)).not.toThrow();
     });
 
     it('applyPatch — test fails for non-equal nested objects', () => {
-        const ops: JsonPatchOp[] = [{ op: 'test', path: '/a', value: { x: 2 } }];
+        const ops: JsonPatchOperation[] = [{ op: 'test', path: '/a', value: { x: 2 } }];
         expect(() => applyPatch({ a: { x: 1 } }, ops)).toThrow('Test operation failed');
     });
 
@@ -250,7 +250,7 @@ describe('JSON Patch — array edge cases', () => {
     });
 
     it('getAtPointer returns undefined for non-existent path', () => {
-        const ops: JsonPatchOp[] = [{ op: 'copy', from: '/nonexistent', path: '/b' }];
+        const ops: JsonPatchOperation[] = [{ op: 'copy', from: '/nonexistent', path: '/b' }];
         const result = applyPatch({ a: 1 }, ops);
         expect(result.b).toBeUndefined();
     });
@@ -275,13 +275,13 @@ describe('JSON Patch — array edge cases', () => {
     });
 
     it('getAtPointer traverses array', () => {
-        const ops: JsonPatchOp[] = [{ op: 'copy', from: '/items/1', path: '/copied' }];
+        const ops: JsonPatchOperation[] = [{ op: 'copy', from: '/items/1', path: '/copied' }];
         const result = applyPatch({ items: ['a', 'b', 'c'] }, ops);
         expect(result.copied).toBe('b');
     });
 
     it('getAtPointer on primitive returns undefined', () => {
-        const ops: JsonPatchOp[] = [{ op: 'copy', from: '/a/deep', path: '/b' }];
+        const ops: JsonPatchOperation[] = [{ op: 'copy', from: '/a/deep', path: '/b' }];
         const result = applyPatch({ a: 42 } as Record<string, unknown>, ops);
         expect(result.b).toBeUndefined();
     });
@@ -337,21 +337,137 @@ describe('JSON Patch — array edge cases', () => {
 describe('JsonPatch — pointer edge cases', () => {
     it('throws on invalid JSON Pointer (no leading /)', () => {
         const data = { a: 1 };
-        const ops: JsonPatchOp[] = [{ op: 'replace', path: 'invalid-no-slash', value: 2 }];
+        const ops: JsonPatchOperation[] = [{ op: 'replace', path: 'invalid-no-slash', value: 2 }];
         expect(() => applyPatch(data, ops)).toThrow('Invalid JSON Pointer');
     });
 
     it('setAtPointer traverses through arrays', () => {
         const data = { items: [{ name: 'old' }] };
-        const ops: JsonPatchOp[] = [{ op: 'replace', path: '/items/0/name', value: 'new' }];
+        const ops: JsonPatchOperation[] = [{ op: 'replace', path: '/items/0/name', value: 'new' }];
         const result = applyPatch(data, ops) as { items: Array<{ name: string }> };
         expect(result.items[0].name).toBe('new');
     });
 
     it('removeAtPointer traverses through arrays', () => {
         const data = { items: [{ name: 'old', extra: true }] };
-        const ops: JsonPatchOp[] = [{ op: 'remove', path: '/items/0/extra' }];
+        const ops: JsonPatchOperation[] = [{ op: 'remove', path: '/items/0/extra' }];
         const result = applyPatch(data, ops) as { items: Array<Record<string, unknown>> };
         expect(result.items[0]).toEqual({ name: 'old' });
+    });
+});
+
+// ── JsonPatch — diff: object vs scalar boundary (L43 LogicalOperator) ──────────
+describe('JsonPatch — diff object-vs-scalar boundary', () => {
+    it('diff generates replace when aVal is object but bVal is primitive', () => {
+        // Kills LogicalOperator mutant: isPlainObject(aVal) && → ||
+        // With mutant (||): one side is object → recurses into diff(), likely throws or wrong ops
+        // With original (&&): one is not an object → emits a single replace op
+        const a = { x: { nested: 1 } };
+        const b = { x: 42 };
+        const ops = diff(a, b);
+        expect(ops).toHaveLength(1);
+        expect(ops[0]).toEqual({ op: 'replace', path: '/x', value: 42 });
+    });
+
+    it('diff generates replace when aVal is primitive but bVal is object', () => {
+        const a = { x: 42 };
+        const b = { x: { nested: 1 } };
+        const ops = diff(a, b);
+        expect(ops).toHaveLength(1);
+        expect(ops[0]).toEqual({ op: 'replace', path: '/x', value: { nested: 1 } });
+    });
+
+    it('diff recurses into nested objects only when BOTH sides are plain objects', () => {
+        // Ensures the &&-guarded recursion does generate sub-ops for object-to-object changes
+        const a = { x: { y: 1 } };
+        const b = { x: { y: 2 } };
+        const ops = diff(a, b);
+        expect(ops).toHaveLength(1);
+        expect(ops[0]).toEqual({ op: 'replace', path: '/x/y', value: 2 });
+    });
+});
+
+// ── JsonPatch — diff: array removal index ordering (L74) ─────────────────────
+describe('JsonPatch — diff array removal index ordering', () => {
+    it('diff removes two trailing elements in correct descending index order', () => {
+        // a=[0,1,2,3], b=[0,1] → must remove index 3 then 2 (descending) to avoid shifts
+        // Kills ArithmeticOperator mutant: a.length - 1 - (i - b.length) calculation
+        const a = [0, 1, 2, 3];
+        const b = [0, 1];
+        const ops = diff({ arr: a }, { arr: b });
+        const removals = ops.filter((op) => op.op === 'remove');
+        expect(removals).toHaveLength(2);
+        // First removal must target index 3, second must target index 2
+        expect(removals[0]).toEqual({ op: 'remove', path: '/arr/3' });
+        expect(removals[1]).toEqual({ op: 'remove', path: '/arr/2' });
+    });
+
+    it('diff removes one trailing element with correct index', () => {
+        const ops = diff({ arr: [10, 20, 30] }, { arr: [10, 20] });
+        expect(ops).toContainEqual({ op: 'remove', path: '/arr/2' });
+    });
+});
+
+// ── JsonPatch — applyPatch preflight atomicity (L126-128 hasTestOps) ──────────
+describe('JsonPatch — applyPatch preflight atomicity', () => {
+    it('rolls back all operations when a test op fails after a successful add', () => {
+        // Kills ConditionalExpression mutant: hasTestOps bypass
+        // Without preflight: add executes, test fails, but add is not rolled back
+        const data = { a: 1 };
+        expect(() =>
+            applyPatch(data, [
+                { op: 'add', path: '/b', value: 99 },
+                { op: 'test', path: '/a', value: 99 }, // fails → entire patch invalid
+            ]),
+        ).toThrow();
+        // Original data must remain untouched (atomicity)
+        expect(data).toEqual({ a: 1 });
+    });
+
+    it('applies all operations when no test ops are present (fast path)', () => {
+        // When hasTestOps = false, the fast path is taken (no clone + preflight)
+        const result = applyPatch({ a: 1 }, [
+            { op: 'add', path: '/b', value: 2 },
+            { op: 'replace', path: '/a', value: 10 },
+        ]);
+        expect(result).toEqual({ a: 10, b: 2 });
+    });
+});
+
+// ── JsonPatch — deepEqual null/array boundary (L290, L293) ───────────────────
+describe('JsonPatch — deepEqual null/array boundary', () => {
+    it('diff considers null and non-null as different (kills L290 && mutant)', () => {
+        // Kills LogicalOperator mutant: a === null || b === null → &&
+        // With mutant (&&): null vs {} would NOT short-circuit → deepEqual could return true
+        // With original (||): null vs any non-null → immediately returns false
+        const ops = diff({ x: null }, { x: {} });
+        expect(ops).toHaveLength(1);
+        expect(ops[0]).toEqual({ op: 'replace', path: '/x', value: {} });
+    });
+
+    it('deepEqual returns true for two null values', () => {
+        // null === null short-circuits at `a === b` check (L287), not null guard
+        const ops = diff({ x: null }, { x: null });
+        expect(ops).toHaveLength(0);
+    });
+
+    it('diff handles array vs plain-object correctly (kills L293 || mutant)', () => {
+        // Kills LogicalOperator mutant: Array.isArray(a) && Array.isArray(b) → ||
+        // With mutant (||): array vs object would enter array-diff branch → wrong ops
+        // With original (&&): only when BOTH are arrays → falls through to isPlainObject check
+        const ops = diff({ x: [1, 2] }, { x: { 0: 1, 1: 2 } });
+        // Array vs plain object is not same type → should emit a replace
+        expect(ops).toHaveLength(1);
+        expect(ops[0].op).toBe('replace');
+    });
+
+    it('deepEqual: two equal arrays returns true (no diff ops)', () => {
+        const ops = diff({ a: [1, 2, 3] }, { a: [1, 2, 3] });
+        expect(ops).toHaveLength(0);
+    });
+
+    it('deepEqual: array vs different-length array returns false', () => {
+        const ops = diff({ a: [1, 2] }, { a: [1, 2, 3] });
+        expect(ops.length).toBeGreaterThan(0);
     });
 });

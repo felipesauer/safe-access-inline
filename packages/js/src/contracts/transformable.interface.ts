@@ -5,7 +5,11 @@
  * plugin-based custom formats via {@link TransformableInterface.transform}.
  */
 export interface TransformableInterface {
-    /** Returns the data as a plain associative array/object. */
+    /**
+     * Returns the data as a plain associative array/object.
+     *
+     * @returns A plain record of the underlying data.
+     */
     toArray(): Record<string, unknown>;
 
     /**
@@ -16,13 +20,25 @@ export interface TransformableInterface {
      */
     toJson(pretty?: boolean): string;
 
-    /** Returns the data as a plain object (alias of {@link toArray}). */
+    /**
+     * Returns the data as a plain object (alias of {@link toArray}).
+     *
+     * @returns A plain record of the underlying data.
+     */
     toObject(): Record<string, unknown>;
 
-    /** Serialises data to TOML format. Requires `smol-toml` at runtime. */
+    /**
+     * Serialises data to TOML format. Requires `smol-toml` at runtime.
+     *
+     * @returns A TOML-formatted string.
+     */
     toToml(): string;
 
-    /** Serialises data to YAML format. Requires `js-yaml` at runtime. */
+    /**
+     * Serialises data to YAML format. Requires `js-yaml` at runtime.
+     *
+     * @returns A YAML-formatted string.
+     */
     toYaml(): string;
 
     /**
@@ -42,7 +58,11 @@ export interface TransformableInterface {
      */
     toCsv(csvMode?: 'none' | 'prefix' | 'strip' | 'error'): string;
 
-    /** Serialises data to NDJSON (newline-delimited JSON) format. */
+    /**
+     * Serialises data to NDJSON (newline-delimited JSON) format.
+     *
+     * @returns An NDJSON-formatted string.
+     */
     toNdjson(): string;
 
     /**

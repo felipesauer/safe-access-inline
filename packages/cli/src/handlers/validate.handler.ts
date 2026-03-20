@@ -1,7 +1,11 @@
 import { parseArgs } from "node:util";
 import { resolve } from "node:path";
 import { JsonSchemaAdapter } from "@safe-access-inline/safe-access-inline";
-import { loadFromStdinOrFile, type CliIO } from "../command-handlers.js";
+import {
+    loadFromStdinOrFile,
+    strOpt,
+    type CliIO,
+} from "../command-handlers.js";
 
 /**
  * Handles the `validate` command — validates data against a JSON Schema.
@@ -31,11 +35,30 @@ export function handleValidate(rest: string[], io: CliIO): number {
         undefined,
         io.readFileSync,
     );
-    const schemaContent = io.readFileSync(
-        resolve(values.schema as string),
-        "utf-8",
-    ) as string;
-    const schema = JSON.parse(schemaContent) as Record<string, unknown>;
+    let schemaContent: string;
+    try {
+        schemaContent = io.readFileSync(
+            resolve(strOpt(values.schema) ?? ""),
+            "utf-8",
+        ) as string;
+    } catch (e) {
+        const errDetail =
+            e instanceof Error
+                ? ((e as NodeJS.ErrnoException).code ?? e.message)
+                : String(e);
+        io.stderr.write(`Error: Schema file could not be read: ${errDetail}\n`);
+        return 1;
+    }
+    let schema: Record<string, unknown>;
+    try {
+        schema = JSON.parse(schemaContent) as Record<string, unknown>;
+    } catch (e) {
+        // JSON.parse always throws SyntaxError which extends Error
+        io.stderr.write(
+            `Error: Schema file is not valid JSON: ${(e as Error).message}\n`,
+        );
+        return 1;
+    }
     const data = accessor.toObject();
     const adapter = new JsonSchemaAdapter();
     const result = adapter.validate(data, schema);

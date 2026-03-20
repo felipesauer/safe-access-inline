@@ -18,6 +18,8 @@ outline: deep
 
 **Namespace:** `SafeAccessInline\Core\IoLoader`
 
+PHP I/O is synchronous by design. Unlike the JS package, PHP does not expose async `fromFile()` / `fromUrl()` variants; all file and URL reads complete before returning the accessor.
+
 #### `IoLoader::readFile(string $filePath, array $allowedDirs = []): string`
 
 Reads a file with path-traversal protection. Emits `file.read` audit event.
@@ -38,15 +40,15 @@ Validates a file path is within allowed directories.
 
 Checks if an IP address is in a private range (RFC 1918, link-local, loopback, cloud metadata).
 
-#### `IoLoader::resolveFormatFromExtension(string $filePath): ?AccessorFormat`
+#### `IoLoader::resolveFormatFromExtension(string $filePath): ?Format`
 
-Derives the `AccessorFormat` enum case from a file path's extension (e.g. `config.yaml` → `AccessorFormat::Yaml`). Returns `null` when the extension is unrecognized.
+Derives the `Format` enum case from a file path's extension (e.g. `config.yaml` → `Format::Yaml`). Returns `null` when the extension is unrecognized.
 
 ```php
 use SafeAccessInline\Core\IoLoader;
 
-$format = IoLoader::resolveFormatFromExtension('/app/config.yaml'); // AccessorFormat::Yaml
-$format = IoLoader::resolveFormatFromExtension('/app/data.ndjson');  // AccessorFormat::Ndjson
+$format = IoLoader::resolveFormatFromExtension('/app/config.yaml'); // Format::Yaml
+$format = IoLoader::resolveFormatFromExtension('/app/data.ndjson');  // Format::Ndjson
 $format = IoLoader::resolveFormatFromExtension('/app/file.txt');     // null
 ```
 
@@ -64,32 +66,42 @@ $override = SafeAccess::fromFile('/app/config/local.json');
 $merged   = SafeAccess::layer([$base, $override]);
 ```
 
-#### `SafeAccess::layerFiles(array $paths, array $allowedDirs = []): AbstractAccessor`
+#### `SafeAccess::layerFiles(array $paths, FileLoadOptions|array $optionsOrAllowedDirs = [], bool $allowAnyPath = false): AbstractAccessor`
 
-Loads multiple files and deep-merges them. Convenience wrapper around `fromFile()` + `layer()`.
+Loads multiple files and deep-merges them. Accepts either a `FileLoadOptions` DTO or the legacy `array $allowedDirs` + `bool $allowAnyPath` parameters.
 
 ```php
+use SafeAccessInline\Contracts\FileLoadOptions;
+
 $config = SafeAccess::layerFiles([
     '/app/config/defaults.yaml',
     '/app/config/production.yaml',
 ], ['/app/config']);
+
+$config = SafeAccess::layerFiles(
+    ['/app/config/defaults.yaml', '/app/config/production.yaml'],
+    new FileLoadOptions(allowedDirs: ['/app/config']),
+);
 ```
 
 ---
 
 ## File Watching
 
-#### `SafeAccess::watchFile(string $filePath, callable $onChange, ?string $format = null, array $allowedDirs = []): callable`
+#### `SafeAccess::watchFile(string $filePath, callable $onChange, ?string $format = null, array $allowedDirs = []): array{poll: callable(): void, stop: callable(): void}`
 
-Watches a file for changes using polling. Calls `$onChange(AbstractAccessor)` when the file is modified. Returns a stop function.
+Watches a file for changes using polling. Calls `$onChange(AbstractAccessor)` when the file is modified. Returns an array with two callables: `poll` (starts the blocking poll loop) and `stop` (stops watching).
 
 ```php
-$stop = SafeAccess::watchFile('/app/config.json', function ($accessor) {
+$watcher = SafeAccess::watchFile('/app/config.json', function ($accessor) {
     echo "Config updated!\n";
 });
 
-// Later: stop watching
-$stop();
+// Start polling (blocking — run in a separate process/fiber as needed)
+$watcher['poll']();
+
+// Stop watching from another context
+$watcher['stop']();
 ```
 
 ---
@@ -100,7 +112,7 @@ $stop();
 
 Subscribes to audit events. Returns an unsubscribe function.
 
-Event types: `file.read`, `file.watch`, `url.fetch`, `security.violation`, `security.deprecation`, `data.mask`, `data.freeze`, `schema.validate`.
+Event types: `file.read`, `file.watch`, `url.fetch`, `security.violation`, `security.deprecation`, `data.mask`, `data.freeze`, `data.format_warning`, `schema.validate`.
 
 ```php
 $unsub = SafeAccess::onAudit(function (array $event) {
@@ -268,6 +280,15 @@ readonly class SchemaValidationIssue
     public string $message;
 }
 ```
+
+### Shipped adapters
+
+The package exports ready-to-use adapters for the schema systems it supports:
+
+| Adapter                   | Dependency          | Notes                                                                                                                                          |
+| ------------------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `JsonSchemaAdapter`       | None                | Built-in validator supporting `type`, `required`, `properties`, `items`, `minimum`, `maximum`, `minLength`, `maxLength`, `enum`, and `pattern` |
+| `SymfonyValidatorAdapter` | `symfony/validator` | Accepts an optional validator instance, or auto-creates one when the package is installed                                                      |
 
 ---
 

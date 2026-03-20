@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace SafeAccessInline\Enums;
 
 /** Supported data-source formats for the SafeAccess façade. */
-enum AccessorFormat: string
+enum Format: string
 {
     case Array = 'array';
     case Object = 'object';

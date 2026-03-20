@@ -80,4 +80,24 @@ describe('deepMerge', () => {
         }
         expect(() => deepMerge(base, override)).toThrow('Deep merge exceeded maximum depth of 512');
     });
+
+    it('replaces target value with source object when target property is a primitive (L39 condition)', () => {
+        // Kills LogicalOperator mutant: tgtVal type check removed or loosened
+        // When srcVal is an object but tgtVal is a primitive, no recursion should happen
+        // — the source object should REPLACE the primitive entirely.
+        const result = deepMerge({ a: 1 }, { a: { nested: true } });
+        expect(result.a).toEqual({ nested: true });
+    });
+
+    it('replaces source primitive with target object when source value is primitive (inverse check)', () => {
+        // Complementary: even if srcVal is primitive but tgtVal is object, no recursion
+        const result = deepMerge({ a: { nested: true } }, { a: 99 });
+        expect(result.a).toBe(99);
+    });
+
+    it('does NOT recursively merge when BOTH values are arrays (replaces)', () => {
+        // Arrays are NOT plain objects — the isPlainObject guard must exclude them
+        const result = deepMerge({ list: [1, 2, 3] }, { list: [4, 5] });
+        expect(result.list).toEqual([4, 5]);
+    });
 });

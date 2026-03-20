@@ -25,6 +25,13 @@ export class ValibotSchemaAdapter implements SchemaAdapterInterface<ValibotSchem
         this.safeParse = safeParseFn;
     }
 
+    /**
+     * Validates `data` against the given Valibot schema.
+     *
+     * @param data - The value to validate.
+     * @param schema - The Valibot schema to validate against.
+     * @returns A {@link SchemaValidationResult} with `valid` flag and any errors.
+     */
     validate(data: unknown, schema: ValibotSchema): SchemaValidationResult {
         const result = this.safeParse(schema, data);
 

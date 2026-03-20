@@ -10,6 +10,7 @@ outline: deep
 - [JSON Patch & Diff](#json-patch--diff)
 - [I/O & Carregamento de Arquivos](#io--carregamento-de-arquivos)
 - [Configuração em Camadas](#configuração-em-camadas)
+- [Referência de configuração](#referência-de-configuração)
 
 ## Operações de Array
 
@@ -170,3 +171,129 @@ const stop = SafeAccess.watchFile("/app/config.json", (accessor) => {
 });
 // Depois: stop()
 ```
+
+---
+
+## Referência de configuração
+
+O pacote exporta interfaces de configuração e objetos default para consumidores avançados que precisam ajustar limites explicitamente.
+
+### `SafeAccessConfig`
+
+```typescript
+interface SafeAccessConfig {
+    readonly maxCustomAccessors: number;
+}
+
+const DEFAULT_SAFE_ACCESS_CONFIG: SafeAccessConfig = {
+    maxCustomAccessors: 50,
+};
+```
+
+Limita quantas classes de accessor customizadas podem ser registradas com `SafeAccess.extend()`.
+
+### `CacheConfig`
+
+```typescript
+interface CacheConfig {
+    readonly maxSize: number;
+}
+
+const DEFAULT_CACHE_CONFIG: CacheConfig = {
+    maxSize: 1000,
+};
+```
+
+Controla o número máximo de caminhos dot-notation em cache retidos por `PathCache`.
+
+### `ParserConfig`
+
+```typescript
+interface ParserConfig {
+    readonly maxResolveDepth: number;
+    readonly maxXmlDepth: number;
+}
+
+const DEFAULT_PARSER_CONFIG: ParserConfig = {
+    maxResolveDepth: 512,
+    maxXmlDepth: 100,
+};
+```
+
+Define limites para resolução recursiva de caminhos e profundidade de XML.
+
+### `MergerConfig`
+
+```typescript
+interface MergerConfig {
+    readonly maxDepth: number;
+}
+
+const DEFAULT_MERGER_CONFIG: MergerConfig = {
+    maxDepth: 512,
+};
+```
+
+Limita a profundidade de recursão durante operações de deep merge.
+
+### `MaskerConfig`
+
+```typescript
+interface MaskerConfig {
+    readonly defaultMaskValue: string;
+    readonly maxRecursionDepth: number;
+    readonly maxPatternCacheSize: number;
+}
+
+const DEFAULT_MASKER_CONFIG: MaskerConfig = {
+    defaultMaskValue: "[REDACTED]",
+    maxRecursionDepth: 100,
+    maxPatternCacheSize: 200,
+};
+```
+
+Configura o valor de substituição, o limite de recursão e o cache de padrões curingas usado por `mask()`.
+
+### `AuditConfig`
+
+```typescript
+interface AuditConfig {
+    readonly maxListeners: number;
+}
+
+const DEFAULT_AUDIT_CONFIG: AuditConfig = {
+    maxListeners: 100,
+};
+```
+
+Limita o número de listeners de auditoria registrados ao mesmo tempo.
+
+### `FilterParserConfig`
+
+```typescript
+interface FilterParserConfig {
+    readonly maxPatternLength: number;
+}
+
+const DEFAULT_FILTER_PARSER_CONFIG: FilterParserConfig = {
+    maxPatternLength: 128,
+};
+```
+
+Define o comprimento máximo de regex aceito por expressões `match()` em filtros.
+
+### `IoLoaderConfig`
+
+```typescript
+interface IoLoaderConfig {
+    readonly requestTimeoutMs: number;
+    readonly connectTimeoutMs: number;
+}
+
+const DEFAULT_IO_LOADER_CONFIG: IoLoaderConfig = {
+    requestTimeoutMs: 10_000,
+    connectTimeoutMs: 5_000,
+};
+```
+
+Controla o timeout total da requisição e o timeout de conexão para `fetchUrl()`. Esta exportação é destinada a customização avançada de I/O.

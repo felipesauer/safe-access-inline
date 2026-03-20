@@ -16,6 +16,14 @@ import { renderTemplate } from '../rendering/template-renderer';
 export class DotNotationParser {
     /**
      * Accesses a value in a nested structure via dot notation.
+     *
+     * Supports wildcards, filters, recursive descent, slices, and multi-index.
+     * Returns `defaultValue` for any path that does not exist — never throws.
+     *
+     * @param data - Root data object.
+     * @param path - Dot-notation path (e.g. `"user.profile.name"`, `"items.*.price"`).
+     * @param defaultValue - Fallback value when the path is missing (default `null`).
+     * @returns The resolved value or `defaultValue`.
      */
     static get(data: Record<string, unknown>, path: string, defaultValue: unknown = null): unknown {
         if (path === '') return defaultValue;
@@ -24,6 +32,14 @@ export class DotNotationParser {
         return PathResolver.resolve(data, segments, 0, defaultValue);
     }
 
+    /**
+     * Returns parsed segments for `path`, retrieving from cache when available.
+     *
+     * Cache misses are parsed via {@link SegmentParser} and stored for future use.
+     *
+     * @param path - Dot-notation path to parse.
+     * @returns Array of parsed path segments.
+     */
     private static cachedParseSegments(path: string): Segment[] {
         const cached = PathCache.get(path);
         if (cached) return cached as Segment[];
@@ -33,7 +49,14 @@ export class DotNotationParser {
     }
 
     /**
-     * Checks whether a path exists.
+     * Checks whether a path exists in the data object.
+     *
+     * Uses a sentinel symbol to distinguish between a missing path and
+     * a path that explicitly holds `null` or `undefined`.
+     *
+     * @param data - Root data object.
+     * @param path - Dot-notation path to check.
+     * @returns `true` if the path resolves to any defined value.
      */
     static has(data: Record<string, unknown>, path: string): boolean {
         const sentinel = Symbol('sentinel');
@@ -41,7 +64,15 @@ export class DotNotationParser {
     }
 
     /**
-     * Sets a value via dot notation (returns a new object — immutable).
+     * Sets a value at a dot-notation path and returns a new object.
+     *
+     * Intermediate objects are shallowly cloned; the original `data` is never mutated.
+     * All key segments are checked for prototype-pollution via {@link SecurityGuard.assertSafeKey}.
+     *
+     * @param data - Root data object.
+     * @param path - Dot-notation path at which to set the value.
+     * @param value - Value to assign.
+     * @returns A new data object with the value set.
      */
     static set(
         data: Record<string, unknown>,
@@ -72,8 +103,15 @@ export class DotNotationParser {
     }
 
     /**
-     * Deep merges a value at a path (returns a new object — immutable).
-     * Objects are merged recursively; all other values are replaced.
+     * Deep-merges a plain object at a dot-notation path and returns a new root object.
+     *
+     * When `path` is an empty string, merges at the root level.
+     * Objects are merged recursively; all other values are replaced wholesale.
+     *
+     * @param data - Root data object.
+     * @param path - Dot-notation path at which to merge (empty string = root).
+     * @param value - Plain object to merge at the path.
+     * @returns A new root data object with the merge applied.
      */
     static merge(
         data: Record<string, unknown>,
@@ -91,7 +129,13 @@ export class DotNotationParser {
     }
 
     /**
-     * Removes a path (returns a new object — immutable).
+     * Removes the value at a dot-notation path and returns a new root object.
+     *
+     * If the path does not exist, the original data is returned unchanged (structurally cloned).
+     *
+     * @param data - Root data object.
+     * @param path - Dot-notation path to remove.
+     * @returns A new root data object without the specified path.
      */
     static remove(data: Record<string, unknown>, path: string): Record<string, unknown> {
         const keys = SegmentParser.parseKeys(path);
@@ -111,7 +155,15 @@ export class DotNotationParser {
     }
 
     /**
-     * Literal segment navigation — no wildcards, no filters, no descent.
+     * Navigates a pre-split array of literal key segments without any path-syntax features.
+     *
+     * No wildcards, filters, or recursive descent are processed — each entry in `segments`
+     * is treated as a plain object key.
+     *
+     * @param data - Root data object.
+     * @param segments - Array of plain key segments.
+     * @param defaultValue - Fallback value when the path is absent (default `null`).
+     * @returns The resolved value or `defaultValue`.
      */
     static getBySegments(
         data: Record<string, unknown>,
@@ -131,6 +183,16 @@ export class DotNotationParser {
         return current;
     }
 
+    /**
+     * Sets a value using a pre-split array of literal key segments and returns a new root object.
+     *
+     * All segments are checked for prototype-pollution via {@link SecurityGuard.assertSafeKey}.
+     *
+     * @param data - Root data object.
+     * @param segments - Array of plain key segments forming the path.
+     * @param value - Value to assign at the terminal segment.
+     * @returns A new root data object with the value set.
+     */
     static setBySegments(
         data: Record<string, unknown>,
         segments: string[],
@@ -152,6 +214,15 @@ export class DotNotationParser {
         return result;
     }
 
+    /**
+     * Removes a value using a pre-split array of literal key segments and returns a new root object.
+     *
+     * If the path does not exist, the original data is returned unchanged (structurally cloned).
+     *
+     * @param data - Root data object.
+     * @param segments - Array of plain key segments forming the path.
+     * @returns A new root data object without the terminal segment.
+     */
     static removeBySegments(
         data: Record<string, unknown>,
         segments: string[],

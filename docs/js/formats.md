@@ -6,15 +6,20 @@ outline: deep
 
 ## Table of Contents
 
-- [Working with XML](#working-with-xml)
-- [Working with YAML](#working-with-yaml)
-- [Working with TOML](#working-with-toml)
-- [Working with INI](#working-with-ini)
-- [Working with ENV](#working-with-env)
-- [Working with CSV](#working-with-csv)
-- [Custom Accessors](#custom-accessors)
-- [ESM and CommonJS](#esm-and-commonjs)
-- [TypeScript Support](#typescript-support)
+- [Formats \& TypeScript — JavaScript / TypeScript](#formats--typescript--javascript--typescript)
+    - [Table of Contents](#table-of-contents)
+    - [Working with Formats](#working-with-formats)
+        - [Working with XML](#working-with-xml)
+        - [Working with YAML](#working-with-yaml)
+        - [Working with TOML](#working-with-toml)
+        - [Working with INI](#working-with-ini)
+        - [Working with ENV](#working-with-env)
+        - [Working with CSV](#working-with-csv)
+            - [CSV injection protection](#csv-injection-protection)
+        - [Custom accessors](#custom-accessors)
+    - [ESM and CommonJS](#esm-and-commonjs)
+    - [TypeScript Support](#typescript-support)
+        - [Type-Safe Path Inference](#type-safe-path-inference)
 
 ---
 
@@ -106,6 +111,25 @@ const accessor = SafeAccess.fromCsv(csv);
 accessor.get("0.name"); // "Ana"
 accessor.get("1.city"); // "São Paulo"
 accessor.get("*.name"); // ["Ana", "Bob"]
+```
+
+#### CSV injection protection
+
+CSV injection prevention is applied during **serialization** (`.toCsv()`), not during parsing. To guard against formula injection (cells starting with `=`, `+`, `-`, `@`), pass a `csvMode` to `SecurityPolicy`. Accepted values:
+
+- `'none'` _(default)_ — no sanitization
+- `'prefix'` — prepends a single quote to dangerous cells
+- `'strip'` — removes the dangerous leading character
+- `'error'` — throws a `SecurityError` on detection
+
+```typescript
+import {
+    mergePolicy,
+    defaultPolicy,
+} from "@safe-access-inline/safe-access-inline";
+
+const policy = mergePolicy(defaultPolicy, { csvMode: "strip" });
+const accessor = SafeAccess.withPolicy(csvString, policy);
 ```
 
 ### Custom accessors

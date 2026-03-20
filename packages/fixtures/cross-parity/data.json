@@ -1,0 +1,53 @@
+{
+    "user": {
+        "name": "Ana",
+        "email": "ana@example.com",
+        "age": 30,
+        "active": true,
+        "score": 0,
+        "bio": "",
+        "address": {
+            "city": "Porto Alegre",
+            "state": "RS",
+            "country": {
+                "name": "Brazil",
+                "code": "BR"
+            }
+        }
+    },
+    "items": [
+        {
+            "id": 1,
+            "name": "Widget",
+            "price": 10,
+            "active": true,
+            "tags": ["sale", "new"]
+        },
+        {
+            "id": 2,
+            "name": "Gadget",
+            "price": 50,
+            "active": false,
+            "tags": ["premium"]
+        },
+        {
+            "id": 3,
+            "name": "Gizmo",
+            "price": 25,
+            "active": true,
+            "tags": ["sale"]
+        }
+    ],
+    "settings": {
+        "theme": "dark",
+        "notifications": {
+            "email": true,
+            "sms": false
+        }
+    },
+    "emptyArray": [],
+    "nullValue": null,
+    "falseValue": false,
+    "zeroValue": 0,
+    "emptyString": ""
+}

@@ -1,12 +1,20 @@
 <?php
 
+declare(strict_types=1);
+
 use SafeAccessInline\Contracts\ParserPluginInterface;
 use SafeAccessInline\Contracts\SerializerPluginInterface;
 use SafeAccessInline\Core\Registries\PluginRegistry;
 use SafeAccessInline\Exceptions\UnsupportedTypeException;
+use SafeAccessInline\Security\Audit\AuditLogger;
 
 beforeEach(function () {
     PluginRegistry::reset();
+    AuditLogger::clearListeners();
+});
+
+afterEach(function () {
+    AuditLogger::clearListeners();
 });
 
 describe(PluginRegistry::class, function () {
@@ -52,14 +60,24 @@ describe(PluginRegistry::class, function () {
 
         PluginRegistry::registerParser('yaml', $parser1);
 
-        set_error_handler(static fn () => true, E_USER_WARNING);
-        PluginRegistry::registerParser('yaml', $parser2);
-        restore_error_handler();
+        $events = [];
+        AuditLogger::onAudit(function (array $event) use (&$events): void {
+            $events[] = $event;
+        });
 
+        PluginRegistry::registerParser('yaml', $parser2);
+
+        expect($events)->toHaveCount(1);
+        expect($events[0]['type'])->toBe('plugin.overwrite');
+        expect($events[0]['detail'])->toBe([
+            'kind' => 'parser',
+            'format' => 'yaml',
+            'message' => "Parser for format 'yaml' is being overwritten.",
+        ]);
         expect(PluginRegistry::getParser('yaml'))->toBe($parser2);
     });
 
-    it('triggers warning when overwriting a serializer', function () {
+    it('emits an audit event when overwriting a serializer', function () {
         $serializer1 = new class () implements SerializerPluginInterface {
             public function serialize(array $data): string
             {
@@ -75,15 +93,20 @@ describe(PluginRegistry::class, function () {
 
         PluginRegistry::registerSerializer('yaml', $serializer1);
 
-        $warning = null;
-        set_error_handler(static function (int $errno, string $errstr) use (&$warning): bool {
-            $warning = $errstr;
-            return true;
-        }, E_USER_WARNING);
-        PluginRegistry::registerSerializer('yaml', $serializer2);
-        restore_error_handler();
+        $events = [];
+        AuditLogger::onAudit(function (array $event) use (&$events): void {
+            $events[] = $event;
+        });
 
-        expect($warning)->toContain('being overwritten');
+        PluginRegistry::registerSerializer('yaml', $serializer2);
+
+        expect($events)->toHaveCount(1);
+        expect($events[0]['type'])->toBe('plugin.overwrite');
+        expect($events[0]['detail'])->toBe([
+            'kind' => 'serializer',
+            'format' => 'yaml',
+            'message' => "Serializer for format 'yaml' is being overwritten.",
+        ]);
         expect(PluginRegistry::getSerializer('yaml'))->toBe($serializer2);
     });
 

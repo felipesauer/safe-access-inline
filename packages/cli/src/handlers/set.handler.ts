@@ -3,6 +3,8 @@ import {
     loadFromStdinOrFile,
     parseJsonValue,
     formatOutput,
+    strOpt,
+    boolOpt,
     type CliIO,
 } from "../command-handlers.js";
 
@@ -37,11 +39,7 @@ export function handleSet(rest: string[], io: CliIO): number {
     const newVal = parseJsonValue(positionals[2]);
     const updated = accessor.set(positionals[1], newVal);
     io.stdout.write(
-        formatOutput(
-            updated,
-            values.to as string | undefined,
-            values.pretty as boolean,
-        ) + "\n",
+        formatOutput(updated, strOpt(values.to), boolOpt(values.pretty)) + "\n",
     );
     return 0;
 }

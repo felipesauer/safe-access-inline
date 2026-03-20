@@ -11,6 +11,6 @@ export interface FilterParserConfig {
 }
 
 /** @internal */
-export const DEFAULT_FILTER_PARSER_CONFIG: FilterParserConfig = {
+export const DEFAULT_FILTER_PARSER_CONFIG: FilterParserConfig = Object.freeze({
     maxPatternLength: 128,
-};
+});

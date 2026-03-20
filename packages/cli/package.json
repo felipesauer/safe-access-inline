@@ -16,6 +16,7 @@
         "test": "vitest run",
         "test:coverage": "vitest run --coverage",
         "test:watch": "vitest",
+        "test:mutation": "stryker run",
         "lint": "eslint src/ tests/",
         "typecheck": "tsc --noEmit"
     },
@@ -47,7 +48,7 @@
         "access": "public"
     },
     "engines": {
-        "node": ">=24"
+        "node": ">=22"
     },
     "dependencies": {
         "@safe-access-inline/safe-access-inline": "*",
@@ -56,7 +57,9 @@
     },
     "devDependencies": {
         "@eslint/js": "^10.0.1",
-        "@types/node": "^25.5.0",
+        "@stryker-mutator/core": "^9.6.0",
+        "@stryker-mutator/vitest-runner": "^9.6.0",
+        "@types/node": "^22.0.0",
         "@vitest/coverage-v8": "^4.1.0",
         "eslint": "^10.0.0",
         "tsup": "^8.0.0",

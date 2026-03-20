@@ -28,95 +28,110 @@ outline: deep
 
 ### Métodos Factory
 
-#### `SafeAccess::fromArray(array $data): ArrayAccessor`
+#### `SafeAccess::fromArray(array $data, bool $readonly = false): ArrayAccessor`
 
-Cria um accessor a partir de um array PHP.
+Cria um accessor a partir de um array PHP. Passe `true` como segundo argumento para criar um accessor somente leitura que lança `ReadonlyViolationException` em qualquer mutação.
 
 ```php
 $accessor = SafeAccess::fromArray(['name' => 'Ana', 'age' => 30]);
+$readonly = SafeAccess::fromArray(['key' => 'value'], true);
 ```
 
-#### `SafeAccess::fromObject(object $data): ObjectAccessor`
+#### `SafeAccess::fromObject(object $data, bool $readonly = false): ObjectAccessor`
 
 Cria um accessor a partir de um objeto PHP (stdClass ou qualquer objeto).
 
 ```php
 $accessor = SafeAccess::fromObject((object) ['name' => 'Ana']);
+$readonly = SafeAccess::fromObject($obj, true);
 ```
 
-#### `SafeAccess::fromJson(string $data): JsonAccessor`
+#### `SafeAccess::fromJson(string $data, bool $readonly = false): JsonAccessor`
 
 Cria um accessor a partir de uma string JSON.
 
 ```php
 $accessor = SafeAccess::fromJson('{"name": "Ana"}');
+$readonly = SafeAccess::fromJson('{"key": "value"}', true);
 ```
 
-#### `SafeAccess::fromXml(string|SimpleXMLElement $data): XmlAccessor`
+#### `SafeAccess::fromXml(string|SimpleXMLElement $data, bool $readonly = false): XmlAccessor`
 
 Cria um accessor a partir de uma string XML ou SimpleXMLElement.
 
 ```php
 $accessor = SafeAccess::fromXml('<root><name>Ana</name></root>');
+$readonly = SafeAccess::fromXml('<root/>', true);
 ```
 
-#### `SafeAccess::fromYaml(string $data): YamlAccessor`
+#### `SafeAccess::fromYaml(string $data, bool $readonly = false): YamlAccessor`
 
 Cria um accessor a partir de uma string YAML. Usa `ext-yaml` (se disponível) ou `symfony/yaml` por padrão. Se um plugin parser for registrado via `PluginRegistry`, o plugin tem prioridade.
 
 ```php
 $accessor = SafeAccess::fromYaml("name: Ana\nage: 30");
+$readonly = SafeAccess::fromYaml($yaml, true);
 ```
 
-#### `SafeAccess::fromToml(string $data): TomlAccessor`
+#### `SafeAccess::fromToml(string $data, bool $readonly = false): TomlAccessor`
 
 Cria um accessor a partir de uma string TOML. Usa `devium/toml` por padrão. Se um plugin parser for registrado via `PluginRegistry`, o plugin tem prioridade.
 
 ```php
 $accessor = SafeAccess::fromToml('name = "Ana"');
+$readonly = SafeAccess::fromToml($toml, true);
 ```
 
-#### `SafeAccess::fromIni(string $data): IniAccessor`
+#### `SafeAccess::fromIni(string $data, bool $readonly = false): IniAccessor`
 
 Cria um accessor a partir de uma string INI.
 
 ```php
 $accessor = SafeAccess::fromIni("[section]\nkey = value");
+$readonly = SafeAccess::fromIni($ini, true);
 ```
 
-#### `SafeAccess::fromCsv(string $data): CsvAccessor`
+#### `SafeAccess::fromCsv(string $data, bool $readonly = false): CsvAccessor`
 
 Cria um accessor a partir de uma string CSV (primeira linha = cabeçalhos).
 
 ```php
 $accessor = SafeAccess::fromCsv("name,age\nAna,30");
+$readonly = SafeAccess::fromCsv($csv, true);
 ```
 
-#### `SafeAccess::fromEnv(string $data): EnvAccessor`
+#### `SafeAccess::fromEnv(string $data, bool $readonly = false): EnvAccessor`
 
 Cria um accessor a partir de uma string no formato `.env`.
 
 ```php
 $accessor = SafeAccess::fromEnv("APP_NAME=MyApp\nDEBUG=true");
+$readonly = SafeAccess::fromEnv($env, true);
 ```
 
-#### `SafeAccess::fromNdjson(string $data): NdjsonAccessor`
+#### `SafeAccess::fromNdjson(string $data, bool $readonly = false): NdjsonAccessor`
 
 Cria um accessor a partir de uma string Newline Delimited JSON (NDJSON). Cada linha é parseada como um objeto JSON separado.
 
 ```php
 $accessor = SafeAccess::fromNdjson('{"id":1}' . "\n" . '{"id":2}');
 $accessor->get('0.id'); // 1
+$readonly = SafeAccess::fromNdjson($ndjson, true);
 ```
 
-#### `SafeAccess::from(mixed $data, string|AccessorFormat $format = ''): AbstractAccessor`
+```php
+$accessor = SafeAccess::fromNdjson('{"id":1}' . "\n" . '{"id":2}');
+$accessor->get('0.id'); // 1
+```
 
-Fábrica unificada — cria um accessor a partir de qualquer dado. Com uma string de formato ou um valor do enum `AccessorFormat`, delega para a fábrica tipada correspondente. Sem formato, detecta automaticamente (equivalente a `detect()`).
+#### `SafeAccess::from(mixed $data, string|Format $format = ''): AbstractAccessor`
 
-Formatos suportados: `'array'`, `'object'`, `'json'`, `'xml'`, `'yaml'`, `'toml'`, `'ini'`, `'csv'`, `'env'`, ou qualquer nome customizado registrado via `extend()`. Todos os formatos built-in também estão disponíveis como casos do enum `AccessorFormat`.
+Fábrica unificada — cria um accessor a partir de qualquer dado. Com uma string de formato ou um valor do enum `Format`, delega para a fábrica tipada correspondente. Sem formato, detecta automaticamente (equivalente a `detect()`).
+
+Formatos suportados: `'array'`, `'object'`, `'json'`, `'xml'`, `'yaml'`, `'toml'`, `'ini'`, `'csv'`, `'env'`, ou qualquer nome customizado registrado via `extend()`. Todos os formatos built-in também estão disponíveis como casos do enum `Format`.
 
 ```php
-use SafeAccessInline\Enums\AccessorFormat;
+use SafeAccessInline\Enums\Format;
 
 // Auto-detecção (sem formato)
 $accessor = SafeAccess::from('{"name": "Ana"}'); // JsonAccessor
@@ -126,10 +141,10 @@ $json = SafeAccess::from('{"name": "Ana"}', 'json');   // JsonAccessor
 $yaml = SafeAccess::from("name: Ana", 'yaml');          // YamlAccessor
 
 // Formato explícito via enum
-$json = SafeAccess::from('{"name": "Ana"}', AccessorFormat::Json);    // JsonAccessor
-$yaml = SafeAccess::from("name: Ana", AccessorFormat::Yaml);           // YamlAccessor
-$xml  = SafeAccess::from('<root><n>1</n></root>', AccessorFormat::Xml); // XmlAccessor
-$arr  = SafeAccess::from(['a' => 1], AccessorFormat::Array);            // ArrayAccessor
+$json = SafeAccess::from('{"name": "Ana"}', Format::Json);    // JsonAccessor
+$yaml = SafeAccess::from("name: Ana", Format::Yaml);           // YamlAccessor
+$xml  = SafeAccess::from('<root><n>1</n></root>', Format::Xml); // XmlAccessor
+$arr  = SafeAccess::from(['a' => 1], Format::Array);            // ArrayAccessor
 
 // Formato customizado (apenas string)
 SafeAccess::extend('custom', MyAccessor::class);
@@ -164,9 +179,21 @@ Instancia um accessor customizado previamente registrado.
 $accessor = SafeAccess::custom('custom', $data);
 ```
 
+#### `SafeAccess::clearCustomAccessors(): void`
+
+Remove todos os accessors customizados registrados via `extend()`. Destina-se ao teardown de testes para evitar poluição entre execuções.
+
+```php
+afterEach(function (): void {
+    SafeAccess::clearCustomAccessors();
+});
+```
+
 #### `SafeAccess::fromFile(string $filePath, ?string $format = null, array $allowedDirs = [], bool $allowAnyPath = false): AbstractAccessor`
 
 Lê um arquivo do disco e cria o accessor apropriado. Auto-detecta o formato pela extensão do arquivo se `$format` for `null`. O parâmetro `$allowedDirs` restringe quais diretórios podem ser lidos (proteção contra path-traversal). Defina `$allowAnyPath = true` para ignorar restrições de diretório (use com cautela).
+
+Esta API é síncrona. O accessor já retorna completamente carregado.
 
 ```php
 $accessor = SafeAccess::fromFile('/etc/config.json');
@@ -180,6 +207,8 @@ Lança `SecurityException` se o caminho estiver fora dos diretórios permitidos.
 #### `SafeAccess::fromUrl(string $url, ?string $format = null, array $options = []): AbstractAccessor`
 
 Busca uma URL (somente HTTPS, seguro contra SSRF) e retorna o accessor apropriado. Auto-detecta o formato pela extensão do caminho da URL.
+
+Esta API é síncrona. A resposta é buscada e parseada antes do retorno.
 
 Opções: `allowPrivateIps` (bool), `allowedHosts` (string[]), `allowedPorts` (int[]).
 

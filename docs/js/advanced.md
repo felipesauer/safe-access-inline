@@ -10,6 +10,7 @@ outline: deep
 - [JSON Patch & Diff](#json-patch--diff)
 - [I/O & File Loading](#io--file-loading)
 - [Layered Configuration](#layered-configuration)
+- [Configuration reference](#configuration-reference)
 
 ---
 
@@ -172,3 +173,129 @@ const stop = SafeAccess.watchFile("/app/config.json", (accessor) => {
 });
 // Later: stop()
 ```
+
+---
+
+## Configuration reference
+
+The package exports configuration interfaces and default objects for advanced consumers who need to tune limits explicitly.
+
+### `SafeAccessConfig`
+
+```typescript
+interface SafeAccessConfig {
+    readonly maxCustomAccessors: number;
+}
+
+const DEFAULT_SAFE_ACCESS_CONFIG: SafeAccessConfig = {
+    maxCustomAccessors: 50,
+};
+```
+
+Limits how many custom accessor classes can be registered through `SafeAccess.extend()`.
+
+### `CacheConfig`
+
+```typescript
+interface CacheConfig {
+    readonly maxSize: number;
+}
+
+const DEFAULT_CACHE_CONFIG: CacheConfig = {
+    maxSize: 1000,
+};
+```
+
+Controls the maximum number of parsed dot-notation paths retained by `PathCache`.
+
+### `ParserConfig`
+
+```typescript
+interface ParserConfig {
+    readonly maxResolveDepth: number;
+    readonly maxXmlDepth: number;
+}
+
+const DEFAULT_PARSER_CONFIG: ParserConfig = {
+    maxResolveDepth: 512,
+    maxXmlDepth: 100,
+};
+```
+
+Bounds recursive path resolution and XML nesting depth.
+
+### `MergerConfig`
+
+```typescript
+interface MergerConfig {
+    readonly maxDepth: number;
+}
+
+const DEFAULT_MERGER_CONFIG: MergerConfig = {
+    maxDepth: 512,
+};
+```
+
+Limits recursion depth during deep-merge operations.
+
+### `MaskerConfig`
+
+```typescript
+interface MaskerConfig {
+    readonly defaultMaskValue: string;
+    readonly maxRecursionDepth: number;
+    readonly maxPatternCacheSize: number;
+}
+
+const DEFAULT_MASKER_CONFIG: MaskerConfig = {
+    defaultMaskValue: "[REDACTED]",
+    maxRecursionDepth: 100,
+    maxPatternCacheSize: 200,
+};
+```
+
+Configures the replacement value, recursion bound, and wildcard-pattern cache used by `mask()`.
+
+### `AuditConfig`
+
+```typescript
+interface AuditConfig {
+    readonly maxListeners: number;
+}
+
+const DEFAULT_AUDIT_CONFIG: AuditConfig = {
+    maxListeners: 100,
+};
+```
+
+Caps the number of concurrent audit listeners.
+
+### `FilterParserConfig`
+
+```typescript
+interface FilterParserConfig {
+    readonly maxPatternLength: number;
+}
+
+const DEFAULT_FILTER_PARSER_CONFIG: FilterParserConfig = {
+    maxPatternLength: 128,
+};
+```
+
+Sets the maximum regex length accepted by `match()` filter expressions.
+
+### `IoLoaderConfig`
+
+```typescript
+interface IoLoaderConfig {
+    readonly requestTimeoutMs: number;
+    readonly connectTimeoutMs: number;
+}
+
+const DEFAULT_IO_LOADER_CONFIG: IoLoaderConfig = {
+    requestTimeoutMs: 10_000,
+    connectTimeoutMs: 5_000,
+};
+```
+
+Controls total request timeout and connection timeout for `fetchUrl()`. This export is intended for advanced I/O customization.

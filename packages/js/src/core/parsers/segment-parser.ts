@@ -12,6 +12,7 @@ export type Segment =
     | { type: SegmentType.DESCENT; key: string }
     | { type: SegmentType.DESCENT_MULTI; keys: string[] }
     | { type: SegmentType.MULTI_INDEX; indices: number[] }
+    | { type: SegmentType.MULTI_KEY; keys: string[] }
     | { type: SegmentType.SLICE; start: number | null; end: number | null; step: number | null };
 
 /**
@@ -128,11 +129,9 @@ export class SegmentParser {
                     if (allQuoted) {
                         const keys = parts.map((p) => p.slice(1, -1));
                         segments.push({
-                            type: SegmentType.MULTI_INDEX,
-                            indices: keys as unknown as number[],
+                            type: SegmentType.MULTI_KEY,
+                            keys,
                         });
-                        (segments[segments.length - 1] as unknown as { keys: string[] }).keys =
-                            keys;
                         continue;
                     }
                     const indices = parts.map((p) => parseInt(p, 10));

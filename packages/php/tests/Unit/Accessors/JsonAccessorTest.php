@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use SafeAccessInline\Accessors\JsonAccessor;
 use SafeAccessInline\Exceptions\InvalidFormatException;
 
@@ -91,6 +93,13 @@ describe(JsonAccessor::class, function () {
         expect($accessor->type('b'))->toBe('bool');
         expect($accessor->type('a'))->toBe('array');
         expect($accessor->type('missing'))->toBeNull();
+    });
+
+    it('type — returns object for a PHP object value (AbstractAccessor line 179)', function () {
+        // ArrayAccessor can hold any PHP value; an stdClass triggers the
+        // 'object' => 'object' match arm (line 179 of AbstractAccessor).
+        $accessor = \SafeAccessInline\Accessors\ArrayAccessor::from(['item' => new \stdClass()]);
+        expect($accessor->type('item'))->toBe('object');
     });
 
     it('count and keys', function () {

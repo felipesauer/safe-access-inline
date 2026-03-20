@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use SafeAccessInline\Exceptions\SecurityException;
 use SafeAccessInline\SafeAccess;
 use SafeAccessInline\Security\Audit\AuditLogger;
