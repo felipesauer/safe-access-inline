@@ -2,6 +2,8 @@ import { parseArgs } from "node:util";
 import {
     loadFromStdinOrFile,
     formatOutput,
+    strOpt,
+    boolOpt,
     type CliIO,
 } from "../command-handlers.js";
 
@@ -31,14 +33,14 @@ export function handleTransform(rest: string[], io: CliIO): number {
         );
         return 1;
     }
-    const filePath = (values.file as string | undefined) ?? positionals[0];
+    const filePath = strOpt(values.file) ?? positionals[0];
     const accessor = loadFromStdinOrFile(
         filePath,
-        values.from as string | undefined,
+        strOpt(values.from),
         io.readFileSync,
     );
     io.stdout.write(
-        formatOutput(accessor, values.to as string, values.pretty as boolean) +
+        formatOutput(accessor, strOpt(values.to), boolOpt(values.pretty)) +
             "\n",
     );
     return 0;

@@ -3,6 +3,8 @@ import { SafeAccess } from "@safe-access-inline/safe-access-inline";
 import {
     loadFromStdinOrFile,
     formatOutput,
+    strOpt,
+    boolOpt,
     type CliIO,
 } from "../command-handlers.js";
 
@@ -34,11 +36,7 @@ export function handleLayer(rest: string[], io: CliIO): number {
     );
     const layered = SafeAccess.layer(accessors);
     io.stdout.write(
-        formatOutput(
-            layered,
-            values.to as string | undefined,
-            values.pretty as boolean,
-        ) + "\n",
+        formatOutput(layered, strOpt(values.to), boolOpt(values.pretty)) + "\n",
     );
     return 0;
 }

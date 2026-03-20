@@ -4,6 +4,8 @@ import {
     loadFromStdinOrFile,
     parseMaskPatterns,
     formatOutput,
+    strOpt,
+    boolOpt,
     type CliIO,
 } from "../command-handlers.js";
 
@@ -36,15 +38,15 @@ export function handleMask(rest: string[], io: CliIO): number {
         undefined,
         io.readFileSync,
     );
-    const patterns = parseMaskPatterns(values.patterns as string);
+    const patterns = parseMaskPatterns(strOpt(values.patterns) ?? "");
     const data = accessor.toObject();
     const masked = mask(data, patterns);
     const maskedAccessor = SafeAccess.from(masked, "object");
     io.stdout.write(
         formatOutput(
             maskedAccessor,
-            values.to as string | undefined,
-            values.pretty as boolean,
+            strOpt(values.to),
+            boolOpt(values.pretty),
         ) + "\n",
     );
     return 0;

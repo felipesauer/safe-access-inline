@@ -2,6 +2,8 @@ import { parseArgs } from "node:util";
 import {
     loadFromStdinOrFile,
     formatOutput,
+    strOpt,
+    boolOpt,
     type CliIO,
 } from "../command-handlers.js";
 
@@ -35,11 +37,7 @@ export function handleRemove(rest: string[], io: CliIO): number {
     );
     const updated = accessor.remove(positionals[1]);
     io.stdout.write(
-        formatOutput(
-            updated,
-            values.to as string | undefined,
-            values.pretty as boolean,
-        ) + "\n",
+        formatOutput(updated, strOpt(values.to), boolOpt(values.pretty)) + "\n",
     );
     return 0;
 }
