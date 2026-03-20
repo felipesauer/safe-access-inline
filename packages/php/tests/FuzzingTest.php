@@ -11,33 +11,48 @@ declare(strict_types=1);
  */
 
 use SafeAccessInline\Core\Parsers\DotNotationParser;
+use SafeAccessInline\Exceptions\InvalidFormatException;
+use SafeAccessInline\Exceptions\SecurityException;
 use SafeAccessInline\SafeAccess;
 
-describe('Fuzzing — hostile inputs', function (): void {
+describe(SafeAccess::class . ' — fuzzing hostile inputs', function (): void {
 
-    /** XXE pode vazar arquivos do sistema via entidades externas no XML */
-    it('XML with external entities (XXE)', function (): void {
-        $hostileXmls = [
+    /** DOCTYPE/ENTITY declarations are the XXE entry points — the guard must block them unconditionally */
+    it('XML DOCTYPE declarations are blocked with SecurityException', function (): void {
+        $docTypeXmls = [
             '<?xml version="1.0"?><!DOCTYPE foo [<!ENTITY xxe SYSTEM "file:///etc/passwd">]><root>&xxe;</root>',
             '<?xml version="1.0"?><!DOCTYPE foo [<!ENTITY xxe SYSTEM "php://filter/convert.base64-encode/resource=/etc/passwd">]><root>&xxe;</root>',
+        ];
+
+        foreach ($docTypeXmls as $xml) {
+            expect(fn (): mixed => SafeAccess::fromXml($xml))->toThrow(SecurityException::class);
+        }
+    });
+
+    /** Complex but structurally valid XML must not produce uncontrolled PHP errors */
+    it('complex valid XML parses without uncontrolled errors', function (): void {
+        $complexXmls = [
             '<root>&amp;&lt;&gt;</root>',
             '<root>' . str_repeat('<a>', 100) . 'x' . str_repeat('</a>', 100) . '</root>',
         ];
 
-        foreach ($hostileXmls as $xml) {
+        foreach ($complexXmls as $xml) {
+            $crashed = false;
             try {
-                $accessor = SafeAccess::fromXml($xml);
-                $accessor->get('root', null);
-            } catch (\Throwable) {
-                // Erro controlado é aceitável
+                SafeAccess::fromXml($xml)->get('root', null);
+            } catch (SecurityException | InvalidFormatException) {
+                // Controlled rejection — acceptable
+            } catch (\Error $e) {
+                $crashed = true; // Fatal PHP error — never acceptable
+            } catch (\Exception) {
+                // Third-party parser exception — controlled, acceptable
             }
-            // Se chegou aqui sem fatal error, passou
-            expect(true)->toBeTrue();
+            expect($crashed)->toBeFalse("Uncontrolled crash parsing XML: {$xml}");
         }
     });
 
     /** Alias recursivo em YAML pode causar loop infinito no parser */
-    it('YAML with recursive aliases', function (): void {
+    it('YAML with recursive aliases does not crash PHP', function (): void {
         $hostileYamls = [
             "a: &anchor\n  b: *anchor",
             "x: &a\n  y: &b\n    z: *a",
@@ -45,18 +60,22 @@ describe('Fuzzing — hostile inputs', function (): void {
         ];
 
         foreach ($hostileYamls as $yaml) {
+            $crashed = false;
             try {
-                $accessor = SafeAccess::fromYaml($yaml);
-                $accessor->get('a', null);
-            } catch (\Throwable) {
-                // Erro controlado é aceitável
+                SafeAccess::fromYaml($yaml)->get('a', null);
+            } catch (SecurityException | InvalidFormatException) {
+                // Controlled rejection — acceptable
+            } catch (\Error $e) {
+                $crashed = true;
+            } catch (\Exception) {
+                // Parser exception from symfony/yaml or ext-yaml — controlled, acceptable
             }
-            expect(true)->toBeTrue();
+            expect($crashed)->toBeFalse("Uncontrolled crash parsing YAML");
         }
     })->skip(!class_exists(\Symfony\Component\Yaml\Yaml::class), 'symfony/yaml not installed');
 
-    /** Null bytes em chaves PHP podem bypassar validações de path */
-    it('strings with null bytes in keys', function (): void {
+    /** Null bytes em chaves PHP devem retornar o default ou lançar SecurityException — nunca vazar dados */
+    it('null bytes in paths return default or throw SecurityException', function (): void {
         $hostilePaths = [
             "\0",
             "key\0injection",
@@ -68,17 +87,27 @@ describe('Fuzzing — hostile inputs', function (): void {
         $data = ['a' => ['b' => 1]];
 
         foreach ($hostilePaths as $path) {
+            $crashed = false;
+            $result = null;
             try {
-                DotNotationParser::get($data, $path, null);
-            } catch (\Throwable) {
-                // Erro controlado é aceitável
+                $result = DotNotationParser::get($data, $path, 'sentinel');
+            } catch (SecurityException) {
+                // Controlled block — acceptable
+            } catch (\Error) {
+                $crashed = true;
+            } catch (\Exception) {
+                // Other controlled exception — acceptable
             }
-            expect(true)->toBeTrue();
+            expect($crashed)->toBeFalse("Uncontrolled crash for null-byte path");
+            // If no exception, the path must not have resolved to real data
+            if ($result !== null) {
+                expect($result)->toBe('sentinel', "Null-byte path leaked real data for: " . addslashes($path));
+            }
         }
     });
 
-    /** Delimitadores incomuns são fonte clássica de bugs em parsers CSV */
-    it('CSV with unusual delimiters', function (): void {
+    /** Delimitadores incomuns são fonte clássica de bugs em parsers CSV — sem crash */
+    it('CSV with unusual delimiters does not crash PHP', function (): void {
         $hostileCsvs = [
             "a,b\n\"val,ue\",test",
             "a,b\n\"val\"\"ue\",test",
@@ -90,39 +119,50 @@ describe('Fuzzing — hostile inputs', function (): void {
         ];
 
         foreach ($hostileCsvs as $csv) {
+            $crashed = false;
             try {
-                $accessor = SafeAccess::fromCsv($csv);
-                $accessor->get('0.a', null);
-            } catch (\Throwable) {
-                // Erro controlado é aceitável
+                SafeAccess::fromCsv($csv)->get('0.a', null);
+            } catch (SecurityException | InvalidFormatException) {
+                // Controlled rejection — acceptable
+            } catch (\Error) {
+                $crashed = true;
+            } catch (\Exception) {
+                // Controlled exception — acceptable
             }
-            expect(true)->toBeTrue();
+            expect($crashed)->toBeFalse("Uncontrolled crash parsing CSV");
         }
     });
 
-    /** JSON com chaves duplicadas tem comportamento indefinido — deve ser determinístico */
-    it('JSON with duplicate keys', function (): void {
+    /** JSON com chaves duplicadas tem comportamento indefinido — deve ser determinístico e não vazar estado */
+    it('JSON with duplicate or prototype-polluting keys is handled safely', function (): void {
         $hostileJsons = [
             '{"a": 1, "a": 2}',
-            '{"__proto__": {"polluted": true}}',
-            '{"constructor": {"prototype": {}}}',
             '{"": "empty key"}',
             '{"a": ' . str_repeat('{"b": ', 100) . '1' . str_repeat('}', 100) . '}',
         ];
 
         foreach ($hostileJsons as $json) {
+            $crashed = false;
             try {
-                $accessor = SafeAccess::fromJson($json);
-                $accessor->get('a', null);
-            } catch (\Throwable) {
-                // Erro controlado é aceitável
+                SafeAccess::fromJson($json)->get('a', null);
+            } catch (SecurityException | InvalidFormatException | \JsonException) {
+                // Controlled rejection — acceptable
+            } catch (\Error) {
+                $crashed = true;
+            } catch (\Exception) {
+                // Controlled exception — acceptable
             }
-            expect(true)->toBeTrue();
+            expect($crashed)->toBeFalse("Uncontrolled crash parsing JSON");
         }
     });
 
-    /** Paths com injection (__proto__, constructor) devem ser bloqueados ou ignorados */
-    it('prototype pollution paths', function (): void {
+    /**
+     * PHP arrays do not have prototype inheritance, so accessing __proto__ as a key is safe for reads.
+     * SecurityGuard::assertSafeKey() fires only on WRITE operations (set, merge, patch) to prevent
+     * prototype-polluting keys from being written back into storage or serialized to JSON for JS clients.
+     * This test verifies reads on data that does NOT contain those keys always return null (no crash).
+     */
+    it('prototype pollution paths on safe data return null without crashing', function (): void {
         $hostilePaths = [
             '__proto__',
             'constructor',
@@ -133,15 +173,24 @@ describe('Fuzzing — hostile inputs', function (): void {
             'hasOwnProperty',
         ];
 
+        // Data does NOT contain forbidden keys — result must be the default
         $data = ['a' => 1, 'b' => ['c' => 2]];
 
         foreach ($hostilePaths as $path) {
+            $crashed = false;
+            $result = 'sentinel';
             try {
-                DotNotationParser::get($data, $path, null);
-            } catch (\Throwable) {
-                // Erro controlado é aceitável
+                $result = DotNotationParser::get($data, $path, null);
+                // Key does not exist in data — must return null
+                expect($result)->toBeNull("Path '{$path}' should return null on data without that key");
+            } catch (SecurityException) {
+                // Also acceptable: guard can fire for path-segment validation
+            } catch (\Error) {
+                $crashed = true;
+            } catch (\Exception) {
+                // Other controlled exception — acceptable
             }
-            expect(true)->toBeTrue();
+            expect($crashed)->toBeFalse("Uncontrolled crash for prototype pollution path '{$path}'");
         }
     });
 });

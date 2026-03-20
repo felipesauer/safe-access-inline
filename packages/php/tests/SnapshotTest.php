@@ -33,7 +33,7 @@ $deepData = [
     ],
 ];
 
-describe('Snapshot — complex query outputs', function () use ($deepData): void {
+describe(SafeAccess::class . ' — snapshot', function () use ($deepData): void {
 
     $accessor = SafeAccess::fromArray($deepData);
 

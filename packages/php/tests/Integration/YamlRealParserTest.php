@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use SafeAccessInline\SafeAccess;
 
 describe('YamlAccessor with real libraries', function () {

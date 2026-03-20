@@ -12,23 +12,28 @@ declare(strict_types=1);
  */
 
 use SafeAccessInline\Core\Parsers\DotNotationParser;
+use SafeAccessInline\Exceptions\SecurityException;
 use SafeAccessInline\SafeAccess;
 
-describe('Property-based invariants', function (): void {
+describe(DotNotationParser::class . ' — property-based invariants', function (): void {
 
-    /** Nenhum path deve lançar exceção não capturada — segurança acima de tudo */
-    it('safety: no path makes the library throw', function (): void {
+    /** Nenhum path deve causar crash PHP — SecurityException é esperada para chaves proibidas */
+    it('safety: no path makes the library crash with an unexpected error', function (): void {
+        // Capture seed for reproducible failure diagnosis
+        $seed = random_int(PHP_INT_MIN, PHP_INT_MAX);
+        mt_srand($seed);
+
         $paths = [
             '', 'a', 'a.b.c', '*.x', '..x', '__proto__', 'constructor',
             'a[?x>1].b', '0.1.2', str_repeat('a.', 50) . 'z',
             "key\0null", "key\nnewline", 'a.*.b.*.c',
         ];
-        // Gera 100 paths aleatórios adicionais
+        // Gera 100 paths aleatórios adicionais com seed controlado
         for ($i = 0; $i < 100; $i++) {
-            $len = random_int(1, 30);
+            $len = mt_rand(1, 30);
             $path = '';
             for ($j = 0; $j < $len; $j++) {
-                $path .= chr(random_int(32, 126));
+                $path .= chr(mt_rand(32, 126));
             }
             $paths[] = $path;
         }
@@ -36,15 +41,25 @@ describe('Property-based invariants', function (): void {
         $data = ['a' => ['b' => ['c' => 1]], 'items' => [['x' => 2]]];
 
         foreach ($paths as $path) {
-            // Assert: nunca lança exceção não capturada
             try {
                 DotNotationParser::get($data, $path, null);
+            } catch (SecurityException) {
+                // Expected: SecurityGuard blocked a forbidden key (e.g. __proto__, constructor)
             } catch (\Throwable $e) {
-                $this->fail("Path '{$path}' threw " . get_class($e) . ': ' . $e->getMessage());
+                throw new \RuntimeException(
+                    sprintf(
+                        "Unexpected %s for path '%s' (seed: %d): %s",
+                        get_class($e),
+                        addslashes($path),
+                        $seed,
+                        $e->getMessage(),
+                    ),
+                    previous: $e,
+                );
             }
         }
 
-        expect(true)->toBeTrue();
+        expect(count($paths))->toBeGreaterThan(100, "Loop must have executed; seed: {$seed}");
     });
 
     /** O default é o "escudo" do usuário — deve ser sempre honrado */
@@ -79,7 +94,7 @@ describe('Property-based invariants', function (): void {
         // Array com elementos
         $items = array_map(
             fn (int $i): array => ['price' => $i * 10],
-            range(0, random_int(0, 50)),
+            range(0, mt_rand(0, 50)),
         );
         $result = SafeAccess::fromArray(['items' => $items])->get('items.*.price');
         expect(is_array($result))->toBeTrue();

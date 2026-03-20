@@ -31,7 +31,7 @@ $data = json_decode($dataJson, true, 512, JSON_THROW_ON_ERROR);
 
 $accessor = SafeAccess::fromArray($data);
 
-describe('Cross-parity with JS', function () use ($cases, $accessor): void {
+describe(SafeAccess::class . ' — cross-parity with JS', function () use ($cases, $accessor): void {
     foreach ($cases as $case) {
         // Cada caso exercita um edge case específico documentado na description da fixture
         it($case['id'], function () use ($accessor, $case): void {
