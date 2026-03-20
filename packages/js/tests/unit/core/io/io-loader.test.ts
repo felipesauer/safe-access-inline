@@ -40,15 +40,15 @@ describe('io-loader', () => {
         });
 
         it('allows any path with allowAnyPath: true', () => {
-            expect(() =>
+            expect(
                 assertPathWithinAllowedDirs('/etc/passwd', undefined, { allowAnyPath: true }),
-            ).not.toThrow();
+            ).toBe(path.resolve('/etc/passwd'));
         });
 
         it('allows paths within allowed directories', () => {
-            expect(() =>
+            expect(
                 assertPathWithinAllowedDirs(path.join(fixturesDir, 'config.json'), [fixturesDir]),
-            ).not.toThrow();
+            ).toBe(path.resolve(fixturesDir, 'config.json'));
         });
 
         it('rejects paths outside allowed directories', () => {
@@ -77,6 +77,11 @@ describe('io-loader', () => {
                     fixturesDir,
                 ]),
             ).not.toThrow();
+        });
+
+        it('returns logical resolved path for non-existent file inside an allowed dir', () => {
+            const nonExistent = path.join(fixturesDir, `missing-${Date.now()}.json`);
+            expect(assertPathWithinAllowedDirs(nonExistent, [fixturesDir])).toBe(nonExistent);
         });
     });
 

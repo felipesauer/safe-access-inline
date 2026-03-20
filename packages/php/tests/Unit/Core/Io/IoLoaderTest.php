@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use SafeAccessInline\Contracts\HttpClientInterface;
 use SafeAccessInline\Core\Config\IoLoaderConfig;
 use SafeAccessInline\Core\Io\IoLoader;
@@ -72,13 +74,13 @@ describe(IoLoader::class, function () use (&$fixturesDir) {
     })->throws(SecurityException::class, 'No allowedDirs configured');
 
     it('allows any path with allowAnyPath true', function () {
-        IoLoader::assertPathWithinAllowedDirs('/etc/passwd', [], true);
-        expect(true)->toBeTrue();
+        $resolved = IoLoader::assertPathWithinAllowedDirs('/etc/passwd', [], true);
+        expect($resolved)->toBeString();
     });
 
     it('allows paths within allowed directories', function () use (&$fixturesDir) {
-        IoLoader::assertPathWithinAllowedDirs($fixturesDir . '/config.json', [$fixturesDir]);
-        expect(true)->toBeTrue();
+        $resolved = IoLoader::assertPathWithinAllowedDirs($fixturesDir . '/config.json', [$fixturesDir]);
+        expect($resolved)->toBe(realpath($fixturesDir . '/config.json'));
     });
 
     it('rejects paths outside allowed directories', function () use (&$fixturesDir) {
@@ -309,8 +311,8 @@ describe(IoLoader::class, function () use (&$fixturesDir) {
         // File doesn't exist, but directory does — should resolve through dirname
         $nonExistent = $tmpDir . '/safe_access_nonexistent_' . uniqid() . '.json';
         // Should NOT throw when allowedDirs contains the temp dir
-        IoLoader::assertPathWithinAllowedDirs($nonExistent, [$tmpDir]);
-        expect(true)->toBeTrue(); // no exception
+        $resolved = IoLoader::assertPathWithinAllowedDirs($nonExistent, [$tmpDir]);
+        expect($resolved)->toBe($nonExistent);
     });
 
     it('assertPathWithinAllowedDirs throws for completely invalid directory', function () {

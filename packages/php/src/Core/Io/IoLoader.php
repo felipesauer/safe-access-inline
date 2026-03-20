@@ -79,30 +79,45 @@ final class IoLoader
     }
 
     /**
-     * @param string[] $allowedDirs
-     * @throws SecurityException
+     * Validates that `$filePath` resolves to a path within one of the `$allowedDirs`.
+     *
+     * Resolves symlinks before comparing, blocks null-byte injection, and rejects paths
+     * outside the allowlist. Returns the canonical resolved path so the caller can use
+     * it directly for subsequent I/O operations, eliminating the TOCTOU window between
+     * path validation and the actual file read/write.
+     *
+     * @param  string   $filePath    Path to validate.
+     * @param  string[] $allowedDirs Allowlisted directory roots.
+     * @param  bool     $allowAnyPath When true, no directory restriction is applied.
+     * @return string The canonical resolved path (result of `realpath()`, or logical dirname + basename
+     *                for paths that do not exist yet).
+     * @throws SecurityException When the path violates any constraint.
      */
     public static function assertPathWithinAllowedDirs(
         string $filePath,
         array $allowedDirs = [],
         bool $allowAnyPath = false,
-    ): void {
+    ): string {
         if (str_contains($filePath, "\0")) {
             throw new SecurityException('File path contains null bytes.');
         }
 
         if (count($allowedDirs) === 0) {
             if ($allowAnyPath) {
-                return;
+                // No directory restriction — resolve the path best-effort and return the canonical form.
+                $resolved = realpath($filePath);
+                return $resolved !== false ? $resolved : $filePath;
             }
             throw new SecurityException(
                 'No allowedDirs configured. Provide allowedDirs or set allowAnyPath: true to bypass path restrictions.'
             );
         }
 
+        // Resolve symlinks before comparing — realpath() follows the full symlink chain.
+        // The returned canonical path is used by readFile/writeFile to close TOCTOU windows.
         $resolved = realpath($filePath);
         if ($resolved === false) {
-            // File doesn't exist yet — resolve the directory part
+            // File doesn't exist yet (e.g. a write target) — resolve the directory part.
             $dir = realpath(dirname($filePath));
             if ($dir === false) {
                 throw new SecurityException("Path '{$filePath}' is outside allowed directories.");
@@ -116,7 +131,7 @@ final class IoLoader
                 continue;
             }
             if (str_starts_with($resolved, $resolvedDir . DIRECTORY_SEPARATOR) || $resolved === $resolvedDir) {
-                return;
+                return $resolved;
             }
         }
 
@@ -129,14 +144,16 @@ final class IoLoader
      */
     public static function readFile(string $filePath, array $allowedDirs = [], bool $allowAnyPath = false): string
     {
-        self::assertPathWithinAllowedDirs($filePath, $allowedDirs, $allowAnyPath);
+        // Use the canonical resolved path for I/O to close the TOCTOU window between
+        // symlink validation and the actual read (the path could be swapped between the two).
+        $resolved = self::assertPathWithinAllowedDirs($filePath, $allowedDirs, $allowAnyPath);
         AuditLogger::emit('file.read', ['filePath' => $filePath]);
 
-        if (!file_exists($filePath) || !is_readable($filePath)) {
+        if (!file_exists($resolved) || !is_readable($resolved)) {
             throw new SecurityException("Failed to read file: '{$filePath}'");
         }
 
-        $content = file_get_contents($filePath);
+        $content = file_get_contents($resolved);
 
         if ($content === false) {
             throw new SecurityException("Failed to read file: '{$filePath}'");
