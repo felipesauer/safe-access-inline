@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use SafeAccessInline\Contracts\FilterCondition;
 use SafeAccessInline\Contracts\FilterExpression;
 use SafeAccessInline\Core\Config\FilterParserConfig;
@@ -294,5 +296,23 @@ describe(FilterParser::class, function () {
         $expr = FilterParser::parse('length(name) > 3');
         expect(FilterParser::evaluate(['name' => 'hello'], $expr))->toBeTrue();
         expect(FilterParser::evaluate(['name' => 'hi'], $expr))->toBeFalse();
+    });
+
+    // ── SEC: ReDoS pattern-shape guards ──────────────────────────────────
+
+    it('evaluate — match with (a+)+ nested quantifier is rejected by ReDoS guard', function () {
+        // Guard regex ([+*])\)\1 matches `+)+` in `(a+)+`
+        // Construct expr array directly — parser cannot parse `)` inside quoted args
+        $cond = ['field' => '@.v', 'operator' => '==', 'value' => true, 'func' => 'match', 'funcArgs' => ['@.v', '(a+)+']];
+        $expr = ['conditions' => [$cond], 'logicals' => []];
+        expect(FilterParser::evaluate(['v' => 'aaaa'], $expr))->toBeFalse();
+    });
+
+    it('evaluate — match with (?:a+)* non-capturing quantifier is rejected by ReDoS guard', function () {
+        // Guard regex \(\?[^)]*[+*] matches `(?:a+` in `(?:a+)*`
+        // Construct expr array directly — parser cannot parse `)` inside quoted args
+        $cond = ['field' => '@.v', 'operator' => '==', 'value' => true, 'func' => 'match', 'funcArgs' => ['@.v', '(?:a+)*b']];
+        $expr = ['conditions' => [$cond], 'logicals' => []];
+        expect(FilterParser::evaluate(['v' => 'aaab'], $expr))->toBeFalse();
     });
 });

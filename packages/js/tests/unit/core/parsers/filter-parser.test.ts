@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { FilterParser } from '../../../../src/core/parsers/filter-parser';
+import type { FilterExpression } from '../../../../src/contracts/filter-expression.interface';
 
 describe(FilterParser.name, () => {
     // ── parse() ───────────────────────────────────────
@@ -360,6 +361,60 @@ describe(FilterParser.name, () => {
         expect(FilterParser.evaluate({ v: 'fish' }, expr)).toBe(false);
     });
 
+    it('evaluate — match with (a+)+ nested quantifier group is rejected by ReDoS guard', () => {
+        // Guard 2: /(\.\+|\*|\{[\d,]+\})\)(\+|\*|\{[\d,]+\})/ matches `+)+` in `(a+)+`
+        // Construct the expression directly — parser cannot parse `)` inside quoted args
+        const expr: FilterExpression = {
+            conditions: [
+                {
+                    field: '@.v',
+                    operator: '==',
+                    value: true,
+                    func: 'match',
+                    funcArgs: ['@.v', '(a+)+'],
+                },
+            ],
+            logicals: [],
+        };
+        expect(FilterParser.evaluate({ v: 'aaaa' }, expr)).toBe(false);
+    });
+
+    it('evaluate — match with (a|b)+ alternation quantifier is rejected by ReDoS guard', () => {
+        // Guard 3: /\([^)]*\|[^)]*\)(\+|\*|\{[\d,]+\})/ matches `(a|b)+`
+        // Construct the expression directly — parser cannot parse `)` inside quoted args
+        const expr: FilterExpression = {
+            conditions: [
+                {
+                    field: '@.v',
+                    operator: '==',
+                    value: true,
+                    func: 'match',
+                    funcArgs: ['@.v', '(a|b)+c'],
+                },
+            ],
+            logicals: [],
+        };
+        expect(FilterParser.evaluate({ v: 'aaac' }, expr)).toBe(false);
+    });
+
+    it('evaluate — match with (?:a+)* non-capturing quantifier is rejected by ReDoS guard', () => {
+        // Guard 4: /\(\?[^)]*[+*]/ matches `(?:a+` in `(?:a+)*`
+        // Construct the expression directly — parser cannot parse `)` inside quoted args
+        const expr: FilterExpression = {
+            conditions: [
+                {
+                    field: '@.v',
+                    operator: '==',
+                    value: true,
+                    func: 'match',
+                    funcArgs: ['@.v', '(?:a+)*b'],
+                },
+            ],
+            logicals: [],
+        };
+        expect(FilterParser.evaluate({ v: 'aaab' }, expr)).toBe(false);
+    });
+
     // ── match() — pattern quote handling (L242-243) ───────────────────────
 
     it('evaluate — match pattern with only opening single-quote is not stripped', () => {
@@ -396,5 +451,35 @@ describe('FilterParser configuration', () => {
         // Default maxPatternLength is larger, so this should now pass
         expr = FilterParser.parse("match(@.name,'a-long-pattern')");
         expect(FilterParser.evaluate({ name: 'a-long-pattern' }, expr)).toBe(true);
+    });
+});
+
+// ── Security regression: numeric comparisons must not coerce string fields ──
+describe('FilterParser — numeric type guard regression', () => {
+    it('> returns false when field is a string (no implicit JS coercion "10" > 5 = true)', () => {
+        const expr = FilterParser.parse('price>5');
+        // Without type guard: '10' > 5 → true (JavaScript coercion)
+        expect(FilterParser.evaluate({ price: '10' }, expr)).toBe(false);
+    });
+
+    it('< returns false when field is a string', () => {
+        const expr = FilterParser.parse('price<100');
+        expect(FilterParser.evaluate({ price: '50' }, expr)).toBe(false);
+    });
+
+    it('>= returns false when field is a string', () => {
+        const expr = FilterParser.parse('score>=90');
+        expect(FilterParser.evaluate({ score: '95' }, expr)).toBe(false);
+    });
+
+    it('<= returns false when field is a string', () => {
+        const expr = FilterParser.parse('count<=5');
+        expect(FilterParser.evaluate({ count: '3' }, expr)).toBe(false);
+    });
+
+    it('> still works correctly when both sides are numbers', () => {
+        const expr = FilterParser.parse('price>5');
+        expect(FilterParser.evaluate({ price: 10 }, expr)).toBe(true);
+        expect(FilterParser.evaluate({ price: 3 }, expr)).toBe(false);
     });
 });

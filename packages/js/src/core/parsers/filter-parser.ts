@@ -257,13 +257,17 @@ export class FilterParser {
             case '!=':
                 return fieldValue !== expected;
             case '>':
-                return (fieldValue as number) > (expected as number);
+                if (typeof fieldValue !== 'number' || typeof expected !== 'number') return false;
+                return fieldValue > expected;
             case '<':
-                return (fieldValue as number) < (expected as number);
+                if (typeof fieldValue !== 'number' || typeof expected !== 'number') return false;
+                return fieldValue < expected;
             case '>=':
-                return (fieldValue as number) >= (expected as number);
+                if (typeof fieldValue !== 'number' || typeof expected !== 'number') return false;
+                return fieldValue >= expected;
             case '<=':
-                return (fieldValue as number) <= (expected as number);
+                if (typeof fieldValue !== 'number' || typeof expected !== 'number') return false;
+                return fieldValue <= expected;
         }
     }
 
