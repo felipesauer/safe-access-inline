@@ -12,7 +12,7 @@ export interface IoLoaderConfig {
 }
 
 /** @internal */
-export const DEFAULT_IO_LOADER_CONFIG: IoLoaderConfig = {
+export const DEFAULT_IO_LOADER_CONFIG: IoLoaderConfig = Object.freeze({
     requestTimeoutMs: 10_000,
     connectTimeoutMs: 5_000,
-};
+});

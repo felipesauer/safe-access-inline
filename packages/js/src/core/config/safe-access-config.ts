@@ -7,6 +7,6 @@ export interface SafeAccessConfig {
 }
 
 /** Sensible defaults for {@link SafeAccessConfig}. */
-export const DEFAULT_SAFE_ACCESS_CONFIG: SafeAccessConfig = {
+export const DEFAULT_SAFE_ACCESS_CONFIG: SafeAccessConfig = Object.freeze({
     maxCustomAccessors: 50,
-};
+});

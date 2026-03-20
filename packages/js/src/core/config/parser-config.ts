@@ -6,7 +6,7 @@ export interface ParserConfig {
     readonly maxXmlDepth: number;
 }
 
-export const DEFAULT_PARSER_CONFIG: ParserConfig = {
+export const DEFAULT_PARSER_CONFIG: ParserConfig = Object.freeze({
     maxResolveDepth: 512,
     maxXmlDepth: 100,
-};
+});

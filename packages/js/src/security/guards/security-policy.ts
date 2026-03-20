@@ -1,4 +1,4 @@
-import type { SecurityOptions } from './security-options';
+import { DEFAULT_SECURITY_OPTIONS, type SecurityOptions } from './security-options';
 import type { MaskPattern } from '../sanitizers/data-masker';
 
 /** Network-level restrictions applied when fetching remote data sources. */
@@ -21,9 +21,9 @@ export interface SecurityPolicy extends SecurityOptions {
 }
 
 const DEFAULT_POLICY: SecurityPolicy = {
-    maxDepth: 512,
-    maxPayloadBytes: 10_485_760,
-    maxKeys: 10_000,
+    maxDepth: DEFAULT_SECURITY_OPTIONS.maxDepth,
+    maxPayloadBytes: DEFAULT_SECURITY_OPTIONS.maxPayloadBytes,
+    maxKeys: DEFAULT_SECURITY_OPTIONS.maxKeys,
     csvMode: 'none',
 };
 
