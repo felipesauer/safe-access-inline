@@ -3,7 +3,7 @@ export { SafeAccess } from './safe-access';
 export { Format } from './enums/format.enum';
 export { SegmentType } from './enums/segment-type.enum';
 export { PatchOperationType } from './enums/patch-operation-type.enum';
-export type { AuditEventType } from './enums/audit-event-type.enum';
+export { AuditEventType } from './enums/audit-event-type.enum';
 export { AbstractAccessor } from './core/abstract-accessor';
 export type { AccessorInterface } from './contracts/accessor.interface';
 export type { ReadableInterface } from './contracts/readable.interface';

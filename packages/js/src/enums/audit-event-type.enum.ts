@@ -3,13 +3,15 @@
  *
  * Used by {@link AuditEvent} to classify security, I/O, and lifecycle occurrences.
  */
-export type AuditEventType =
-    | 'file.read'
-    | 'file.watch'
-    | 'url.fetch'
-    | 'security.violation'
-    | 'security.deprecation'
-    | 'data.mask'
-    | 'data.freeze'
-    | 'schema.validate'
-    | 'plugin.overwrite';
+export enum AuditEventType {
+    FILE_READ = 'file.read',
+    FILE_WATCH = 'file.watch',
+    URL_FETCH = 'url.fetch',
+    SECURITY_VIOLATION = 'security.violation',
+    SECURITY_DEPRECATION = 'security.deprecation',
+    DATA_MASK = 'data.mask',
+    DATA_FREEZE = 'data.freeze',
+    DATA_FORMAT_WARNING = 'data.format_warning',
+    SCHEMA_VALIDATE = 'schema.validate',
+    PLUGIN_OVERWRITE = 'plugin.overwrite',
+}

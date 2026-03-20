@@ -1,6 +1,6 @@
 import { AbstractAccessor } from '../core/abstract-accessor';
 import { InvalidFormatError } from '../exceptions/invalid-format.error';
-import { emitAudit } from '../security/audit/audit-emitter';
+import { AuditEventType, emitAudit } from '../security/audit/audit-emitter';
 
 /**
  * Accessor for CSV strings.
@@ -51,7 +51,9 @@ export class CsvAccessor<
                 }
                 result[String(i - 1)] = row;
             } else {
-                emitAudit('security.violation', {
+                // A column-count mismatch is a data-format issue, not a security violation;
+                // emitting 'security.violation' would inflate security-event counters.
+                emitAudit(AuditEventType.DATA_FORMAT_WARNING, {
                     reason: 'csv_column_mismatch',
                     line: i + 1,
                     expected: headers.length,

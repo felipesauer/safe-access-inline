@@ -3,9 +3,10 @@ import type { stringify as tomlStringify } from 'smol-toml';
 import { optionalRequire } from '../io/optional-require';
 import { PluginRegistry } from '../registries/plugin-registry';
 import { InvalidFormatError } from '../../exceptions/invalid-format.error';
+import { UnsupportedTypeError } from '../../exceptions/unsupported-type.error';
 import { getGlobalPolicy } from '../../security/guards/security-policy';
 import { sanitizeCsvCell } from '../../security/sanitizers/csv-sanitizer';
-import { emitAudit } from '../../security/audit/audit-emitter';
+import { AuditEventType, emitAudit } from '../../security/audit/audit-emitter';
 
 const getYaml = optionalRequire<typeof yaml>('js-yaml', 'YAML');
 const getSmolToml = optionalRequire<{ stringify: typeof tomlStringify }>('smol-toml', 'TOML');
@@ -88,7 +89,7 @@ export class FormatSerializer {
     ): string {
         const mode = csvMode ?? getGlobalPolicy()?.csvMode ?? 'none';
         if (!csvMode && !getGlobalPolicy()?.csvMode) {
-            emitAudit('security.deprecation', {
+            emitAudit(AuditEventType.SECURITY_DEPRECATION, {
                 message:
                     "csvMode defaults to 'none' which does not sanitize CSV cells. " +
                     "In a future version, the default will change to 'prefix'. " +
@@ -148,7 +149,7 @@ export class FormatSerializer {
         if (format === 'yaml') return FormatSerializer.toYaml(data);
         if (format === 'toml') return FormatSerializer.toToml(data);
         if (format === 'csv') return FormatSerializer.toCsv(data);
-        return PluginRegistry.getSerializer(format).serialize(data);
+        throw new UnsupportedTypeError(`No serializer registered for format '${format}'.`);
     }
 
     // ── Private helpers ─────────────────────────────

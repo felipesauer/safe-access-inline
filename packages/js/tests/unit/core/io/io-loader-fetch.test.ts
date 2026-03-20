@@ -16,6 +16,18 @@ vi.mock('../../../../src/security/sanitizers/ip-range-checker', () => ({
 }));
 
 vi.mock('../../../../src/security/audit/audit-emitter', () => ({
+    AuditEventType: {
+        FILE_READ: 'file.read',
+        FILE_WATCH: 'file.watch',
+        URL_FETCH: 'url.fetch',
+        SECURITY_VIOLATION: 'security.violation',
+        SECURITY_DEPRECATION: 'security.deprecation',
+        DATA_MASK: 'data.mask',
+        DATA_FREEZE: 'data.freeze',
+        DATA_FORMAT_WARNING: 'data.format_warning',
+        SCHEMA_VALIDATE: 'schema.validate',
+        PLUGIN_OVERWRITE: 'plugin.overwrite',
+    },
     emitAudit: vi.fn(),
 }));
 
