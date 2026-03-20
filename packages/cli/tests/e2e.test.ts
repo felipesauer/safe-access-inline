@@ -3,7 +3,7 @@ import { execSync } from "node:child_process";
 import { resolve, join } from "node:path";
 
 const CLI = resolve(__dirname, "../dist/cli.mjs");
-const FIXTURES = resolve(__dirname, "../../js/tests/fixtures");
+const FIXTURES = resolve(__dirname, "./fixtures");
 
 function run(args: string, input?: string): string {
     const cmd = `node ${CLI} ${args}`;
@@ -46,11 +46,19 @@ const overrideJson = join(FIXTURES, "override.json");
 
 beforeAll(() => {
     // Ensure CLI is built
-    execSync("npm run build", {
-        cwd: resolve(__dirname, ".."),
-        stdio: "ignore",
-        timeout: 30_000,
-    });
+    try {
+        execSync("npm run build", {
+            cwd: resolve(__dirname, ".."),
+            stdio: ["pipe", "pipe", "pipe"],
+            timeout: 30_000,
+        });
+    } catch (err: unknown) {
+        const e = err as { stderr?: Buffer | string; stdout?: Buffer | string };
+        const detail = String(e.stderr ?? e.stdout ?? "").trim();
+        throw new Error(`CLI build failed${detail ? `:\n${detail}` : ""}`, {
+            cause: err,
+        });
+    }
 });
 
 describe("CLI — help & version", () => {

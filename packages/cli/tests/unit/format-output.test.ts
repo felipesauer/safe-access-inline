@@ -1,8 +1,10 @@
 import { describe, it, expect, vi } from "vitest";
+import type { AbstractAccessor } from "@safe-access-inline/safe-access-inline";
 
+import { formatOutput } from "../../src/command-handlers";
 import * as ch from "../../src/command-handlers";
 
-describe("formatOutput", () => {
+describe(formatOutput.name, () => {
     const makeAccessor = () =>
         ({
             // pretty=true produz saída com newlines, pretty=false produz saída compacta
@@ -12,8 +14,7 @@ describe("formatOutput", () => {
             toToml: () => "a = 1",
             toXml: vi.fn(() => "<a>1</a>"),
             transform: vi.fn((fmt: string) => `transformed:${fmt}`),
-        }) as any;
-
+        }) as unknown as AbstractAccessor;
     it("formats json with pretty=true adds newlines", () => {
         // mata mutante ID 93: BooleanLiteral false → true no default de pretty
         const acc = makeAccessor();

@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { readFileSync } from "node:fs";
+import * as saLib from "@safe-access-inline/safe-access-inline";
 
 // Mock SafeAccess before importing the command-handlers so bindings are mocked
 vi.mock("@safe-access-inline/safe-access-inline", () => ({
@@ -10,10 +12,11 @@ vi.mock("@safe-access-inline/safe-access-inline", () => ({
     mask: vi.fn(),
 }));
 
+import { loadFromStdinOrFile } from "../../src/command-handlers";
 import * as ch from "../../src/command-handlers";
 import { handleMask } from "../../src/handlers/mask.handler";
 
-describe("command handlers utils", () => {
+describe(`${loadFromStdinOrFile.name} & utils`, () => {
     beforeEach(() => {
         vi.restoreAllMocks();
         vi.clearAllMocks();
@@ -48,68 +51,76 @@ describe("command handlers utils", () => {
     });
 
     it("loadFromStdinOrFile reads from stdin when '-' and calls SafeAccess.from/detect", async () => {
-        const sa = (await import("@safe-access-inline/safe-access-inline"))
-            .SafeAccess as any;
-
         const readFileFn = vi.fn(() => '{"ok":true}');
-        ch.loadFromStdinOrFile("-", undefined, readFileFn as any);
-        expect(sa.detect).toHaveBeenCalled();
+        ch.loadFromStdinOrFile(
+            "-",
+            undefined,
+            readFileFn as unknown as typeof readFileSync,
+        );
+        expect(vi.mocked(saLib.SafeAccess.detect)).toHaveBeenCalled();
 
-        ch.loadFromStdinOrFile("-", "json", readFileFn as any);
-        expect(sa.from).toHaveBeenCalled();
+        ch.loadFromStdinOrFile(
+            "-",
+            "json",
+            readFileFn as unknown as typeof readFileSync,
+        );
+        expect(vi.mocked(saLib.SafeAccess.from)).toHaveBeenCalled();
     });
 
     it("loadFromStdinOrFile with file path calls fromFileSync WITHOUT format when fromFormat omitted", async () => {
-        const sa = (await import("@safe-access-inline/safe-access-inline"))
-            .SafeAccess as any;
-        ch.loadFromStdinOrFile("./somefile.json", undefined, (() => "") as any);
-        expect(sa.fromFileSync).toHaveBeenCalled();
+        ch.loadFromStdinOrFile(
+            "./somefile.json",
+            undefined,
+            (() => "") as unknown as typeof readFileSync,
+        );
+        expect(vi.mocked(saLib.SafeAccess.fromFileSync)).toHaveBeenCalled();
         // mata mutante ID 79: ConditionalExpression → true (sempre usaria fromFormat)
         // sem fromFormat, o argumento options NÃO deve conter a propriedade 'format'
-        const [, opts] = sa.fromFileSync.mock.calls.at(-1);
+        const [, opts] = vi
+            .mocked(saLib.SafeAccess.fromFileSync)
+            .mock.calls.at(-1)!;
         expect(opts).not.toHaveProperty("format");
         expect(opts).toMatchObject({ allowAnyPath: true });
     });
 
     it("loadFromStdinOrFile with explicit fromFormat uses format option", async () => {
-        const sa = (await import("@safe-access-inline/safe-access-inline"))
-            .SafeAccess as any;
-        ch.loadFromStdinOrFile("./somefile.json", "json", (() => "") as any);
-        expect(sa.fromFileSync).toHaveBeenCalled();
-        const call =
-            sa.fromFileSync.mock.calls[sa.fromFileSync.mock.calls.length - 1];
+        ch.loadFromStdinOrFile(
+            "./somefile.json",
+            "json",
+            (() => "") as unknown as typeof readFileSync,
+        );
+        expect(vi.mocked(saLib.SafeAccess.fromFileSync)).toHaveBeenCalled();
+        const calls = vi.mocked(saLib.SafeAccess.fromFileSync).mock.calls;
+        const call = calls[calls.length - 1];
         expect(call[1]).toMatchObject({ format: "json" });
     });
 
     // ID 227 — mask handler calls SafeAccess.from with "object" as format after masking
     it("mask handler calls SafeAccess.from with 'object' as format", async () => {
-        const sa = (await import("@safe-access-inline/safe-access-inline"))
-            .SafeAccess as any;
-
         // fromFileSync must return a fake accessor with toObject()
-        sa.fromFileSync.mockReturnValueOnce({
+        vi.mocked(saLib.SafeAccess.fromFileSync).mockReturnValueOnce({
             toObject: () => ({ password: "secret" }),
-        });
+        } as unknown as ReturnType<typeof saLib.SafeAccess.fromFileSync>);
         // from must return a fake masked accessor with toJson() so formatOutput can proceed
-        sa.from.mockReturnValueOnce({
+        vi.mocked(saLib.SafeAccess.from).mockReturnValueOnce({
             toJson: () => '{"password":"[REDACTED]"}',
-        });
+        } as unknown as ReturnType<typeof saLib.SafeAccess.from>);
 
         const out: string[] = [];
         const io = {
             stdout: { write: (s: string) => out.push(s) },
             stderr: { write: () => {} },
-            readFileSync: (() => "") as any,
+            readFileSync: (() => "") as unknown as typeof readFileSync,
             getVersion: () => "0.0.0",
         };
 
         handleMask(
             ["config.json", "--patterns", "password", "--to", "json"],
-            io as any,
+            io,
         );
 
         // The second argument to SafeAccess.from must be "object", not ""
-        const fromCalls = sa.from.mock.calls as unknown[][];
+        const fromCalls = vi.mocked(saLib.SafeAccess.from).mock.calls;
         expect(fromCalls.length).toBeGreaterThan(0);
         expect(fromCalls[fromCalls.length - 1][1]).toBe("object");
     });

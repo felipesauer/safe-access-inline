@@ -10,6 +10,8 @@ import {
     parseMaskPatterns,
     parseJsonValue,
     loadFromStdinOrFile,
+    strOpt,
+    boolOpt,
     type CliIO,
 } from "../src/cli.js";
 import {
@@ -24,6 +26,7 @@ const configToml = join(FIXTURES, "config.toml");
 const overrideJson = join(FIXTURES, "override.json");
 const configSchema = join(FIXTURES, "config.schema.json");
 const configFailSchema = join(FIXTURES, "config-fail.schema.json");
+const configBadSchema = join(FIXTURES, "config-bad.schema.json");
 const asymmetricJson = join(FIXTURES, "config-asymmetric.json");
 
 function createIO(): CliIO & { stdoutData: string; stderrData: string } {
@@ -62,7 +65,7 @@ function runCli(args: string[]): {
 
 // ── Helper functions ──
 
-describe("defaultGetVersion", () => {
+describe(defaultGetVersion.name, () => {
     afterEach(() => {
         vi.restoreAllMocks();
     });
@@ -95,7 +98,7 @@ describe("defaultGetVersion", () => {
     });
 });
 
-describe("parseMaskPatterns", () => {
+describe(parseMaskPatterns.name, () => {
     it("splits comma-separated patterns", () => {
         expect(parseMaskPatterns("password,secret,api_*")).toEqual([
             "password",
@@ -109,7 +112,7 @@ describe("parseMaskPatterns", () => {
     });
 });
 
-describe("parseJsonValue", () => {
+describe(parseJsonValue.name, () => {
     it("parses valid JSON", () => {
         expect(parseJsonValue("42")).toBe(42);
         expect(parseJsonValue('"hello"')).toBe("hello");
@@ -122,7 +125,7 @@ describe("parseJsonValue", () => {
     });
 });
 
-describe("printValue", () => {
+describe(printValue.name, () => {
     it("prints null for null", () => {
         const io = createIO();
         printValue(null, io.stdout);
@@ -154,7 +157,7 @@ describe("printValue", () => {
     });
 });
 
-describe("formatOutput", () => {
+describe(formatOutput.name, () => {
     it("formats as JSON", () => {
         const accessor = SafeAccess.from({ a: 1 }, "object");
         const out = formatOutput(accessor, "json", false);
@@ -209,7 +212,7 @@ describe("formatOutput", () => {
     });
 });
 
-describe("loadFromStdinOrFile", () => {
+describe(loadFromStdinOrFile.name, () => {
     it("loads JSON file", () => {
         const accessor = loadFromStdinOrFile(configJson);
         expect(accessor.get("app.name")).toBe("test-app");
@@ -235,7 +238,7 @@ describe("loadFromStdinOrFile", () => {
 
 // ── run() — help & version ──
 
-describe("run — help & version", () => {
+describe(`${run.name} — help & version`, () => {
     it("shows help with no args", () => {
         const { stdout } = runCli([]);
         expect(stdout).toContain("Usage:");
@@ -279,7 +282,7 @@ describe("run — help & version", () => {
 
 // ── run() — get ──
 
-describe("run — get", () => {
+describe(`${run.name} — get`, () => {
     it("gets a nested value from JSON", () => {
         const { stdout } = runCli(["get", configJson, "database.host"]);
         expect(stdout).toBe("localhost");
@@ -340,7 +343,7 @@ describe("run — get", () => {
 
 // ── run() — set ──
 
-describe("run — set", () => {
+describe(`${run.name} — set`, () => {
     it("sets a value and outputs JSON", () => {
         const { stdout } = runCli([
             "set",
@@ -412,7 +415,7 @@ describe("run — set", () => {
 
 // ── run() — remove ──
 
-describe("run — remove", () => {
+describe(`${run.name} — remove`, () => {
     it("removes a path and outputs JSON", () => {
         const { stdout } = runCli([
             "remove",
@@ -470,7 +473,7 @@ describe("run — remove", () => {
 
 // ── run() — transform / convert ──
 
-describe("run — transform", () => {
+describe(`${run.name} — transform`, () => {
     it("transforms YAML to JSON", () => {
         const { stdout } = runCli([
             "transform",
@@ -558,7 +561,7 @@ describe("run — transform", () => {
 
 // ── run() — diff ──
 
-describe("run — diff", () => {
+describe(`${run.name} — diff`, () => {
     it("diffs two JSON files", () => {
         const { stdout } = runCli(["diff", configJson, overrideJson]);
         const patches = JSON.parse(stdout);
@@ -584,7 +587,7 @@ describe("run — diff", () => {
 
 // ── run() — mask ──
 
-describe("run — mask", () => {
+describe(`${run.name} — mask`, () => {
     it("masks sensitive keys", () => {
         const { stdout } = runCli([
             "mask",
@@ -665,7 +668,7 @@ describe("run — mask", () => {
 
 // ── run() — layer ──
 
-describe("run — layer", () => {
+describe(`${run.name} — layer`, () => {
     it("layers two config files", () => {
         const { stdout } = runCli([
             "layer",
@@ -745,7 +748,7 @@ describe("run — layer", () => {
 
 // ── run() — keys ──
 
-describe("run — keys", () => {
+describe(`${run.name} — keys`, () => {
     it("lists root keys", () => {
         const { stdout } = runCli(["keys", configJson]);
         expect(stdout).toContain("app");
@@ -787,7 +790,7 @@ describe("run — keys", () => {
 
 // ── run() — type ──
 
-describe("run — type", () => {
+describe(`${run.name} — type`, () => {
     it("returns type of object", () => {
         const { stdout } = runCli(["type", configJson, "database"]);
         expect(stdout).toBe("object");
@@ -824,7 +827,7 @@ describe("run — type", () => {
 
 // ── run() — has ──
 
-describe("run — has", () => {
+describe(`${run.name} — has`, () => {
     it("exits 0 when path exists", () => {
         const { stdout, exitCode } = runCli([
             "has",
@@ -855,7 +858,7 @@ describe("run — has", () => {
 
 // ── run() — count ──
 
-describe("run — count", () => {
+describe(`${run.name} — count`, () => {
     it("counts root keys", () => {
         const { stdout } = runCli(["count", configJson]);
         expect(stdout).toBe("2");
@@ -897,7 +900,7 @@ describe("run — count", () => {
 
 // ── run() — validate ──
 
-describe("run — validate", () => {
+describe(`${run.name} — validate`, () => {
     it("validates valid data with text output", () => {
         const { stdout, exitCode } = runCli([
             "validate",
@@ -1008,11 +1011,47 @@ describe("run — validate", () => {
         run(["validate", configJson, "--schema", configFailSchema], io);
         expect(io.stderrData).toMatch(/\n$/);
     });
+
+    it("reports error when schema file cannot be read", () => {
+        const { stderr, exitCode } = runCli([
+            "validate",
+            configJson,
+            "--schema",
+            "/nonexistent/schema.json",
+        ]);
+        expect(exitCode).toBe(1);
+        expect(stderr).toContain("Schema file could not be read:");
+        // must not leak the absolute path in the error message
+        expect(stderr).not.toContain("/nonexistent/schema.json");
+    });
+
+    it("reports error when schema file is not valid JSON", () => {
+        const { stderr, exitCode } = runCli([
+            "validate",
+            configJson,
+            "--schema",
+            configBadSchema,
+        ]);
+        expect(exitCode).toBe(1);
+        expect(stderr).toContain("Schema file is not valid JSON:");
+    });
+
+    it("reports raw value when schema read throws non-Error", () => {
+        const io = createIO();
+        io.readFileSync = (() => {
+            throw "raw-schema-error";
+        }) as unknown as typeof readFileSync;
+        const code = run(["validate", configJson, "--schema", "/any.json"], io);
+        expect(code).toBe(1);
+        expect(io.stderrData).toContain(
+            "Schema file could not be read: raw-schema-error",
+        );
+    });
 });
 
 // ── run() — error handling ──
 
-describe("run — error handling", () => {
+describe(`${run.name} — error handling`, () => {
     it("reports unknown command", () => {
         const { stderr, exitCode } = runCli(["foobar"]);
         expect(exitCode).toBe(1);
@@ -1063,5 +1102,113 @@ describe("run — error handling", () => {
                 process.env.DEBUG = orig;
             }
         }
+    });
+});
+
+// ── strOpt / boolOpt helpers ──
+
+describe(strOpt.name, () => {
+    it("returns the string when value is a string", () => {
+        expect(strOpt("hello")).toBe("hello");
+    });
+
+    it("returns undefined when value is boolean true", () => {
+        expect(strOpt(true)).toBeUndefined();
+    });
+
+    it("returns undefined when value is boolean false", () => {
+        expect(strOpt(false)).toBeUndefined();
+    });
+
+    it("returns undefined when value is undefined", () => {
+        expect(strOpt(undefined)).toBeUndefined();
+    });
+
+    it("returns empty string when value is empty string", () => {
+        expect(strOpt("")).toBe("");
+    });
+});
+
+describe(boolOpt.name, () => {
+    it("returns true when value is boolean true", () => {
+        expect(boolOpt(true)).toBe(true);
+    });
+
+    it("returns false when value is boolean false", () => {
+        expect(boolOpt(false)).toBe(false);
+    });
+
+    it("returns false when value is undefined", () => {
+        expect(boolOpt(undefined)).toBe(false);
+    });
+
+    it("returns false when value is a string", () => {
+        expect(boolOpt("true")).toBe(false);
+    });
+});
+
+// ── stdin chain scenarios ──
+
+describe(`${run.name} — stdin chains`, () => {
+    it("set reads from stdin (-) and outputs modified JSON", () => {
+        const io = createIO();
+        io.readFileSync = ((fd: unknown, enc: unknown) => {
+            if (fd === 0) return '{"user":{"name":"Alice"}}';
+            return readFileSync(fd as string, enc as BufferEncoding);
+        }) as unknown as typeof readFileSync;
+        const code = run(
+            ["set", "-", "user.name", '"Bob"', "--to", "json"],
+            io,
+        );
+        expect(code).toBe(0);
+        const parsed = JSON.parse(io.stdoutData.trim());
+        expect(parsed.user.name).toBe("Bob");
+    });
+
+    it("get reads from stdin (-) with auto-detect", () => {
+        const io = createIO();
+        io.readFileSync = (() => '{"x":42}') as unknown as typeof readFileSync;
+        const code = run(["get", "-", "x"], io);
+        expect(code).toBe(0);
+        expect(io.stdoutData.trim()).toBe("42");
+    });
+
+    it("transform reads from stdin (-) with --from flag", () => {
+        const io = createIO();
+        io.readFileSync = (() => '{"a":1}') as unknown as typeof readFileSync;
+        const code = run(
+            ["convert", "-", "--from", "json", "--to", "json"],
+            io,
+        );
+        expect(code).toBe(0);
+        expect(JSON.parse(io.stdoutData.trim())).toEqual({ a: 1 });
+    });
+});
+
+// ── invalid --to format ──
+
+describe(`${run.name} — invalid --to format`, () => {
+    it("reports error when --to is an unregistered format for set", () => {
+        const { stderr, exitCode } = runCli([
+            "set",
+            configJson,
+            "database.port",
+            "9999",
+            "--to",
+            "__nonexistent_fmt__",
+        ]);
+        expect(exitCode).toBe(1);
+        expect(stderr).toContain("Error:");
+    });
+
+    it("reports error when --to is an unregistered format for transform", () => {
+        const { stderr, exitCode } = runCli([
+            "transform",
+            configJson,
+            "--to",
+            "__nonexistent_fmt__",
+        ]);
+        expect(exitCode).toBe(1);
+        expect(stderr).toContain("Error:");
     });
 });

@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import * as fs from "node:fs";
+import { run } from "../../src/cli";
 
-describe("run branches", () => {
+describe(`${run.name} — branches`, () => {
     afterEach(() => {
         vi.restoreAllMocks();
         vi.resetAllMocks();
@@ -14,7 +15,7 @@ describe("run branches", () => {
         const io = {
             stdout: { write: (s: string) => out.push(s) },
             stderr: { write: (s: string) => err.push(s) },
-            readFileSync: (() => "") as any,
+            readFileSync: (() => "") as unknown as typeof fs.readFileSync,
             getVersion: () => "1.2.3",
         } as const;
 
@@ -29,7 +30,7 @@ describe("run branches", () => {
         const io = {
             stdout: { write: (s: string) => out.push(s) },
             stderr: { write: () => {} },
-            readFileSync: (() => "") as any,
+            readFileSync: (() => "") as unknown as typeof fs.readFileSync,
             getVersion: () => "9.9.9",
         } as const;
 
@@ -45,7 +46,7 @@ describe("run branches", () => {
         const io = {
             stdout: { write: (s: string) => out.push(s) },
             stderr: { write: (s: string) => err.push(s) },
-            readFileSync: (() => "") as any,
+            readFileSync: (() => "") as unknown as typeof fs.readFileSync,
             getVersion: () => "x",
         } as const;
 
@@ -57,7 +58,10 @@ describe("run branches", () => {
     it("catches non-Error thrown by handler and writes message", async () => {
         // Spy the handler BEFORE importing the CLI module so the CLI binds the mocked implementation
         const handlers = await import("../../src/handlers/get.handler");
-        vi.spyOn(handlers as any, "handleGet").mockImplementation(() => {
+        vi.spyOn(
+            handlers as unknown as { handleGet: typeof handlers.handleGet },
+            "handleGet",
+        ).mockImplementation(() => {
             throw "plain-string-error";
         });
 
@@ -68,7 +72,7 @@ describe("run branches", () => {
         const io = {
             stdout: { write: (s: string) => out.push(s) },
             stderr: { write: (s: string) => err.push(s) },
-            readFileSync: (() => "") as any,
+            readFileSync: (() => "") as unknown as typeof fs.readFileSync,
             getVersion: () => "0.0.0",
         } as const;
 
@@ -79,15 +83,18 @@ describe("run branches", () => {
 
     it("delegates convert/transform to handleTransform", async () => {
         const handlers = await import("../../src/handlers/transform.handler");
-        vi.spyOn(handlers as any, "handleTransform").mockImplementation(
-            () => 0,
-        );
+        vi.spyOn(
+            handlers as unknown as {
+                handleTransform: typeof handlers.handleTransform;
+            },
+            "handleTransform",
+        ).mockImplementation(() => 0);
         const cliMod = await import("../../src/cli");
 
         const io = {
             stdout: { write: () => {} },
             stderr: { write: () => {} },
-            readFileSync: (() => "") as any,
+            readFileSync: (() => "") as unknown as typeof fs.readFileSync,
             getVersion: () => "0.0.0",
         } as const;
 
@@ -101,14 +108,19 @@ describe("run branches", () => {
         const transformMod =
             await import("../../src/handlers/transform.handler");
         const spy = vi
-            .spyOn(transformMod as any, "handleTransform")
+            .spyOn(
+                transformMod as unknown as {
+                    handleTransform: typeof transformMod.handleTransform;
+                },
+                "handleTransform",
+            )
             .mockReturnValue(0);
         const cliMod = await import("../../src/cli");
 
         const io = {
             stdout: { write: () => {} },
             stderr: { write: () => {} },
-            readFileSync: (() => "") as any,
+            readFileSync: (() => "") as unknown as typeof fs.readFileSync,
             getVersion: () => "0.0.0",
         } as const;
 
@@ -123,7 +135,12 @@ describe("run branches", () => {
     it("catch block writes Error: prefix and returns 1", async () => {
         // mata mutante ID 58: BlockStatement {} esvazia o bloco catch
         const getHandlerMod = await import("../../src/handlers/get.handler");
-        vi.spyOn(getHandlerMod as any, "handleGet").mockImplementation(() => {
+        vi.spyOn(
+            getHandlerMod as unknown as {
+                handleGet: typeof getHandlerMod.handleGet;
+            },
+            "handleGet",
+        ).mockImplementation(() => {
             throw new Error("catch-block-test");
         });
 
@@ -132,7 +149,7 @@ describe("run branches", () => {
         const io = {
             stdout: { write: () => {} },
             stderr: { write: (s: string) => err.push(s) },
-            readFileSync: (() => "") as any,
+            readFileSync: (() => "") as unknown as typeof fs.readFileSync,
             getVersion: () => "0.0.0",
         } as const;
 
@@ -150,18 +167,6 @@ describe("run branches", () => {
             ),
         );
         expect(cliMod.defaultGetVersion()).toBe(pkg.version ?? "0.0.0");
-    });
-
-    it("defaultGetVersion falls back when package.json has no version", async () => {
-        const pkgPath = new URL("../../package.json", import.meta.url);
-        const original = fs.readFileSync(pkgPath, "utf-8");
-        try {
-            fs.writeFileSync(pkgPath, JSON.stringify({ name: "temp" }));
-            const cliMod = await import("../../src/cli");
-            expect(cliMod.defaultGetVersion()).toBe("0.0.0");
-        } finally {
-            fs.writeFileSync(pkgPath, original);
-        }
     });
 
     // ID 5 — defaultGetVersion returns "0.0.0" when pkg.version is undefined (not a read error)
