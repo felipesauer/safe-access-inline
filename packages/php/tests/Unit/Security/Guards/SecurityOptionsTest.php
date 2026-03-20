@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use SafeAccessInline\Exceptions\SecurityException;
 use SafeAccessInline\Security\Guards\SecurityOptions;
 
@@ -70,6 +72,16 @@ describe(SecurityOptions::class, function () {
             }
             // Should not throw — countKeys bails at depth > 100
             expect(fn () => SecurityOptions::assertMaxKeys($data, 200))->not->toThrow(SecurityException::class);
+        });
+
+        it('accepts a custom maxCountDepth override', function () {
+            $data = ['leaf' => true];
+            for ($i = 0; $i < 5; $i++) {
+                $data = ['level' . $i => $data];
+            }
+
+            expect(fn () => SecurityOptions::assertMaxKeys($data, 10, 2))->not->toThrow(SecurityException::class);
+            expect(fn () => SecurityOptions::assertMaxKeys($data, 2, 10))->toThrow(SecurityException::class);
         });
     });
 

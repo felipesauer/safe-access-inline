@@ -7,12 +7,21 @@ export interface SecurityOptions {
     maxDepth?: number;
     maxPayloadBytes?: number;
     maxKeys?: number;
+    /**
+     * Maximum recursion depth used when counting keys via {@link assertMaxKeys}.
+     *
+     * Prevents runaway recursion on deeply nested payloads. Deliberately lower
+     * than {@link maxDepth} because key-counting is a secondary guard — structural
+     * depth is enforced separately via {@link assertMaxDepth}.
+     */
+    maxCountDepth?: number;
 }
 
 export const DEFAULT_SECURITY_OPTIONS: Required<SecurityOptions> = {
     maxDepth: 512,
     maxPayloadBytes: 10 * 1024 * 1024, // 10MB
     maxKeys: 10_000,
+    maxCountDepth: 100,
 };
 
 /**
@@ -48,14 +57,17 @@ export function assertMaxKeys(data: Record<string, unknown>, maxKeys?: number): 
 /**
  * Recursively counts all keys in `obj`, including nested objects and arrays.
  *
- * Hard-stops at depth 100 to prevent runaway recursion on deeply nested data.
+ * Hard-stops at {@link DEFAULT_SECURITY_OPTIONS.maxCountDepth} to prevent runaway
+ * recursion on deeply nested data. This limit is intentionally lower than
+ * {@link DEFAULT_SECURITY_OPTIONS.maxDepth} — structural depth is enforced
+ * separately via {@link assertMaxDepth}.
  *
  * @param obj - Value to count keys within.
  * @param depth - Current recursion depth (used internally).
  * @returns Total number of keys / elements found.
  */
 function countKeys(obj: unknown, depth = 0): number {
-    if (depth > 100) return 0; // prevent infinite recursion in counting
+    if (depth > DEFAULT_SECURITY_OPTIONS.maxCountDepth) return 0; // prevent runaway recursion
     if (typeof obj !== 'object' || obj === null) return 0;
     let count = 0;
     const entries = Array.isArray(obj) ? obj : Object.values(obj);

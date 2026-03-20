@@ -19,6 +19,15 @@ final class SecurityOptions
     public const MAX_KEYS = 10_000;
 
     /**
+     * Safety cap on recursive key-counting traversal depth.
+     *
+     * Distinct from {@see MAX_DEPTH}: this bounds only the counting algorithm itself
+     * to prevent runaway recursion on deeply nested or self-referential structures.
+     * Exposed as a public constant so callers can override it via {@see assertMaxKeys()}.
+     */
+    public const DEFAULT_MAX_COUNT_RECURSION_DEPTH = 100;
+
+    /**
      * Asserts that a string payload does not exceed the byte limit.
      *
      * @param  string   $input    Raw payload string to measure.
@@ -40,15 +49,17 @@ final class SecurityOptions
     /**
      * Asserts that the total key count in a data structure does not exceed the limit.
      *
-     * @param  array<mixed> $data    Data structure to count keys in recursively.
-     * @param  int|null     $maxKeys Override the default {@see MAX_KEYS} limit.
+     * @param  array<mixed> $data             Data structure to count keys in recursively.
+     * @param  int|null     $maxKeys          Override the default {@see MAX_KEYS} limit.
+     * @param  int|null     $maxCountDepth    Override the default {@see DEFAULT_MAX_COUNT_RECURSION_DEPTH}
+     *                                        cap on the internal counting traversal.
      *
      * @throws \SafeAccessInline\Exceptions\SecurityException When the key count exceeds the limit.
      */
-    public static function assertMaxKeys(array $data, ?int $maxKeys = null): void
+    public static function assertMaxKeys(array $data, ?int $maxKeys = null, ?int $maxCountDepth = null): void
     {
         $limit = $maxKeys ?? self::MAX_KEYS;
-        $count = self::countKeys($data);
+        $count = self::countKeys($data, 0, $maxCountDepth ?? self::DEFAULT_MAX_COUNT_RECURSION_DEPTH);
         if ($count > $limit) {
             throw new SecurityException(
                 "Data contains {$count} keys, exceeding maximum of {$limit}."
@@ -92,16 +103,17 @@ final class SecurityOptions
     /**
      * Recursively counts the total number of keys across a nested data structure.
      *
-     * The traversal is capped at depth 100 to prevent infinite loops on
+     * The traversal is capped at `$maxDepth` to prevent infinite loops on
      * cyclically-referenced data.
      *
-     * @param  mixed $obj   Data structure to count.
-     * @param  int   $depth Current recursion depth (internal).
+     * @param  mixed $obj      Data structure to count.
+     * @param  int   $depth    Current recursion depth (internal).
+     * @param  int   $maxDepth Maximum recursion depth cap (default: {@see DEFAULT_MAX_COUNT_RECURSION_DEPTH}).
      * @return int   Total key count.
      */
-    private static function countKeys(mixed $obj, int $depth = 0): int
+    private static function countKeys(mixed $obj, int $depth = 0, int $maxDepth = self::DEFAULT_MAX_COUNT_RECURSION_DEPTH): int
     {
-        if ($depth > 100) {
+        if ($depth > $maxDepth) {
             return 0;
         }
         if (!is_array($obj)) {
@@ -109,7 +121,7 @@ final class SecurityOptions
         }
         $count = count($obj);
         foreach ($obj as $value) {
-            $count += self::countKeys($value, $depth + 1);
+            $count += self::countKeys($value, $depth + 1, $maxDepth);
         }
         return $count;
     }
