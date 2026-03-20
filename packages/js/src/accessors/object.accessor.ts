@@ -29,11 +29,17 @@ export class ObjectAccessor<
     /**
      * Deep-clones the raw object to prevent external mutation.
      *
+     * Uses `structuredClone` for a semantically correct deep copy that preserves
+     * `Date` instances, `ArrayBuffer`, and other structured-cloneable types.
+     * Inputs containing non-cloneable types (e.g. functions or symbols) will
+     * cause `structuredClone` to throw a `DataCloneError` — callers should
+     * ensure their data is a plain, JSON-safe record.
+     *
      * @param raw - The input object.
      * @returns A deep-cloned plain record.
      */
     protected parse(raw: unknown): Record<string, unknown> {
-        return JSON.parse(JSON.stringify(raw));
+        return structuredClone(raw) as Record<string, unknown>;
     }
 
     /**
