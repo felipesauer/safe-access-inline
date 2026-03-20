@@ -12,6 +12,10 @@ use SafeAccessInline\Core\AbstractAccessor;
  *
  * Allows users to set a default adapter so it does not need to be passed
  * every time {@see AbstractAccessor::validate()} is called.
+ *
+ * **Long-running runtimes (Swoole, RoadRunner, FrankenPHP):** Static state persists
+ * across requests. Call {@see SchemaRegistry::clearDefaultAdapter()} in your worker
+ * boot/reset hook to prevent stale adapter references leaking between requests.
  */
 final class SchemaRegistry
 {

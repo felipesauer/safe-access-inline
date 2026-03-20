@@ -20,6 +20,7 @@ use SafeAccessInline\Core\Config\SafeAccessConfig;
 use SafeAccessInline\Core\Io\FileWatcher;
 use SafeAccessInline\Core\Io\IoLoader;
 use SafeAccessInline\Core\Operations\DeepMerger;
+use SafeAccessInline\Core\Parsers\FilterParser;
 use SafeAccessInline\Core\Registries\PluginRegistry;
 use SafeAccessInline\Core\Registries\SchemaRegistry;
 use SafeAccessInline\Core\Rendering\TypeDetector;
@@ -30,6 +31,7 @@ use SafeAccessInline\Exceptions\SecurityException;
 use SafeAccessInline\Security\Audit\AuditLogger;
 use SafeAccessInline\Security\Guards\SecurityOptions;
 use SafeAccessInline\Security\Guards\SecurityPolicy;
+use SimpleXMLElement;
 
 /**
  * Main entry point for the safe-access-inline library.
@@ -237,10 +239,10 @@ final class SafeAccess
     /**
      * Registers a custom Accessor for non-native formats.
      *
-     * @param  string                             $name  Identifier (e.g. `'protobuf'`, `'msgpack'`).
-     * @param  class-string<AbstractAccessor>     $class Accessor class to associate with `$name`.
+     * @param  string                         $name  Identifier (e.g. `'protobuf'`, `'msgpack'`).
+     * @param  class-string<AbstractAccessor> $class Accessor class to associate with `$name`.
      *
-     * @throws \OverflowException When {@see MAX_CUSTOM_ACCESSORS} entries are already registered.
+     * @throws \OverflowException When the maximum number of custom accessors is already registered.
      */
     public static function extend(string $name, string $class): void
     {
@@ -587,6 +589,8 @@ final class SafeAccess
         SecurityPolicy::clearGlobal();
         PluginRegistry::reset();
         SchemaRegistry::clearDefaultAdapter();
+        FilterParser::resetConfig();
+        IoLoader::resetConfig();
         IoLoader::resetHttpClient();
     }
 

@@ -33,7 +33,11 @@ class XmlAccessor extends AbstractAccessor
                 'XmlAccessor expects a string or SimpleXMLElement, got ' . gettype($data)
             );
         }
-        return new static($data, $readonly); // @phpstan-ignore new.static
+        // XmlAccessor subclasses must be instantiated via the concrete static type returned by the factory,
+        // not through the abstract parent; PHPStan cannot verify this through the generic from() signature,
+        // but the pattern is intentional and safe here.
+        // @phpstan-ignore new.static
+        return new static($data, $readonly);
     }
 
     /**
@@ -63,6 +67,7 @@ class XmlAccessor extends AbstractAccessor
 
         $json = json_encode($xml, JSON_THROW_ON_ERROR);
         /** @var array<mixed> */
+        // 512 is PHP’s standard json_decode depth; XML structural depth is enforced separately by SecurityOptions
         return json_decode($json, true, 512, JSON_THROW_ON_ERROR);
     }
 
