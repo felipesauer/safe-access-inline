@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use SafeAccessInline\Core\Parsers\SegmentParser;
 use SafeAccessInline\Enums\SegmentType;
 
@@ -85,5 +87,13 @@ describe(SegmentParser::class, function () {
         expect($segments)->toHaveCount(2);
         expect($segments[0])->toBe(['type' => SegmentType::KEY, 'value' => 'root']);
         expect($segments[1])->toBe(['type' => SegmentType::KEY, 'value' => '0,foo']);
+    });
+
+    it('parseSegments — ["a","b"] produces MULTI_KEY segment', function () {
+        $segments = SegmentParser::parseSegments("root['a','b']");
+
+        expect($segments)->toHaveCount(2);
+        expect($segments[0])->toBe(['type' => SegmentType::KEY, 'value' => 'root']);
+        expect($segments[1])->toBe(['type' => SegmentType::MULTI_KEY, 'keys' => ['a', 'b']]);
     });
 });

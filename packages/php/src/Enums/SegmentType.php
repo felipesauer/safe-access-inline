@@ -13,6 +13,7 @@ enum SegmentType: string
     case DESCENT = 'descent';
     case DESCENT_MULTI = 'descent-multi';
     case MULTI_INDEX = 'multi-index';
+    case MULTI_KEY = 'multi-key';
     case FILTER = 'filter';
     case SLICE = 'slice';
 }

@@ -84,14 +84,15 @@ describe(SegmentParser.name, () => {
     it("parseSegments — named multi-key ['a','b']", () => {
         const segs = SegmentParser.parseSegments("cfg['a','b']");
         expect(segs).toHaveLength(2);
-        const multi = segs[1] as unknown as { type: SegmentType.MULTI_INDEX; keys: string[] };
-        expect(multi.type).toBe(SegmentType.MULTI_INDEX);
+        const multi = segs[1] as { type: SegmentType.MULTI_KEY; keys: string[] };
+        expect(multi.type).toBe(SegmentType.MULTI_KEY);
         expect(multi.keys).toEqual(['a', 'b']);
     });
 
-    it('parseSegments — multi-index with all-quoted parts uses .keys (not .indices as numbers)', () => {
+    it('parseSegments — multi-key with all-quoted parts uses .keys (not .indices as numbers)', () => {
         const segs = SegmentParser.parseSegments('x["a","b","c"]');
-        const multi = segs[1] as unknown as { keys: string[] };
+        const multi = segs[1] as { type: SegmentType.MULTI_KEY; keys: string[] };
+        expect(multi.type).toBe(SegmentType.MULTI_KEY);
         expect(multi.keys).toEqual(['a', 'b', 'c']);
     });
 

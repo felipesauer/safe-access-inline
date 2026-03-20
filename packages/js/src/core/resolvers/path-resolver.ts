@@ -87,20 +87,21 @@ export class PathResolver {
             );
         }
 
+        if (segment.type === SegmentType.MULTI_KEY) {
+            // Multi-key: pick named keys from object
+            if (current === null || typeof current !== 'object') return defaultValue;
+            const obj = current as Record<string, unknown>;
+            const nextIndex = index + 1;
+            const results = segment.keys.map((k) => {
+                const val = k in obj ? obj[k] : defaultValue;
+                if (nextIndex >= segments.length) return val;
+                return PathResolver.resolve(val, segments, nextIndex, defaultValue);
+            });
+            return results;
+        }
+
         if (segment.type === SegmentType.MULTI_INDEX) {
             const nextIndex = index + 1;
-            const multiKeys = (segment as unknown as { keys?: string[] }).keys;
-            if (multiKeys) {
-                // Multi-key: pick named keys from object
-                if (current === null || typeof current !== 'object') return defaultValue;
-                const obj = current as Record<string, unknown>;
-                const results = multiKeys.map((k) => {
-                    const val = k in obj ? obj[k] : defaultValue;
-                    if (nextIndex >= segments.length) return val;
-                    return PathResolver.resolve(val, segments, nextIndex, defaultValue);
-                });
-                return results;
-            }
             // Numeric multi-index
             const items = PathResolver.toIterable(current);
             if (items === null) return defaultValue;

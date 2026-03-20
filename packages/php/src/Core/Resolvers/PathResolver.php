@@ -91,24 +91,29 @@ final class PathResolver
             );
         }
 
+        if ($segment['type'] === SegmentType::MULTI_KEY) {
+            if (!is_array($current)) {
+                return $default;
+            }
+            $nextIndex = $index + 1;
+            $segmentCount = count($segments);
+            /** @var array<string> $multiKeys */
+            $multiKeys = $segment['keys'] ?? [];
+            return array_map(function ($k) use ($current, $segments, $nextIndex, $segmentCount, $default, $maxDepth) {
+                $val = array_key_exists($k, $current) ? $current[$k] : $default;
+                if ($nextIndex >= $segmentCount) {
+                    return $val;
+                }
+                return self::resolve($val, $segments, $nextIndex, $default, $maxDepth);
+            }, $multiKeys);
+        }
+
         if ($segment['type'] === SegmentType::MULTI_INDEX) {
             if (!is_array($current)) {
                 return $default;
             }
             $nextIndex = $index + 1;
             $segmentCount = count($segments);
-            // Multi-key mode (string keys)
-            if (isset($segment['keys'])) {
-                /** @var array<string> $multiKeys */
-                $multiKeys = $segment['keys'];
-                return array_map(function ($k) use ($current, $segments, $nextIndex, $segmentCount, $default, $maxDepth) {
-                    $val = array_key_exists($k, $current) ? $current[$k] : $default;
-                    if ($nextIndex >= $segmentCount) {
-                        return $val;
-                    }
-                    return self::resolve($val, $segments, $nextIndex, $default, $maxDepth);
-                }, $multiKeys);
-            }
             // Numeric indices
             /** @var array<int> $indices */
             $indices = $segment['indices'] ?? [];

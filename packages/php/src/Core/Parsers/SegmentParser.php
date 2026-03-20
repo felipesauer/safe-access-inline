@@ -19,7 +19,7 @@ final class SegmentParser
      * Parses a dot-notation path into an array of typed segments.
      *
      * @param string $path Dot-notation path string.
-     * @return list<array{type: SegmentType::DESCENT, key: string}|array{type: SegmentType::DESCENT_MULTI, keys: non-empty-list<string>}|array{type: SegmentType::FILTER, expression: array{conditions: array<array{field: string, operator: string, value: mixed}>, logicals: array<string>}}|array{type: SegmentType::KEY, value: string}|array{type: SegmentType::MULTI_INDEX, indices: array<int>, keys: non-empty-list<string>}|array{type: SegmentType::MULTI_INDEX, indices: non-empty-list<int>}|array{type: SegmentType::SLICE, start: int|null, end: int|null, step: int|null}|array{type: SegmentType::WILDCARD}>
+     * @return list<array{type: SegmentType::DESCENT, key: string}|array{type: SegmentType::DESCENT_MULTI, keys: non-empty-list<string>}|array{type: SegmentType::FILTER, expression: array{conditions: array<array{field: string, operator: string, value: mixed}>, logicals: array<string>}}|array{type: SegmentType::KEY, value: string}|array{type: SegmentType::MULTI_INDEX, indices: non-empty-list<int>}|array{type: SegmentType::MULTI_KEY, keys: non-empty-list<string>}|array{type: SegmentType::SLICE, start: int|null, end: int|null, step: int|null}|array{type: SegmentType::WILDCARD}>
      */
     public static function parseSegments(string $path): array
     {
@@ -138,7 +138,7 @@ final class SegmentParser
                     }
                     if ($allQuoted) {
                         $keys = array_map(fn ($p) => substr($p, 1, -1), $parts);
-                        $segments[] = ['type' => SegmentType::MULTI_INDEX, 'indices' => [], 'keys' => $keys];
+                        $segments[] = ['type' => SegmentType::MULTI_KEY, 'keys' => $keys];
                         continue;
                     }
                     $indices = array_map('intval', $parts);

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use SafeAccessInline\Core\Resolvers\PathResolver;
 use SafeAccessInline\Enums\SegmentType;
 use SafeAccessInline\Exceptions\SecurityException;
@@ -13,12 +15,12 @@ describe(PathResolver::class, function () {
         PathResolver::resolve(['a' => 1], [['type' => SegmentType::KEY, 'value' => 'a']], 3, null, 2);
     })->throws(SecurityException::class, 'Recursion depth');
 
-    // ── MULTI_INDEX — string-key mode: missing key returns default ──────
+    // ── MULTI_KEY — string-key mode: missing key returns default ──────
 
-    it('MULTI_INDEX string-keys — missing key returns configured default', function () {
+    it('MULTI_KEY — missing key returns configured default', function () {
         $data = ['a' => 1, 'c' => 3];
         $segments = [
-            ['type' => SegmentType::MULTI_INDEX, 'keys' => ['a', 'b', 'c']],
+            ['type' => SegmentType::MULTI_KEY, 'keys' => ['a', 'b', 'c']],
         ];
 
         $result = PathResolver::resolve($data, $segments, 0, 'MISSING', 50);
@@ -35,12 +37,12 @@ describe(PathResolver::class, function () {
         expect($result)->toBe('DEFAULT');
     });
 
-    it('MULTI_INDEX string-keys — resolves further segments when nextIndex < segmentCount (line 109)', function () {
-        // Two segments: MULTI_INDEX(keys) then KEY('id').
+    it('MULTI_KEY — resolves further segments when nextIndex < segmentCount', function () {
+        // Two segments: MULTI_KEY then KEY('id').
         // Because nextIndex (1) < segmentCount (2), self::resolve() is called (line 109).
         $data = ['a' => ['id' => 1], 'b' => ['id' => 2]];
         $segments = [
-            ['type' => SegmentType::MULTI_INDEX, 'keys' => ['a', 'b']],
+            ['type' => SegmentType::MULTI_KEY, 'keys' => ['a', 'b']],
             ['type' => SegmentType::KEY, 'value' => 'id'],
         ];
 
