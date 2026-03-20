@@ -195,3 +195,65 @@ describe('FileWatcher — debounce timer boundary', () => {
         fs.unlinkSync(tmpFile);
     });
 });
+
+// ── FileWatcher — onError callback and configurable debounce ──────────
+describe('FileWatcher — options', () => {
+    it('invokes onError when onChange throws instead of silently discarding', async () => {
+        const tmpFile = path.join(os.tmpdir(), `fw-onerror-${Date.now()}.txt`);
+        fs.writeFileSync(tmpFile, 'v0');
+
+        const callbackError = new Error('parse failed');
+        const onChange = vi.fn().mockImplementation(() => {
+            throw callbackError;
+        });
+        const onError = vi.fn();
+
+        const unsub = watchFile(tmpFile, onChange, { onError });
+        fs.writeFileSync(tmpFile, 'v1');
+
+        await new Promise((r) => setTimeout(r, 300));
+
+        expect(onChange).toHaveBeenCalled();
+        expect(onError).toHaveBeenCalledWith(callbackError);
+
+        unsub();
+        fs.unlinkSync(tmpFile);
+    });
+
+    it('respects custom debounceMs', async () => {
+        const tmpFile = path.join(os.tmpdir(), `fw-debounce-${Date.now()}.txt`);
+        fs.writeFileSync(tmpFile, 'v0');
+
+        const onChange = vi.fn();
+        // Use a very short debounce to keep the test fast
+        const unsub = watchFile(tmpFile, onChange, { debounceMs: 20 });
+
+        fs.writeFileSync(tmpFile, 'v1');
+
+        // Wait just past the custom debounce window (20ms), well under the default 100ms
+        await new Promise((r) => setTimeout(r, 100));
+
+        expect(onChange).toHaveBeenCalledTimes(1);
+
+        unsub();
+        fs.unlinkSync(tmpFile);
+    });
+
+    it('does not call onError when onChange succeeds', async () => {
+        const tmpFile = path.join(os.tmpdir(), `fw-noerr-${Date.now()}.txt`);
+        fs.writeFileSync(tmpFile, 'v0');
+
+        const onChange = vi.fn();
+        const onError = vi.fn();
+        const unsub = watchFile(tmpFile, onChange, { onError });
+
+        fs.writeFileSync(tmpFile, 'v1');
+        await new Promise((r) => setTimeout(r, 300));
+
+        expect(onChange).toHaveBeenCalled();
+        expect(onError).not.toHaveBeenCalled();
+
+        unsub();
+        fs.unlinkSync(tmpFile);
+    });
+});
