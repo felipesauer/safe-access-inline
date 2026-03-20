@@ -113,8 +113,14 @@ export function safeAccessPlugin(options: VitePluginOptions) {
                         type: 'full-reload',
                         path: '*',
                     });
-                } catch {
-                    // Prevent invalid config from crashing the dev server
+                } catch (err) {
+                    ctx.server.ws.send({
+                        type: 'error',
+                        err: {
+                            message: err instanceof Error ? err.message : String(err),
+                            stack: '',
+                        },
+                    });
                 }
             }
         },
