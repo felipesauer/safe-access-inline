@@ -9,7 +9,7 @@
         "!src/contracts/**",
         "!src/types/**",
         "!src/enums/**",
-        "!src/core/parser-config.ts"
+        "!src/core/config/parser-config.ts"
     ],
 
     "coverageAnalysis": "perTest",
@@ -24,8 +24,8 @@
 
     "thresholds": {
         "high": 100,
-        "low": 100,
-        "break": null
+        "low": 90,
+        "break": 90
     },
 
     "tempDirName": ".stryker-tmp",

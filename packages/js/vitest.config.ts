@@ -13,7 +13,7 @@ export default defineConfig({
                 'src/contracts/**',
                 'src/types/**',
                 'src/enums/**',
-                'src/core/parser-config.ts',
+                'src/core/config/parser-config.ts',
             ],
             thresholds: {
                 lines: 100,

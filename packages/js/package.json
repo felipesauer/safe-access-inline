@@ -11,11 +11,6 @@
             "types": "./dist/index.d.ts",
             "import": "./dist/index.js",
             "require": "./dist/index.cjs"
-        },
-        "./testing": {
-            "types": "./dist/testing.d.ts",
-            "import": "./dist/testing.js",
-            "require": "./dist/testing.cjs"
         }
     },
     "files": [
@@ -99,6 +94,6 @@
         "vitest": "^4.1"
     },
     "engines": {
-        "node": ">=24"
+        "node": ">=22"
     }
 }

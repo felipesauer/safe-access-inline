@@ -37,6 +37,6 @@
         "vitepress-plugin-mermaid": "^2.0.17"
     },
     "engines": {
-        "node": ">=24"
+        "node": ">=22"
     }
 }
