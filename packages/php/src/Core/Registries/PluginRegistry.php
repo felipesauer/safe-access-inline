@@ -7,6 +7,7 @@ namespace SafeAccessInline\Core\Registries;
 use SafeAccessInline\Contracts\ParserPluginInterface;
 use SafeAccessInline\Contracts\SerializerPluginInterface;
 use SafeAccessInline\Exceptions\UnsupportedTypeException;
+use SafeAccessInline\Security\Audit\AuditLogger;
 
 /**
  * Central registry for parser and serializer plugins.
@@ -16,6 +17,10 @@ use SafeAccessInline\Exceptions\UnsupportedTypeException;
  *
  * Built-in parsers (json, xml, ini, csv, env) are always available.
  * Optional parsers (yaml, toml) require registration via registerParser().
+ *
+ * **Long-running runtimes (Swoole, RoadRunner, FrankenPHP):** Static state persists
+ * across requests. Call {@see PluginRegistry::reset()} in your worker boot/reset hook
+ * to prevent stale plugin registrations leaking between requests.
  */
 final class PluginRegistry
 {
@@ -36,11 +41,11 @@ final class PluginRegistry
     public static function registerParser(string $format, ParserPluginInterface $parser): void
     {
         if (isset(self::$parsers[$format])) {
-            trigger_error(
-                "[PluginRegistry] Parser for format '{$format}' is being overwritten. "
-                . 'Use PluginRegistry::reset() to clear all plugins first.',
-                E_USER_WARNING
-            );
+            AuditLogger::emit('plugin.overwrite', [
+                'kind' => 'parser',
+                'format' => $format,
+                'message' => "Parser for format '{$format}' is being overwritten.",
+            ]);
         }
         self::$parsers[$format] = $parser;
     }
@@ -81,11 +86,11 @@ final class PluginRegistry
     public static function registerSerializer(string $format, SerializerPluginInterface $serializer): void
     {
         if (isset(self::$serializers[$format])) {
-            trigger_error(
-                "[PluginRegistry] Serializer for format '{$format}' is being overwritten. "
-                . 'Use PluginRegistry::reset() to clear all plugins first.',
-                E_USER_WARNING
-            );
+            AuditLogger::emit('plugin.overwrite', [
+                'kind' => 'serializer',
+                'format' => $format,
+                'message' => "Serializer for format '{$format}' is being overwritten.",
+            ]);
         }
         self::$serializers[$format] = $serializer;
     }
