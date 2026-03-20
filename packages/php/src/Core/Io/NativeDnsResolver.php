@@ -41,8 +41,9 @@ class NativeDnsResolver implements DnsResolverInterface
     public function resolveIPv6(string $host): ?string
     {
         $records = $this->dnsGetRecord($host);
-        if (is_array($records) && count($records) > 0 && isset($records[0]['ipv6'])) {
-            return $records[0]['ipv6'];
+        if (is_array($records) && count($records) > 0 && is_array($records[0]) && isset($records[0]['ipv6'])) {
+            $ipv6 = $records[0]['ipv6'];
+            return is_string($ipv6) ? $ipv6 : null;
         }
         return null;
     }
