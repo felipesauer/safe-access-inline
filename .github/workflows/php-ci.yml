@@ -69,6 +69,10 @@ jobs:
                   flags: php
                   files: packages/php/coverage.xml
 
+            - name: Mutation testing
+              if: matrix.deps == 'full' && matrix.php == '8.4'
+              run: composer test:mutation
+
             - name: Run PHPStan
               if: matrix.deps == 'full' && matrix.php == '8.4'
               run: vendor/bin/phpstan analyse

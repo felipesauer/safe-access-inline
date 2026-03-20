@@ -23,7 +23,7 @@ jobs:
         strategy:
             fail-fast: false
             matrix:
-                node: ["24"]
+                node: ["22", "24"]
 
         defaults:
             run:
@@ -47,6 +47,10 @@ jobs:
 
             - name: Run tests
               run: npm test -- --coverage
+
+            - name: Mutation testing
+              if: matrix.node == '24'
+              run: npm run test:mutation
 
             - name: Upload coverage to Codecov
               if: matrix.node == '24'

@@ -25,7 +25,7 @@ jobs:
         strategy:
             fail-fast: false
             matrix:
-                node: ["24"]
+                node: ["22", "24"]
 
         defaults:
             run:
@@ -55,9 +55,11 @@ jobs:
               run: npm run build
 
             - name: Lint
+              if: matrix.node == '24'
               run: npm run lint
 
             - name: Type check
+              if: matrix.node == '24'
               run: npm run typecheck
 
             - name: Run tests
