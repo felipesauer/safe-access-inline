@@ -327,6 +327,86 @@ describe('fetchUrl()', () => {
 
         await expect(fetchUrl('https://example.com/data')).resolves.toBe(exactChunk);
     });
+
+    // ── Socket event handler coverage (lines 221-225) ────────────────────────────
+    it('socket event handler calls socket.setTimeout with connectTimeoutMs', async () => {
+        const { https, ipChecker, fetchUrl } = await getModules();
+        vi.mocked(ipChecker.resolveAndValidateIp).mockResolvedValue('1.2.3.4');
+
+        const socketMock = new EventEmitter() as EventEmitter & {
+            setTimeout: ReturnType<typeof vi.fn>;
+        };
+        socketMock.setTimeout = vi.fn();
+        const res = makeResMock(200);
+        const req = makeReqMock();
+        (vi.mocked(https.request) as ReturnType<typeof vi.fn>).mockImplementation(
+            (_options: unknown, cb?: (r: ResMock) => void) => {
+                setImmediate(() => {
+                    req.emit('socket', socketMock);
+                    cb!(res);
+                    res.emit('data', 'ok');
+                    res.emit('end');
+                });
+                return req;
+            },
+        );
+
+        await fetchUrl('https://example.com/data');
+        expect(socketMock.setTimeout).toHaveBeenCalledWith(expect.any(Number));
+    });
+
+    it('socket connect event resets timeout to zero', async () => {
+        const { https, ipChecker, fetchUrl } = await getModules();
+        vi.mocked(ipChecker.resolveAndValidateIp).mockResolvedValue('1.2.3.4');
+
+        const socketMock = new EventEmitter() as EventEmitter & {
+            setTimeout: ReturnType<typeof vi.fn>;
+        };
+        socketMock.setTimeout = vi.fn();
+        const res = makeResMock(200);
+        const req = makeReqMock();
+        (vi.mocked(https.request) as ReturnType<typeof vi.fn>).mockImplementation(
+            (_options: unknown, cb?: (r: ResMock) => void) => {
+                setImmediate(() => {
+                    req.emit('socket', socketMock);
+                    socketMock.emit('connect');
+                    cb!(res);
+                    res.emit('data', 'ok');
+                    res.emit('end');
+                });
+                return req;
+            },
+        );
+
+        await fetchUrl('https://example.com/data');
+        expect(socketMock.setTimeout).toHaveBeenCalledWith(0);
+    });
+
+    it('socket timeout event rejects with SecurityError (connection timeout)', async () => {
+        const { https, ipChecker, fetchUrl } = await getModules();
+        const { SecurityError } = await import('../../../../src/exceptions/security.error');
+        vi.mocked(ipChecker.resolveAndValidateIp).mockResolvedValue('1.2.3.4');
+
+        const socketMock = new EventEmitter() as EventEmitter & {
+            setTimeout: ReturnType<typeof vi.fn>;
+        };
+        socketMock.setTimeout = vi.fn();
+        const req = makeReqMock();
+        (vi.mocked(https.request) as ReturnType<typeof vi.fn>).mockImplementation(
+            (_options: unknown, _cb?: (r: ResMock) => void) => {
+                setImmediate(() => {
+                    req.emit('socket', socketMock);
+                    socketMock.emit('timeout');
+                });
+                return req;
+            },
+        );
+
+        await expect(fetchUrl('https://example.com/data')).rejects.toThrow(SecurityError);
+        await expect(fetchUrl('https://example.com/data')).rejects.toThrow('Connection to');
+        await expect(fetchUrl('https://example.com/data')).rejects.toThrow('timed out');
+        expect(req.destroy).toHaveBeenCalled();
+    });
 });
 
 describe('configureIoLoader()', () => {
