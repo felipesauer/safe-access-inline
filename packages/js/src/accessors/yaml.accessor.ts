@@ -13,7 +13,13 @@ const getYaml = optionalRequire<typeof yaml>('js-yaml', 'YAML');
 export class YamlAccessor<
     T extends Record<string, unknown> = Record<string, unknown>,
 > extends AbstractAccessor<T> {
-    /** Creates an accessor from a YAML string. */
+    /**
+     * Creates an accessor from a YAML string.
+     *
+     * @param data - A valid YAML string.
+     * @returns A new {@link YamlAccessor} instance.
+     * @throws {InvalidFormatError} If `data` is not a string or fails to parse.
+     */
     static from(data: unknown): YamlAccessor {
         if (typeof data !== 'string') {
             throw new InvalidFormatError('YamlAccessor expects a YAML string.');
@@ -21,6 +27,13 @@ export class YamlAccessor<
         return new YamlAccessor(data);
     }
 
+    /**
+     * Parses a YAML string into a plain record.
+     *
+     * @param raw - The raw YAML string.
+     * @returns A plain record from the parsed YAML.
+     * @throws {InvalidFormatError} If the string is not valid YAML.
+     */
     protected parse(raw: unknown): Record<string, unknown> {
         const input = raw as string;
 
@@ -40,6 +53,12 @@ export class YamlAccessor<
         }
     }
 
+    /**
+     * Returns a new {@link YamlAccessor} wrapping the given data.
+     *
+     * @param data - The record to wrap.
+     * @returns A new {@link YamlAccessor} instance.
+     */
     clone(data: Record<string, unknown>): YamlAccessor<T> {
         const inst = Object.create(YamlAccessor.prototype) as YamlAccessor<T>;
         inst.raw = this.raw;

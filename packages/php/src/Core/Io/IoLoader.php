@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace SafeAccessInline\Core\Io;
 
+use SafeAccessInline\Contracts\DnsResolverInterface;
 use SafeAccessInline\Contracts\HttpClientInterface;
 use SafeAccessInline\Core\Config\IoLoaderConfig;
-use SafeAccessInline\Enums\AccessorFormat;
+use SafeAccessInline\Enums\Format;
 use SafeAccessInline\Exceptions\SecurityException;
 use SafeAccessInline\Security\Audit\AuditLogger;
 
@@ -15,8 +16,13 @@ use SafeAccessInline\Security\Audit\AuditLogger;
  */
 final class IoLoader
 {
+    /** Optional HTTP client override; null uses the built-in {@see CurlHttpClient}. */
     private static ?HttpClientInterface $httpClient = null;
 
+    /** Optional DNS resolver override; null uses the built-in {@see NativeDnsResolver}. */
+    private static ?DnsResolverInterface $dnsResolver = null;
+
+    /** Active I/O loader configuration, lazily initialised on first access. */
     private static IoLoaderConfig $config;
 
     /**
@@ -43,22 +49,30 @@ final class IoLoader
         self::$config = new IoLoaderConfig();
     }
 
-    /** @var array<string, AccessorFormat> */
+    /** @var array<string, Format> */
     private const EXTENSION_FORMAT_MAP = [
-        'json' => AccessorFormat::Json,
-        'xml' => AccessorFormat::Xml,
-        'yaml' => AccessorFormat::Yaml,
-        'yml' => AccessorFormat::Yaml,
-        'toml' => AccessorFormat::Toml,
-        'ini' => AccessorFormat::Ini,
-        'cfg' => AccessorFormat::Ini,
-        'csv' => AccessorFormat::Csv,
-        'env' => AccessorFormat::Env,
-        'ndjson' => AccessorFormat::Ndjson,
-        'jsonl' => AccessorFormat::Ndjson,
+        'json' => Format::Json,
+        'xml' => Format::Xml,
+        'yaml' => Format::Yaml,
+        'yml' => Format::Yaml,
+        'toml' => Format::Toml,
+        'ini' => Format::Ini,
+        'cfg' => Format::Ini,
+        'csv' => Format::Csv,
+        'env' => Format::Env,
+        'ndjson' => Format::Ndjson,
+        'jsonl' => Format::Ndjson,
     ];
 
-    public static function resolveFormatFromExtension(string $filePath): ?AccessorFormat
+    /**
+     * Resolves a {@see Format} from a file path's extension.
+     *
+     * Returns null when the extension is not in the known format map.
+     *
+     * @param  string $filePath Absolute or relative file path.
+     * @return Format|null Resolved format, or null when unrecognised.
+     */
+    public static function resolveFormatFromExtension(string $filePath): ?Format
     {
         $ext = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
         return self::EXTENSION_FORMAT_MAP[$ext] ?? null;
@@ -158,19 +172,60 @@ final class IoLoader
         return self::getHttpClient()->fetch($url, $curlOptions);
     }
 
+    /**
+     * Overrides the HTTP client used by {@see fetchUrl()}.
+     *
+     * Inject a test double here instead of relying on live network calls.
+     *
+     * @param HttpClientInterface $client Replacement HTTP client.
+     */
     public static function setHttpClient(HttpClientInterface $client): void
     {
         self::$httpClient = $client;
     }
 
+    /**
+     * Resets the HTTP client to the default {@see CurlHttpClient}.
+     */
     public static function resetHttpClient(): void
     {
         self::$httpClient = null;
     }
 
+    /**
+     * Returns the active HTTP client, lazily creating the default on first call.
+     *
+     * @return HttpClientInterface Active HTTP client.
+     */
     private static function getHttpClient(): HttpClientInterface
     {
         return self::$httpClient ??= new CurlHttpClient();
+    }
+
+    /**
+     * Overrides the DNS resolver used by {@see assertSafeUrl()}. Useful in tests.
+     */
+    public static function setDnsResolver(DnsResolverInterface $resolver): void
+    {
+        self::$dnsResolver = $resolver;
+    }
+
+    /**
+     * Resets the DNS resolver to the default {@see NativeDnsResolver}.
+     */
+    public static function resetDnsResolver(): void
+    {
+        self::$dnsResolver = null;
+    }
+
+    /**
+     * Returns the active DNS resolver, lazily creating the default on first call.
+     *
+     * @return DnsResolverInterface Active DNS resolver.
+     */
+    private static function getDnsResolver(): DnsResolverInterface
+    {
+        return self::$dnsResolver ??= new NativeDnsResolver();
     }
 
     /**
@@ -248,21 +303,20 @@ final class IoLoader
         }
 
         // Resolve hostname to IP — try IPv4 first, then AAAA fallback
-        $ip = gethostbyname($host);
+        $resolver = self::getDnsResolver();
+        $ip = $resolver->resolveIPv4($host);
 
         if ($ip === $host) {
-            // gethostbyname failed (returned hostname unchanged) — try IPv6 AAAA records
-            $records = @dns_get_record($host, DNS_AAAA);
-            if (is_array($records) && count($records) > 0 && isset($records[0]['ipv6'])) {
-                $ip = $records[0]['ipv6'];
-
-                if (!$allowPrivateIps && self::isPrivateIpv6($ip)) {
+            // IPv4 resolution failed — try IPv6 AAAA records
+            $ipv6 = $resolver->resolveIPv6($host);
+            if ($ipv6 !== null) {
+                if (!$allowPrivateIps && self::isPrivateIpv6($ipv6)) {
                     throw new SecurityException(
-                        "Access to private/internal IPv6 '{$ip}' is blocked (SSRF protection)."
+                        "Access to private/internal IPv6 '{$ipv6}' is blocked (SSRF protection)."
                     );
                 }
 
-                return $ip;
+                return $ipv6;
             }
         }
 
@@ -275,6 +329,15 @@ final class IoLoader
         return $ip;
     }
 
+    /**
+     * Determines whether an IPv6 address falls within a private or reserved range.
+     *
+     * Covers: loopback (::1), link-local (fe80::/10), ULA (fc00::/7), and
+     * IPv4-mapped (::ffff:0:0/96) ranges.
+     *
+     * @param  string $ip Normalized IPv6 address string.
+     * @return bool True when the address is private or reserved.
+     */
     public static function isPrivateIpv6(string $ip): bool
     {
         $lower = strtolower($ip);
@@ -304,6 +367,15 @@ final class IoLoader
         return false;
     }
 
+    /**
+     * Determines whether an IPv4 address falls within a private or reserved range.
+     *
+     * Covers: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 127.0.0.0/8,
+     * 169.254.0.0/16, and 0.0.0.0/8. Invalid addresses return true (treated as private).
+     *
+     * @param  string $ip Dotted-decimal IPv4 address string.
+     * @return bool True when the address is private, reserved, or invalid.
+     */
     public static function isPrivateIp(string $ip): bool
     {
         $long = ip2long($ip);

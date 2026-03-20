@@ -10,10 +10,7 @@ export default defineConfig({
             reporter: ["text", "lcov"],
             thresholds: {
                 statements: 100,
-                // branches: 95% — defensive fallback branches in cli.ts (defaultGetVersion catch,
-                // non-Error catch, DEBUG stack trace) and command-handlers.ts (formatOutput pretty
-                // default) are not practically reachable without mocking import.meta.url internals.
-                branches: 95,
+                branches: 100,
                 functions: 100,
                 lines: 100,
             },

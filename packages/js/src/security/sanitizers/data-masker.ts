@@ -51,6 +51,16 @@ export function mask(
     return result;
 }
 
+/**
+ * Checks whether `key` matches any of the supplied mask patterns.
+ *
+ * Checks the built-in sensitive-key list first, then iterates over `patterns`
+ * (string wildcards or regular expressions).
+ *
+ * @param key - The object key to test.
+ * @param patterns - Array of mask patterns to check against.
+ * @returns `true` if `key` should be redacted.
+ */
 function matchesPattern(key: string, patterns: MaskPattern[]): boolean {
     const lowerKey = key.toLowerCase();
     if (COMMON_SENSITIVE_KEYS.has(lowerKey)) return true;
@@ -65,6 +75,15 @@ function matchesPattern(key: string, patterns: MaskPattern[]): boolean {
     return false;
 }
 
+/**
+ * Tests whether `text` matches a wildcard `pattern` that may use `*` as a glob.
+ *
+ * Compiled regexes are cached per pattern to avoid repeated compilation.
+ *
+ * @param text - The lower-cased key string to test.
+ * @param pattern - A lower-cased wildcard pattern (e.g. `'api_*'`).
+ * @returns `true` if `text` matches `pattern`.
+ */
 function matchWildcard(text: string, pattern: string): boolean {
     if (pattern === '*') return true;
     if (!pattern.includes('*')) return text === pattern;
@@ -80,6 +99,16 @@ function matchWildcard(text: string, pattern: string): boolean {
     return regex.test(text);
 }
 
+/**
+ * Recursively traverses `obj` in place, replacing matching keys with the redacted sentinel.
+ *
+ * Recurses into nested plain objects and arrays (one level per iteration).
+ * Stops at the configured maximum recursion depth to prevent runaway traversal.
+ *
+ * @param obj - The object to mask (mutated in place on a prior clone).
+ * @param patterns - Mask patterns to match against.
+ * @param depth - Current recursion depth.
+ */
 function maskRecursive(obj: Record<string, unknown>, patterns: MaskPattern[], depth: number): void {
     if (depth > DEFAULT_MASKER_CONFIG.maxRecursionDepth) return;
     for (const key of Object.keys(obj)) {

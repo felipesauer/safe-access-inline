@@ -81,6 +81,20 @@ describe('io-loader', () => {
     });
 
     describe('readFileSync()', () => {
+        it('throws SecurityError when called with no options (options is undefined)', () => {
+            // Kills OptionalChaining mutant: options.allowedDirs (without ?.) would throw instead of
+            // letting assertPathWithinAllowedDirs handle the missing dirs gracefully.
+            expect(() => readFileSync(path.join(fixturesDir, 'config.json'))).toThrow(
+                SecurityError,
+            );
+        });
+
+        it('throws SecurityError when options object has neither allowedDirs nor allowAnyPath', () => {
+            expect(() => readFileSync(path.join(fixturesDir, 'config.json'), {})).toThrow(
+                SecurityError,
+            );
+        });
+
         it('reads a file successfully', () => {
             const content = readFileSync(path.join(fixturesDir, 'config.json'), {
                 allowedDirs: [fixturesDir],
@@ -103,6 +117,12 @@ describe('io-loader', () => {
     });
 
     describe('readFile() (async)', () => {
+        it('throws SecurityError when called with no options (options is undefined)', async () => {
+            await expect(readFile(path.join(fixturesDir, 'config.json'))).rejects.toThrow(
+                SecurityError,
+            );
+        });
+
         it('reads a file asynchronously', async () => {
             const content = await readFile(path.join(fixturesDir, 'config.json'), {
                 allowedDirs: [fixturesDir],

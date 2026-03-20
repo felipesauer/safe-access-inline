@@ -1,9 +1,9 @@
 import { JsonPatchTestFailedError } from '../../exceptions/json-patch-test-failed.error';
 import { SecurityGuard } from '../../security/guards/security-guard';
 import { PatchOperationType } from '../../enums/patch-operation-type.enum';
-import type { JsonPatchOp } from '../../contracts/json-patch-op.interface';
+import type { JsonPatchOperation } from '../../contracts/json-patch-operation.interface';
 
-export type { JsonPatchOp } from '../../contracts/json-patch-op.interface';
+export type { JsonPatchOperation } from '../../contracts/json-patch-operation.interface';
 
 /**
  * JSON Patch operations per RFC 6902.
@@ -12,13 +12,21 @@ export type { JsonPatchOp } from '../../contracts/json-patch-op.interface';
 
 /**
  * Generates a JSON Patch (RFC 6902) representing the differences between two objects.
+ *
+ * Recursively compares `a` and `b`, producing the minimal set of `add`, `remove`,
+ * and `replace` operations needed to transform `a` into `b`.
+ *
+ * @param a - Source ("before") object.
+ * @param b - Target ("after") object.
+ * @param basePath - JSON Pointer prefix for the current recursion level (default `''`).
+ * @returns Array of RFC 6902 patch operations.
  */
 export function diff(
     a: Record<string, unknown>,
     b: Record<string, unknown>,
     basePath = '',
-): JsonPatchOp[] {
-    const ops: JsonPatchOp[] = [];
+): JsonPatchOperation[] {
+    const ops: JsonPatchOperation[] = [];
 
     const aKeys = Object.keys(a);
     const bKeys = Object.keys(b);
@@ -59,8 +67,19 @@ export function diff(
     return ops;
 }
 
-function diffArrays(a: unknown[], b: unknown[], basePath: string): JsonPatchOp[] {
-    const ops: JsonPatchOp[] = [];
+/**
+ * Generates patch operations for two arrays at the given `basePath`.
+ *
+ * Uses a positional comparison strategy: each index is compared individually.
+ * Removes trailing elements before additions to preserve correct final length.
+ *
+ * @param a - Source array.
+ * @param b - Target array.
+ * @param basePath - JSON Pointer prefix for array elements.
+ * @returns Array of RFC 6902 patch operations for the arrays.
+ */
+function diffArrays(a: unknown[], b: unknown[], basePath: string): JsonPatchOperation[] {
+    const ops: JsonPatchOperation[] = [];
 
     const maxLen = Math.max(a.length, b.length);
     for (let i = 0; i < maxLen; i++) {
@@ -99,7 +118,7 @@ function diffArrays(a: unknown[], b: unknown[], basePath: string): JsonPatchOp[]
  * @param ops - JSON Patch operations to validate.
  * @throws {@link Error} When a `move` or `copy` operation is missing `from`.
  */
-export function validatePatch(ops: JsonPatchOp[]): void {
+export function validatePatch(ops: JsonPatchOperation[]): void {
     for (const op of ops) {
         if (
             (op.op === PatchOperationType.MOVE || op.op === PatchOperationType.COPY) &&
@@ -111,12 +130,20 @@ export function validatePatch(ops: JsonPatchOp[]): void {
 }
 
 /**
- * Applies a JSON Patch (RFC 6902) to a data object. Returns a new object (immutable).
- * Operations are atomic: if any test operation fails, no mutations are applied.
+ * Applies a JSON Patch (RFC 6902) to a data object and returns a new object.
+ *
+ * Operations are atomic: if any `test` operation fails, no mutations are visible
+ * to the caller. The original `data` is never mutated.
+ *
+ * @param data - Source data object.
+ * @param ops - JSON Patch operations to apply.
+ * @returns A new data object with all patches applied.
+ * @throws {@link JsonPatchTestFailedError} When a `test` operation value mismatch is detected.
+ * @throws {@link Error} When a `move` or `copy` operation is missing its `from` field.
  */
 export function applyPatch(
     data: Record<string, unknown>,
-    ops: JsonPatchOp[],
+    ops: JsonPatchOperation[],
 ): Record<string, unknown> {
     validatePatch(ops);
 
@@ -142,7 +169,18 @@ export function applyPatch(
     return preflight;
 }
 
-function applyOneOp(result: Record<string, unknown>, op: JsonPatchOp): Record<string, unknown> {
+/**
+ * Applies a single JSON Patch operation to `result` (mutates in place).
+ *
+ * @param result - Working copy of the data object.
+ * @param op - A single RFC 6902 operation.
+ * @returns The (potentially replaced) root object after applying `op`.
+ * @throws {@link JsonPatchTestFailedError} When a `test` operation fails.
+ */
+function applyOneOp(
+    result: Record<string, unknown>,
+    op: JsonPatchOperation,
+): Record<string, unknown> {
     switch (op.op) {
         case PatchOperationType.ADD:
         case PatchOperationType.REPLACE:
@@ -196,6 +234,13 @@ function applyOneOp(result: Record<string, unknown>, op: JsonPatchOp): Record<st
     return result;
 }
 
+/**
+ * Parses an RFC 6901 JSON Pointer into an array of decoded key segments.
+ *
+ * @param pointer - A JSON Pointer string (e.g. `"/foo/bar/0"`).
+ * @returns Array of decoded key strings.
+ * @throws {@link Error} When `pointer` does not start with `'/'` and is non-empty.
+ */
 function parsePointer(pointer: string): string[] {
     if (pointer === '') return [];
     if (!pointer.startsWith('/')) {
@@ -207,10 +252,25 @@ function parsePointer(pointer: string): string[] {
         .map((s) => s.replace(/~1/g, '/').replace(/~0/g, '~'));
 }
 
+/**
+ * Escapes a key for use in an RFC 6901 JSON Pointer.
+ *
+ * Replaces `~` with `~0` and `/` with `~1` per the spec.
+ *
+ * @param key - The raw object key to escape.
+ * @returns The escaped key suitable for embedding in a JSON Pointer.
+ */
 function escapePointer(key: string): string {
     return key.replace(/~/g, '~0').replace(/\//g, '~1');
 }
 
+/**
+ * Retrieves the value at the given JSON Pointer within `data`.
+ *
+ * @param data - The root data structure to traverse.
+ * @param pointer - RFC 6901 JSON Pointer.
+ * @returns The value at the pointer, or `undefined` if the path does not exist.
+ */
 function getAtPointer(data: unknown, pointer: string): unknown {
     const keys = parsePointer(pointer);
     let current = data;
@@ -281,10 +341,23 @@ function mutateRemoveAtPointer(data: Record<string, unknown>, pointer: string): 
     }
 }
 
+/**
+ * Checks whether `val` is a plain (non-array, non-null) object.
+ *
+ * @param val - Value to test.
+ * @returns `true` if `val` is a plain object.
+ */
 function isPlainObject(val: unknown): val is Record<string, unknown> {
     return typeof val === 'object' && val !== null && !Array.isArray(val);
 }
 
+/**
+ * Performs a deep structural equality check between two values.
+ *
+ * @param a - First value.
+ * @param b - Second value.
+ * @returns `true` if `a` and `b` are deeply equal.
+ */
 function deepEqual(a: unknown, b: unknown): boolean {
     if (a === b) return true;
     if (a === null || b === null) return false;

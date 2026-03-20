@@ -17,11 +17,21 @@ use SafeAccessInline\Contracts\ParserPluginInterface;
  */
 class DeviumTomlParser extends AbstractPlugin implements ParserPluginInterface
 {
+    /**
+     * Returns true when the devium/toml package is installed.
+     *
+     * @return bool Whether the dependency is available at runtime.
+     */
     protected function isAvailable(): bool
     {
         return class_exists(\Devium\Toml\Toml::class);
     }
 
+    /**
+     * Returns an installation hint for devium/toml.
+     *
+     * @return string Human-readable install instructions.
+     */
     protected function installHint(): string
     {
         return 'devium/toml is not installed. Run: composer require devium/toml';

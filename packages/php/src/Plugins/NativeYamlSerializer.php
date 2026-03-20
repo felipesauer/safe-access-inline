@@ -22,11 +22,21 @@ use SafeAccessInline\Contracts\SerializerPluginInterface;
  */
 class NativeYamlSerializer extends AbstractPlugin implements SerializerPluginInterface
 {
+    /**
+     * Returns true when the ext-yaml PHP extension is available.
+     *
+     * @return bool Whether `yaml_emit` is available at runtime.
+     */
     protected function isAvailable(): bool
     {
         return function_exists('yaml_emit');
     }
 
+    /**
+     * Returns an installation hint for ext-yaml.
+     *
+     * @return string Human-readable install instructions.
+     */
     protected function installHint(): string
     {
         return 'ext-yaml is not installed. Run: pecl install yaml';

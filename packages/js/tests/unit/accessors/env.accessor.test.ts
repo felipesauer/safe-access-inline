@@ -107,4 +107,39 @@ SINGLE_QUOTED='hello world'
         expect(accessor.get('OTHER')).toBe('data');
         expect(accessor.count()).toBe(2);
     });
+
+    // ── Quote-stripping boundary (L39-40 LogicalOperator: && → ||) ────────────────
+
+    it('does NOT strip value that only starts with double-quote (no matching end)', () => {
+        // Kills LogicalOperator mutant: startsWith('"') && endsWith('"') → startsWith || endsWith
+        // With mutant (||): '"hello' starts with '"' → stripped to 'hell' (slice(1,-1))
+        // With original (&&): '"hello' does NOT end with '"' → preserved as-is
+        const accessor = EnvAccessor.from('KEY="hello');
+        expect(accessor.get('KEY')).toBe('"hello');
+    });
+
+    it('does NOT strip value that only ends with double-quote (no matching start)', () => {
+        const accessor = EnvAccessor.from('KEY=hello"');
+        expect(accessor.get('KEY')).toBe('hello"');
+    });
+
+    it('does NOT strip value that only starts with single-quote (no matching end)', () => {
+        const accessor = EnvAccessor.from("KEY='hello");
+        expect(accessor.get('KEY')).toBe("'hello");
+    });
+
+    it('does NOT strip value that only ends with single-quote (no matching start)', () => {
+        const accessor = EnvAccessor.from("KEY=hello'");
+        expect(accessor.get('KEY')).toBe("hello'");
+    });
+
+    it('strips value with matching double quotes (baseline)', () => {
+        const accessor = EnvAccessor.from('KEY="hello"');
+        expect(accessor.get('KEY')).toBe('hello');
+    });
+
+    it('strips value with matching single quotes (baseline)', () => {
+        const accessor = EnvAccessor.from("KEY='hello'");
+        expect(accessor.get('KEY')).toBe('hello');
+    });
 });

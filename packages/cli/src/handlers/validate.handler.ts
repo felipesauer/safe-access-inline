@@ -1,6 +1,9 @@
 import { parseArgs } from "node:util";
 import { resolve } from "node:path";
-import { JsonSchemaAdapter } from "@safe-access-inline/safe-access-inline";
+import {
+    JsonSchemaAdapter,
+    SafeAccess,
+} from "@safe-access-inline/safe-access-inline";
 import { loadFromStdinOrFile, type CliIO } from "../command-handlers.js";
 
 /**
@@ -31,10 +34,12 @@ export function handleValidate(rest: string[], io: CliIO): number {
         undefined,
         io.readFileSync,
     );
-    const schemaContent = io.readFileSync(
+    // Use SafeAccess.fromFileSync so IoLoader path-traversal and null-byte checks apply
+    const schemaAccessor = SafeAccess.fromFileSync(
         resolve(values.schema as string),
-        "utf-8",
-    ) as string;
+        { allowAnyPath: true },
+    );
+    const schemaContent = schemaAccessor.toJson();
     const schema = JSON.parse(schemaContent) as Record<string, unknown>;
     const data = accessor.toObject();
     const adapter = new JsonSchemaAdapter();

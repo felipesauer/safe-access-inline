@@ -38,6 +38,10 @@ class TomlAccessor extends AbstractAccessor
         return new static($data, $readonly); // @phpstan-ignore new.static
     }
 
+    /**
+     * @param mixed $raw
+     * @return array<mixed>
+     */
     protected function parse(mixed $raw): array
     {
         assert(is_string($raw));
@@ -47,7 +51,7 @@ class TomlAccessor extends AbstractAccessor
         }
 
         try {
-            if (!class_exists(Toml::class)) {
+            if (!$this->hasTomlLibrary()) {
                 throw new InvalidFormatException(
                     'TOML support requires devium/toml. Install it via: composer require devium/toml'
                 );
@@ -62,5 +66,14 @@ class TomlAccessor extends AbstractAccessor
                 previous: $e,
             );
         }
+    }
+
+    /**
+     * Returns true when the devium/toml library is available; extracted so tests can override.
+     * @return bool
+     */
+    protected function hasTomlLibrary(): bool
+    {
+        return class_exists(Toml::class);
     }
 }

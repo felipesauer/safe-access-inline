@@ -45,7 +45,11 @@ export class FilterParser {
     }
 
     /**
-     * Parses "[?expr]" content (without the [? and ] delimiters).
+     * Parses "[?expr]" content (without the `[?` and `]` delimiters) into a {@link FilterExpression}.
+     *
+     * @param expression - Raw filter expression string, e.g. `"age>=18 && active==true"`.
+     * @returns A parsed {@link FilterExpression} with conditions and logical operators.
+     * @throws {@link Error} When a condition token cannot be parsed.
      */
     static parse(expression: string): FilterExpression {
         const conditions: FilterCondition[] = [];
@@ -63,7 +67,13 @@ export class FilterParser {
     }
 
     /**
-     * Evaluates a filter expression against a single item.
+     * Evaluates a parsed filter expression against a single data item.
+     *
+     * Short-circuits logical evaluation where possible.
+     *
+     * @param item - The data object to test.
+     * @param expr - A previously parsed {@link FilterExpression}.
+     * @returns `true` if the item satisfies the expression.
      */
     static evaluate(item: Record<string, unknown>, expr: FilterExpression): boolean {
         if (expr.conditions.length === 0) return false;
@@ -82,6 +92,14 @@ export class FilterParser {
         return result;
     }
 
+    /**
+     * Splits a filter expression string into condition tokens and logical operators.
+     *
+     * Respects quoted strings so that `&&` or `||` inside quotes are not treated as operators.
+     *
+     * @param expression - Raw filter body (no surrounding `[?` / `]`).
+     * @returns An object with `tokens` (condition strings) and `operators` (`&&` / `||`).
+     */
     private static splitLogical(expression: string): {
         tokens: string[];
         operators: ('&&' | '||')[];
@@ -131,6 +149,16 @@ export class FilterParser {
         return { tokens, operators };
     }
 
+    /**
+     * Parses a single condition token into a {@link FilterCondition}.
+     *
+     * Handles both plain comparisons (`age>=18`) and function-call forms
+     * (`length(@.name)>3`).
+     *
+     * @param token - A single trimmed condition string.
+     * @returns Parsed {@link FilterCondition}.
+     * @throws {@link Error} When the token does not match any known condition pattern.
+     */
     private static parseCondition(token: string): FilterCondition {
         const operators = ['>=', '<=', '!=', '==', '>', '<'] as const;
 
@@ -172,6 +200,15 @@ export class FilterParser {
         throw new Error(`Invalid filter condition: "${token}"`);
     }
 
+    /**
+     * Parses a raw string value token into its corresponding JavaScript primitive.
+     *
+     * Recognises `true`, `false`, `null`, quoted strings, and numeric literals.
+     * Falls back to the raw string when no other type matches.
+     *
+     * @param raw - Raw value string from the filter expression.
+     * @returns The parsed JavaScript value.
+     */
     static parseValue(raw: string): unknown {
         if (raw === 'true') return true;
         if (raw === 'false') return false;
@@ -190,6 +227,16 @@ export class FilterParser {
         return raw;
     }
 
+    /**
+     * Evaluates a single {@link FilterCondition} against a data item.
+     *
+     * Resolves the field value (or function result) from `item` and applies
+     * the comparison operator.
+     *
+     * @param item - The data object to test.
+     * @param condition - The condition to evaluate.
+     * @returns `true` if the item satisfies the condition.
+     */
     private static evaluateCondition(
         item: Record<string, unknown>,
         condition: FilterCondition,
@@ -220,6 +267,15 @@ export class FilterParser {
         }
     }
 
+    /**
+     * Evaluates a built-in filter function (`length`, `match`, `keys`) against an item.
+     *
+     * @param item - The data object providing context.
+     * @param func - Function name (`length`, `match`, or `keys`).
+     * @param funcArgs - Raw argument strings from the parsed condition.
+     * @returns The function result used for subsequent comparison.
+     * @throws {@link Error} When `func` is an unrecognised function name.
+     */
     private static evaluateFunction(
         item: Record<string, unknown>,
         func: string,
@@ -272,6 +328,16 @@ export class FilterParser {
         }
     }
 
+    /**
+     * Resolves a function argument from a data item.
+     *
+     * Handles `@` (the item itself) and `@.field` (a field on the item);
+     * bare field names are resolved as regular field paths.
+     *
+     * @param item - The data object providing context.
+     * @param arg - The raw argument string from the function call.
+     * @returns The resolved value.
+     */
     private static resolveFilterArg(item: Record<string, unknown>, arg: string): unknown {
         if (!arg || arg === '@') return item;
         // @.field.sub → resolve from item
@@ -281,6 +347,16 @@ export class FilterParser {
         return FilterParser.resolveField(item, arg);
     }
 
+    /**
+     * Resolves a (possibly nested) field path from a data item.
+     *
+     * Dot-separated paths are traversed iteratively; each segment is checked
+     * for prototype-pollution via {@link SecurityGuard.assertSafeKey}.
+     *
+     * @param item - The data object to traverse.
+     * @param field - A plain field name or a dot-notation path.
+     * @returns The resolved value, or `undefined` if the path does not exist.
+     */
     private static resolveField(item: Record<string, unknown>, field: string): unknown {
         if (field.includes('.')) {
             let current: unknown = item;

@@ -100,4 +100,26 @@ describe(JsonAccessor.name, () => {
         const accessor = JsonAccessor.from('"hello"');
         expect(accessor.all()).toEqual({});
     });
+
+    // ── Error message content (kills StringLiteral "" mutations) ──
+
+    it('from — error message is not empty for non-string input', () => {
+        // L18 StringLiteral mutation replaces the message with "".
+        expect(() => JsonAccessor.from(123)).toThrow(/JsonAccessor expects a JSON string/i);
+    });
+
+    it('parse — error message is not empty for invalid JSON', () => {
+        // L28 StringLiteral mutation replaces the parse error message with "".
+        expect(() => JsonAccessor.from('{ invalid }')).toThrow(/JsonAccessor failed to parse/i);
+    });
+
+    // ── parse() null-safety guard (L26 ConditionalExpression=true) ──
+
+    it('parsing JSON null returns empty object (kills ConditionalExpression=true)', () => {
+        // With the guard forced to true: parsed=null is returned from parse() as data,
+        // then any method call that runs Object.keys(null) throws a TypeError.
+        const accessor = JsonAccessor.from('null');
+        expect(() => accessor.count()).not.toThrow();
+        expect(accessor.count()).toBe(0);
+    });
 });

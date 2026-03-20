@@ -86,4 +86,9 @@ describe(TypeDetector::class, function () {
         expect($accessor)->toBeInstanceOf(\SafeAccessInline\Accessors\TomlAccessor::class);
     })->skip(!class_exists(\Devium\Toml\Toml::class), 'devium/toml not installed (run with deps=full to enable)');
 
+    it('detects NDJSON string (multiple JSON lines)', function () {
+        $ndjson = "{\"a\":1}\n{\"b\":2}";
+        $accessor = TypeDetector::resolve($ndjson);
+        expect($accessor)->toBeInstanceOf(\SafeAccessInline\Accessors\NdjsonAccessor::class);
+    });
 });

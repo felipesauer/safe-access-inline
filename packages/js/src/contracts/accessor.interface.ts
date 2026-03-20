@@ -21,7 +21,7 @@ export interface AccessorInterface<T extends Record<string, unknown> = Record<st
     has(path: string): boolean;
 
     /**
-     * Returns the normalised type of the value at the given path.
+     * Returns the Normalized type of the value at the given path.
      *
      * @param path - Dot-notation path to inspect.
      * @returns One of `'string'`, `'number'`, `'boolean'`, `'array'`, `'object'`, `'null'`, or `null` if the path does not exist.

@@ -157,4 +157,39 @@ ttl = 60
         const accessor = IniAccessor.from('; comment line\nkey = value');
         expect(accessor.get('key')).toBe('value');
     });
+
+    // ── Quote-stripping boundary (L52-53 LogicalOperator: && → ||) ────────────────
+
+    it('does NOT strip value that only starts with double-quote (no matching end)', () => {
+        // Kills LogicalOperator mutant: startsWith('"') && endsWith('"') → startsWith || endsWith
+        // With mutant (||): '"hello' starts with '"' → stripped to 'hell'
+        // With original (&&): '"hello' does NOT end with '"' → preserved as-is
+        const accessor = IniAccessor.from('key = "hello');
+        expect(accessor.get('key')).toBe('"hello');
+    });
+
+    it('does NOT strip value that only ends with double-quote (no matching start)', () => {
+        const accessor = IniAccessor.from('key = hello"');
+        expect(accessor.get('key')).toBe('hello"');
+    });
+
+    it('does NOT strip value that only starts with single-quote (no matching end)', () => {
+        const accessor = IniAccessor.from("key = 'hello");
+        expect(accessor.get('key')).toBe("'hello");
+    });
+
+    it('does NOT strip value that only ends with single-quote (no matching start)', () => {
+        const accessor = IniAccessor.from("key = hello'");
+        expect(accessor.get('key')).toBe("hello'");
+    });
+
+    it('strips value with matching double quotes (baseline)', () => {
+        const accessor = IniAccessor.from('key = "hello"');
+        expect(accessor.get('key')).toBe('hello');
+    });
+
+    it('strips value with matching single quotes (baseline)', () => {
+        const accessor = IniAccessor.from("key = 'hello'");
+        expect(accessor.get('key')).toBe('hello');
+    });
 });

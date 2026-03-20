@@ -44,7 +44,12 @@ const EXTENSION_FORMAT_MAP: Record<string, Format> = {
     '.jsonl': Format.Ndjson,
 };
 
-/** Detects the {@link Format} for `filePath` based on its extension, or returns `null`. */
+/**
+ * Detects the {@link Format} for `filePath` based on its file extension.
+ *
+ * @param filePath - File path or URL path whose extension is inspected.
+ * @returns The matching {@link Format} enum value, or `null` when unrecognised.
+ */
 export function resolveFormatFromExtension(filePath: string): Format | null {
     const ext = path.extname(filePath).toLowerCase();
     return EXTENSION_FORMAT_MAP[ext] ?? null;
@@ -210,6 +215,18 @@ export async function fetchUrl(
                 res.on('end', () => resolve(body));
             },
         );
+        req.on('socket', (socket) => {
+            socket.setTimeout(ioConfig.connectTimeoutMs);
+            socket.once('connect', () => socket.setTimeout(0));
+            socket.once('timeout', () => {
+                req.destroy();
+                reject(
+                    new SecurityError(
+                        `Connection to '${url}' timed out after ${ioConfig.connectTimeoutMs}ms.`,
+                    ),
+                );
+            });
+        });
         req.on('error', reject);
         req.on('timeout', () => {
             req.destroy();

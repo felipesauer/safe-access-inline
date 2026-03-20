@@ -38,6 +38,10 @@ class YamlAccessor extends AbstractAccessor
         return new static($data, $readonly); // @phpstan-ignore new.static
     }
 
+    /**
+     * @param mixed $raw
+     * @return array<mixed>
+     */
     protected function parse(mixed $raw): array
     {
         assert(is_string($raw));
@@ -52,7 +56,7 @@ class YamlAccessor extends AbstractAccessor
                 return is_array($parsed) ? $parsed : [];
             }
 
-            if (!class_exists(Yaml::class)) {
+            if (!$this->hasSymfonyYaml()) {
                 throw new InvalidFormatException(
                     'YAML support requires ext-yaml or symfony/yaml. Install via: composer require symfony/yaml'
                 );
@@ -68,8 +72,21 @@ class YamlAccessor extends AbstractAccessor
         }
     }
 
+    /**
+     * Returns true when ext-yaml is available; extracted so tests can override.
+     * @return bool
+     */
     protected function hasNativeYamlParse(): bool
     {
         return function_exists('yaml_parse');
+    }
+
+    /**
+     * Returns true when Symfony YAML is available; extracted so tests can override.
+     * @return bool
+     */
+    protected function hasSymfonyYaml(): bool
+    {
+        return class_exists(Yaml::class);
     }
 }

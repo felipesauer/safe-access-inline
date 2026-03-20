@@ -266,7 +266,12 @@ trait HasArrayOperations
     }
 
     /**
-     * @return array<mixed>
+     * Retrieves the array at `$path` or throws when the value is not a list.
+     *
+     * @param  string $path Dot-notation path to the target array.
+     * @return array<mixed> The list at `$path`.
+     *
+     * @throws \SafeAccessInline\Exceptions\InvalidFormatException When the value is not an array.
      */
     private function ensureArrayAt(string $path): array
     {
@@ -278,7 +283,10 @@ trait HasArrayOperations
     }
 
     /**
-     * @return array<mixed>
+     * Returns the list at `$path`, or an empty array when the value is absent or not a list.
+     *
+     * @param  string $path Dot-notation path to the target array.
+     * @return array<mixed> The list at `$path`, or `[]`.
      */
     private function getArrayOrEmptyAt(string $path): array
     {
@@ -286,6 +294,13 @@ trait HasArrayOperations
         return is_array($value) && array_is_list($value) ? $value : [];
     }
 
+    /**
+     * Sets `$value` at `$path` and returns a new accessor instance with the updated data.
+     *
+     * @param  string $path  Dot-notation path.
+     * @param  mixed  $value Value to store.
+     * @return static New instance with the applied change.
+     */
     private function setInternal(string $path, mixed $value): static
     {
         $newData = DotNotationParser::set($this->data, $path, $value);
@@ -295,8 +310,11 @@ trait HasArrayOperations
     }
 
     /**
-     * @param array<mixed> $arr
-     * @return array<mixed>
+     * Recursively flattens `$arr` up to `$depth` levels.
+     *
+     * @param  array<mixed> $arr   Array to flatten.
+     * @param  int          $depth Maximum nesting levels to eliminate.
+     * @return array<mixed> Flattened array.
      */
     private function flattenArrayItems(array $arr, int $depth): array
     {

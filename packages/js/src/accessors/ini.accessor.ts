@@ -9,7 +9,13 @@ import { InvalidFormatError } from '../exceptions/invalid-format.error';
 export class IniAccessor<
     T extends Record<string, unknown> = Record<string, unknown>,
 > extends AbstractAccessor<T> {
-    /** Creates an accessor from an INI-format string. */
+    /**
+     * Creates an accessor from an INI-format string.
+     *
+     * @param data - A valid INI string.
+     * @returns A new {@link IniAccessor} instance.
+     * @throws {InvalidFormatError} If `data` is not a string.
+     */
     static from(data: unknown): IniAccessor {
         if (typeof data !== 'string') {
             throw new InvalidFormatError('IniAccessor expects an INI string.');
@@ -17,6 +23,13 @@ export class IniAccessor<
         return new IniAccessor(data);
     }
 
+    /**
+     * Parses an INI-format string into a plain record.
+     * Sections become nested objects; bare keys are top-level.
+     *
+     * @param raw - The raw INI string.
+     * @returns A plain record from the parsed INI content.
+     */
     protected parse(raw: unknown): Record<string, unknown> {
         const ini = raw as string;
         const result: Record<string, unknown> = {};
@@ -68,6 +81,12 @@ export class IniAccessor<
         return result;
     }
 
+    /**
+     * Returns a new {@link IniAccessor} wrapping the given data.
+     *
+     * @param data - The record to wrap.
+     * @returns A new {@link IniAccessor} instance.
+     */
     clone(data: Record<string, unknown>): IniAccessor<T> {
         const inst = Object.create(IniAccessor.prototype) as IniAccessor<T>;
         inst.raw = this.raw;
@@ -75,6 +94,13 @@ export class IniAccessor<
         return inst;
     }
 
+    /**
+     * Coerces a raw INI string value to a typed primitive.
+     * Handles booleans, null, integers, floats, and strings.
+     *
+     * @param value - The raw string value from the INI line.
+     * @returns The coerced typed value.
+     */
     private static coerceValue(value: string): unknown {
         if (value === 'true' || value === 'on' || value === 'yes') return true;
         if (

@@ -144,6 +144,77 @@ describe(XmlAccessor.name, () => {
         const protoXml = `<root><__proto__>bad</__proto__></root>`;
         expect(() => XmlAccessor.from(protoXml)).toThrow(SecurityError);
     });
+
+    // ── Depth boundary (kills EqualityOperator: depth > 100 vs depth >= 100) ──
+
+    it('parses XML with nesting depth of exactly 100 levels without throwing', () => {
+        // Uses unique tag names (n0, n1, ...) so the non-greedy tagRegex nests properly.
+        // depth > 100: depth=100 passes; depth >= 100: depth=100 would throw → must not throw here.
+        // 101 unique nested tags: the deepest parseChildren call gets depth=100 → 100 > 100 = false → OK.
+        // With mutant (>=): 100 >= 100 = true → would throw → this test fails → kills mutant ✅
+        let open = '';
+        let close = '';
+        for (let i = 0; i < 101; i++) {
+            open += `<n${i}>`;
+            close = `</n${i}>` + close;
+        }
+        const xml = `<root>${open}deep${close}</root>`;
+        expect(() => XmlAccessor.from(xml)).not.toThrow();
+    });
+
+    it('throws when nesting depth exceeds 100 levels (depth > 100)', () => {
+        // 102 unique nested tags: depth reaches 101 → 101 > 100 = true → throws.
+        // With mutant (>=): already caught by the previous test (101 tags would throw at depth=100).
+        let open = '';
+        let close = '';
+        for (let i = 0; i < 102; i++) {
+            open += `<n${i}>`;
+            close = `</n${i}>` + close;
+        }
+        const xml = `<root>${open}deep${close}</root>`;
+        expect(() => XmlAccessor.from(xml)).toThrow();
+    });
+
+    // ── Root regex anchor (kills Regex mutant: ^<(\w+) anchor removed) ───
+
+    it('rejects XML string with non-whitespace text before root element', () => {
+        // The root-match regex must be anchored to the start: ^<(\w+)...
+        // Killing regex mutant where ^ anchor is removed would accept "junk<root>"
+        expect(() => XmlAccessor.from('junk<root><a>1</a></root>')).toThrow();
+    });
+
+    // ── Multiline content (kills Regex mutant: [\s\S] vs [\S\S]) ─────────
+
+    it('parses element with multiline text content (\\n inside element)', () => {
+        const xmlMultiline = '<root><desc>line1\nline2</desc></root>';
+        const acc = XmlAccessor.from(xmlMultiline);
+        const val = acc.get('desc') as string;
+        expect(val).toContain('\n');
+        expect(val).toContain('line1');
+        expect(val).toContain('line2');
+    });
+
+    // ── Attribute logic (kills LogicalOperator mutant: match[2] || match[5]) ─
+
+    it('parses element with numeric attribute value', () => {
+        const xmlAttrs = '<root><item count="42">text</item></root>';
+        const acc = XmlAccessor.from(xmlAttrs);
+        // Content should be the text, attributes checked via SecurityGuard
+        expect(acc.get('item')).toBe('text');
+    });
+
+    it('parses self-closing tag with multiple attributes', () => {
+        const xml = '<root><br class="x" id="y"/></root>';
+        const acc = XmlAccessor.from(xml);
+        expect(acc.has('br')).toBe(true);
+    });
+
+    it('parses element with no attributes and no self-closing (plain element)', () => {
+        // Exercises the match[2] empty-string fallback (attrs = '' or match[5])
+        const xml = '<root><plain>val</plain></root>';
+        const acc = XmlAccessor.from(xml);
+        expect(acc.get('plain')).toBe('val');
+    });
 });
 
 // ── XmlAccessor — clone and getOriginalXml ──────────────────────

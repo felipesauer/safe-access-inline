@@ -125,3 +125,73 @@ describe('FileWatcher — concurrent watchers', () => {
         fs.unlinkSync(tmpFile);
     });
 });
+
+// ── FileWatcher — mutation-targeted boundary tests ───────────────
+describe('FileWatcher — debounce timer boundary', () => {
+    it('rapid spaced writes trigger onChange exactly once (kills L14=false: timer never cancelled)', async () => {
+        // With mutation L14=false (never clearTimeout on new event), each write starts its own
+        // independent 100ms timer; all fire → onChange called 3 times instead of 1.
+        const tmpFile = path.join(os.tmpdir(), `fw-exact-${Date.now()}.txt`);
+        fs.writeFileSync(tmpFile, 'v0');
+
+        const onChange = vi.fn();
+        const unsub = watchFile(tmpFile, onChange);
+
+        // Spaced writes: each at least fires a distinct watch event
+        fs.writeFileSync(tmpFile, 'v1');
+        await new Promise((r) => setTimeout(r, 40));
+        fs.writeFileSync(tmpFile, 'v2');
+        await new Promise((r) => setTimeout(r, 40));
+        fs.writeFileSync(tmpFile, 'v3');
+
+        // Wait well past debounce window
+        await new Promise((r) => setTimeout(r, 300));
+
+        expect(onChange).toHaveBeenCalledTimes(1);
+
+        unsub();
+        fs.unlinkSync(tmpFile);
+    });
+
+    it('unsubscribe after change event clears pending timer (kills L25=false mutation)', async () => {
+        // With mutation L25=false (never clearTimeout in unsubscribe), the pending 100ms timer
+        // still fires after unsubscribe → onChange called when it should not be.
+        const tmpFile = path.join(os.tmpdir(), `fw-pend-${Date.now()}.txt`);
+        fs.writeFileSync(tmpFile, 'v0');
+
+        const onChange = vi.fn();
+        const unsub = watchFile(tmpFile, onChange);
+
+        // Trigger change event, then wait enough for the watcher to set debounceTimer
+        fs.writeFileSync(tmpFile, 'v1');
+        await new Promise((r) => setTimeout(r, 50)); // change event delivered; timer started
+
+        // Now unsubscribe — original clears the pending timer; mutation L25=false does not
+        unsub();
+
+        // Wait past debounce window; with mutation the timer fires here
+        await new Promise((r) => setTimeout(r, 200));
+
+        expect(onChange).not.toHaveBeenCalled();
+
+        fs.unlinkSync(tmpFile);
+    });
+
+    it('onChange throwing does not crash the watcher (silent catch)', async () => {
+        const tmpFile = path.join(os.tmpdir(), `fw-throw-${Date.now()}.txt`);
+        fs.writeFileSync(tmpFile, 'v0');
+
+        const onChange = vi.fn().mockImplementation(() => {
+            throw new Error('callback error');
+        });
+        const unsub = watchFile(tmpFile, onChange);
+
+        fs.writeFileSync(tmpFile, 'v1');
+
+        // No unhandled rejection — process should not crash
+        await expect(new Promise((r) => setTimeout(r, 300))).resolves.not.toThrow();
+
+        unsub();
+        fs.unlinkSync(tmpFile);
+    });
+});

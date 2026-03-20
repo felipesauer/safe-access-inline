@@ -39,44 +39,35 @@ describe('Schema Validation', () => {
     it('validate passes when data matches schema', () => {
         const accessor = SafeAccess.fromJson('{"name":"Ana","age":30}');
         const schema: SimpleSchema = { name: 'string', age: 'number' };
-        expect(() => accessor.validate(schema, adapter)).not.toThrow();
-        // Should return this for chaining
-        expect(accessor.validate(schema, adapter)).toBe(accessor);
+        const result = accessor.validate(schema, adapter);
+        expect(result.valid).toBe(true);
+        expect(result.errors).toHaveLength(0);
     });
 
-    it('validate throws SchemaValidationError on failure', () => {
+    it('validate returns invalid result on failure', () => {
         const accessor = SafeAccess.fromJson('{"name":"Ana"}');
         const schema: SimpleSchema = { name: 'string', age: 'number' };
-        try {
-            accessor.validate(schema, adapter);
-            expect.unreachable();
-        } catch (e) {
-            expect(e).toBeInstanceOf(SchemaValidationError);
-            const err = e as SchemaValidationError;
-            expect(err.issues).toHaveLength(1);
-            expect(err.issues[0].path).toBe('age');
-            expect(err.issues[0].message).toContain('Missing required field');
-        }
+        const result = accessor.validate(schema, adapter);
+        expect(result.valid).toBe(false);
+        expect(result.errors).toHaveLength(1);
+        expect(result.errors[0].path).toBe('age');
+        expect(result.errors[0].message).toContain('Missing required field');
     });
 
-    it('validate throws SchemaValidationError for type mismatch', () => {
+    it('validate returns invalid result for type mismatch', () => {
         const accessor = SafeAccess.fromJson('{"name":123}');
         const schema: SimpleSchema = { name: 'string' };
-        try {
-            accessor.validate(schema, adapter);
-            expect.unreachable();
-        } catch (e) {
-            expect(e).toBeInstanceOf(SchemaValidationError);
-            const err = e as SchemaValidationError;
-            expect(err.issues[0].message).toContain('Expected string');
-        }
+        const result = accessor.validate(schema, adapter);
+        expect(result.valid).toBe(false);
+        expect(result.errors[0].message).toContain('Expected string');
     });
 
     it('validate uses default adapter from SchemaRegistry', () => {
         SchemaRegistry.setDefaultAdapter(adapter);
         const accessor = SafeAccess.fromJson('{"name":"Ana"}');
         const schema: SimpleSchema = { name: 'string' };
-        expect(() => accessor.validate(schema)).not.toThrow();
+        const result = accessor.validate(schema);
+        expect(result.valid).toBe(true);
     });
 
     it('validate throws when no adapter is available', () => {

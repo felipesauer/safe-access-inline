@@ -12,7 +12,13 @@ import { InvalidFormatError } from '../exceptions/invalid-format.error';
 export class JsonAccessor<
     T extends Record<string, unknown> = Record<string, unknown>,
 > extends AbstractAccessor<T> {
-    /** Creates an accessor from a JSON string. */
+    /**
+     * Creates an accessor from a JSON string.
+     *
+     * @param data - A valid JSON string.
+     * @returns A new {@link JsonAccessor} instance.
+     * @throws {InvalidFormatError} If `data` is not a string or fails to parse.
+     */
     static from(data: unknown): JsonAccessor {
         if (typeof data !== 'string') {
             throw new InvalidFormatError('JsonAccessor expects a JSON string.');
@@ -20,6 +26,13 @@ export class JsonAccessor<
         return new JsonAccessor(data);
     }
 
+    /**
+     * Parses a JSON string into a plain record.
+     *
+     * @param raw - The raw JSON string.
+     * @returns A plain record from the parsed JSON.
+     * @throws {InvalidFormatError} If the string is not valid JSON.
+     */
     protected parse(raw: unknown): Record<string, unknown> {
         try {
             const parsed = JSON.parse(raw as string);
@@ -29,6 +42,12 @@ export class JsonAccessor<
         }
     }
 
+    /**
+     * Returns a new {@link JsonAccessor} wrapping the given data.
+     *
+     * @param data - The record to wrap.
+     * @returns A new {@link JsonAccessor} instance.
+     */
     clone(data: Record<string, unknown>): JsonAccessor<T> {
         return new JsonAccessor(JSON.stringify(data)) as JsonAccessor<T>;
     }

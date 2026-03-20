@@ -19,10 +19,10 @@ use SafeAccessInline\Exceptions\UnsupportedTypeException;
  */
 final class PluginRegistry
 {
-    /** @var array<string, ParserPluginInterface> */
+    /** @var array<string, ParserPluginInterface> Map of format identifier to registered parser plugin. */
     private static array $parsers = [];
 
-    /** @var array<string, SerializerPluginInterface> */
+    /** @var array<string, SerializerPluginInterface> Map of format identifier to registered serializer plugin. */
     private static array $serializers = [];
 
     // ── Parser Registration ────────────────────────

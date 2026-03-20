@@ -215,4 +215,19 @@ describe(YamlAccessor::class, function () {
         };
         expect($accessor)->toThrow(InvalidFormatException::class, 'requires ext-yaml or symfony/yaml');
     })->skip(class_exists(\Symfony\Component\Yaml\Yaml::class) || function_exists('yaml_parse'), 'YAML parser is available');
+
+    it('parse — throws InvalidFormatException when hasSymfonyYaml returns false', function () {
+        // Anonymous subclass overrides both hooks to simulate all parsers absent;
+        // no skip condition needed — the mocks always force the missing-library branch.
+        expect(fn () => new class ("name: Ana") extends YamlAccessor {
+            protected function hasNativeYamlParse(): bool
+            {
+                return false;
+            }
+            protected function hasSymfonyYaml(): bool
+            {
+                return false;
+            }
+        })->toThrow(InvalidFormatException::class, 'requires ext-yaml or symfony/yaml');
+    });
 });

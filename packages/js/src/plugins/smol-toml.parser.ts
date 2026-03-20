@@ -13,6 +13,12 @@ const getSmolToml = optionalRequire<{ parse: typeof tomlParse }>('smol-toml', 'T
  * PluginRegistry.registerParser('toml', new SmolTomlParser());
  */
 export class SmolTomlParser implements ParserPlugin {
+    /**
+     * Parses a TOML string into a plain record using smol-toml.
+     *
+     * @param raw - The TOML string to parse.
+     * @returns A plain record of the parsed TOML data.
+     */
     parse(raw: string): Record<string, unknown> {
         return getSmolToml().parse(raw) as Record<string, unknown>;
     }

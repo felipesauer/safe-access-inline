@@ -117,7 +117,13 @@ export class SafeAccess {
 
     // ── Typed Factories ──────────────────────────────
 
-    /** Creates a typed {@link ArrayAccessor} from an array. */
+    /**
+     * Creates a typed {@link ArrayAccessor} from an array.
+     *
+     * @param data - Source array.
+     * @param options - Optional configuration (`readonly: true` freezes the accessor).
+     * @returns A typed {@link ArrayAccessor}.
+     */
     static fromArray<T extends Record<string, unknown> = Record<string, unknown>>(
         data: unknown[],
         options?: { readonly?: boolean },
@@ -125,7 +131,13 @@ export class SafeAccess {
         return new ArrayAccessor(data, options) as ArrayAccessor<T>;
     }
 
-    /** Creates a typed {@link ObjectAccessor} from a plain object. */
+    /**
+     * Creates a typed {@link ObjectAccessor} from a plain object.
+     *
+     * @param data - Source plain object.
+     * @param options - Optional configuration (`readonly: true` freezes the accessor).
+     * @returns A typed {@link ObjectAccessor}.
+     */
     static fromObject<T extends Record<string, unknown> = Record<string, unknown>>(
         data: Record<string, unknown>,
         options?: { readonly?: boolean },
@@ -133,7 +145,13 @@ export class SafeAccess {
         return new ObjectAccessor(data, options) as ObjectAccessor<T>;
     }
 
-    /** Creates a typed {@link JsonAccessor} from a JSON string. */
+    /**
+     * Creates a typed {@link JsonAccessor} from a JSON string.
+     *
+     * @param data - JSON-encoded string.
+     * @param options - Optional configuration (`readonly: true` freezes the accessor).
+     * @returns A typed {@link JsonAccessor}.
+     */
     static fromJson<T extends Record<string, unknown> = Record<string, unknown>>(
         data: string,
         options?: { readonly?: boolean },
@@ -141,7 +159,13 @@ export class SafeAccess {
         return new JsonAccessor(data, options) as JsonAccessor<T>;
     }
 
-    /** Creates a typed {@link XmlAccessor} from an XML string. */
+    /**
+     * Creates a typed {@link XmlAccessor} from an XML string.
+     *
+     * @param data - XML-encoded string.
+     * @param options - Optional configuration (`readonly: true` freezes the accessor).
+     * @returns A typed {@link XmlAccessor}.
+     */
     static fromXml<T extends Record<string, unknown> = Record<string, unknown>>(
         data: string,
         options?: { readonly?: boolean },
@@ -149,7 +173,13 @@ export class SafeAccess {
         return new XmlAccessor(data, options) as XmlAccessor<T>;
     }
 
-    /** Creates a typed {@link YamlAccessor} from a YAML string. */
+    /**
+     * Creates a typed {@link YamlAccessor} from a YAML string.
+     *
+     * @param data - YAML-encoded string.
+     * @param options - Optional configuration (`readonly: true` freezes the accessor).
+     * @returns A typed {@link YamlAccessor}.
+     */
     static fromYaml<T extends Record<string, unknown> = Record<string, unknown>>(
         data: string,
         options?: { readonly?: boolean },
@@ -157,7 +187,13 @@ export class SafeAccess {
         return new YamlAccessor(data, options) as YamlAccessor<T>;
     }
 
-    /** Creates a typed {@link TomlAccessor} from a TOML string. */
+    /**
+     * Creates a typed {@link TomlAccessor} from a TOML string.
+     *
+     * @param data - TOML-encoded string.
+     * @param options - Optional configuration (`readonly: true` freezes the accessor).
+     * @returns A typed {@link TomlAccessor}.
+     */
     static fromToml<T extends Record<string, unknown> = Record<string, unknown>>(
         data: string,
         options?: { readonly?: boolean },
@@ -165,7 +201,13 @@ export class SafeAccess {
         return new TomlAccessor(data, options) as TomlAccessor<T>;
     }
 
-    /** Creates a typed {@link IniAccessor} from an INI-format string. */
+    /**
+     * Creates a typed {@link IniAccessor} from an INI-format string.
+     *
+     * @param data - INI-encoded string.
+     * @param options - Optional configuration (`readonly: true` freezes the accessor).
+     * @returns A typed {@link IniAccessor}.
+     */
     static fromIni<T extends Record<string, unknown> = Record<string, unknown>>(
         data: string,
         options?: { readonly?: boolean },
@@ -173,7 +215,13 @@ export class SafeAccess {
         return new IniAccessor(data, options) as IniAccessor<T>;
     }
 
-    /** Creates a typed {@link CsvAccessor} from a CSV string. */
+    /**
+     * Creates a typed {@link CsvAccessor} from a CSV string.
+     *
+     * @param data - CSV-encoded string.
+     * @param options - Optional configuration (`readonly: true` freezes the accessor).
+     * @returns A typed {@link CsvAccessor}.
+     */
     static fromCsv<T extends Record<string, unknown> = Record<string, unknown>>(
         data: string,
         options?: { readonly?: boolean },
@@ -181,7 +229,13 @@ export class SafeAccess {
         return new CsvAccessor(data, options) as CsvAccessor<T>;
     }
 
-    /** Creates a typed {@link EnvAccessor} from a `.env`-format string. */
+    /**
+     * Creates a typed {@link EnvAccessor} from a `.env`-format string.
+     *
+     * @param data - `.env`-format string.
+     * @param options - Optional configuration (`readonly: true` freezes the accessor).
+     * @returns A typed {@link EnvAccessor}.
+     */
     static fromEnv<T extends Record<string, unknown> = Record<string, unknown>>(
         data: string,
         options?: { readonly?: boolean },
@@ -189,7 +243,13 @@ export class SafeAccess {
         return new EnvAccessor(data, options) as EnvAccessor<T>;
     }
 
-    /** Creates a typed {@link NdjsonAccessor} from a newline-delimited JSON string. */
+    /**
+     * Creates a typed {@link NdjsonAccessor} from a newline-delimited JSON string.
+     *
+     * @param data - NDJSON-encoded string (one JSON object per line).
+     * @param options - Optional configuration (`readonly: true` freezes the accessor).
+     * @returns A typed {@link NdjsonAccessor}.
+     */
     static fromNdjson<T extends Record<string, unknown> = Record<string, unknown>>(
         data: string,
         options?: { readonly?: boolean },
@@ -197,7 +257,13 @@ export class SafeAccess {
         return new NdjsonAccessor(data, options) as NdjsonAccessor<T>;
     }
 
-    /** Auto-detects the data format and returns the matching accessor. */
+    /**
+     * Auto-detects the data format and returns the matching accessor.
+     *
+     * @param data - Raw input (array, plain object, or format string).
+     * @returns The appropriate format-specific accessor.
+     * @throws {@link UnsupportedTypeError} When the format cannot be determined.
+     */
     static detect(data: unknown): AbstractAccessor {
         return TypeDetector.resolve(data);
     }
@@ -207,6 +273,8 @@ export class SafeAccess {
     /**
      * Registers a custom accessor class under a format `name`.
      *
+     * @param name - Format identifier to register (e.g. `'my-format'`).
+     * @param cls - Constructor of the custom accessor class.
      * @throws {RangeError} When the maximum number of custom accessors is reached.
      */
     static extend(name: string, cls: new (data: unknown) => AbstractAccessor): void {
@@ -218,12 +286,21 @@ export class SafeAccess {
         SafeAccess.customAccessors.set(name, cls);
     }
 
-    /** Removes all custom accessors registered via {@link extend}. */
+    /**
+     * Removes all custom accessors registered via {@link extend}.
+     */
     static clearCustomAccessors(): void {
         SafeAccess.customAccessors.clear();
     }
 
-    /** Instantiates a previously registered custom accessor by `name`. */
+    /**
+     * Instantiates a previously registered custom accessor by `name`.
+     *
+     * @param name - Format identifier of the registered custom accessor.
+     * @param data - Raw data to pass to the accessor constructor.
+     * @returns A new accessor instance of the registered type.
+     * @throws {@link Error} When no custom accessor is registered under `name`.
+     */
     static custom(name: string, data: unknown): AbstractAccessor {
         const Cls = SafeAccess.customAccessors.get(name);
         if (!Cls) throw new Error(`Custom accessor '${name}' is not registered.`);
@@ -307,7 +384,12 @@ export class SafeAccess {
 
     // ── Layered Config ───────────────────────────────
 
-    /** Deep-merges multiple accessors into a single {@link ObjectAccessor} (last wins). */
+    /**
+     * Deep-merges multiple accessors into a single {@link ObjectAccessor} (last wins).
+     *
+     * @param sources - Accessors to merge in order (later entries override earlier ones).
+     * @returns A new {@link ObjectAccessor} containing the merged data.
+     */
     static layer(sources: AbstractAccessor[]): AbstractAccessor {
         if (sources.length === 0) {
             return ObjectAccessor.from({});
@@ -319,7 +401,13 @@ export class SafeAccess {
         return ObjectAccessor.from(merged);
     }
 
-    /** Reads multiple files and deep-merges them in order (last wins). */
+    /**
+     * Reads multiple files and deep-merges them in order (last wins).
+     *
+     * @param paths - File paths to read and merge.
+     * @param options - Optional path restriction options.
+     * @returns A new accessor containing the merged data.
+     */
     static async layerFiles(
         paths: string[],
         options?: { allowedDirs?: string[]; allowAnyPath?: boolean },
@@ -337,7 +425,14 @@ export class SafeAccess {
 
     // ── File Watcher ─────────────────────────────────
 
-    /** Watches a file for changes and re-parses it on each change. Returns an unsubscribe function. */
+    /**
+     * Watches a file for changes and re-parses it on each change.
+     *
+     * @param filePath - Path to the file to watch.
+     * @param onChange - Callback invoked with a new accessor on each file change.
+     * @param options - Optional format and path restriction options.
+     * @returns An unsubscribe function; call it to stop watching.
+     */
     static watchFile(
         filePath: string,
         onChange: (accessor: AbstractAccessor) => void,
@@ -351,12 +446,18 @@ export class SafeAccess {
 
     // ── SecurityPolicy ───────────────────────────────
 
-    /** Installs a process-wide security policy for all subsequent operations. */
+    /**
+     * Installs a process-wide security policy for all subsequent operations.
+     *
+     * @param policy - The security policy to apply globally.
+     */
     static setGlobalPolicy(policy: SecurityPolicy): void {
         _setGlobalPolicy(policy);
     }
 
-    /** Removes the global security policy. */
+    /**
+     * Removes the global security policy.
+     */
     static clearGlobalPolicy(): void {
         _clearGlobalPolicy();
     }
@@ -382,13 +483,20 @@ export class SafeAccess {
         }
 
         if (policy.maskPatterns && policy.maskPatterns.length > 0) {
-            accessor = accessor.masked(policy.maskPatterns);
+            accessor = accessor.mask(policy.maskPatterns);
         }
 
         return accessor;
     }
 
-    /** Reads a file with path-traversal protection and key/mask policy enforcement. */
+    /**
+     * Reads a file with path-traversal protection and key/mask policy enforcement.
+     *
+     * @param filePath - Path of the file to read.
+     * @param policy - Security policy to apply (allowedDirs, maxKeys, maskPatterns).
+     * @returns A new accessor with policy checks applied.
+     * @throws {@link SecurityError} When the file is outside allowed directories.
+     */
     static async fromFileWithPolicy(
         filePath: string,
         policy: SecurityPolicy,
@@ -402,13 +510,20 @@ export class SafeAccess {
         }
 
         if (policy.maskPatterns && policy.maskPatterns.length > 0) {
-            accessor = accessor.masked(policy.maskPatterns);
+            accessor = accessor.mask(policy.maskPatterns);
         }
 
         return accessor;
     }
 
-    /** Fetches a URL with SSRF + payload-size + key/mask policy enforcement. */
+    /**
+     * Fetches a URL with SSRF, payload-size, and key/mask policy enforcement.
+     *
+     * @param url - URL to fetch.
+     * @param policy - Security policy to apply (SSRF protection, maxPayloadBytes, maxKeys, maskPatterns).
+     * @returns A new accessor with policy checks applied.
+     * @throws {@link SecurityError} On any network-policy violation.
+     */
     static async fromUrlWithPolicy(url: string, policy: SecurityPolicy): Promise<AbstractAccessor> {
         // Fetch raw text first so payload size is checked against actual HTTP bytes, not re-serialized JSON
         const rawText = await fetchUrl(url, {
@@ -433,7 +548,7 @@ export class SafeAccess {
         }
 
         if (policy.maskPatterns && policy.maskPatterns.length > 0) {
-            accessor = accessor.masked(policy.maskPatterns);
+            accessor = accessor.mask(policy.maskPatterns);
         }
 
         return accessor;
@@ -441,12 +556,19 @@ export class SafeAccess {
 
     // ── Audit ────────────────────────────────────────
 
-    /** Registers an audit listener invoked on every auditable operation. */
+    /**
+     * Registers an audit listener invoked on every auditable operation.
+     *
+     * @param listener - Callback to receive {@link AuditEvent} objects.
+     * @returns An unsubscribe function; call it to remove the listener.
+     */
     static onAudit(listener: AuditListener): () => void {
         return onAudit(listener);
     }
 
-    /** Removes all audit listeners. */
+    /**
+     * Removes all audit listeners.
+     */
     static clearAuditListeners(): void {
         clearAuditListeners();
     }

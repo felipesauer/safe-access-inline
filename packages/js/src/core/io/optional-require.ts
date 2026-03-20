@@ -8,7 +8,14 @@ const _require = import.meta.url ? createRequire(import.meta.url) : require;
 
 /**
  * Lazily loads an optional peer dependency.
- * Returns a getter function that throws a clear error if the module is not installed.
+ *
+ * Returns a getter function that, on first call, attempts to require `moduleId`.
+ * Subsequent calls reuse the cached module. Throws a helpful install message when
+ * the module is absent.
+ *
+ * @param moduleId - NPM package name to require (e.g. `'js-yaml'`).
+ * @param featureName - Human-readable feature name used in error messages (e.g. `'YAML'`).
+ * @returns A zero-argument getter that resolves to `T` or throws on first use.
  */
 export function optionalRequire<T>(moduleId: string, featureName: string): () => T {
     let mod: T | undefined;

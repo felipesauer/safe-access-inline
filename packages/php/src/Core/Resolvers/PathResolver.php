@@ -177,13 +177,17 @@ final class PathResolver
     }
 
     /**
-     * @param mixed $current
-     * @param string $key
-     * @param array<array{type: SegmentType|string, value?: string, key?: string, expression?: array<mixed>, indices?: array<int>, keys?: array<string>, start?: int|null, end?: int|null, step?: int|null}> $segments
-     * @param int $nextIndex
-     * @param mixed $default
-     * @param int $maxDepth
-     * @return array<mixed>
+     * Collects all values matching the recursive-descent key and returns them as an array.
+     *
+     * Wraps {@see collectDescent()} and returns the accumulated result array.
+     *
+     * @param  mixed  $current   Current data node to start descent from.
+     * @param  string $key       Key to search for recursively.
+     * @param  array<array{type: SegmentType|string, value?: string, key?: string, expression?: array<mixed>, indices?: array<int>, keys?: array<string>, start?: int|null, end?: int|null, step?: int|null}> $segments Full segment array.
+     * @param  int    $nextIndex Segment index to continue resolution from after the key is found.
+     * @param  mixed  $default   Default value for unresolved continuations.
+     * @param  int    $maxDepth  Maximum recursion depth.
+     * @return array<mixed> All matched and post-processed values.
      */
     private static function resolveDescent(mixed $current, string $key, array $segments, int $nextIndex, mixed $default, int $maxDepth): array
     {
@@ -193,13 +197,20 @@ final class PathResolver
     }
 
     /**
-     * @param mixed $current
-     * @param string $key
-     * @param array<array{type: SegmentType|string, value?: string, key?: string, expression?: array<mixed>, indices?: array<int>, keys?: array<string>, start?: int|null, end?: int|null, step?: int|null}> $segments
-     * @param int $nextIndex
-     * @param mixed $default
-     * @param array<mixed> &$results
-     * @param int $maxDepth
+     * Recursively walks `$current` to accumulate values matching `$key`.
+     *
+     * For each node in the subtree: if the key exists, the associated value
+     * (or the result of continuing the segment chain) is appended to `$results`.
+     * The walk then descends into all child arrays regardless of whether the
+     * key was found at the current level.
+     *
+     * @param  mixed  $current   Current data node to inspect.
+     * @param  string $key       Key to search for at every level.
+     * @param  array<array{type: SegmentType|string, value?: string, key?: string, expression?: array<mixed>, indices?: array<int>, keys?: array<string>, start?: int|null, end?: int|null, step?: int|null}> $segments Full segment array.
+     * @param  int    $nextIndex Segment index to continue from after the key is found.
+     * @param  mixed  $default   Default value for unresolved continuations.
+     * @param  array<mixed> &$results Accumulator — matched values are appended here.
+     * @param  int    $maxDepth  Maximum recursion depth.
      */
     private static function collectDescent(mixed $current, string $key, array $segments, int $nextIndex, mixed $default, array &$results, int $maxDepth): void
     {

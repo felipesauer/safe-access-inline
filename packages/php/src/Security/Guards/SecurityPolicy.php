@@ -27,6 +27,14 @@ final class SecurityPolicy
     ) {
     }
 
+    /**
+     * Returns a strict policy suitable for user-facing or sensitive environments.
+     *
+     * Applies tight limits: 20 depth, 1 MB payload, 1 000 keys, HTTPS-only URLs,
+     * and CSV injection errors.
+     *
+     * @return self Pre-configured strict policy instance.
+     */
     public static function strict(): self
     {
         return new self(
@@ -38,6 +46,13 @@ final class SecurityPolicy
         );
     }
 
+    /**
+     * Returns a permissive policy suitable for trusted internal data processing.
+     *
+     * Applies relaxed limits: 1 024 depth, 100 MB payload, 100 000 keys.
+     *
+     * @return self Pre-configured permissive policy instance.
+     */
     public static function permissive(): self
     {
         return new self(
@@ -49,18 +64,32 @@ final class SecurityPolicy
 
     // ── Global Policy ───────────────────────────────────
 
+    /** @var self|null The process-wide policy applied when none is supplied per-call. */
     private static ?self $global = null;
 
+    /**
+     * Registers a process-wide default policy.
+     *
+     * @param self $policy Policy to apply globally.
+     */
     public static function setGlobal(self $policy): void
     {
         self::$global = $policy;
     }
 
+    /**
+     * Removes the process-wide default policy.
+     */
     public static function clearGlobal(): void
     {
         self::$global = null;
     }
 
+    /**
+     * Returns the current process-wide default policy, or null if none is set.
+     *
+     * @return self|null The globally registered policy, or null.
+     */
     public static function getGlobal(): ?self
     {
         return self::$global;

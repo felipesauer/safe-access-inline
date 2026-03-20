@@ -64,12 +64,20 @@ export function setGlobalPolicy(policy: SecurityPolicy): void {
     globalPolicy = policy;
 }
 
-/** Removes the global security policy so {@link defaultPolicy} returns the built-in defaults. */
+/**
+ * Removes the global security policy so {@link defaultPolicy} returns the built-in defaults.
+ *
+ * @returns `void`.
+ */
 export function clearGlobalPolicy(): void {
     globalPolicy = null;
 }
 
-/** Returns the currently active global security policy, or `null` if none is set. */
+/**
+ * Returns the currently active global security policy.
+ *
+ * @returns The policy installed via {@link setGlobalPolicy}, or `null` if none is set.
+ */
 export function getGlobalPolicy(): SecurityPolicy | null {
     return globalPolicy;
 }

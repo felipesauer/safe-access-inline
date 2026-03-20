@@ -97,10 +97,10 @@ describe('DataMasker', () => {
         });
     });
 
-    describe('AbstractAccessor.masked()', () => {
+    describe('AbstractAccessor.mask()', () => {
         it('returns a new accessor with masked data', () => {
             const accessor = SafeAccess.fromJson('{"user":"john","password":"secret"}');
-            const masked = accessor.masked();
+            const masked = accessor.mask();
             expect(masked.get('user')).toBe('john');
             expect(masked.get('password')).toBe('[REDACTED]');
             // original unchanged
@@ -109,7 +109,7 @@ describe('DataMasker', () => {
 
         it('accepts custom patterns', () => {
             const accessor = SafeAccess.fromJson('{"my_field":"val","other":"keep"}');
-            const masked = accessor.masked(['my_field']);
+            const masked = accessor.mask(['my_field']);
             expect(masked.get('my_field')).toBe('[REDACTED]');
             expect(masked.get('other')).toBe('keep');
         });

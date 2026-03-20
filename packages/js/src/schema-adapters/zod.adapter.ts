@@ -18,6 +18,13 @@ import type {
 export class ZodSchemaAdapter<
     TSchema extends { safeParse: (data: unknown) => ZodSafeParseResult },
 > implements SchemaAdapterInterface<TSchema> {
+    /**
+     * Validates `data` against the given Zod schema.
+     *
+     * @param data - The value to validate.
+     * @param schema - The Zod schema to validate against.
+     * @returns A {@link SchemaValidationResult} with `valid` flag and any errors.
+     */
     validate(data: unknown, schema: TSchema): SchemaValidationResult {
         const result = schema.safeParse(data);
 

@@ -12,7 +12,7 @@ use SafeAccessInline\Exceptions\SecurityException;
  *
  * Implements {@see HttpClientInterface} using PHP's native cURL functions.
  */
-final class CurlHttpClient implements HttpClientInterface
+class CurlHttpClient implements HttpClientInterface
 {
     /**
      * Fetches remote content from a URL using cURL.
@@ -21,11 +21,11 @@ final class CurlHttpClient implements HttpClientInterface
      * @param  array<int, mixed>  $curlOptions cURL option constants mapped to their values.
      * @return string Raw response body.
      *
-     * @throws SecurityException If cURL initialisation or the request fails.
+     * @throws SecurityException If cURL initialization or the request fails.
      */
     public function fetch(string $url, array $curlOptions): string
     {
-        $ch = curl_init($url);
+        $ch = $this->curlInit($url);
         if ($ch === false) {
             throw new SecurityException("Failed to initialize cURL for URL: '{$url}'");
         }
@@ -45,5 +45,16 @@ final class CurlHttpClient implements HttpClientInterface
             // curl_close() is a no-op since PHP 8.0 and deprecated since PHP 8.5;
             // the CurlHandle is freed automatically when it goes out of scope.
         }
+    }
+
+    /**
+     * Initialize a cURL handle for the given URL.
+     * Extracted as a protected method so tests can override it to simulate failures.
+     *
+     * @return \CurlHandle|false
+     */
+    protected function curlInit(string $url): \CurlHandle|false
+    {
+        return curl_init($url);
     }
 }

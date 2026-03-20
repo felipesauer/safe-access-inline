@@ -22,5 +22,12 @@ export default defineConfig({
                 statements: 100,
             },
         },
+        typecheck: {
+            enabled: true,
+            include: ['tests/**/*.test-d.ts'],
+        },
+    },
+    benchmark: {
+        outputFile: './bench-results.json',
     },
 });

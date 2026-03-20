@@ -21,11 +21,28 @@ use SafeAccessInline\Security\Sanitizers\CsvSanitizer;
  */
 trait HasTransformations
 {
+    /**
+     * Serialises the accessor's data to a JSON string.
+     *
+     * @param  int    $flags Bitmask of {@see JSON_*} flags passed to `json_encode`.
+     * @return string JSON-encoded data.
+     *
+     * @throws \JsonException On encoding failure.
+     */
     public function toJson(int $flags = 0): string
     {
         return json_encode($this->data, $flags | JSON_THROW_ON_ERROR);
     }
 
+    /**
+     * Serialises the accessor's data to Newline-Delimited JSON (NDJSON).
+     *
+     * Each top-level value is encoded as a separate JSON line.
+     *
+     * @return string NDJSON string with one JSON object per line.
+     *
+     * @throws \JsonException On encoding failure.
+     */
     public function toNdjson(): string
     {
         $items = array_values($this->data);
@@ -37,7 +54,14 @@ trait HasTransformations
     }
 
     /**
-     * @param 'none'|'prefix'|'strip'|'error'|null $csvMode
+     * Serialises the accessor's data to a CSV string.
+     *
+     * The first row contains headers derived from the keys of the first element.
+     * CSV injection mitigation is controlled by `$csvMode`.
+     *
+     * @param  'none'|'prefix'|'strip'|'error'|null $csvMode Injection-mitigation mode;
+     *         null falls back to the global policy or `'none'`.
+     * @return string CSV-encoded data.
      */
     public function toCsv(?string $csvMode = null): string
     {
@@ -77,6 +101,15 @@ trait HasTransformations
         return implode("\n", $lines);
     }
 
+    /**
+     * Converts the accessor's data to a plain PHP object (stdClass tree).
+     *
+     * Performed via a JSON encode/decode round-trip.
+     *
+     * @return object stdClass representation of the data.
+     *
+     * @throws \JsonException On encode/decode failure.
+     */
     public function toObject(): object
     {
         /** @var object */
@@ -88,6 +121,17 @@ trait HasTransformations
         );
     }
 
+    /**
+     * Serialises the accessor's data to an XML string.
+     *
+     * Uses a registered `'xml'` serializer plugin when available, otherwise
+     * falls back to the built-in {@see SimpleXmlSerializer}.
+     *
+     * @param  string $rootElement XML root element name (must match `[a-zA-Z_][\w.-]*`).
+     * @return string XML string representation.
+     *
+     * @throws \SafeAccessInline\Exceptions\InvalidFormatException When `$rootElement` is invalid.
+     */
     public function toXml(string $rootElement = 'root'): string
     {
         if (!preg_match('/^[a-zA-Z_][\w.\-]*$/', $rootElement)) {
@@ -101,6 +145,14 @@ trait HasTransformations
         return (new SimpleXmlSerializer($rootElement))->serialize($this->data);
     }
 
+    /**
+     * Serialises the accessor's data to a TOML string.
+     *
+     * Uses a registered `'toml'` serializer plugin when available, otherwise
+     * falls back to the built-in {@see DeviumTomlSerializer}.
+     *
+     * @return string TOML string representation.
+     */
     public function toToml(): string
     {
         if (PluginRegistry::hasSerializer('toml')) {
@@ -110,6 +162,13 @@ trait HasTransformations
         return (new DeviumTomlSerializer())->serialize($this->data);
     }
 
+    /**
+     * Serialises the accessor's data to a YAML string.
+     *
+     * Resolution order: registered `'yaml'` plugin → native `yaml_emit` → Symfony YAML.
+     *
+     * @return string YAML string representation.
+     */
     public function toYaml(): string
     {
         if (PluginRegistry::hasSerializer('yaml')) {

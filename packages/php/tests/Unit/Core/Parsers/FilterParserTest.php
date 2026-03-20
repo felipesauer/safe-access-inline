@@ -1,5 +1,8 @@
 <?php
 
+use SafeAccessInline\Contracts\FilterCondition;
+use SafeAccessInline\Contracts\FilterExpression;
+use SafeAccessInline\Core\Config\FilterParserConfig;
 use SafeAccessInline\Core\Parsers\FilterParser;
 
 describe(FilterParser::class, function () {
@@ -234,5 +237,62 @@ describe(FilterParser::class, function () {
         $expr = FilterParser::parse("match(@.val,'{$longPattern}')");
         // Pattern rejected by ReDoS guard (>256 chars) → returns false
         expect(FilterParser::evaluate(['val' => 'aaaaab'], $expr))->toBeFalse();
+    });
+
+    // ── FilterCondition DTO ─────────────────────────────
+
+    it('FilterCondition — constructor stores field, operator, value and optional fields', function () {
+        $cond = new FilterCondition(field: 'age', operator: '>', value: 18);
+
+        expect($cond->field)->toBe('age')
+            ->and($cond->operator)->toBe('>')
+            ->and($cond->value)->toBe(18)
+            ->and($cond->func)->toBeNull()
+            ->and($cond->funcArgs)->toBeNull();
+    });
+
+    it('FilterCondition — constructor stores optional func and funcArgs', function () {
+        $cond = new FilterCondition(
+            field:    '@.name',
+            operator: '>',
+            value:    3,
+            func:     'length',
+            funcArgs: [],
+        );
+
+        expect($cond->func)->toBe('length')
+            ->and($cond->funcArgs)->toBe([]);
+    });
+
+    // ── FilterExpression DTO ───────────────────────────
+
+    it('FilterExpression — constructor stores conditions list and logicals list', function () {
+        $cond = new FilterCondition(field: 'active', operator: '==', value: true);
+        $expr = new FilterExpression(conditions: [$cond], logicals: []);
+
+        expect($expr->conditions)->toHaveCount(1)
+            ->and($expr->conditions[0])->toBe($cond)
+            ->and($expr->logicals)->toBe([]);
+    });
+
+    it('configure — sets custom FilterParserConfig', function () {
+        FilterParser::configure(new FilterParserConfig(maxPatternLength: 64));
+        $expr = FilterParser::parse('@.name == "test"');
+        expect($expr['conditions'])->toHaveCount(1);
+        FilterParser::resetConfig();
+    });
+
+    it('resetConfig — restores default configuration', function () {
+        FilterParser::configure(new FilterParserConfig(maxPatternLength: 1));
+        FilterParser::resetConfig();
+        $item = ['name' => 'hello'];
+        $expr = FilterParser::parse('match(@.name, "^h")') ;
+        expect(FilterParser::evaluate($item, $expr))->toBeTrue();
+    });
+
+    it('resolveFilterArg resolves bare field name without @. prefix via function call', function () {
+        $expr = FilterParser::parse('length(name) > 3');
+        expect(FilterParser::evaluate(['name' => 'hello'], $expr))->toBeTrue();
+        expect(FilterParser::evaluate(['name' => 'hi'], $expr))->toBeFalse();
     });
 });

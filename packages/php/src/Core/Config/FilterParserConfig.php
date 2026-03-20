@@ -22,7 +22,9 @@ final readonly class FilterParserConfig
     public const DEFAULT_PCRE_RECURSION_LIMIT = 100;
 
     /**
-     * @param int $maxPatternLength  Maximum length of a regex pattern in a `match()` filter.
+     * Creates a new filter parser configuration with optional overrides.
+     *
+     * @param int $maxPatternLength   Maximum length of a regex pattern in a `match()` filter.
      * @param int $pcreBacktrackLimit PCRE backtrack limit set during regex evaluation.
      * @param int $pcreRecursionLimit PCRE recursion limit set during regex evaluation.
      */

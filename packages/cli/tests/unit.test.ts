@@ -17,13 +17,14 @@ import {
     PluginRegistry,
 } from "@safe-access-inline/safe-access-inline";
 
-const FIXTURES = resolve(__dirname, "../../js/tests/fixtures");
+const FIXTURES = resolve(__dirname, "./fixtures");
 const configJson = join(FIXTURES, "config.json");
 const configYaml = join(FIXTURES, "config.yaml");
 const configToml = join(FIXTURES, "config.toml");
 const overrideJson = join(FIXTURES, "override.json");
 const configSchema = join(FIXTURES, "config.schema.json");
 const configFailSchema = join(FIXTURES, "config-fail.schema.json");
+const asymmetricJson = join(FIXTURES, "config-asymmetric.json");
 
 function createIO(): CliIO & { stdoutData: string; stderrData: string } {
     const io = {
@@ -260,6 +261,20 @@ describe("run — help & version", () => {
         const { stdout } = runCli(["-v"]);
         expect(stdout).toBe("1.2.3");
     });
+
+    // ID 21 — trailing \n on help output
+    it("help output ends with newline", () => {
+        const io = createIO();
+        run([], io);
+        expect(io.stdoutData).toMatch(/\n$/);
+    });
+
+    // ID 28 — trailing \n on version output
+    it("version output ends with newline", () => {
+        const io = createIO();
+        run(["--version"], io);
+        expect(io.stdoutData).toBe("1.2.3\n");
+    });
 });
 
 // ── run() — get ──
@@ -294,6 +309,8 @@ describe("run — get", () => {
     it("returns null for missing path without default", () => {
         const { stdout } = runCli(["get", configJson, "missing.path"]);
         expect(stdout).toBe("null");
+        // garante que é null JS, não a string "undefined" (mata mutante ID 162)
+        expect(stdout).not.toBe("undefined");
     });
 
     it("supports wildcard", () => {
@@ -307,6 +324,17 @@ describe("run — get", () => {
         const { stderr, exitCode } = runCli(["get", configJson]);
         expect(exitCode).toBe(1);
         expect(stderr).toContain("Usage:");
+    });
+
+    // ID 155 — strict: false allows unrecognized flags
+    it("ignores unrecognized flags gracefully", () => {
+        const io = createIO();
+        const code = run(
+            ["get", configJson, "database.host", "--unknown", "val"],
+            io,
+        );
+        expect(code).toBe(0);
+        expect(io.stdoutData.trim()).toBe("localhost");
     });
 });
 
@@ -345,6 +373,41 @@ describe("run — set", () => {
         expect(exitCode).toBe(1);
         expect(stderr).toContain("Usage:");
     });
+
+    // ID 253 — pretty default is false (output is compact JSON without --pretty)
+    it("outputs compact JSON by default without --pretty", () => {
+        const io = createIO();
+        run(["set", configJson, "database.port", "9999", "--to", "json"], io);
+        const output = io.stdoutData.trim();
+        expect(() => JSON.parse(output)).not.toThrow();
+        expect(output.split("\n")).toHaveLength(1);
+    });
+
+    // ID 255 — strict: false allows unrecognized flags
+    it("ignores unrecognized flags gracefully", () => {
+        const io = createIO();
+        const code = run(
+            [
+                "set",
+                configJson,
+                "database.port",
+                "9999",
+                "--to",
+                "json",
+                "--unknown",
+                "val",
+            ],
+            io,
+        );
+        expect(code).toBe(0);
+    });
+
+    // ID 262 — trailing \n on set output
+    it("output ends with newline character", () => {
+        const io = createIO();
+        run(["set", configJson, "database.port", "9999", "--to", "json"], io);
+        expect(io.stdoutData).toMatch(/\n$/);
+    });
 });
 
 // ── run() — remove ──
@@ -368,6 +431,40 @@ describe("run — remove", () => {
         const { stderr, exitCode } = runCli(["remove", configJson]);
         expect(exitCode).toBe(1);
         expect(stderr).toContain("Usage:");
+    });
+
+    // ID 236 — pretty default is false (output is compact JSON without --pretty)
+    it("outputs compact JSON by default without --pretty", () => {
+        const io = createIO();
+        run(["remove", configJson, "database.port", "--to", "json"], io);
+        const output = io.stdoutData.trim();
+        expect(() => JSON.parse(output)).not.toThrow();
+        expect(output.split("\n")).toHaveLength(1);
+    });
+
+    // ID 238 — strict: false allows unrecognized flags
+    it("ignores unrecognized flags gracefully", () => {
+        const io = createIO();
+        const code = run(
+            [
+                "remove",
+                configJson,
+                "database.port",
+                "--to",
+                "json",
+                "--unknown",
+                "val",
+            ],
+            io,
+        );
+        expect(code).toBe(0);
+    });
+
+    // ID 245 — trailing \n on remove output
+    it("output ends with newline character", () => {
+        const io = createIO();
+        run(["remove", configJson, "database.port", "--to", "json"], io);
+        expect(io.stdoutData).toMatch(/\n$/);
     });
 });
 
@@ -422,12 +519,40 @@ describe("run — transform", () => {
         io.readFileSync = (() => '{"x": 1}') as unknown as typeof readFileSync;
         run(["convert", "-", "--from", "json", "--to", "yaml"], io);
         expect(io.stdoutData).toContain("x: 1");
+        // ID 294 — trailing \n on transform output
+        expect(io.stdoutData).toMatch(/\n$/);
     });
 
     it("shows usage when no file and no --to", () => {
         const { stderr, exitCode } = runCli(["convert"]);
         expect(exitCode).toBe(1);
         expect(stderr).toContain("Usage:");
+    });
+
+    // IDs 277 + 281 — hasFile must not be trivially true: --to without any file
+    it("shows usage error when --to is given but no file argument at all", () => {
+        const { stderr, exitCode } = runCli(["convert", "--to", "json"]);
+        expect(exitCode).toBe(1);
+        expect(stderr).toContain("Usage:");
+    });
+
+    // ID 274 — pretty default is false (compact JSON without --pretty)
+    it("outputs compact JSON by default without --pretty", () => {
+        const io = createIO();
+        run(["transform", configJson, "--to", "json"], io);
+        const output = io.stdoutData.trim();
+        expect(() => JSON.parse(output)).not.toThrow();
+        expect(output.split("\n")).toHaveLength(1);
+    });
+
+    // ID 276 — strict: false allows unrecognized flags
+    it("ignores unrecognized flags gracefully", () => {
+        const io = createIO();
+        const code = run(
+            ["transform", configJson, "--to", "json", "--unknown", "val"],
+            io,
+        );
+        expect(code).toBe(0);
     });
 });
 
@@ -447,6 +572,13 @@ describe("run — diff", () => {
         const { stderr, exitCode } = runCli(["diff", configJson]);
         expect(exitCode).toBe(1);
         expect(stderr).toContain("Usage:");
+    });
+
+    // ID 147 — trailing \n on diff output
+    it("output ends with newline character", () => {
+        const io = createIO();
+        run(["diff", configJson, overrideJson], io);
+        expect(io.stdoutData).toMatch(/\n$/);
     });
 });
 
@@ -495,6 +627,40 @@ describe("run — mask", () => {
         expect(exitCode).toBe(1);
         expect(stderr).toContain("Usage:");
     });
+
+    // ID 221 — mask with --patterns but no file should show usage
+    it("shows usage error when --patterns given but no file argument", () => {
+        const io = createIO();
+        const code = run(["mask", "--patterns", "secret"], io);
+        expect(code).toBe(1);
+        expect(io.stderrData).toContain("Usage:");
+    });
+
+    // ID 215 — pretty default is false (compact JSON without --pretty)
+    it("outputs compact JSON by default without --pretty", () => {
+        const io = createIO();
+        run(["mask", configJson, "--patterns", "host", "--to", "json"], io);
+        const output = io.stdoutData.trim();
+        expect(() => JSON.parse(output)).not.toThrow();
+        expect(output.split("\n")).toHaveLength(1);
+    });
+
+    // ID 217 — strict: false allows unrecognized flags
+    it("ignores unrecognized flags gracefully", () => {
+        const io = createIO();
+        const code = run(
+            ["mask", configJson, "--patterns", "host", "--unknown", "val"],
+            io,
+        );
+        expect(code).toBe(0);
+    });
+
+    // ID 228 — trailing \n on mask output
+    it("output ends with newline character", () => {
+        const io = createIO();
+        run(["mask", configJson, "--patterns", "host", "--to", "json"], io);
+        expect(io.stdoutData).toMatch(/\n$/);
+    });
 });
 
 // ── run() — layer ──
@@ -539,6 +705,42 @@ describe("run — layer", () => {
         expect(exitCode).toBe(1);
         expect(stderr).toContain("Usage:");
     });
+
+    // ID 199 — layer with exactly 1 file is valid (< 1 guard, not <= 1)
+    it("layers a single file without error", () => {
+        const io = createIO();
+        const code = run(["layer", configJson, "--to", "json"], io);
+        expect(code).toBe(0);
+        const parsed = JSON.parse(io.stdoutData.trim());
+        expect(parsed).toHaveProperty("app");
+        expect(parsed.app.name).toBe("test-app");
+    });
+
+    // ID 194 — pretty default is false (compact JSON without --pretty)
+    it("outputs compact JSON by default without --pretty", () => {
+        const io = createIO();
+        run(["layer", configJson, overrideJson, "--to", "json"], io);
+        const output = io.stdoutData.trim();
+        expect(() => JSON.parse(output)).not.toThrow();
+        expect(output.split("\n")).toHaveLength(1);
+    });
+
+    // ID 196 — strict: false allows unrecognized flags
+    it("ignores unrecognized flags gracefully", () => {
+        const io = createIO();
+        const code = run(
+            ["layer", configJson, overrideJson, "--unknown", "--to", "json"],
+            io,
+        );
+        expect(code).toBe(0);
+    });
+
+    // ID 204 — trailing \n on layer output
+    it("output ends with newline character", () => {
+        const io = createIO();
+        run(["layer", configJson, overrideJson, "--to", "json"], io);
+        expect(io.stdoutData).toMatch(/\n$/);
+    });
 });
 
 // ── run() — keys ──
@@ -554,6 +756,26 @@ describe("run — keys", () => {
         const { stdout } = runCli(["keys", configJson, "database"]);
         expect(stdout).toContain("host");
         expect(stdout).toContain("port");
+    });
+
+    it("lists keys at path with result distinct from root keys", () => {
+        // raiz = ['a','b','c'] (3 keys) vs path='c' → ['x'] (1 key)
+        // qualquer mutação na condição ternária produz resultado errado (mata ID 181)
+        const io = createIO();
+        run(["keys", asymmetricJson, "c"], io);
+        expect(io.stdoutData.split("\n").filter(Boolean)).toEqual(["x"]);
+    });
+
+    it("keys output ends with newline when no path is given", () => {
+        // verifica sem .trim() para matar IDs 185 e 186
+        const io = createIO();
+        run(["keys", asymmetricJson], io);
+        expect(io.stdoutData).toMatch(/\n$/);
+        expect(io.stdoutData.split("\n").filter(Boolean)).toEqual([
+            "a",
+            "b",
+            "c",
+        ]);
     });
 
     it("shows usage error without file", () => {
@@ -590,6 +812,13 @@ describe("run — type", () => {
         const { stderr, exitCode } = runCli(["type", configJson]);
         expect(exitCode).toBe(1);
         expect(stderr).toContain("Usage:");
+    });
+
+    // ID 304 — trailing \n on type output
+    it("output ends with newline character", () => {
+        const io = createIO();
+        run(["type", configJson, "database"], io);
+        expect(io.stdoutData).toBe("object\n");
     });
 });
 
@@ -635,6 +864,28 @@ describe("run — count", () => {
     it("counts keys at path", () => {
         const { stdout } = runCli(["count", configJson, "database"]);
         expect(stdout).toBe("2");
+    });
+
+    it("counts keys at path with result distinct from root count", () => {
+        // fixture assimétrica: raiz=3 chaves, 'c'=1 chave
+        // se a condição ternária for mutada para true/false, o resultado muda (mata IDs 135–138)
+        const io = createIO();
+        run(["count", asymmetricJson, "c"], io);
+        expect(io.stdoutData.trim()).toBe("1");
+    });
+
+    it("counts root keys on asymmetric fixture", () => {
+        // raiz=3, diferente do path='c'=1, tornando as condições distinguíveis
+        const io = createIO();
+        run(["count", asymmetricJson], io);
+        expect(io.stdoutData.trim()).toBe("3");
+    });
+
+    it("count output ends with newline character", () => {
+        // verifica sem .trim() para matar ID 139
+        const io = createIO();
+        run(["count", configJson], io);
+        expect(io.stdoutData).toMatch(/\d+\n$/);
     });
 
     it("shows usage error without file", () => {
@@ -704,6 +955,58 @@ describe("run — validate", () => {
         const { stderr, exitCode } = runCli(["validate", configJson]);
         expect(exitCode).toBe(1);
         expect(stderr).toContain("Usage:");
+    });
+
+    // ID 318 — validate with --schema but no file should show usage
+    it("shows usage error when --schema given but no file argument", () => {
+        const { stderr, exitCode } = runCli([
+            "validate",
+            "--schema",
+            configSchema,
+        ]);
+        expect(exitCode).toBe(1);
+        expect(stderr).toContain("Usage:");
+    });
+
+    // ID 314 — strict: false allows unrecognized flags
+    it("ignores unrecognized flags gracefully", () => {
+        const io = createIO();
+        const code = run(
+            [
+                "validate",
+                configJson,
+                "--schema",
+                configSchema,
+                "--unknown",
+                "val",
+            ],
+            io,
+        );
+        expect(code).toBe(0);
+    });
+
+    // ID 335 — trailing \n on validate valid json output
+    it("valid json output ends with newline", () => {
+        const io = createIO();
+        run(
+            [
+                "validate",
+                configJson,
+                "--schema",
+                configSchema,
+                "--format",
+                "json",
+            ],
+            io,
+        );
+        expect(io.stdoutData).toMatch(/\n$/);
+    });
+
+    // ID 346 — trailing \n on validate error text output
+    it("error text output ends with newline", () => {
+        const io = createIO();
+        run(["validate", configJson, "--schema", configFailSchema], io);
+        expect(io.stderrData).toMatch(/\n$/);
     });
 });
 

@@ -1,5 +1,6 @@
 <?php
 
+use SafeAccessInline\Core\Config\MaskerConfig;
 use SafeAccessInline\SafeAccess;
 use SafeAccessInline\Security\Sanitizers\DataMasker;
 
@@ -94,10 +95,10 @@ describe(DataMasker::class, function () {
     })->throws(\InvalidArgumentException::class, 'Invalid regex pattern');
 });
 
-describe('AbstractAccessor::masked()', function () {
+describe('AbstractAccessor::mask()', function () {
     it('returns a new accessor with masked data', function () {
         $accessor = SafeAccess::fromJson('{"user":"john","password":"secret"}');
-        $masked = $accessor->masked();
+        $masked = $accessor->mask();
         expect($masked->get('user'))->toBe('john');
         expect($masked->get('password'))->toBe('[REDACTED]');
         expect($accessor->get('password'))->toBe('secret');
@@ -105,7 +106,7 @@ describe('AbstractAccessor::masked()', function () {
 
     it('accepts custom patterns', function () {
         $accessor = SafeAccess::fromJson('{"my_field":"val","other":"keep"}');
-        $masked = $accessor->masked(['my_field']);
+        $masked = $accessor->mask(['my_field']);
         expect($masked->get('my_field'))->toBe('[REDACTED]');
         expect($masked->get('other'))->toBe('keep');
     });
@@ -124,5 +125,12 @@ describe('AbstractAccessor::masked()', function () {
             $current = $current['level' . $i];
         }
         expect($current['password'])->toBe('secret');
+    });
+
+    it('configure — sets custom MaskerConfig', function () {
+        DataMasker::configure(new MaskerConfig(defaultMaskValue: '***'));
+        $result = DataMasker::mask(['password' => 'secret']);
+        expect($result['password'])->toBe('***');
+        DataMasker::configure(new MaskerConfig());
     });
 });

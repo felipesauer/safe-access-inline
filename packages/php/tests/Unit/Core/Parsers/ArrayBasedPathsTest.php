@@ -65,4 +65,16 @@ describe('Template paths (DotNotationParser)', function () {
         expect(array_key_exists('b', $result['a']))->toBeFalse();
         expect($result['a']['c'])->toBe(2);
     });
+
+    it('setBySegments creates intermediate arrays when segment is missing', function () {
+        $data = ['a' => 1];
+        $result = DotNotationParser::setBySegments($data, ['x', 'y', 'z'], 'val');
+        expect($result['x']['y']['z'])->toBe('val');
+    });
+
+    it('removeBySegments returns unchanged data when intermediate segment does not exist', function () {
+        $data = ['a' => 1];
+        $result = DotNotationParser::removeBySegments($data, ['missing', 'child']);
+        expect($result)->toBe($data);
+    });
 });

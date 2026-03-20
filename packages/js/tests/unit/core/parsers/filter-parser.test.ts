@@ -298,6 +298,89 @@ describe(FilterParser.name, () => {
         const expr = FilterParser.parse('missing==1');
         expect(FilterParser.evaluate({ x: 1 }, expr)).toBe(false);
     });
+
+    // ── parseValue — partial quotes must NOT be stripped ─────────────────
+
+    it('parseValue — value with only opening single-quote is returned as-is (not stripped)', () => {
+        // Kills LogicalOperator mutant: startsWith("'") || endsWith("'") → should require BOTH
+        expect(FilterParser.parseValue("'hello")).toBe("'hello");
+    });
+
+    it('parseValue — value with only closing single-quote is returned as-is (not stripped)', () => {
+        expect(FilterParser.parseValue("hello'")).toBe("hello'");
+    });
+
+    it('parseValue — value with only opening double-quote is returned as-is (not stripped)', () => {
+        expect(FilterParser.parseValue('"hello')).toBe('"hello');
+    });
+
+    it('parseValue — value with only closing double-quote is returned as-is (not stripped)', () => {
+        expect(FilterParser.parseValue('hello"')).toBe('hello"');
+    });
+
+    it('parseValue — fully single-quoted value is stripped correctly', () => {
+        expect(FilterParser.parseValue("'hello'")).toBe('hello');
+    });
+
+    it('parseValue — fully double-quoted value is stripped correctly', () => {
+        expect(FilterParser.parseValue('"hello"')).toBe('hello');
+    });
+
+    // ── match() — pattern length boundary ────────────────────────────────
+
+    it('evaluate — match with pattern of exactly 128 chars is NOT blocked by length guard', () => {
+        // Kills EqualityOperator mutant: > maxPatternLength vs >= maxPatternLength
+        // 128 > 128 = false → runs regex. 128 >= 128 = true → blocked.
+        const pattern = 'a'.repeat(128);
+        const expr = FilterParser.parse(`match(@.name,'${pattern}')`);
+        // Pattern of 128 'a's matches a name of 128 'a's
+        expect(FilterParser.evaluate({ name: 'a'.repeat(128) }, expr)).toBe(true);
+    });
+
+    it('evaluate — match with pattern of 129 chars IS blocked by length guard', () => {
+        const pattern = 'a'.repeat(129);
+        const expr = FilterParser.parse(`match(@.name,'${pattern}')`);
+        expect(FilterParser.evaluate({ name: 'a'.repeat(129) }, expr)).toBe(false);
+    });
+
+    // ── match() — ReDoS guards ────────────────────────────────────────────
+
+    it('evaluate — match allows simple non-greedy pattern matching (no special quantifiers)', () => {
+        // Confirms the match() happy path works after guards pass
+        const expr = FilterParser.parse("match(@.v,'a+b')");
+        expect(FilterParser.evaluate({ v: 'aaab' }, expr)).toBe(true);
+        expect(FilterParser.evaluate({ v: 'ccc' }, expr)).toBe(false);
+    });
+
+    it('evaluate — match with alternation pattern without outer quantifier (safe)', () => {
+        // Pattern: 'cat|dog' — no outer quantifier, no nested group → safe
+        const expr = FilterParser.parse("match(@.v,'cat|dog')");
+        expect(FilterParser.evaluate({ v: 'cat' }, expr)).toBe(true);
+        expect(FilterParser.evaluate({ v: 'dog' }, expr)).toBe(true);
+        expect(FilterParser.evaluate({ v: 'fish' }, expr)).toBe(false);
+    });
+
+    // ── match() — pattern quote handling (L242-243) ───────────────────────
+
+    it('evaluate — match pattern with only opening single-quote is not stripped', () => {
+        // Pattern arg "'test" — startsWith but NOT endsWith → stays as "'test"
+        // Kills LogicalOperator mutant in match() quote-stripping logic
+        const expr = FilterParser.parse('match(@.name,"\'test")');
+        // With mutant (||): opens quote → stripped to "test", matches name="test"
+        // With original (&&): not stripped → pattern is "'test", matches name="'test"
+        expect(FilterParser.evaluate({ name: "'test" }, expr)).toBe(true);
+        expect(FilterParser.evaluate({ name: 'test' }, expr)).toBe(false);
+    });
+
+    // ── keys() — null safety guard (L265) ────────────────────────────────
+
+    it('evaluate — keys() on null value returns 0 (null-safety guard)', () => {
+        // Kills LogicalOperator mutant: typeof val === 'object' || val !== null → &&
+        const expr = FilterParser.parse('keys(@.obj)>0');
+        expect(
+            FilterParser.evaluate({ obj: null } as unknown as Record<string, unknown>, expr),
+        ).toBe(false);
+    });
 });
 
 describe('FilterParser configuration', () => {

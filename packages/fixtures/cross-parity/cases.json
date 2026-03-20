@@ -1,0 +1,177 @@
+[
+    {
+        "id": "simple-key",
+        "description": "Basic dot-notation access to a top-level nested key",
+        "path": "user.name",
+        "defaultValue": null,
+        "expected": "Ana"
+    },
+    {
+        "id": "deep-nested",
+        "description": "Access 3 levels deep to verify recursive path resolution",
+        "path": "user.address.country.name",
+        "defaultValue": null,
+        "expected": "Brazil"
+    },
+    {
+        "id": "default-for-missing",
+        "description": "Missing path must return the provided default — never null or undefined",
+        "path": "user.nonexistent",
+        "defaultValue": "N/A",
+        "expected": "N/A"
+    },
+    {
+        "id": "default-deep-missing",
+        "description": "Default for a deeply missing path where intermediate keys also don't exist",
+        "path": "user.address.zip.code",
+        "defaultValue": "00000",
+        "expected": "00000"
+    },
+    {
+        "id": "wildcard-prices",
+        "description": "Wildcard * collects a scalar field from every array element",
+        "path": "items.*.price",
+        "defaultValue": null,
+        "expected": [10, 50, 25]
+    },
+    {
+        "id": "wildcard-names",
+        "description": "Wildcard * on string fields — ensures type is preserved",
+        "path": "items.*.name",
+        "defaultValue": null,
+        "expected": ["Widget", "Gadget", "Gizmo"]
+    },
+    {
+        "id": "filter-gt",
+        "description": "Filter with greater-than selects only matching elements",
+        "path": "items[?price>20].name",
+        "defaultValue": null,
+        "expected": ["Gadget", "Gizmo"]
+    },
+    {
+        "id": "filter-eq-bool",
+        "description": "Filter with boolean equality — tests truthiness handling",
+        "path": "items[?active==true].name",
+        "defaultValue": null,
+        "expected": ["Widget", "Gizmo"]
+    },
+    {
+        "id": "array-index-zero",
+        "description": "Access first array element by numeric index 0",
+        "path": "items.0.name",
+        "defaultValue": null,
+        "expected": "Widget"
+    },
+    {
+        "id": "array-index-last",
+        "description": "Access last array element by numeric index",
+        "path": "items.2.id",
+        "defaultValue": null,
+        "expected": 3
+    },
+    {
+        "id": "recursive-descent",
+        "description": "Recursive descent (..) collects all occurrences of a key at any depth",
+        "path": "..name",
+        "defaultValue": null,
+        "expected": ["Ana", "Brazil", "Widget", "Gadget", "Gizmo"]
+    },
+    {
+        "id": "falsy-false",
+        "description": "Boolean false as a real value must NOT be treated as 'not found'",
+        "path": "falseValue",
+        "defaultValue": "WRONG",
+        "expected": false
+    },
+    {
+        "id": "falsy-zero",
+        "description": "Numeric 0 as a real value must NOT be treated as 'not found'",
+        "path": "zeroValue",
+        "defaultValue": "WRONG",
+        "expected": 0
+    },
+    {
+        "id": "falsy-empty-string",
+        "description": "Empty string as a real value must NOT be treated as 'not found'",
+        "path": "emptyString",
+        "defaultValue": "WRONG",
+        "expected": ""
+    },
+    {
+        "id": "null-value",
+        "description": "Explicit null as a stored value — behavior may vary by implementation",
+        "path": "nullValue",
+        "defaultValue": "WRONG",
+        "expected": null
+    },
+    {
+        "id": "empty-array",
+        "description": "Accessing an empty array returns the empty array, not default",
+        "path": "emptyArray",
+        "defaultValue": "WRONG",
+        "expected": []
+    },
+    {
+        "id": "wildcard-empty-array",
+        "description": "Wildcard on empty array returns empty array, never null/undefined",
+        "path": "emptyArray.*.anything",
+        "defaultValue": null,
+        "expected": []
+    },
+    {
+        "id": "nested-settings",
+        "description": "Access nested boolean inside settings object",
+        "path": "settings.notifications.email",
+        "defaultValue": null,
+        "expected": true
+    },
+    {
+        "id": "nested-settings-false",
+        "description": "Access nested boolean false — must not confuse with 'missing'",
+        "path": "settings.notifications.sms",
+        "defaultValue": "WRONG",
+        "expected": false
+    },
+    {
+        "id": "filter-price-eq",
+        "description": "Filter with exact numeric equality",
+        "path": "items[?price==10].name",
+        "defaultValue": null,
+        "expected": ["Widget"]
+    },
+    {
+        "id": "wildcard-nested-array",
+        "description": "Wildcard on nested array field collects inner arrays",
+        "path": "items.*.tags",
+        "defaultValue": null,
+        "expected": [["sale", "new"], ["premium"], ["sale"]]
+    },
+    {
+        "id": "user-age-numeric",
+        "description": "Numeric value access — ensures type is number, not string",
+        "path": "user.age",
+        "defaultValue": null,
+        "expected": 30
+    },
+    {
+        "id": "user-score-zero",
+        "description": "Score is 0 — falsy numeric that must be returned, not replaced by default",
+        "path": "user.score",
+        "defaultValue": 999,
+        "expected": 0
+    },
+    {
+        "id": "user-bio-empty",
+        "description": "Bio is empty string — falsy string that must be returned, not replaced by default",
+        "path": "user.bio",
+        "defaultValue": "fallback",
+        "expected": ""
+    },
+    {
+        "id": "missing-root-key",
+        "description": "Completely missing top-level key returns default",
+        "path": "nonexistent",
+        "defaultValue": "default-value",
+        "expected": "default-value"
+    }
+]

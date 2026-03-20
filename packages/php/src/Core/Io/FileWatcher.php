@@ -4,6 +4,12 @@ declare(strict_types=1);
 
 namespace SafeAccessInline\Core\Io;
 
+/**
+ * Polls a file for modifications using {@see filemtime()} and notifies a callback.
+ *
+ * Designed for development and lightweight production use; for high-throughput
+ * environments prefer inotify or a dedicated file-watch daemon instead.
+ */
 final class FileWatcher
 {
     /**

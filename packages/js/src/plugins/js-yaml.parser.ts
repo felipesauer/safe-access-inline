@@ -13,6 +13,12 @@ const getYaml = optionalRequire<typeof yaml>('js-yaml', 'YAML');
  * PluginRegistry.registerParser('yaml', new JsYamlParser());
  */
 export class JsYamlParser implements ParserPlugin {
+    /**
+     * Parses a YAML string into a plain record using js-yaml.
+     *
+     * @param raw - The YAML string to parse.
+     * @returns A plain record of the parsed YAML data.
+     */
     parse(raw: string): Record<string, unknown> {
         return (getYaml().load(raw) as Record<string, unknown>) ?? {};
     }

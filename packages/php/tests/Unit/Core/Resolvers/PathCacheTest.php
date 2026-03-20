@@ -1,5 +1,6 @@
 <?php
 
+use SafeAccessInline\Core\Config\CacheConfig;
 use SafeAccessInline\Core\Parsers\DotNotationParser;
 use SafeAccessInline\Core\Resolvers\PathCache;
 
@@ -73,6 +74,16 @@ describe(PathCache::class, function () {
         expect(PathCache::isEnabled())->toBeTrue();
         PathCache::set('y', [['type' => 'key', 'value' => 'y']]);
         expect(PathCache::get('y'))->not->toBeNull();
+    });
+
+    it('configure — sets custom CacheConfig', function () {
+        PathCache::configure(new CacheConfig(maxSize: 2));
+        PathCache::set('a', [['type' => 'key', 'value' => 'a']]);
+        PathCache::set('b', [['type' => 'key', 'value' => 'b']]);
+        PathCache::set('c', [['type' => 'key', 'value' => 'c']]);
+        expect(PathCache::get('a'))->toBeNull();
+        expect(PathCache::get('c'))->not->toBeNull();
+        PathCache::configure(new CacheConfig());
     });
 
     afterEach(function () {

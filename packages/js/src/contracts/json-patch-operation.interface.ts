@@ -3,7 +3,7 @@
  *
  * @see https://datatracker.ietf.org/doc/html/rfc6902
  */
-export type JsonPatchOp = {
+export type JsonPatchOperation = {
     /** The operation to perform. */
     op: 'add' | 'remove' | 'replace' | 'move' | 'copy' | 'test';
     /** JSON Pointer (RFC 6901) targeting the value. */

@@ -6,12 +6,12 @@ namespace SafeAccessInline\Core;
 
 use SafeAccessInline\Contracts\AccessorInterface;
 use SafeAccessInline\Contracts\SchemaAdapterInterface;
+use SafeAccessInline\Contracts\SchemaValidationResult;
 use SafeAccessInline\Contracts\WritableInterface;
 use SafeAccessInline\Core\Operations\JsonPatch;
 use SafeAccessInline\Core\Parsers\DotNotationParser;
 use SafeAccessInline\Core\Registries\SchemaRegistry;
 use SafeAccessInline\Exceptions\ReadonlyViolationException;
-use SafeAccessInline\Exceptions\SchemaValidationException;
 use SafeAccessInline\Security\Sanitizers\DataMasker;
 use SafeAccessInline\Traits\HasArrayOperations;
 use SafeAccessInline\Traits\HasFactory;
@@ -25,16 +25,18 @@ abstract class AbstractAccessor implements AccessorInterface, WritableInterface
     use HasTransformations;
     use HasWildcardSupport;
 
-    /** @var array<mixed> Normalized data as an associative array */
+    /** @var array<mixed> Normalized data as an associative array. */
     protected array $data = [];
 
-    /** @var mixed Raw original data (preserved for faithful serialization) */
+    /** @var mixed Raw original data (preserved for faithful serialization). */
     protected mixed $raw;
 
+    /** @var bool Whether the accessor is frozen (immutable). */
     protected bool $readonly = false;
 
     /**
-     * @param mixed $raw Input data in its original format
+     * @param mixed $raw      Input data in its original format.
+     * @param bool  $readonly When true the accessor is created in frozen mode.
      */
     public function __construct(mixed $raw, bool $readonly = false)
     {
@@ -210,7 +212,7 @@ abstract class AbstractAccessor implements AccessorInterface, WritableInterface
     /**
      * @param array<string> $patterns
      */
-    public function masked(array $patterns = []): static
+    public function mask(array $patterns = []): static
     {
         $maskedData = DataMasker::mask($this->data, $patterns);
         $instance = clone $this;
@@ -218,7 +220,19 @@ abstract class AbstractAccessor implements AccessorInterface, WritableInterface
         return $instance;
     }
 
-    public function validate(mixed $schema, ?SchemaAdapterInterface $adapter = null): static
+    /**
+     * Validates the accessor's data against `$schema` using the supplied or default adapter.
+     *
+     * Returns a {@see SchemaValidationResult} — check `$result->valid` to determine success.
+     * Does not throw on validation failure; throws only when no adapter is configured.
+     *
+     * @param  mixed                        $schema  Schema definition passed to the adapter.
+     * @param  SchemaAdapterInterface|null  $adapter Adapter to use; falls back to the globally registered default.
+     * @return SchemaValidationResult       Result carrying `valid` flag and any `errors`.
+     *
+     * @throws \RuntimeException When no adapter is provided and no default is set.
+     */
+    public function validate(mixed $schema, ?SchemaAdapterInterface $adapter = null): SchemaValidationResult
     {
         $resolved = $adapter ?? SchemaRegistry::getDefaultAdapter();
         if ($resolved === null) {
@@ -226,15 +240,14 @@ abstract class AbstractAccessor implements AccessorInterface, WritableInterface
                 'No schema adapter provided. Pass an adapter or set a default via SchemaRegistry::setDefaultAdapter().'
             );
         }
-        $result = $resolved->validate($this->data, $schema);
-        if (!$result->valid) {
-            throw new SchemaValidationException($result->errors);
-        }
-        return $this;
+        return $resolved->validate($this->data, $schema);
     }
 
     /**
-     * @return array<array{op: string, path: string, value?: mixed, from?: string}>
+     * Returns the list of JSON Patch operations that transforms this accessor's data into `$other`'s data.
+     *
+     * @param  AbstractAccessor $other Target state to diff against.
+     * @return array<array{op: string, path: string, value?: mixed, from?: string}> List of patch operations.
      */
     public function diff(AbstractAccessor $other): array
     {
@@ -242,7 +255,12 @@ abstract class AbstractAccessor implements AccessorInterface, WritableInterface
     }
 
     /**
-     * @param array<array{op: string, path: string, value?: mixed, from?: string}> $ops
+     * Applies a list of JSON Patch operations to the accessor's data and returns a new instance.
+     *
+     * @param  array<array{op: string, path: string, value?: mixed, from?: string}> $ops Patch operations to apply.
+     * @return static New accessor instance with the patched data.
+     *
+     * @throws ReadonlyViolationException When the accessor is frozen.
      */
     public function applyPatch(array $ops): static
     {
@@ -255,6 +273,11 @@ abstract class AbstractAccessor implements AccessorInterface, WritableInterface
 
     // ── Array Operations (delegated to HasArrayOperations trait) ────
 
+    /**
+     * Asserts that the accessor is not in readonly mode.
+     *
+     * @throws ReadonlyViolationException When the accessor is frozen.
+     */
     protected function assertNotReadonly(): void
     {
         if ($this->readonly) {

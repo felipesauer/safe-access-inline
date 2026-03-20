@@ -7,26 +7,53 @@ namespace SafeAccessInline\Security\Sanitizers;
 use SafeAccessInline\Core\Config\MaskerConfig;
 use SafeAccessInline\Security\Audit\AuditLogger;
 
+/**
+ * Recursively masks sensitive keys in a data array using a configurable rule set.
+ *
+ * Built-in sensitive key names ({@see COMMON_SENSITIVE_KEYS}) are always masked.
+ * Callers may supply additional glob or regex patterns via {@see mask()}.
+ */
 final class DataMasker
 {
+    /** Active masker configuration, lazily initialised on first access. */
     private static MaskerConfig $config;
 
+    /**
+     * Returns the active masker configuration, lazily initialised with defaults.
+     *
+     * @return MaskerConfig The current configuration.
+     */
     private static function config(): MaskerConfig
     {
         return self::$config ??= new MaskerConfig();
     }
 
+    /**
+     * Replaces the active masker configuration.
+     *
+     * @param MaskerConfig $config New configuration to apply.
+     */
     public static function configure(MaskerConfig $config): void
     {
         self::$config = $config;
     }
 
+    /**
+     * Common key names that are always treated as sensitive regardless of caller-supplied patterns.
+     *
+     * @var string[]
+     */
     private const COMMON_SENSITIVE_KEYS = [
         'password', 'secret', 'token', 'api_key', 'apikey', 'private_key',
         'passphrase', 'credential', 'auth', 'authorization', 'cookie',
         'session', 'ssn', 'credit_card', 'creditcard',
     ];
 
+    /**
+     * Returns the redacted placeholder value from the active configuration.
+     *
+     * @return string Mask value (e.g. `'[REDACTED]'`).
+     */
     private static function redactedValue(): string
     {
         return self::config()->defaultMaskValue;
@@ -46,8 +73,13 @@ final class DataMasker
     }
 
     /**
-     * @param array<mixed> $obj
-     * @param array<string> $patterns
+     * Recursively walks `$obj` and replaces values at matching keys with the redact placeholder.
+     *
+     * Traversal is capped at {@see MaskerConfig::$maxRecursionDepth} to prevent unbounded recursion.
+     *
+     * @param array<mixed>  $obj      Data array to mask in-place.
+     * @param array<string> $patterns Additional glob or regex patterns.
+     * @param int           $depth    Current recursion depth.
      */
     private static function maskRecursive(array &$obj, array $patterns, int $depth): void
     {
@@ -73,7 +105,16 @@ final class DataMasker
     }
 
     /**
-     * @param array<string> $patterns
+     * Determines whether a key name matches the built-in list or any caller-supplied pattern.
+     *
+     * Regex patterns must be delimited by `/`; all other values are treated as
+     * case-insensitive glob patterns via {@see fnmatch()}.
+     *
+     * @param  string        $key      Key name to test.
+     * @param  array<string> $patterns Caller-supplied patterns (glob or `/regex/`).
+     * @return bool True when the key should be redacted.
+     *
+     * @throws \InvalidArgumentException When a regex pattern is syntactically invalid.
      */
     private static function matchesPattern(string $key, array $patterns): bool
     {

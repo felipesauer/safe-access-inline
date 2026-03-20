@@ -1,0 +1,7 @@
+[app]
+name = "test-app"
+debug = true
+
+[database]
+host = "localhost"
+port = 5432

@@ -13,13 +13,22 @@ use SafeAccessInline\Security\Guards\SecurityGuard;
  */
 final class DeepMerger
 {
+    /** Active merger configuration, lazily initialised on first access. */
     private static MergerConfig $config;
 
+    /**
+     * Returns the active merger configuration, lazily initialised.
+     */
     private static function config(): MergerConfig
     {
         return self::$config ??= new MergerConfig();
     }
 
+    /**
+     * Overrides the default merger configuration.
+     *
+     * @param MergerConfig $config New configuration to apply.
+     */
     public static function configure(MergerConfig $config): void
     {
         self::$config = $config;
@@ -47,8 +56,8 @@ final class DeepMerger
      */
     private static function mergeTwo(array $target, array $source, int $depth = 0): array
     {
-        if ($depth > self::config()->maxMergeDepth) {
-            throw new \RuntimeException('Deep merge exceeded maximum depth of ' . self::config()->maxMergeDepth);
+        if ($depth > self::config()->maxDepth) {
+            throw new \RuntimeException('Deep merge exceeded maximum depth of ' . self::config()->maxDepth);
         }
 
         $result = $target;

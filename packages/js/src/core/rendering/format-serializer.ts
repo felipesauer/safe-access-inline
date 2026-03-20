@@ -11,7 +11,7 @@ const getYaml = optionalRequire<typeof yaml>('js-yaml', 'YAML');
 const getSmolToml = optionalRequire<{ stringify: typeof tomlStringify }>('smol-toml', 'TOML');
 
 /**
- * Stateless format serialisation helpers.
+ * Stateless format serialization helpers.
  *
  * This module is the TypeScript equivalent of the PHP `HasTransformations` trait.
  * Every method receives the data record as its first argument and returns a string.
@@ -24,7 +24,7 @@ export class FormatSerializer {
      *
      * @param data - Data record to serialise.
      * @returns TOML string.
-     * @throws {@link InvalidFormatError} When serialisation fails.
+     * @throws {@link InvalidFormatError} When serialization fails.
      */
     static toToml(data: Record<string, unknown>): string {
         if (PluginRegistry.hasSerializer('toml')) {

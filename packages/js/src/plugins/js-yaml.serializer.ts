@@ -13,11 +13,21 @@ const getYaml = optionalRequire<typeof yaml>('js-yaml', 'YAML');
  * PluginRegistry.registerSerializer('yaml', new JsYamlSerializer());
  */
 export class JsYamlSerializer implements SerializerPlugin {
+    /**
+     * @param indent - Number of spaces to use for indentation (default: `2`).
+     * @param lineWidth - Maximum line width; `-1` disables wrapping (default: `-1`).
+     */
     constructor(
         private readonly indent: number = 2,
         private readonly lineWidth: number = -1,
     ) {}
 
+    /**
+     * Serialises a plain record to a YAML string using js-yaml.
+     *
+     * @param data - The record to serialise.
+     * @returns A YAML-formatted string.
+     */
     serialize(data: Record<string, unknown>): string {
         return getYaml().dump(data, {
             indent: this.indent,

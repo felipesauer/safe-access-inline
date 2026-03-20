@@ -11,7 +11,7 @@ export type { WritableInterface } from './contracts/writable.interface';
 export type { TransformableInterface } from './contracts/transformable.interface';
 export type { AuditEvent, AuditListener } from './contracts/audit-event.interface';
 export type { FilterCondition, FilterExpression } from './contracts/filter-expression.interface';
-export type { JsonPatchOp } from './contracts/json-patch-op.interface';
+export type { JsonPatchOperation } from './contracts/json-patch-operation.interface';
 export { DotNotationParser } from './core/parsers/dot-notation-parser';
 export { SegmentParser } from './core/parsers/segment-parser';
 export type { Segment } from './core/parsers/segment-parser';

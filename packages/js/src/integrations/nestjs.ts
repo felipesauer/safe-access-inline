@@ -40,20 +40,47 @@ export const SAFE_ACCESS = Symbol('SAFE_ACCESS');
  * ```
  */
 export class SafeAccessService {
+    /**
+     * @param accessor - The underlying {@link AbstractAccessor} instance.
+     */
     constructor(private readonly accessor: AbstractAccessor) {}
 
+    /**
+     * Retrieves a value by dot-notation path.
+     *
+     * @param path - Dot-notation path to the value.
+     * @param defaultValue - Value returned if the path is not found.
+     * @returns The resolved value, or `defaultValue`.
+     */
     get<T = unknown>(path: string, defaultValue?: T): T {
         return this.accessor.get(path, defaultValue) as T;
     }
 
+    /**
+     * Retrieves multiple values by path map.
+     *
+     * @param paths - A record mapping result keys to dot-notation paths.
+     * @returns A record of resolved values.
+     */
     getMany(paths: Record<string, unknown>): Record<string, unknown> {
         return this.accessor.getMany(paths);
     }
 
+    /**
+     * Checks whether a dot-notation path exists.
+     *
+     * @param path - Dot-notation path to check.
+     * @returns `true` if the path exists, `false` otherwise.
+     */
     has(path: string): boolean {
         return this.accessor.has(path);
     }
 
+    /**
+     * Returns the entire underlying data as a plain object.
+     *
+     * @returns A plain record of all data.
+     */
     all(): Record<string, unknown> {
         return this.accessor.toObject();
     }
@@ -61,6 +88,9 @@ export class SafeAccessService {
 
 /**
  * Creates a NestJS-compatible provider definition for SafeAccess.
+ *
+ * @param options - Module configuration options.
+ * @returns A NestJS provider object supplying an {@link AbstractAccessor}.
  */
 export function createSafeAccessProvider(options: SafeAccessModuleOptions) {
     return {
@@ -94,6 +124,9 @@ export function createSafeAccessProvider(options: SafeAccessModuleOptions) {
 
 /**
  * Creates a NestJS-compatible provider for SafeAccessService.
+ *
+ * @param options - Module configuration options.
+ * @returns A NestJS provider object supplying a {@link SafeAccessService}.
  */
 export function createSafeAccessServiceProvider(options: SafeAccessModuleOptions) {
     return {
@@ -123,6 +156,12 @@ export function createSafeAccessServiceProvider(options: SafeAccessModuleOptions
  * to ensure full NestJS module-graph compatibility with stricter runtime validation.
  */
 export class SafeAccessModule {
+    /**
+     * Creates a NestJS dynamic module definition for SafeAccess.
+     *
+     * @param options - Module configuration options.
+     * @returns A NestJS dynamic module object with providers and exports configured.
+     */
     static register(options: SafeAccessModuleOptions) {
         const provider = createSafeAccessProvider(options);
         const serviceProvider = createSafeAccessServiceProvider(options);

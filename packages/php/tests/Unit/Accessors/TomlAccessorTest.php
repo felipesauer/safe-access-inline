@@ -151,4 +151,15 @@ describe(TomlAccessor::class, function () {
         expect(fn () => TomlAccessor::from('key = "value"'))
             ->toThrow(InvalidFormatException::class, 'requires devium/toml');
     })->skip(class_exists(\Devium\Toml\Toml::class), 'devium/toml is installed');
+
+    it('parse — throws InvalidFormatException when hasTomlLibrary returns false', function () {
+        // Anonymous subclass overrides the protected hook to simulate absent library;
+        // no skip condition needed — the mock always forces the missing-library branch.
+        expect(fn () => new class ('key = "value"') extends TomlAccessor {
+            protected function hasTomlLibrary(): bool
+            {
+                return false;
+            }
+        })->toThrow(InvalidFormatException::class, 'requires devium/toml');
+    });
 });

@@ -45,6 +45,15 @@ export function assertMaxKeys(data: Record<string, unknown>, maxKeys?: number): 
     }
 }
 
+/**
+ * Recursively counts all keys in `obj`, including nested objects and arrays.
+ *
+ * Hard-stops at depth 100 to prevent runaway recursion on deeply nested data.
+ *
+ * @param obj - Value to count keys within.
+ * @param depth - Current recursion depth (used internally).
+ * @returns Total number of keys / elements found.
+ */
 function countKeys(obj: unknown, depth = 0): number {
     if (depth > 100) return 0; // prevent infinite recursion in counting
     if (typeof obj !== 'object' || obj === null) return 0;
@@ -89,6 +98,16 @@ export function assertMaxStructuralDepth(data: unknown, maxDepth: number): void 
     }
 }
 
+/**
+ * Recursively measures the maximum structural depth of `value`.
+ *
+ * Cycle-safe — `seen` tracks visited objects to avoid infinite loops.
+ *
+ * @param value - Value to measure.
+ * @param seen - WeakSet of already-visited objects.
+ * @param current - Current depth level.
+ * @returns Maximum nesting depth reachable from `value`.
+ */
 function measureDepth(value: unknown, seen: WeakSet<object>, current: number): number {
     if (typeof value !== 'object' || value === null) return current;
     if (seen.has(value)) return current;

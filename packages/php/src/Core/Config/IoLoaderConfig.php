@@ -18,8 +18,10 @@ final readonly class IoLoaderConfig
     public const DEFAULT_CURL_CONNECT_TIMEOUT = 5;
 
     /**
+     * Creates a new I/O loader configuration with optional overrides.
+     *
      * @param int $curlTimeout        Total cURL request timeout in seconds.
-     * @param int $curlConnectTimeout  cURL connection-phase timeout in seconds.
+     * @param int $curlConnectTimeout cURL connection-phase timeout in seconds.
      */
     public function __construct(
         public int $curlTimeout = self::DEFAULT_CURL_TIMEOUT,

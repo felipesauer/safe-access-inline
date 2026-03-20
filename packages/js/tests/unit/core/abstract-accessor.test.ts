@@ -326,7 +326,7 @@ describe(AbstractAccessor.name, () => {
 
     it('cloneWithState — readonly flag is propagated and data is frozen', () => {
         const accessor = new ArrayAccessor({ password: 'secret', name: 'Ana' }, { readonly: true });
-        const masked = accessor.masked();
+        const masked = accessor.mask();
         // The masked accessor is also readonly
         expect(() => masked.set('name', 'Bob')).toThrow();
     });
@@ -486,5 +486,86 @@ describe('AbstractAccessor — last/first edge cases', () => {
     it('first() on non-array path returns defaultValue', () => {
         const acc = SafeAccess.fromJson('{"items":42}');
         expect(acc.first('items')).toBeNull();
+    });
+});
+
+// ── AbstractAccessor — get() bindings guard edge cases ───────────
+describe('AbstractAccessor — get() bindings guard', () => {
+    it('get — null second arg does not throw and returns null (kills !== null removal)', () => {
+        // typeof null === 'object' in JS; without the !== null guard, null would be passed as
+        // bindings to renderTemplate, which would throw a TypeError when accessing null[key].
+        const acc = ArrayAccessor.from({ user: { name: 'Ana' } });
+        expect(() => acc.get('{field}.name', null)).not.toThrow();
+        expect(acc.get('{field}.name', null)).toBeNull();
+    });
+
+    it('get — array second arg is used as default, not bindings (kills !Array.isArray removal)', () => {
+        // With the !Array.isArray guard removed, [] would pass the object type-check and be sent
+        // to renderTemplate; template substitution would fail and return null instead of [].
+        const acc = ArrayAccessor.from({ user: { name: 'Ana' } });
+        expect(acc.get('{field}', [])).toEqual([]);
+    });
+
+    it('get — string second arg is used as default, not bindings (kills typeof removal)', () => {
+        // typeof 'string' !== 'object', so the guard prevents template resolution.
+        const acc = ArrayAccessor.from({ user: { name: 'Ana' } });
+        expect(acc.get('{field}', 'fallback')).toBe('fallback');
+    });
+
+    it('get — object second arg with no { in path is used as default (kills path.includes removal)', () => {
+        // path.includes('{') is false for 'user.name', so the object is used as defaultValue.
+        // With the guard removed, renderTemplate would be called on a path with no placeholders,
+        // returning the path unchanged; then get(data, path, undefined??null) returns null.
+        const acc = ArrayAccessor.from({});
+        expect(acc.get('user.name', { key: 'user' })).toEqual({ key: 'user' });
+    });
+
+    it('get — bindings without explicit defaultValue returns null for missing path (kills null→"" mutation)', () => {
+        // L76: `defaultValue ?? null` — if null is mutated to "", a missing path returns ""
+        // instead of null when no third argument is supplied.
+        const acc = ArrayAccessor.from({ user: {} });
+        expect(acc.get('user.{field}', { field: 'missing' })).toBeNull();
+    });
+});
+
+// ── AbstractAccessor — count() edge cases ────────────────────────
+describe('AbstractAccessor — count() edge cases', () => {
+    it('count — nonexistent path returns 0, not 1 (kills ArrayDeclaration default [] → ["Stryker"])', () => {
+        // Default passed to get() when path is missing is [] (length 0).
+        // The mutation replaces [] with ["Stryker was here"] (length 1).
+        const acc = ArrayAccessor.from({ name: 'Ana' });
+        expect(acc.count('nonexistent')).toBe(0);
+    });
+
+    it('count — path with null value returns 0 without throwing (kills ConditionalExpression=true)', () => {
+        // The guard `typeof target === 'object' && target !== null` prevents Object.keys(null).
+        // With the condition forced to true, Object.keys(null) throws a TypeError.
+        const acc = ArrayAccessor.from({ val: null } as unknown as Record<string, unknown>);
+        expect(() => acc.count('val')).not.toThrow();
+        expect(acc.count('val')).toBe(0);
+    });
+});
+
+// ── AbstractAccessor — keys() edge cases ─────────────────────────
+describe('AbstractAccessor — keys() edge cases', () => {
+    it('keys — path with string value returns [] not char indices (kills ConditionalExpression=true)', () => {
+        // The guard `typeof target === 'object' && target !== null` prevents Object.keys("hello").
+        // With the condition forced to true, Object.keys("hello") returns ['0','1','2','3','4'].
+        const acc = ArrayAccessor.from({ str: 'hello' });
+        expect(acc.keys('str')).toEqual([]);
+    });
+
+    it('keys — nonexistent path returns [] (kills ArrayDeclaration default {} → ["Stryker"])', () => {
+        // Default in get(path, {}) is {}; mutation replaces with ["Stryker was here"].
+        // Object.keys(["Stryker was here"]) = ['0'] → returns ['0'] instead of [].
+        const acc = ArrayAccessor.from({ name: 'Ana' });
+        expect(acc.keys('nonexistent')).toEqual([]);
+    });
+
+    it('keys — path with null value returns [] without throwing', () => {
+        // If the null-guard is removed and condition is always true, Object.keys(null) throws.
+        const acc = ArrayAccessor.from({ val: null } as unknown as Record<string, unknown>);
+        expect(() => acc.keys('val')).not.toThrow();
+        expect(acc.keys('val')).toEqual([]);
     });
 });

@@ -123,7 +123,7 @@ export function assertSafeUrl(
             const hexMatch = mappedPart.match(/^([0-9a-f]{1,4}):([0-9a-f]{1,4})$/i);
             /* v8 ignore next 5 — defensive: WHATWG URL spec (§4.1) normalises IPv4-mapped
                IPv6 addresses to hex pairs (e.g. ::ffff:127.0.0.1 → ::ffff:7f00:1).
-               The hexMatch RegExp covers all normalised forms; this branch guards
+               The hexMatch RegExp covers all Normalized forms; this branch guards
                against hypothetical future parser changes. */
             if (!hexMatch) {
                 throw new SecurityError(

@@ -86,6 +86,7 @@ export function printValue(
     value: unknown,
     stdout: { write(s: string): void },
 ): void {
+    // Stryker disable next-line ConditionalExpression -- equivalent: JSON.stringify(null) === "null" in both branches
     if (value === null || value === undefined) {
         stdout.write("null\n");
     } else if (typeof value === "string") {

@@ -30,13 +30,22 @@ use SafeAccessInline\Security\Guards\SecurityGuard;
  */
 final class DotNotationParser
 {
+    /** Active parser configuration, lazily initialised on first access. */
     private static ParserConfig $config;
 
+    /**
+     * Returns the active parser configuration, lazily initialised.
+     */
     private static function config(): ParserConfig
     {
         return self::$config ??= new ParserConfig();
     }
 
+    /**
+     * Overrides the default parser configuration.
+     *
+     * @param ParserConfig $config New configuration to apply.
+     */
     public static function configure(ParserConfig $config): void
     {
         self::$config = $config;
@@ -61,6 +70,8 @@ final class DotNotationParser
     }
 
     /**
+     * Returns cached segments for `$path`, parsing and caching them on first call.
+     *
      * @return list<array{type: SegmentType::DESCENT, key: string}|array{type: SegmentType::DESCENT_MULTI, keys: non-empty-list<string>}|array{type: SegmentType::FILTER, expression: array{conditions: array<array{field: string, operator: string, value: mixed}>, logicals: array<string>}}|array{type: SegmentType::KEY, value: string}|array{type: SegmentType::MULTI_INDEX, indices: array<int>, keys?: non-empty-list<string>}|array{type: SegmentType::SLICE, start: int|null, end: int|null, step: int|null}|array{type: SegmentType::WILDCARD}>
      */
     private static function cachedParseSegments(string $path): array

@@ -167,6 +167,16 @@ export class PathResolver {
         return null;
     }
 
+    /**
+     * Initiates a recursive descent search for `key` starting at `current`.
+     *
+     * @param current - The node to start the descent from.
+     * @param key - The key to search for recursively.
+     * @param segments - Remaining segments to resolve after the descent key is found.
+     * @param nextIndex - Index into `segments` for post-descent resolution.
+     * @param defaultValue - Fallback value passed through to sub-resolutions.
+     * @returns Array of all values found via recursive descent.
+     */
     private static resolveDescent(
         current: unknown,
         key: string,
@@ -179,6 +189,19 @@ export class PathResolver {
         return results;
     }
 
+    /**
+     * Recursively traverses the object graph and collects all values reachable at `key`.
+     *
+     * Appends matching results to `results` in place; also recurses into all child
+     * objects and array elements to implement the `..key` (recursive descent) operator.
+     *
+     * @param current - The current node being traversed.
+     * @param key - The key to match at each level.
+     * @param segments - Remaining segments to resolve once a match is found.
+     * @param nextIndex - Index into `segments` for post-match resolution.
+     * @param defaultValue - Fallback value passed through to sub-resolutions.
+     * @param results - Accumulator array; matching values are appended here.
+     */
     private static collectDescent(
         current: unknown,
         key: string,

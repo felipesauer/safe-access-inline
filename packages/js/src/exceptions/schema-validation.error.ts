@@ -5,6 +5,9 @@ import type { SchemaValidationIssue } from '../contracts/schema-adapter.interfac
 export class SchemaValidationError extends AccessorError {
     readonly issues: SchemaValidationIssue[];
 
+    /**
+     * @param issues - The list of validation issues that caused the failure.
+     */
     constructor(issues: SchemaValidationIssue[]) {
         const summary = issues.map((e) => `${e.path}: ${e.message}`).join('; ');
         super(`Schema validation failed: ${summary}`);

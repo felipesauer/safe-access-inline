@@ -1,6 +1,8 @@
 <?php
 
+use SafeAccessInline\Core\Config\ParserConfig;
 use SafeAccessInline\Core\Parsers\DotNotationParser;
+use SafeAccessInline\Exceptions\SecurityException;
 
 describe(DotNotationParser::class, function () {
 
@@ -383,5 +385,25 @@ describe(DotNotationParser::class, function () {
         $data = ['a' => ['b' => ['c' => 1]]];
         expect(DotNotationParser::get($data, 'a.b.c.d.e.f.g', 'fallback'))->toBe('fallback');
     });
+
+    it('configure — sets custom ParserConfig', function () {
+        DotNotationParser::configure(new ParserConfig(maxResolveDepth: 256));
+        $data = ['a' => ['b' => 1]];
+        expect(DotNotationParser::get($data, 'a.b'))->toBe(1);
+        DotNotationParser::configure(new ParserConfig());
+    });
+
+    it('merge — throws SecurityException when depth exceeds maxResolveDepth', function () {
+        DotNotationParser::configure(new ParserConfig(maxResolveDepth: 1));
+        try {
+            DotNotationParser::merge(
+                ['a' => ['b' => ['c' => 1]]],
+                '',
+                ['a' => ['b' => ['c' => 2]]],
+            );
+        } finally {
+            DotNotationParser::configure(new ParserConfig());
+        }
+    })->throws(SecurityException::class, 'Deep merge exceeded maximum depth');
 
 });

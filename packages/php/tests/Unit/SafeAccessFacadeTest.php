@@ -7,9 +7,11 @@ use SafeAccessInline\Accessors\IniAccessor;
 use SafeAccessInline\Accessors\JsonAccessor;
 use SafeAccessInline\Accessors\ObjectAccessor;
 use SafeAccessInline\Accessors\XmlAccessor;
+use SafeAccessInline\Contracts\FileLoadOptions;
 use SafeAccessInline\Contracts\HttpClientInterface;
+use SafeAccessInline\Core\Config\SafeAccessConfig;
 use SafeAccessInline\Core\Io\IoLoader;
-use SafeAccessInline\Enums\AccessorFormat;
+use SafeAccessInline\Enums\Format;
 use SafeAccessInline\Exceptions\InvalidFormatException;
 use SafeAccessInline\Exceptions\SecurityException;
 use SafeAccessInline\SafeAccess;
@@ -79,6 +81,13 @@ describe(SafeAccess::class, function () {
         $accessor = SafeAccess::custom('test_format', ['a' => 1]);
         expect($accessor)->toBeInstanceOf(ArrayAccessor::class);
         expect($accessor->get('a'))->toBe(1);
+    });
+
+    it('clearCustomAccessors — removes all custom accessors', function () {
+        SafeAccess::extend('clr_test', ArrayAccessor::class);
+        SafeAccess::clearCustomAccessors();
+        expect(fn () => SafeAccess::custom('clr_test', []))
+            ->toThrow(\RuntimeException::class);
     });
 
     it('custom — unregistered throws', function () {
@@ -158,10 +167,10 @@ describe(SafeAccess::class, function () {
         SafeAccess::from('data', 'unknown_xyz');
     })->throws(InvalidFormatException::class, "Unknown format 'unknown_xyz'");
 
-    // ── from() with AccessorFormat enum ─────────────
+    // ── from() with Format enum ─────────────
 
-    it('from() with AccessorFormat enum', function () {
-        $accessor = SafeAccess::from(['name' => 'Ana'], AccessorFormat::Array);
+    it('from() with Format enum', function () {
+        $accessor = SafeAccess::from(['name' => 'Ana'], Format::Array);
         expect($accessor)->toBeInstanceOf(ArrayAccessor::class);
         expect($accessor->get('name'))->toBe('Ana');
     });
@@ -351,5 +360,128 @@ describe(SafeAccess::class, function () {
         SafeAccess::resetAll();
         expect(fn () => SafeAccess::custom('reset_test', []))
             ->toThrow(\RuntimeException::class);
+    });
+
+    // ── watchFile — FileLoadOptions DTO branch ────────────────
+
+    it('watchFile — returns poll and stop callables when given FileLoadOptions DTO', function () {
+        $tmp = tempnam(sys_get_temp_dir(), 'sa_wf_') . '.json';
+        file_put_contents($tmp, '{"key": "value"}');
+        try {
+            $opts = new FileLoadOptions(allowAnyPath: true);
+            $result = SafeAccess::watchFile($tmp, function ($accessor): void {
+            }, $opts);
+            expect($result)->toBeArray();
+            expect($result['poll'])->toBeCallable();
+            expect($result['stop'])->toBeCallable();
+        } finally {
+            unlink($tmp);
+        }
+    });
+
+    // ── layerFiles — FileLoadOptions DTO branch ───────────────
+
+    it('layerFiles — FileLoadOptions DTO is accepted and merges files correctly', function () {
+        $tmpDir = sys_get_temp_dir();
+        $f1 = $tmpDir . '/sa_layer1_' . uniqid() . '.json';
+        $f2 = $tmpDir . '/sa_layer2_' . uniqid() . '.json';
+        file_put_contents($f1, '{"a": 1, "b": 2}');
+        file_put_contents($f2, '{"b": 99, "c": 3}');
+        try {
+            $opts = new FileLoadOptions(allowedDirs: [$tmpDir]);
+            $accessor = SafeAccess::layerFiles([$f1, $f2], $opts);
+            expect($accessor->get('a'))->toBe(1);
+            expect($accessor->get('b'))->toBe(99);
+            expect($accessor->get('c'))->toBe(3);
+        } finally {
+            unlink($f1);
+            unlink($f2);
+        }
+    });
+    // ── SafeAccessConfig DTO ───────────────────────────────
+
+    it('SafeAccessConfig — constructor stores maxCustomAccessors with default', function () {
+        $cfg = new SafeAccessConfig();
+
+        expect($cfg->maxCustomAccessors)->toBe(SafeAccessConfig::DEFAULT_MAX_CUSTOM_ACCESSORS);
+    });
+
+    it('SafeAccessConfig — constructor stores custom maxCustomAccessors', function () {
+        $cfg = new SafeAccessConfig(maxCustomAccessors: 10);
+
+        expect($cfg->maxCustomAccessors)->toBe(10);
+    });
+
+    // ── fromUrl with explicit format ────────────────────
+
+    it('fromUrl with explicit format returns correct accessor type', function () {
+        $mock = new class () implements HttpClientInterface {
+            public function fetch(string $url, array $curlOptions): string
+            {
+                return '{"fmt":"explicit"}';
+            }
+        };
+        IoLoader::setHttpClient($mock);
+
+        try {
+            $accessor = SafeAccess::fromUrl('https://example.com/data', 'json');
+            expect($accessor)->toBeInstanceOf(JsonAccessor::class);
+            expect($accessor->get('fmt'))->toBe('explicit');
+        } finally {
+            IoLoader::resetHttpClient();
+        }
+    });
+
+    // ── watchFile with string format ────────────────────
+
+    it('watchFile with string format triggers onChange callback', function () {
+        $tmp = tempnam(sys_get_temp_dir(), 'sa_wfs_') . '.json';
+        file_put_contents($tmp, '{"v":1}');
+        touch($tmp, time() - 10);
+        clearstatcache(true, $tmp);
+
+        $watcher = null;
+        $called = false;
+
+        $watcher = SafeAccess::watchFile(
+            $tmp,
+            function ($accessor) use (&$watcher, &$called): void {
+                $called = true;
+                $watcher['stop']();
+            },
+            'json',
+            [],
+            true,
+        );
+
+        file_put_contents($tmp, '{"v":2}');
+        $watcher['poll']();
+        expect($called)->toBeTrue();
+
+        @unlink($tmp);
+    });
+
+    // ── fromUrlWithPolicy with maskPatterns ──────────────
+
+    it('fromUrlWithPolicy applies maskPatterns from policy', function () {
+        $mock = new class () implements HttpClientInterface {
+            public function fetch(string $url, array $curlOptions): string
+            {
+                return '{"password":"secret","name":"test"}';
+            }
+        };
+        IoLoader::setHttpClient($mock);
+
+        try {
+            $policy = new SecurityPolicy(
+                maskPatterns: ['password'],
+                url: ['allowedHosts' => ['example.com']],
+            );
+            $accessor = SafeAccess::fromUrlWithPolicy('https://example.com/data.json', $policy);
+            expect($accessor->get('password'))->toBe('[REDACTED]');
+            expect($accessor->get('name'))->toBe('test');
+        } finally {
+            IoLoader::resetHttpClient();
+        }
     });
 });

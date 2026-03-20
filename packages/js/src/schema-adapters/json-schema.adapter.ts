@@ -19,11 +19,26 @@ type JsonSchema = Record<string, unknown>;
  * const result = adapter.validate({ name: 'Ana' }, schema);
  */
 export class JsonSchemaAdapter implements SchemaAdapterInterface<JsonSchema> {
+    /**
+     * Validates `data` against the given JSON Schema.
+     *
+     * @param data - The value to validate.
+     * @param schema - The JSON Schema to validate against.
+     * @returns A {@link SchemaValidationResult} with `valid` flag and any errors.
+     */
     validate(data: unknown, schema: JsonSchema): SchemaValidationResult {
         const errors = this.validateNode(data, schema, '$');
         return { valid: errors.length === 0, errors };
     }
 
+    /**
+     * Recursively validates a single node against a JSON Schema fragment.
+     *
+     * @param data - The data node to validate.
+     * @param schema - The schema fragment for this node.
+     * @param path - JSON path expression for error reporting.
+     * @returns An array of {@link SchemaValidationIssue} for this node and descendants.
+     */
     private validateNode(data: unknown, schema: JsonSchema, path: string): SchemaValidationIssue[] {
         const errors: SchemaValidationIssue[] = [];
 

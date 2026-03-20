@@ -36,23 +36,26 @@ describe('Schema Validation', function () {
         $accessor = SafeAccess::fromJson('{"name":"Ana","age":30}');
         $schema = ['name' => 'string', 'age' => 'integer'];
         $result = $accessor->validate($schema, $adapter);
-        expect($result)->toBe($accessor);
+        expect($result->valid)->toBeTrue();
+        expect($result->errors)->toBeEmpty();
     });
 
-    it('validate throws SchemaValidationException on missing field', function () {
+    it('validate returns invalid result for missing field', function () {
         $adapter = new SimpleSchemaAdapter();
         $accessor = SafeAccess::fromJson('{"name":"Ana"}');
         $schema = ['name' => 'string', 'age' => 'integer'];
-        expect(fn () => $accessor->validate($schema, $adapter))
-            ->toThrow(SchemaValidationException::class, 'Missing required field');
+        $result = $accessor->validate($schema, $adapter);
+        expect($result->valid)->toBeFalse();
+        expect($result->errors[0]->message)->toContain('Missing required field');
     });
 
-    it('validate throws SchemaValidationException for type mismatch', function () {
+    it('validate returns invalid result for type mismatch', function () {
         $adapter = new SimpleSchemaAdapter();
         $accessor = SafeAccess::fromJson('{"name":123}');
         $schema = ['name' => 'string'];
-        expect(fn () => $accessor->validate($schema, $adapter))
-            ->toThrow(SchemaValidationException::class, 'Expected string');
+        $result = $accessor->validate($schema, $adapter);
+        expect($result->valid)->toBeFalse();
+        expect($result->errors[0]->message)->toContain('Expected string');
     });
 
     it('validate uses default adapter from SchemaRegistry', function () {
@@ -60,7 +63,8 @@ describe('Schema Validation', function () {
         SchemaRegistry::setDefaultAdapter($adapter);
         $accessor = SafeAccess::fromJson('{"name":"Ana"}');
         $schema = ['name' => 'string'];
-        expect(fn () => $accessor->validate($schema))->not->toThrow(SchemaValidationException::class);
+        $result = $accessor->validate($schema);
+        expect($result->valid)->toBeTrue();
     });
 
     it('validate throws when no adapter is available', function () {
