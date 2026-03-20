@@ -371,7 +371,8 @@ final class IoLoader
      * Determines whether an IPv4 address falls within a private or reserved range.
      *
      * Covers: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 127.0.0.0/8,
-     * 169.254.0.0/16, and 0.0.0.0/8. Invalid addresses return true (treated as private).
+     * 169.254.0.0/16, 0.0.0.0/8, and 100.64.0.0/10 (CGNAT — RFC 6598).
+     * Invalid addresses return true (treated as private).
      *
      * @param  string $ip Dotted-decimal IPv4 address string.
      * @return bool True when the address is private, reserved, or invalid.
@@ -388,8 +389,9 @@ final class IoLoader
             [0xac100000, 0xac1fffff], // 172.16.0.0/12
             [0xc0a80000, 0xc0a8ffff], // 192.168.0.0/16
             [0x7f000000, 0x7fffffff], // 127.0.0.0/8
-            [0xa9fe0000, 0xa9feffff], // 169.254.0.0/16
+            [0xa9fe0000, 0xa9feffff], // 169.254.0.0/16 (link-local, AWS metadata)
             [0x00000000, 0x00ffffff], // 0.0.0.0/8
+            [0x64400000, 0x647fffff], // 100.64.0.0/10 (CGNAT — RFC 6598)
         ];
 
         foreach ($ranges as [$start, $end]) {

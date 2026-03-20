@@ -47,6 +47,22 @@ describe('ip-range-checker', () => {
         it('treats invalid IPs as private (safety)', () => {
             expect(isPrivateIp('invalid')).toBe(true);
         });
+
+        // ── Security regression: RFC 6598 CGNAT range (100.64.0.0/10) ────
+        it.each(['100.64.0.0', '100.64.0.1', '100.100.100.100', '100.127.255.255'])(
+            'detects CGNAT address %s as private (RFC 6598)',
+            (ip) => {
+                expect(isPrivateIp(ip)).toBe(true);
+            },
+        );
+
+        it('treats first address after CGNAT range (100.128.0.0) as public', () => {
+            expect(isPrivateIp('100.128.0.0')).toBe(false);
+        });
+
+        it('treats last address before CGNAT range (100.63.255.255) as public', () => {
+            expect(isPrivateIp('100.63.255.255')).toBe(false);
+        });
     });
 
     describe('isIpv6Loopback()', () => {
@@ -180,11 +196,11 @@ describe('ip-range-checker', () => {
             );
         });
 
-        it('returns null when IPv6 resolves to non-loopback addresses (covers if(isIpv6Loopback) false branch)', async () => {
+        it('returns the first validated IPv6 address when only AAAA records exist', async () => {
             const dns = await import('node:dns/promises');
             vi.mocked(dns.resolve4).mockResolvedValueOnce([]);
             vi.mocked(dns.resolve6).mockResolvedValueOnce(['2001:db8::1']);
-            await expect(resolveAndValidateIp('v6only.example.com')).resolves.toBeNull();
+            await expect(resolveAndValidateIp('v6only.example.com')).resolves.toBe('2001:db8::1');
         });
     });
 });

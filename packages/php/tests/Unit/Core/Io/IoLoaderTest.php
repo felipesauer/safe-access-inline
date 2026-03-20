@@ -145,11 +145,14 @@ describe(IoLoader::class, function () use (&$fixturesDir) {
         expect(IoLoader::isPrivateIp('192.168.0.1'))->toBeTrue();
         expect(IoLoader::isPrivateIp('127.0.0.1'))->toBeTrue();
         expect(IoLoader::isPrivateIp('169.254.169.254'))->toBeTrue();
+        expect(IoLoader::isPrivateIp('100.64.0.1'))->toBeTrue();
+        expect(IoLoader::isPrivateIp('100.127.255.255'))->toBeTrue();
     });
 
     it('detects public IPs', function () {
         expect(IoLoader::isPrivateIp('8.8.8.8'))->toBeFalse();
         expect(IoLoader::isPrivateIp('1.1.1.1'))->toBeFalse();
+        expect(IoLoader::isPrivateIp('100.128.0.0'))->toBeFalse();
     });
 
     it('treats invalid IPs as private', function () {
