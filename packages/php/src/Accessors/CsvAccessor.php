@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace SafeAccessInline\Accessors;
 
 use SafeAccessInline\Core\AbstractAccessor;
+use SafeAccessInline\Enums\AuditEventType;
 use SafeAccessInline\Exceptions\InvalidFormatException;
+use SafeAccessInline\Security\Audit\AuditLogger;
 
 /**
  * Accessor for CSV strings.
@@ -61,6 +63,12 @@ class CsvAccessor extends AbstractAccessor
             $values = str_getcsv($line, ',', '"', '');
             if (count($values) === count($headers)) {
                 $result[] = array_combine(array_map('strval', $headers), $values);
+            } else {
+                AuditLogger::emit(AuditEventType::DATA_FORMAT_WARNING->value, [
+                    'reason' => 'csv_column_mismatch',
+                    'expected' => count($headers),
+                    'actual' => count($values),
+                ]);
             }
         }
 

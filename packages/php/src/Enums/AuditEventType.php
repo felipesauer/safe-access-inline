@@ -18,6 +18,7 @@ enum AuditEventType: string
     case SECURITY_DEPRECATION = 'security.deprecation';
     case DATA_MASK = 'data.mask';
     case DATA_FREEZE = 'data.freeze';
+    case DATA_FORMAT_WARNING = 'data.format_warning';
     case SCHEMA_VALIDATE = 'schema.validate';
     case PLUGIN_OVERWRITE = 'plugin.overwrite';
 }

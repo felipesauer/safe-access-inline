@@ -1,9 +1,17 @@
 <?php
 
+declare(strict_types=1);
+
 use SafeAccessInline\Accessors\CsvAccessor;
+use SafeAccessInline\Enums\AuditEventType;
 use SafeAccessInline\Exceptions\InvalidFormatException;
+use SafeAccessInline\Security\Audit\AuditLogger;
 
 describe(CsvAccessor::class, function () {
+
+    beforeEach(function () {
+        AuditLogger::clearListeners();
+    });
 
     it('from — valid CSV', function () {
         $accessor = CsvAccessor::from("name,age\nAna,30\nBob,25");
@@ -87,6 +95,24 @@ describe(CsvAccessor::class, function () {
         $accessor = CsvAccessor::from($csv);
         $output = $accessor->toCsv('strip');
         expect($output)->not->toContain('=SUM');
+    });
+
+    it('emits audit event when a CSV row has a column-count mismatch', function () {
+        $events = [];
+        AuditLogger::onAudit(function (array $event) use (&$events): void {
+            $events[] = $event;
+        });
+
+        $accessor = CsvAccessor::from("name,age\nAna,30\nBob");
+
+        expect($accessor->toArray())->toBe([['name' => 'Ana', 'age' => '30']]);
+        expect($events)->toHaveCount(1);
+        expect($events[0]['type'])->toBe(AuditEventType::DATA_FORMAT_WARNING->value);
+        expect($events[0]['detail'])->toBe([
+            'reason' => 'csv_column_mismatch',
+            'expected' => 2,
+            'actual' => 1,
+        ]);
     });
 
 });

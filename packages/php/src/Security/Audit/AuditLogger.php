@@ -7,7 +7,7 @@ namespace SafeAccessInline\Security\Audit;
 use SafeAccessInline\Core\Config\AuditConfig;
 
 /**
- * @phpstan-type AuditEventType 'file.read'|'file.watch'|'url.fetch'|'security.violation'|'security.deprecation'|'data.mask'|'data.freeze'|'schema.validate'|'plugin.overwrite'
+ * @phpstan-type AuditEventType 'file.read'|'file.watch'|'url.fetch'|'security.violation'|'security.deprecation'|'data.mask'|'data.freeze'|'data.format_warning'|'schema.validate'|'plugin.overwrite'
  * @phpstan-type AuditEvent array{type: AuditEventType, timestamp: float, detail: array<string, mixed>}
  */
 final class AuditLogger
