@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use SafeAccessInline\Accessors\JsonAccessor;
 use SafeAccessInline\Exceptions\InvalidFormatException;
 

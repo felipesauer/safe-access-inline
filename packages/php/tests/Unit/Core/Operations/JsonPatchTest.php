@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use SafeAccessInline\Contracts\JsonPatchOperation;
 use SafeAccessInline\Core\Operations\JsonPatch;
 use SafeAccessInline\Exceptions\JsonPatchTestFailedException;

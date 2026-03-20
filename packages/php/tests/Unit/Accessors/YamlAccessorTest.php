@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use SafeAccessInline\Accessors\YamlAccessor;
 use SafeAccessInline\Contracts\ParserPluginInterface;
 use SafeAccessInline\Core\Registries\PluginRegistry;

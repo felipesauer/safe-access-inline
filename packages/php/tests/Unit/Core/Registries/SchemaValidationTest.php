@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use SafeAccessInline\Contracts\SchemaAdapterInterface;
 use SafeAccessInline\Contracts\SchemaValidationIssue;
 use SafeAccessInline\Contracts\SchemaValidationResult;

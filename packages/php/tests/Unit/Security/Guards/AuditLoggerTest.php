@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use SafeAccessInline\Contracts\AuditEvent;
 use SafeAccessInline\Core\Config\AuditConfig;
 use SafeAccessInline\Enums\AuditEventType;

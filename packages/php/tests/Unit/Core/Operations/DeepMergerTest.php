@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use SafeAccessInline\Core\Config\MergerConfig;
 use SafeAccessInline\Core\Operations\DeepMerger;
 use SafeAccessInline\Exceptions\SecurityException;

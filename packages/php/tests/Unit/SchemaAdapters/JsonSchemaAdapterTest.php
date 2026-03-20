@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use SafeAccessInline\SchemaAdapters\JsonSchemaAdapter;
 
 describe(JsonSchemaAdapter::class, function () {

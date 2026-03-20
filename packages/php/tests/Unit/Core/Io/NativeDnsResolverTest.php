@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use SafeAccessInline\Core\Io\NativeDnsResolver;
 
 describe(NativeDnsResolver::class, function () {

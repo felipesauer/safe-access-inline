@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use SafeAccessInline\Core\Config\MaskerConfig;
 use SafeAccessInline\SafeAccess;
 use SafeAccessInline\Security\Sanitizers\DataMasker;

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use SafeAccessInline\Accessors\ArrayAccessor;
 use SafeAccessInline\Accessors\CsvAccessor;
 use SafeAccessInline\Accessors\EnvAccessor;
