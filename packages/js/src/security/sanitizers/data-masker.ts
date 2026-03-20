@@ -1,4 +1,4 @@
-import { emitAudit } from '../audit/audit-emitter';
+import { AuditEventType, emitAudit } from '../audit/audit-emitter';
 import { DEFAULT_MASKER_CONFIG } from '../../core/config/masker-config';
 
 /**
@@ -28,7 +28,14 @@ const COMMON_SENSITIVE_KEYS = new Set([
 export type MaskPattern = string | RegExp;
 const REDACTED = DEFAULT_MASKER_CONFIG.defaultMaskValue;
 
-/** Cache compiled RegExp objects for glob-style wildcard patterns to avoid recompilation per call. */
+/**
+ * LRU cache for compiled wildcard RegExp patterns.
+ *
+ * Bounded to {@link MaskerConfig.maxPatternCacheSize} entries to prevent memory
+ * exhaustion when mask patterns originate from user-controlled input (e.g.
+ * {@link SecurityPolicy.maskPatterns} in a multi-tenant context).
+ * Oldest entries are evicted when the cache is full (insertion-order LRU).
+ */
 const wildcardRegexCache = new Map<string, RegExp>();
 
 /**
@@ -45,7 +52,7 @@ export function mask(
     data: Record<string, unknown>,
     patterns?: MaskPattern[],
 ): Record<string, unknown> {
-    emitAudit('data.mask', { patternCount: patterns?.length ?? 0 });
+    emitAudit(AuditEventType.DATA_MASK, { patternCount: patterns?.length ?? 0 });
     const result = structuredClone(data);
     maskRecursive(result, patterns ?? [], 0);
     return result;
@@ -89,11 +96,20 @@ function matchWildcard(text: string, pattern: string): boolean {
     if (!pattern.includes('*')) return text === pattern;
     let regex = wildcardRegexCache.get(pattern);
     if (!regex) {
+        // Evict the oldest entry when the cache is at capacity (LRU via insertion order)
+        if (wildcardRegexCache.size >= DEFAULT_MASKER_CONFIG.maxPatternCacheSize) {
+            const oldest = wildcardRegexCache.keys().next().value;
+            wildcardRegexCache.delete(oldest!);
+        }
         regex = new RegExp(
             '^' +
                 pattern.replace(/[.*+?^${}()|[\]\\]/g, (m) => (m === '*' ? '.*' : '\\' + m)) +
                 '$',
         );
+        wildcardRegexCache.set(pattern, regex);
+    } else {
+        // Promote to most-recently-used by reinserting
+        wildcardRegexCache.delete(pattern);
         wildcardRegexCache.set(pattern, regex);
     }
     return regex.test(text);

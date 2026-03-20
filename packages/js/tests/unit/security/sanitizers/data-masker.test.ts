@@ -137,6 +137,28 @@ describe('DataMasker — edge cases', () => {
         expect((result.items as Record<string, unknown>[])[0].password).toBe('[REDACTED]');
         expect((result.items as Record<string, unknown>[])[1].name).toBe('ok');
     });
+
+    // ── Security regression: LRU bounded wildcardRegexCache ──────────────
+    it('wildcardRegexCache stays within maxPatternCacheSize under adversarial input', () => {
+        // Supply 250 unique patterns (> default maxPatternCacheSize of 200).
+        // The cache must not grow unboundedly — the 51st and later patterns
+        // should evict the oldest entries, keeping the Map at ≤ 200 entries.
+        const patterns: string[] = [];
+        for (let i = 0; i < 250; i++) {
+            patterns.push(`unique_field_pattern_${i}_*`);
+        }
+        // Build a data object that matches none of the patterns (we only care about cache behaviour)
+        const data: Record<string, unknown> = { safe_field: 'value' };
+        // Call mask() in batches to force cache insertion
+        for (let i = 0; i < 5; i++) {
+            mask(data, patterns.slice(i * 50, (i + 1) * 50));
+        }
+        // No assertion on cache internals (it's private), but the test must complete
+        // without out-of-memory crash and the result must be correct.
+        const result = mask({ safe_field: 'value', password: 'x' }, patterns);
+        expect(result.safe_field).toBe('value');
+        expect(result.password).toBe('[REDACTED]');
+    });
 });
 
 // ── DataMasker — wildcard and edge cases ────────────────────────

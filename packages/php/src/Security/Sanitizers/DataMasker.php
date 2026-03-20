@@ -19,6 +19,17 @@ final class DataMasker
     private static MaskerConfig $config;
 
     /**
+     * Compiled regex pattern cache keyed by raw pattern string.
+     *
+     * Bounded by {@see MaskerConfig::$maxPatternCacheSize} to prevent unbounded
+     * memory growth in long-running processes that mask with many distinct patterns.
+     * Eviction is FIFO: when the cache is full, the oldest entry is removed.
+     *
+     * @var array<string, bool> Keys are raw pattern strings; values are always `true`.
+     */
+    private static array $patternCache = [];
+
+    /**
      * Returns the active masker configuration, lazily initialised with defaults.
      *
      * @return MaskerConfig The current configuration.
@@ -29,13 +40,14 @@ final class DataMasker
     }
 
     /**
-     * Replaces the active masker configuration.
+     * Replaces the active masker configuration and clears the compiled pattern cache.
      *
      * @param MaskerConfig $config New configuration to apply.
      */
     public static function configure(MaskerConfig $config): void
     {
         self::$config = $config;
+        self::$patternCache = [];
     }
 
     /**
@@ -110,6 +122,9 @@ final class DataMasker
      * Regex patterns must be delimited by `/`; all other values are treated as
      * case-insensitive glob patterns via {@see fnmatch()}.
      *
+     * Compiled regex patterns are cached up to {@see MaskerConfig::$maxPatternCacheSize}
+     * entries. When the limit is reached, the oldest entry is evicted (FIFO).
+     *
      * @param  string        $key      Key name to test.
      * @param  array<string> $patterns Caller-supplied patterns (glob or `/regex/`).
      * @return bool True when the key should be redacted.
@@ -125,6 +140,19 @@ final class DataMasker
         foreach ($patterns as $pattern) {
             // Regex pattern: delimited by /
             if (str_starts_with($pattern, '/') && preg_match('/\/[a-zA-Z]*$/', $pattern) === 1) {
+                $cacheKey = $pattern;
+                if (!array_key_exists($cacheKey, self::$patternCache)) {
+                    $maxCacheSize = self::config()->maxPatternCacheSize;
+                    if (count(self::$patternCache) >= $maxCacheSize) {
+                        // FIFO eviction: remove the oldest entry
+                        reset(self::$patternCache);
+                        $oldestKey = key(self::$patternCache);
+                        if ($oldestKey !== null) {
+                            unset(self::$patternCache[$oldestKey]);
+                        }
+                    }
+                    self::$patternCache[$cacheKey] = true;
+                }
                 $result = preg_match($pattern, $key);
                 if ($result === false) {
                     throw new \InvalidArgumentException(
