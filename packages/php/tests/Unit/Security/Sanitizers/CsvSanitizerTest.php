@@ -74,4 +74,36 @@ describe(CsvSanitizer::class, function () {
             expect(CsvSanitizer::sanitizeRow($row))->toBe(['=SUM(A1)']);
         });
     });
+
+    describe('sanitizeHeaders', function () {
+        it('sanitizes all headers in strip mode', function () {
+            $headers = ['Name', '=SUM(A1)', '+cmd'];
+            expect(CsvSanitizer::sanitizeHeaders($headers, 'strip'))->toBe(['Name', 'SUM(A1)', 'cmd']);
+        });
+
+        it('sanitizes all headers in prefix mode', function () {
+            $headers = ['Name', '=Formula'];
+            expect(CsvSanitizer::sanitizeHeaders($headers, 'prefix'))->toBe(['Name', "'=Formula"]);
+        });
+
+        it('returns headers unchanged in none mode', function () {
+            $headers = ['=SUM(A1)', 'safe', '+cmd'];
+            expect(CsvSanitizer::sanitizeHeaders($headers, 'none'))->toBe(['=SUM(A1)', 'safe', '+cmd']);
+        });
+
+        it('defaults to none mode', function () {
+            $headers = ['=SUM(A1)'];
+            expect(CsvSanitizer::sanitizeHeaders($headers))->toBe(['=SUM(A1)']);
+        });
+
+        it('returns empty array for empty input', function () {
+            expect(CsvSanitizer::sanitizeHeaders([]))->toBe([]);
+        });
+
+        it('is functionally equivalent to JS sanitizeCsvHeaders (strip mode)', function () {
+            $headers = ['Name', '=INJECT()', '@scope', '+plus'];
+            $result = CsvSanitizer::sanitizeHeaders($headers, 'strip');
+            expect($result)->toBe(['Name', 'INJECT()', 'scope', 'plus']);
+        });
+    });
 });
