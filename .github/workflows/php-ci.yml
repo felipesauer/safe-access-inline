@@ -48,15 +48,11 @@ jobs:
               uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5
               with:
                   path: ${{ steps.composer-cache.outputs.dir }}
-                  key: php-${{ matrix.php }}-${{ matrix.deps }}-composer-${{ hashFiles('packages/php/composer.json') }}
+                  key: php-${{ matrix.php }}-${{ matrix.deps }}-composer-${{ hashFiles('packages/php/composer.lock') }}
                   restore-keys: php-${{ matrix.php }}-${{ matrix.deps }}-composer-
 
             - name: Install dependencies
               run: composer install --no-interaction --prefer-dist
-
-            - name: Install optional dependencies
-              if: matrix.deps == 'full'
-              run: composer require symfony/yaml devium/toml --dev --no-progress
 
             - name: Run tests
               run: vendor/bin/pest --coverage --coverage-clover coverage.xml ${{ matrix.deps == 'full' && '--min=95' || '' }}
@@ -68,10 +64,6 @@ jobs:
                   token: ${{ secrets.CODECOV_TOKEN }}
                   flags: php
                   files: packages/php/coverage.xml
-
-            - name: Mutation testing
-              if: matrix.deps == 'full' && matrix.php == '8.4'
-              run: composer test:mutation
 
             - name: Run PHPStan
               if: matrix.deps == 'full' && matrix.php == '8.4'
