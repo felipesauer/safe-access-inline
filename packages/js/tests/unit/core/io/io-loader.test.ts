@@ -45,6 +45,14 @@ describe('io-loader', () => {
             ).toBe(path.resolve('/etc/passwd'));
         });
 
+        it('falls back to path.resolve when file does not exist and allowAnyPath is true (line 89)', () => {
+            // realpathSync throws for a non-existent path → catch returns path.resolve(filePath)
+            const nonExistent = '/this/path/does/not/exist/ever/config.json';
+            expect(
+                assertPathWithinAllowedDirs(nonExistent, undefined, { allowAnyPath: true }),
+            ).toBe(path.resolve(nonExistent));
+        });
+
         it('allows paths within allowed directories', () => {
             expect(
                 assertPathWithinAllowedDirs(path.join(fixturesDir, 'config.json'), [fixturesDir]),

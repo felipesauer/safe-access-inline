@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { ArrayAccessor } from '../../../src/accessors/array.accessor';
 import { PluginRegistry } from '../../../src/core/registries/plugin-registry';
 import { InvalidFormatError } from '../../../src/exceptions/invalid-format.error';
@@ -8,6 +8,10 @@ import { SafeAccess } from '../../../src/safe-access';
 
 describe(AbstractAccessor.name, () => {
     beforeEach(() => {
+        PluginRegistry.reset();
+    });
+
+    afterEach(() => {
         PluginRegistry.reset();
     });
 
@@ -567,5 +571,351 @@ describe('AbstractAccessor — keys() edge cases', () => {
         const acc = ArrayAccessor.from({ val: null } as unknown as Record<string, unknown>);
         expect(() => acc.keys('val')).not.toThrow();
         expect(acc.keys('val')).toEqual([]);
+    });
+
+    // ── getInt() ──
+
+    describe('getInt', () => {
+        it('returns numeric value as integer', () => {
+            const acc = ArrayAccessor.from({ age: 30 });
+            expect(acc.getInt('age')).toBe(30);
+        });
+
+        it('truncates float to integer', () => {
+            const acc = ArrayAccessor.from({ price: 9.99 });
+            expect(acc.getInt('price')).toBe(9);
+        });
+
+        it('coerces string "42" to 42', () => {
+            const acc = ArrayAccessor.from({ age: '42' });
+            expect(acc.getInt('age')).toBe(42);
+        });
+
+        it('returns default 0 when path is missing', () => {
+            const acc = ArrayAccessor.from({});
+            expect(acc.getInt('missing')).toBe(0);
+        });
+
+        it('returns custom default when path is missing', () => {
+            const acc = ArrayAccessor.from({});
+            expect(acc.getInt('missing', -1)).toBe(-1);
+        });
+
+        it('returns default for non-numeric string', () => {
+            const acc = ArrayAccessor.from({ val: 'hello' });
+            expect(acc.getInt('val')).toBe(0);
+        });
+
+        it('returns default when value is null', () => {
+            const acc = ArrayAccessor.from({ val: null });
+            expect(acc.getInt('val', 99)).toBe(99);
+        });
+    });
+
+    // ── getBool() ──
+
+    describe('getBool', () => {
+        it('returns boolean value directly', () => {
+            const acc = ArrayAccessor.from({ active: true });
+            expect(acc.getBool('active')).toBe(true);
+        });
+
+        it('coerces string "true" to true', () => {
+            const acc = ArrayAccessor.from({ flag: 'true' });
+            expect(acc.getBool('flag')).toBe(true);
+        });
+
+        it('coerces string "1" to true', () => {
+            const acc = ArrayAccessor.from({ flag: '1' });
+            expect(acc.getBool('flag')).toBe(true);
+        });
+
+        it('coerces string "yes" to true', () => {
+            const acc = ArrayAccessor.from({ flag: 'yes' });
+            expect(acc.getBool('flag')).toBe(true);
+        });
+
+        it('coerces string "false" to false', () => {
+            const acc = ArrayAccessor.from({ flag: 'false' });
+            expect(acc.getBool('flag')).toBe(false);
+        });
+
+        it('coerces string "0" to false', () => {
+            const acc = ArrayAccessor.from({ flag: '0' });
+            expect(acc.getBool('flag')).toBe(false);
+        });
+
+        it('coerces string "no" to false', () => {
+            const acc = ArrayAccessor.from({ flag: 'no' });
+            expect(acc.getBool('flag')).toBe(false);
+        });
+
+        it('coerces numeric 0 to false', () => {
+            const acc = ArrayAccessor.from({ count: 0 });
+            expect(acc.getBool('count')).toBe(false);
+        });
+
+        it('coerces non-zero number to true', () => {
+            const acc = ArrayAccessor.from({ count: 5 });
+            expect(acc.getBool('count')).toBe(true);
+        });
+
+        it('returns default false when path is missing', () => {
+            const acc = ArrayAccessor.from({});
+            expect(acc.getBool('missing')).toBe(false);
+        });
+
+        it('returns custom default when value is unrecognised string', () => {
+            const acc = ArrayAccessor.from({ val: 'maybe' });
+            expect(acc.getBool('val', true)).toBe(true);
+        });
+
+        it('returns defaultValue when value is neither string, boolean, number, null nor undefined (line 719 false branch)', () => {
+            // typeof {} === 'object' — skips the string branch entirely
+            const acc = ArrayAccessor.from({ val: {} } as unknown as Record<string, unknown>);
+            expect(acc.getBool('val')).toBe(false);
+        });
+    });
+
+    // ── getString() ──
+
+    describe('getString', () => {
+        it('returns string value as-is', () => {
+            const acc = ArrayAccessor.from({ name: 'Ana' });
+            expect(acc.getString('name')).toBe('Ana');
+        });
+
+        it('coerces number to string', () => {
+            const acc = ArrayAccessor.from({ age: 30 });
+            expect(acc.getString('age')).toBe('30');
+        });
+
+        it('coerces boolean to string', () => {
+            const acc = ArrayAccessor.from({ active: true });
+            expect(acc.getString('active')).toBe('true');
+        });
+
+        it('returns default empty string when path missing', () => {
+            const acc = ArrayAccessor.from({});
+            expect(acc.getString('missing')).toBe('');
+        });
+
+        it('returns custom default when value is null', () => {
+            const acc = ArrayAccessor.from({ val: null });
+            expect(acc.getString('val', 'fallback')).toBe('fallback');
+        });
+    });
+
+    // ── getArray() ──
+
+    describe('getArray', () => {
+        it('returns array value as-is', () => {
+            const acc = ArrayAccessor.from({ items: [1, 2, 3] });
+            expect(acc.getArray('items')).toEqual([1, 2, 3]);
+        });
+
+        it('returns empty array when path is missing', () => {
+            const acc = ArrayAccessor.from({});
+            expect(acc.getArray('missing')).toEqual([]);
+        });
+
+        it('returns default when value is not an array', () => {
+            const acc = ArrayAccessor.from({ val: 'hello' });
+            expect(acc.getArray('val')).toEqual([]);
+        });
+
+        it('returns custom default when value is not an array', () => {
+            const acc = ArrayAccessor.from({ val: 42 });
+            expect(acc.getArray('val', ['default'])).toEqual(['default']);
+        });
+    });
+
+    // ── getFloat() ──
+
+    describe('getFloat', () => {
+        it('returns float value as-is', () => {
+            const acc = ArrayAccessor.from({ price: 9.99 });
+            expect(acc.getFloat('price')).toBeCloseTo(9.99);
+        });
+
+        it('coerces string "3.14" to float', () => {
+            const acc = ArrayAccessor.from({ pi: '3.14' });
+            expect(acc.getFloat('pi')).toBeCloseTo(3.14);
+        });
+
+        it('coerces integer to float', () => {
+            const acc = ArrayAccessor.from({ count: 5 });
+            expect(acc.getFloat('count')).toBe(5);
+        });
+
+        it('returns default 0 when path is missing', () => {
+            const acc = ArrayAccessor.from({});
+            expect(acc.getFloat('missing')).toBe(0);
+        });
+
+        it('returns default for non-numeric string', () => {
+            const acc = ArrayAccessor.from({ val: 'hello' });
+            expect(acc.getFloat('val', -1.0)).toBe(-1.0);
+        });
+    });
+
+    // ── trace() ──
+
+    describe('trace', () => {
+        it('returns found:true for all segments of an existing path', () => {
+            const acc = ArrayAccessor.from({ user: { address: { city: 'São Paulo' } } });
+            const result = acc.trace('user.address.city');
+            expect(result).toEqual([
+                { segment: 'user', found: true, type: 'object' },
+                { segment: 'address', found: true, type: 'object' },
+                { segment: 'city', found: true, type: 'string' },
+            ]);
+        });
+
+        it('returns found:false for the first missing segment and stops', () => {
+            const acc = ArrayAccessor.from({ user: { name: 'Ana' } });
+            const result = acc.trace('user.address.city');
+            expect(result).toHaveLength(3);
+            expect(result[0]).toEqual({ segment: 'user', found: true, type: 'object' });
+            expect(result[1]).toEqual({ segment: 'address', found: false, type: null });
+            expect(result[2]).toEqual({ segment: 'city', found: false, type: null });
+        });
+
+        it('does not throw for an entirely invalid path', () => {
+            const acc = ArrayAccessor.from({});
+            expect(() => acc.trace('a.b.c')).not.toThrow();
+        });
+
+        it('reports correct types for each found segment', () => {
+            const acc = ArrayAccessor.from({ n: 42, b: true, a: [1], o: { x: 1 }, nil: null });
+            expect(acc.trace('n')[0].type).toBe('number');
+            expect(acc.trace('b')[0].type).toBe('boolean');
+            expect(acc.trace('a')[0].type).toBe('array');
+            expect(acc.trace('o')[0].type).toBe('object');
+            expect(acc.trace('nil')[0].type).toBe('null');
+        });
+
+        it('handles wildcard segment in trace label', () => {
+            const acc = ArrayAccessor.from({ items: [{ price: 10 }] });
+            const result = acc.trace('items.[*]');
+            expect(result[0]).toMatchObject({ segment: 'items', found: true });
+        });
+
+        it('returns empty array for empty path segments', () => {
+            const acc = ArrayAccessor.from({ a: 1 });
+            expect(acc.trace('')).toEqual([]);
+        });
+
+        it('trace label: FILTER segment returns [?...]', () => {
+            const acc = ArrayAccessor.from({ items: [{ price: 5 }, { price: 20 }] });
+            const result = acc.trace('items.[?price>10]');
+            const filterEntry = result.find((r) => r.segment === '[?...]');
+            expect(filterEntry).toBeDefined();
+        });
+
+        it('trace label: SLICE segment returns formatted slice string', () => {
+            const acc = ArrayAccessor.from({ items: [1, 2, 3, 4] });
+            const result = acc.trace('items.[0:2]');
+            const sliceEntry = result.find((r) => r.segment.startsWith('['));
+            expect(sliceEntry).toBeDefined();
+        });
+
+        it('trace label: SLICE with null start (line 847 false branch)', () => {
+            const acc = ArrayAccessor.from({ items: [1, 2, 3, 4] });
+            // [:2] → start=null, end=2, step=null
+            const result = acc.trace('items.[:2]');
+            const sliceEntry = result.find((r) => r.segment.startsWith('['));
+            expect(sliceEntry).toBeDefined();
+        });
+
+        it('trace label: SLICE with null end (line 848 false branch)', () => {
+            const acc = ArrayAccessor.from({ items: [1, 2, 3, 4] });
+            // [1:] → start=1, end=null, step=null
+            const result = acc.trace('items.[1:]');
+            const sliceEntry = result.find((r) => r.segment.startsWith('['));
+            expect(sliceEntry).toBeDefined();
+        });
+
+        it('trace label: SLICE with step (line 849 true branch)', () => {
+            const acc = ArrayAccessor.from({ items: [1, 2, 3, 4] });
+            // [0:4:2] → start=0, end=4, step=2
+            const result = acc.trace('items.[0:4:2]');
+            const sliceEntry = result.find((r) => r.segment.startsWith('['));
+            expect(sliceEntry).toBeDefined();
+        });
+
+        it('trace label: MULTI_INDEX segment returns [idx1,idx2]', () => {
+            const acc = ArrayAccessor.from({ items: ['a', 'b', 'c'] });
+            const result = acc.trace('items.[0,1]');
+            const multiEntry = result.find((r) => r.segment.startsWith('['));
+            expect(multiEntry).toBeDefined();
+        });
+
+        it('trace label: MULTI_KEY segment returns [key1,key2]', () => {
+            const acc = ArrayAccessor.from({ user: { name: 'Ana', age: 30 } });
+            // MULTI_KEY syntax requires quoted keys: ['name','age']
+            const result = acc.trace("user.['name','age']");
+            const multiEntry = result.find((r) => r.segment.startsWith('['));
+            expect(multiEntry).toBeDefined();
+        });
+
+        it('trace label: DESCENT segment returns ..key', () => {
+            const acc = ArrayAccessor.from({ dept: { eng: { head: 'Ana' } } });
+            const result = acc.trace('..head');
+            const descentEntry = result.find((r) => r.segment.startsWith('..'));
+            expect(descentEntry).toBeDefined();
+        });
+
+        it('trace label: DESCENT_MULTI segment returns ..[key1,key2] (line 855)', () => {
+            const acc = ArrayAccessor.from({ dept: { head: 'Ana', lead: 'Bob', other: 'X' } });
+            // DESCENT_MULTI syntax: ..['key1','key2'] — quoted keys after double-dot bracket
+            const result = acc.trace("..['head','lead']");
+            const multiDescentEntry = result.find((r) => r.segment.startsWith('..['));
+            expect(multiDescentEntry).toBeDefined();
+        });
+
+        it('segmentToString default branch returns type string for unknown segment (line 861)', () => {
+            // Simulate an unknown segment type by calling segmentToString via an accessor that
+            // receives a PROJECTION segment — which has no dedicated case and falls to default
+            const acc = ArrayAccessor.from({ items: [{ name: 'a' }] });
+            // Projection syntax: .{field} — PROJECTION has no case in segmentToString → default
+            const result = acc.trace('items.{name}');
+            // PROJECTION is handled (default case) — trace entry must exist
+            expect(result.length).toBeGreaterThan(0);
+        });
+
+        it('traceValueType returns null for non-standard typeof values', () => {
+            // Symbols are typeof 'symbol' — the switch default returns null
+            const acc = ArrayAccessor.from({ sym: Symbol('test') } as unknown as Record<
+                string,
+                unknown
+            >);
+            const result = acc.trace('sym');
+            // The type field for a symbol value falls into the `default` branch → null
+            expect(result[0].type).toBeNull();
+        });
+    });
+
+    // ── validatePatch ──
+
+    describe('validatePatch', () => {
+        it('does not throw for valid patch operations', () => {
+            const acc = ArrayAccessor.from({ a: 1 });
+            expect(() => acc.validatePatch([{ op: 'add', path: '/b', value: 2 }])).not.toThrow();
+        });
+
+        it('throws JsonPatchTestFailedError for invalid operation type', () => {
+            const acc = ArrayAccessor.from({ a: 1 });
+            // validatePatch throws when 'move' op is missing required 'from' field
+            expect(() =>
+                acc.validatePatch([
+                    { op: 'move', path: '/b' } as unknown as {
+                        op: 'add';
+                        path: string;
+                        value: unknown;
+                    },
+                ]),
+            ).toThrow();
+        });
     });
 });

@@ -100,4 +100,54 @@ describe('deepMerge', () => {
         const result = deepMerge({ list: [1, 2, 3] }, { list: [4, 5] });
         expect(result.list).toEqual([4, 5]);
     });
+
+    it('treats plain object with sequential numeric keys as a list — replaces, not merges', () => {
+        // isObjectList: { 0: 'a', 1: 'b' } mirrors PHP array_is_list() — should replace
+        const base = { items: { 0: 'a', 1: 'b', 2: 'c' } as unknown as Record<string, unknown> };
+        const override = { items: { 0: 'x', 1: 'y' } as unknown as Record<string, unknown> };
+        const result = deepMerge(base, override);
+        expect(result.items).toEqual({ 0: 'x', 1: 'y' });
+        expect((result.items as Record<string, unknown>)[2]).toBeUndefined();
+    });
+
+    it('sanitizeArray rejects prototype-pollution key nested inside array', () => {
+        // JSON.parse creates an object where __proto__ is an own enumerable string key
+        // — the real prototype-pollution attack vector (object literal { __proto__: … }
+        // silently sets the prototype and leaves no enumerable key behind).
+        const maliciousItem = JSON.parse('{"__proto__": {"hacked": true}}') as Record<
+            string,
+            unknown
+        >;
+        expect(() =>
+            deepMerge(
+                { items: [] },
+                { items: [maliciousItem] as unknown as Record<string, unknown>[] },
+            ),
+        ).toThrow(SecurityError);
+    });
+
+    it('associative object with non-sequential keys is still merged recursively', () => {
+        // isObjectList returns false for { a: 1, b: 2 } — must still deep-merge
+        const base = { cfg: { a: 1, b: 2 } };
+        const override = { cfg: { b: 99, c: 3 } };
+        expect(deepMerge(base, override)).toEqual({ cfg: { a: 1, b: 99, c: 3 } });
+    });
+
+    it('sanitizeArray — recursively validates nested arrays (line 35)', () => {
+        // An array of arrays — the inner array is iterated via sanitizeArray recursion
+        expect(() =>
+            deepMerge(
+                { list: [] },
+                { list: [[{ safe: 1 }]] as unknown as Record<string, unknown>[] },
+            ),
+        ).not.toThrow();
+    });
+
+    it('sanitizeArray — throws when a nested object inside an array has a forbidden key (lines 40-42)', () => {
+        // JSON.parse produces an object where __proto__ is an own enumerable key inside a nested array
+        const evil = JSON.parse('{"nested":[{"__proto__":{"x":1}}]}') as Record<string, unknown>;
+        expect(() =>
+            deepMerge({ list: [] }, { list: [evil] as unknown as Record<string, unknown>[] }),
+        ).toThrow(SecurityError);
+    });
 });

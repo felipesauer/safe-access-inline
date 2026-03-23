@@ -252,3 +252,179 @@ describe(SegmentParser.name, () => {
         expect(SegmentParser.parseKeys('users[0].name')).toEqual(['users', '0', 'name']);
     });
 });
+
+// ── parseSegments — mutation-killing tests ───────────────────────
+
+describe('SegmentParser — descent segment edge cases', () => {
+    it('descent with single-quoted key after [..] bracket', () => {
+        // Tests regex /^([\'""])(.*?)\1$/ matching on quoted bracket keys after ..
+        const segs = SegmentParser.parseSegments("..['title']");
+        expect(segs).toHaveLength(1);
+        expect(segs[0]).toEqual({ type: SegmentType.DESCENT, key: 'title' });
+    });
+
+    it('descent with unquoted key in brackets after ..', () => {
+        // Tests fallthrough when inner is not quoted → plain DESCENT with raw key
+        const segs = SegmentParser.parseSegments('..[key]');
+        expect(segs).toHaveLength(1);
+        expect(segs[0]).toEqual({ type: SegmentType.DESCENT, key: 'key' });
+    });
+
+    it('descent multi-key with double-quoted keys', () => {
+        // Tests the allQuoted path with double quotes
+        const segs = SegmentParser.parseSegments('..["a","b"]');
+        expect(segs).toHaveLength(1);
+        expect(segs[0].type).toBe(SegmentType.DESCENT_MULTI);
+        const dm = segs[0] as { type: SegmentType.DESCENT_MULTI; keys: string[] };
+        expect(dm.keys).toEqual(['a', 'b']);
+    });
+
+    it('parses descent key with a lonely dot suffix', () => {
+        // Tests key parsing: key ends before '.' or '['
+        const segs = SegmentParser.parseSegments('..name.sub');
+        expect(segs).toHaveLength(2);
+        expect(segs[0]).toEqual({ type: SegmentType.DESCENT, key: 'name' });
+        expect(segs[1]).toEqual({ type: SegmentType.KEY, value: 'sub' });
+    });
+});
+
+describe('SegmentParser — multi-key with partial quotes (mutation boundary)', () => {
+    it('mixed key/number multi-bracket falls through to KEY with raw inner', () => {
+        // If parts have neither all-quoted nor all-numbers, falls through to quoted check
+        // then to slice (no colon), then to wildcard (not *), then to KEY
+        const segs = SegmentParser.parseSegments("x['a',b]");
+        // 'a',b — 'a' is quoted, b is not: allQuoted=false, parseInt('b')=NaN: not multi-index
+        // Falls through to quoted check for: "'a',b" — not /^(['"])(.*?)\1$/
+        // Then slice: no ':', then '*': no, then KEY with value "'a',b"
+        expect(segs).toHaveLength(2);
+        expect(segs[1]).toMatchObject({ type: SegmentType.KEY, value: "'a',b" });
+    });
+
+    it('numeric multi-index inside a key path', () => {
+        // Tests that numeric multi-index works in the middle of a path
+        const segs = SegmentParser.parseSegments('data[0,1,2].name');
+        expect(segs).toHaveLength(3);
+        const multi = segs[1] as { type: SegmentType.MULTI_INDEX; indices: number[] };
+        expect(multi.type).toBe(SegmentType.MULTI_INDEX);
+        expect(multi.indices).toEqual([0, 1, 2]);
+        expect(segs[2]).toEqual({ type: SegmentType.KEY, value: 'name' });
+    });
+
+    it('multi-key with mixed quote styles uses allQuoted correctly', () => {
+        // Tests startsWith/endsWith quote check in allQuoted
+        const segs = SegmentParser.parseSegments('x[\'a\',"b"]');
+        const mk = segs[1] as { type: SegmentType.MULTI_KEY; keys: string[] };
+        expect(mk.type).toBe(SegmentType.MULTI_KEY);
+        expect(mk.keys).toEqual(['a', 'b']);
+    });
+});
+
+describe('SegmentParser — slice parsing boundary tests', () => {
+    it('slice with exactly two parts (start and end only, no step)', () => {
+        // Tests sliceParts.length > 1 condition for step parsing
+        const segs = SegmentParser.parseSegments('arr[2:5]');
+        const sl = segs[1] as {
+            type: SegmentType.SLICE;
+            start: number | null;
+            end: number | null;
+            step: number | null;
+        };
+        expect(sl.type).toBe(SegmentType.SLICE);
+        expect(sl.start).toBe(2);
+        expect(sl.end).toBe(5);
+        expect(sl.step).toBeNull();
+    });
+
+    it('slice with three empty parts [::] yields all-null slice', () => {
+        const segs = SegmentParser.parseSegments('arr[::]');
+        const sl = segs[1] as {
+            type: SegmentType.SLICE;
+            start: number | null;
+            end: number | null;
+            step: number | null;
+        };
+        expect(sl.type).toBe(SegmentType.SLICE);
+        expect(sl.start).toBeNull();
+        expect(sl.end).toBeNull();
+        expect(sl.step).toBeNull();
+    });
+});
+
+describe('SegmentParser — filter and path boundary conditions', () => {
+    it('filter at the very end of a path with no trailing segment', () => {
+        // Tests j loop boundary and i=j+1 after filter
+        const segs = SegmentParser.parseSegments('data[?age>18]');
+        expect(segs).toHaveLength(2);
+        expect(segs[0]).toEqual({ type: SegmentType.KEY, value: 'data' });
+        expect(segs[1].type).toBe(SegmentType.FILTER);
+    });
+
+    it('wildcard in bracket notation [*]', () => {
+        // Tests inner === "*" path
+        const segs = SegmentParser.parseSegments('data[*]');
+        expect(segs).toHaveLength(2);
+        expect(segs[1].type).toBe(SegmentType.WILDCARD);
+    });
+
+    it('path with only wildcard in brackets', () => {
+        const segs = SegmentParser.parseSegments('[*]');
+        expect(segs).toHaveLength(1);
+        expect(segs[0].type).toBe(SegmentType.WILDCARD);
+    });
+
+    it('malformed filter expression results in no segment (skip silently)', () => {
+        const segs = SegmentParser.parseSegments('[?]');
+        expect(segs).toHaveLength(0);
+    });
+});
+
+describe('SegmentParser — parseKeys regex escape tests', () => {
+    it('parseKeys replaces bracket notation in path with multiple brackets', () => {
+        // Tests /\[([^\]]+)\]/g replacement
+        expect(SegmentParser.parseKeys('a[0][1][2]')).toEqual(['a', '0', '1', '2']);
+    });
+
+    it('parseKeys handles key with special chars in bracket (regex pattern)', () => {
+        // Tests that [^\]] in regex allows any char except ]
+        expect(SegmentParser.parseKeys('a[key-name]')).toEqual(['a', 'key-name']);
+    });
+
+    it('parseKeys placeholder regex escapes special regex chars in placeholder', () => {
+        // Tests the placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') logic
+        // The placeholder is \x00ESC_DOT\x00 which has no special regex chars,
+        // but the test indirectly exercises the regex-escape path
+        const keys = SegmentParser.parseKeys('a\\.b\\.c');
+        expect(keys).toEqual(['a.b.c']);
+    });
+});
+
+describe('SegmentParser — projection segment', () => {
+    it('parses simple projection .{name,age}', () => {
+        const segs = SegmentParser.parseSegments('users.{name,age}');
+        expect(segs).toHaveLength(2);
+        expect(segs[0]).toEqual({ type: SegmentType.KEY, value: 'users' });
+        const proj = segs[1] as {
+            type: SegmentType.PROJECTION;
+            fields: Array<{ alias: string; source: string }>;
+        };
+        expect(proj.type).toBe(SegmentType.PROJECTION);
+        expect(proj.fields).toContainEqual({ alias: 'name', source: 'name' });
+        expect(proj.fields).toContainEqual({ alias: 'age', source: 'age' });
+    });
+
+    it('parses aliased projection .{n:name, a:age}', () => {
+        const segs = SegmentParser.parseSegments('users.{n:name,a:age}');
+        const proj = segs[1] as {
+            type: SegmentType.PROJECTION;
+            fields: Array<{ alias: string; source: string }>;
+        };
+        expect(proj.fields).toContainEqual({ alias: 'n', source: 'name' });
+        expect(proj.fields).toContainEqual({ alias: 'a', source: 'age' });
+    });
+
+    it('parseSegments — projection at root level', () => {
+        const segs = SegmentParser.parseSegments('.{id,name}');
+        expect(segs).toHaveLength(1);
+        expect(segs[0].type).toBe(SegmentType.PROJECTION);
+    });
+});

@@ -142,4 +142,38 @@ SINGLE_QUOTED='hello world'
         const accessor = EnvAccessor.from("KEY='hello'");
         expect(accessor.get('KEY')).toBe('hello');
     });
+
+    // ── toEnv serialization ────────────────────────────────────────────────────
+
+    it('toEnv — serializes flat keys as KEY=VALUE', () => {
+        const accessor = EnvAccessor.from('APP=MyApp\nPORT=3000');
+        const env = accessor.toEnv();
+        expect(env).toContain('APP=MyApp');
+        expect(env).toContain('PORT=3000');
+    });
+
+    it('toEnv — wraps values with spaces in double quotes', () => {
+        const accessor = EnvAccessor.from('NAME=John Doe');
+        const env = accessor.toEnv();
+        expect(env).toContain('NAME="John Doe"');
+    });
+
+    it('toEnv — round-trip: toEnv → from → all() deep-equals original', () => {
+        const original = EnvAccessor.from('APP=MyApp\nPORT=3000\nDEBUG=false');
+        const roundTripped = EnvAccessor.from(original.toEnv());
+        expect(roundTripped.all()).toEqual(original.all());
+    });
+
+    it('toEnv — skips nested objects silently', () => {
+        const accessor = EnvAccessor.from('FLAT=value').set('nested', { key: 'val' } as never);
+        const env = accessor.toEnv();
+        expect(env).toContain('FLAT=value');
+        expect(env).not.toContain('nested');
+        expect(env).not.toContain('key=val');
+    });
+
+    it('toEnv — ends with a trailing newline', () => {
+        const accessor = EnvAccessor.from('A=1');
+        expect(accessor.toEnv()).toMatch(/\n$/);
+    });
 });

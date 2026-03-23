@@ -95,3 +95,18 @@ describe('Prototype Pollution Protection in DotNotationParser', () => {
         expect(result).toEqual({ user: { name: 'Ana' } });
     });
 });
+
+describe('SecurityGuard.isForbiddenKey', () => {
+    it('returns true for __proto__', () => {
+        expect(SecurityGuard.isForbiddenKey('__proto__')).toBe(true);
+    });
+
+    it('returns true for constructor', () => {
+        expect(SecurityGuard.isForbiddenKey('constructor')).toBe(true);
+    });
+
+    it('returns false for a normal key', () => {
+        expect(SecurityGuard.isForbiddenKey('name')).toBe(false);
+        expect(SecurityGuard.isForbiddenKey('userId')).toBe(false);
+    });
+});

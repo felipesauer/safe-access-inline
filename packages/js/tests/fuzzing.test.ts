@@ -29,7 +29,9 @@ describe('Fuzzing — hostile inputs', () => {
 
         const data = { a: 1, b: { c: 2 } };
         for (const path of hostilePaths) {
-            expect(() => DotNotationParser.get(data, path, null)).not.toThrow();
+            expect(() => DotNotationParser.get(data, path, null)).toThrow(
+                /SecurityError|Forbidden/,
+            );
         }
     }, 30_000);
 
@@ -51,7 +53,18 @@ describe('Fuzzing — hostile inputs', () => {
                         .join('');
                 }),
                 (path) => {
-                    expect(() => DotNotationParser.get({ a: 1 }, path, null)).not.toThrow();
+                    // A SecurityError for forbidden keys is acceptable — what must not happen
+                    // is an unhandled crash or uncontrolled exception.
+                    try {
+                        DotNotationParser.get({ a: 1 }, path, null);
+                    } catch (e: unknown) {
+                        if (
+                            !(e instanceof Error) ||
+                            !e.constructor.name.includes('SecurityError')
+                        ) {
+                            throw e;
+                        }
+                    }
                 },
             ),
             { numRuns: 300 },

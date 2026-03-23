@@ -374,4 +374,17 @@ describe('Audit Integration', () => {
         expect(() => onAudit(() => {})).toThrow(RangeError);
         expect(() => onAudit(() => {})).toThrow(/Max listener count/);
     });
+
+    it('isolates a listener that throws — other listeners still fire (line 53)', () => {
+        const received: unknown[] = [];
+        // First listener always throws
+        onAudit(() => {
+            throw new Error('listener error');
+        });
+        // Second listener should still receive the event
+        onAudit((e) => received.push(e));
+        // Emit — should not propagate the throw from listener 1
+        expect(() => emitAudit('file.read', { path: 'a' })).not.toThrow();
+        expect(received).toHaveLength(1);
+    });
 });
