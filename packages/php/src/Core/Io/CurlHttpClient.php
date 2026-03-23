@@ -6,6 +6,7 @@ namespace SafeAccessInline\Core\Io;
 
 use SafeAccessInline\Contracts\HttpClientInterface;
 use SafeAccessInline\Exceptions\SecurityException;
+use SafeAccessInline\Security\Sanitizers\HeaderSanitizer;
 
 /**
  * HTTP client backed by ext-curl.
@@ -30,6 +31,19 @@ class CurlHttpClient implements HttpClientInterface
      */
     public function fetch(string $url, array $curlOptions): string
     {
+        // Sanitise any custom HTTP headers to prevent CRLF injection (CWE-113).
+        if (isset($curlOptions[CURLOPT_HTTPHEADER]) && is_array($curlOptions[CURLOPT_HTTPHEADER])) {
+            /** @var array<string, string> $rawHeaders */
+            $rawHeaders = $curlOptions[CURLOPT_HTTPHEADER];
+            $sanitized = HeaderSanitizer::sanitizeHeaders($rawHeaders);
+            // Re-format as cURL "Name: value" strings after sanitisation.
+            $curlOptions[CURLOPT_HTTPHEADER] = array_map(
+                static fn (string $name, string $value): string => "{$name}: {$value}",
+                array_keys($sanitized),
+                array_values($sanitized),
+            );
+        }
+
         $ch = $this->curlInit($url);
         if ($ch === false) {
             throw new SecurityException("Failed to initialize cURL for URL: '{$url}'");
