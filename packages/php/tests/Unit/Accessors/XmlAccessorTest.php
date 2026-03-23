@@ -135,4 +135,35 @@ describe(XmlAccessor::class, function () {
         expect(fn () => XmlAccessor::from($doctypeXml))->toThrow(SecurityException::class);
     });
 
+    // ── P3: maxXmlDepth ──────────────────────────────
+
+    it('rejects XML exceeding default max depth (P3)', function () {
+        // Build a deeply nested XML structure exceeding ParserConfig::DEFAULT_MAX_XML_DEPTH (100)
+        $inner = '';
+        for ($i = 0; $i < 110; $i++) {
+            $inner = "<item{$i}>{$inner}</item{$i}>";
+        }
+        $deep = "<root>{$inner}</root>";
+        expect(fn () => XmlAccessor::from($deep))->toThrow(SecurityException::class);
+    });
+
+    it('accepts XML within default max depth (P3)', function () {
+        // 5-level nesting is well within the 100 default
+        $xml = '<root><a><b><c><d><e>leaf</e></d></c></b></a></root>';
+        $accessor = XmlAccessor::from($xml);
+        expect($accessor->get('a.b.c.d.e'))->toBe('leaf');
+    });
+
+    // ── P4: SecurityGuard on tag/attribute names ──────
+
+    it('rejects XML containing a __proto__ tag name (P4)', function () {
+        $xml = '<root><__proto__>evil</__proto__></root>';
+        expect(fn () => XmlAccessor::from($xml))->toThrow(SecurityException::class);
+    });
+
+    it('rejects XML containing a constructor tag name (P4)', function () {
+        $xml = '<root><constructor>evil</constructor></root>';
+        expect(fn () => XmlAccessor::from($xml))->toThrow(SecurityException::class);
+    });
+
 });

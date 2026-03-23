@@ -105,6 +105,21 @@ describe(DotNotationParser::class, function () {
         expect($result)->toBe(['a' => 1, 'b' => 2]);
     });
 
+    it('set — does not mutate intermediate nodes shared with original (I2)', function () {
+        // Deep nested set must not bleed into the caller's existing nested array.
+        $data = ['user' => ['name' => 'Alice', 'age' => 30]];
+        DotNotationParser::set($data, 'user.email', 'alice@example.com');
+        // The original $data['user'] must remain untouched.
+        expect($data['user'])->toBe(['name' => 'Alice', 'age' => 30]);
+    });
+
+    it('remove — does not mutate intermediate nodes shared with original (I2)', function () {
+        $data = ['user' => ['name' => 'Alice', 'role' => 'admin']];
+        DotNotationParser::remove($data, 'user.role');
+        // The original $data['user'] must remain untouched.
+        expect($data['user'])->toBe(['name' => 'Alice', 'role' => 'admin']);
+    });
+
     // ── remove() ──────────────────────────────────────────
 
     it('remove — existing key', function () {
@@ -181,6 +196,26 @@ describe(DotNotationParser::class, function () {
         $result = DotNotationParser::merge($data, '', ['a' => ['c' => 2]]);
         expect($data)->toBe(['a' => ['b' => 1]]);
         expect($result)->toBe(['a' => ['b' => 1, 'c' => 2]]);
+    });
+
+    it('merge — root merge result does not share PHP references with original (I4)', function () {
+        // PHP &references inside the source data must NOT leak into the merge result.
+        // deepMerge uses an explicit foreach copy (not $result = $target) to break
+        // references at each level — mirroring JS's `{ ...target }` spread semantics.
+        $inner = ['b' => 1, 'c' => 2];
+        $data = [];
+        $data['a'] = &$inner; // introduce a PHP reference
+        $data['z'] = 99;
+
+        $result = DotNotationParser::merge($data, '', ['extra' => true]);
+
+        // Mutate the original referenced variable AFTER the merge
+        $inner['HACKED'] = 'injected';
+
+        // The result must be independent — $inner mutation must not affect it
+        expect($result)->not->toHaveKey('HACKED');
+        expect($result['a'])->not->toHaveKey('HACKED');
+        expect($result['extra'])->toBeTrue();
     });
 
     it('merge — deeply nested merge', function () {

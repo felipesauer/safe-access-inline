@@ -27,12 +27,12 @@ describe(AuditLogger::class, function () {
     it('AuditEvent — constructor stores type, timestamp and detail', function () {
         $event = new AuditEvent(
             type:      AuditEventType::FILE_READ,
-            timestamp: 1_700_000_000.0,
+            timestamp: 1_700_000_000_000,
             detail:    ['filePath' => 'data.json'],
         );
 
         expect($event->type)->toBe(AuditEventType::FILE_READ)
-            ->and($event->timestamp)->toBe(1_700_000_000.0)
+            ->and($event->timestamp)->toBe(1_700_000_000_000)
             ->and($event->detail)->toBe(['filePath' => 'data.json']);
     });
 

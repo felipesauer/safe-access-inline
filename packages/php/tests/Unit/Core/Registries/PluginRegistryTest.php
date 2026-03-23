@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use SafeAccessInline\Contracts\ParserPluginInterface;
 use SafeAccessInline\Contracts\SerializerPluginInterface;
+use SafeAccessInline\Core\Config\PluginRegistryConfig;
 use SafeAccessInline\Core\Registries\PluginRegistry;
 use SafeAccessInline\Exceptions\UnsupportedTypeException;
 use SafeAccessInline\Security\Audit\AuditLogger;
@@ -184,5 +185,91 @@ describe(PluginRegistry::class, function () {
 
         expect(PluginRegistry::getParser('yaml')->parse(''))->toBe(['format' => 'yaml']);
         expect(PluginRegistry::getParser('toml')->parse(''))->toBe(['format' => 'toml']);
+    });
+
+    // ── Registry size limits ───────────────────────
+
+    it('throws RangeException when max parser limit is exceeded', function () {
+        $parser = new class () implements ParserPluginInterface {
+            public function parse(string $raw): array
+            {
+                return [];
+            }
+        };
+
+        for ($i = 0; $i < PluginRegistryConfig::DEFAULT_MAX_PARSERS; $i++) {
+            PluginRegistry::registerParser("format-{$i}", $parser);
+        }
+
+        expect(fn () => PluginRegistry::registerParser('overflow-format', $parser))
+            ->toThrow(
+                \RangeException::class,
+                sprintf('Max parser plugins (%d) reached.', PluginRegistryConfig::DEFAULT_MAX_PARSERS),
+            );
+    });
+
+    it('does not count overwrite of existing format toward parser limit', function () {
+        $parser = new class () implements ParserPluginInterface {
+            public function parse(string $raw): array
+            {
+                return [];
+            }
+        };
+        $overwrite = new class () implements ParserPluginInterface {
+            public function parse(string $raw): array
+            {
+                return ['overwritten' => true];
+            }
+        };
+
+        for ($i = 0; $i < PluginRegistryConfig::DEFAULT_MAX_PARSERS; $i++) {
+            PluginRegistry::registerParser("format-{$i}", $parser);
+        }
+
+        // Re-registering an already-known format must not throw even at capacity
+        PluginRegistry::registerParser('format-0', $overwrite);
+        expect(PluginRegistry::getParser('format-0')->parse(''))->toBe(['overwritten' => true]);
+    });
+
+    it('throws RangeException when max serializer limit is exceeded', function () {
+        $serializer = new class () implements SerializerPluginInterface {
+            public function serialize(array $data): string
+            {
+                return '';
+            }
+        };
+
+        for ($i = 0; $i < PluginRegistryConfig::DEFAULT_MAX_SERIALIZERS; $i++) {
+            PluginRegistry::registerSerializer("format-{$i}", $serializer);
+        }
+
+        expect(fn () => PluginRegistry::registerSerializer('overflow-format', $serializer))
+            ->toThrow(
+                \RangeException::class,
+                sprintf('Max serializer plugins (%d) reached.', PluginRegistryConfig::DEFAULT_MAX_SERIALIZERS),
+            );
+    });
+
+    it('does not count overwrite of existing format toward serializer limit', function () {
+        $serializer = new class () implements SerializerPluginInterface {
+            public function serialize(array $data): string
+            {
+                return '';
+            }
+        };
+        $overwrite = new class () implements SerializerPluginInterface {
+            public function serialize(array $data): string
+            {
+                return 'overwritten';
+            }
+        };
+
+        for ($i = 0; $i < PluginRegistryConfig::DEFAULT_MAX_SERIALIZERS; $i++) {
+            PluginRegistry::registerSerializer("format-{$i}", $serializer);
+        }
+
+        // Re-registering an already-known format must not throw even at capacity
+        PluginRegistry::registerSerializer('format-0', $overwrite);
+        expect(PluginRegistry::getSerializer('format-0')->serialize([]))->toBe('overwritten');
     });
 });

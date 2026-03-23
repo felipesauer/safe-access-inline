@@ -14,24 +14,36 @@ describe(JsonPatch::class, function () {
 
     it('detects added keys', function () {
         $ops = JsonPatch::diff(['a' => 1], ['a' => 1, 'b' => 2]);
-        expect($ops)->toBe([['op' => 'add', 'path' => '/b', 'value' => 2]]);
+        expect($ops)->toHaveCount(1);
+        expect($ops[0])->toBeInstanceOf(JsonPatchOperation::class);
+        expect($ops[0]->op)->toBe('add');
+        expect($ops[0]->path)->toBe('/b');
+        expect($ops[0]->value)->toBe(2);
     });
 
     it('detects removed keys', function () {
         $ops = JsonPatch::diff(['a' => 1, 'b' => 2], ['a' => 1]);
-        expect($ops)->toBe([['op' => 'remove', 'path' => '/b']]);
+        expect($ops)->toHaveCount(1);
+        expect($ops[0]->op)->toBe('remove');
+        expect($ops[0]->path)->toBe('/b');
     });
 
     it('detects replaced values', function () {
         $ops = JsonPatch::diff(['a' => 1], ['a' => 2]);
-        expect($ops)->toBe([['op' => 'replace', 'path' => '/a', 'value' => 2]]);
+        expect($ops)->toHaveCount(1);
+        expect($ops[0]->op)->toBe('replace');
+        expect($ops[0]->path)->toBe('/a');
+        expect($ops[0]->value)->toBe(2);
     });
 
     it('diffs nested objects recursively', function () {
         $a = ['user' => ['name' => 'Ana', 'age' => 30]];
         $b = ['user' => ['name' => 'Ana', 'age' => 31]];
         $ops = JsonPatch::diff($a, $b);
-        expect($ops)->toBe([['op' => 'replace', 'path' => '/user/age', 'value' => 31]]);
+        expect($ops)->toHaveCount(1);
+        expect($ops[0]->op)->toBe('replace');
+        expect($ops[0]->path)->toBe('/user/age');
+        expect($ops[0]->value)->toBe(31);
     });
 
     it('returns empty for identical objects', function () {
@@ -53,7 +65,10 @@ describe(JsonPatch::class, function () {
         $a = ['items' => [1, 2]];
         $b = ['items' => [1, 2, 3]];
         $ops = JsonPatch::diff($a, $b);
-        expect($ops)->toBe([['op' => 'add', 'path' => '/items/2', 'value' => 3]]);
+        expect($ops)->toHaveCount(1);
+        expect($ops[0]->op)->toBe('add');
+        expect($ops[0]->path)->toBe('/items/2');
+        expect($ops[0]->value)->toBe(3);
     });
 
     it('diffs list arrays - removed elements', function () {
@@ -61,21 +76,27 @@ describe(JsonPatch::class, function () {
         $b = ['items' => [1, 2]];
         $ops = JsonPatch::diff($a, $b);
         expect($ops)->toHaveCount(1);
-        expect($ops[0]['op'])->toBe('remove');
+        expect($ops[0]->op)->toBe('remove');
     });
 
     it('diffs list arrays - replaced elements', function () {
         $a = ['items' => ['a', 'b']];
         $b = ['items' => ['a', 'c']];
         $ops = JsonPatch::diff($a, $b);
-        expect($ops)->toBe([['op' => 'replace', 'path' => '/items/1', 'value' => 'c']]);
+        expect($ops)->toHaveCount(1);
+        expect($ops[0]->op)->toBe('replace');
+        expect($ops[0]->path)->toBe('/items/1');
+        expect($ops[0]->value)->toBe('c');
     });
 
     it('diffs nested objects inside list arrays', function () {
         $a = ['users' => [['name' => 'Ana'], ['name' => 'Bob']]];
         $b = ['users' => [['name' => 'Ana'], ['name' => 'Carlos']]];
         $ops = JsonPatch::diff($a, $b);
-        expect($ops)->toBe([['op' => 'replace', 'path' => '/users/1/name', 'value' => 'Carlos']]);
+        expect($ops)->toHaveCount(1);
+        expect($ops[0]->op)->toBe('replace');
+        expect($ops[0]->path)->toBe('/users/1/name');
+        expect($ops[0]->value)->toBe('Carlos');
     });
 
     // ── pointer escaping ────────────────────────
@@ -84,20 +105,26 @@ describe(JsonPatch::class, function () {
         $a = ['a~b' => 1];
         $b = ['a~b' => 2];
         $ops = JsonPatch::diff($a, $b);
-        expect($ops)->toBe([['op' => 'replace', 'path' => '/a~0b', 'value' => 2]]);
+        expect($ops)->toHaveCount(1);
+        expect($ops[0]->op)->toBe('replace');
+        expect($ops[0]->path)->toBe('/a~0b');
+        expect($ops[0]->value)->toBe(2);
     });
 
     it('escapes slash in key names', function () {
         $a = ['a/b' => 1];
         $b = ['a/b' => 2];
         $ops = JsonPatch::diff($a, $b);
-        expect($ops)->toBe([['op' => 'replace', 'path' => '/a~1b', 'value' => 2]]);
+        expect($ops)->toHaveCount(1);
+        expect($ops[0]->op)->toBe('replace');
+        expect($ops[0]->path)->toBe('/a~1b');
+        expect($ops[0]->value)->toBe(2);
     });
 
     it('apply patch with pointer-escaped keys', function () {
         $result = JsonPatch::applyPatch(
             ['a/b' => 1],
-            [['op' => 'replace', 'path' => '/a~1b', 'value' => 99]]
+            [new JsonPatchOperation(op: 'replace', path: '/a~1b', value: 99)],
         );
         expect($result)->toBe(['a/b' => 99]);
     });
@@ -105,44 +132,68 @@ describe(JsonPatch::class, function () {
     // ── applyPatch() ─────────────────────────────
 
     it('applies add operation', function () {
-        $result = JsonPatch::applyPatch(['a' => 1], [['op' => 'add', 'path' => '/b', 'value' => 2]]);
+        $result = JsonPatch::applyPatch(
+            ['a' => 1],
+            [new JsonPatchOperation(op: 'add', path: '/b', value: 2)],
+        );
         expect($result)->toBe(['a' => 1, 'b' => 2]);
     });
 
     it('applies remove operation', function () {
-        $result = JsonPatch::applyPatch(['a' => 1, 'b' => 2], [['op' => 'remove', 'path' => '/b']]);
+        $result = JsonPatch::applyPatch(
+            ['a' => 1, 'b' => 2],
+            [new JsonPatchOperation(op: 'remove', path: '/b')],
+        );
         expect($result)->toBe(['a' => 1]);
     });
 
     it('applies replace operation', function () {
-        $result = JsonPatch::applyPatch(['a' => 1], [['op' => 'replace', 'path' => '/a', 'value' => 99]]);
+        $result = JsonPatch::applyPatch(
+            ['a' => 1],
+            [new JsonPatchOperation(op: 'replace', path: '/a', value: 99)],
+        );
         expect($result)->toBe(['a' => 99]);
     });
 
     it('applies move operation', function () {
-        $result = JsonPatch::applyPatch(['a' => 1, 'b' => 2], [['op' => 'move', 'from' => '/a', 'path' => '/c']]);
+        $result = JsonPatch::applyPatch(
+            ['a' => 1, 'b' => 2],
+            [new JsonPatchOperation(op: 'move', path: '/c', from: '/a')],
+        );
         expect($result)->toHaveKey('b', 2);
         expect($result)->toHaveKey('c', 1);
         expect($result)->not->toHaveKey('a');
     });
 
     it('applies copy operation', function () {
-        $result = JsonPatch::applyPatch(['a' => 1], [['op' => 'copy', 'from' => '/a', 'path' => '/b']]);
+        $result = JsonPatch::applyPatch(
+            ['a' => 1],
+            [new JsonPatchOperation(op: 'copy', path: '/b', from: '/a')],
+        );
         expect($result)->toBe(['a' => 1, 'b' => 1]);
     });
 
     it('test operation succeeds for matching value', function () {
-        $result = JsonPatch::applyPatch(['a' => 1], [['op' => 'test', 'path' => '/a', 'value' => 1]]);
+        $result = JsonPatch::applyPatch(
+            ['a' => 1],
+            [new JsonPatchOperation(op: 'test', path: '/a', value: 1)],
+        );
         expect($result)->toBe(['a' => 1]);
     });
 
     it('test operation fails for non-matching value', function () {
-        JsonPatch::applyPatch(['a' => 1], [['op' => 'test', 'path' => '/a', 'value' => 999]]);
+        JsonPatch::applyPatch(
+            ['a' => 1],
+            [new JsonPatchOperation(op: 'test', path: '/a', value: 999)],
+        );
     })->throws(JsonPatchTestFailedException::class);
 
     it('test operation failure is instanceof RuntimeException', function () {
         try {
-            JsonPatch::applyPatch(['a' => 1], [['op' => 'test', 'path' => '/a', 'value' => 999]]);
+            JsonPatch::applyPatch(
+                ['a' => 1],
+                [new JsonPatchOperation(op: 'test', path: '/a', value: 999)],
+            );
         } catch (\Throwable $e) {
             expect($e)->toBeInstanceOf(JsonPatchTestFailedException::class);
             expect($e)->toBeInstanceOf(\RuntimeException::class);
@@ -152,26 +203,32 @@ describe(JsonPatch::class, function () {
 
     it('applies multiple operations', function () {
         $ops = [
-            ['op' => 'add', 'path' => '/b', 'value' => 2],
-            ['op' => 'replace', 'path' => '/a', 'value' => 10],
-            ['op' => 'remove', 'path' => '/b'],
+            new JsonPatchOperation(op: 'add', path: '/b', value: 2),
+            new JsonPatchOperation(op: 'replace', path: '/a', value: 10),
+            new JsonPatchOperation(op: 'remove', path: '/b'),
         ];
         $result = JsonPatch::applyPatch(['a' => 1], $ops);
         expect($result)->toBe(['a' => 10]);
     });
 
     it('throws when move operation is missing from field', function () {
-        JsonPatch::applyPatch(['a' => 1], [['op' => 'move', 'path' => '/b']]);
+        JsonPatch::applyPatch(
+            ['a' => 1],
+            [new JsonPatchOperation(op: 'move', path: '/b')],
+        );
     })->throws(\InvalidArgumentException::class, "'from' field");
 
     it('throws when copy operation is missing from field', function () {
-        JsonPatch::applyPatch(['a' => 1], [['op' => 'copy', 'path' => '/b']]);
+        JsonPatch::applyPatch(
+            ['a' => 1],
+            [new JsonPatchOperation(op: 'copy', path: '/b')],
+        );
     })->throws(\InvalidArgumentException::class, "'from' field");
 
     it('applies add to append to array with dash pointer', function () {
         $result = JsonPatch::applyPatch(
             ['items' => [1, 2]],
-            [['op' => 'add', 'path' => '/items/-', 'value' => 3]],
+            [new JsonPatchOperation(op: 'add', path: '/items/-', value: 3)],
         );
         expect($result['items'])->toBe([1, 2, 3]);
     });
@@ -179,7 +236,7 @@ describe(JsonPatch::class, function () {
     it('move operation on nested path', function () {
         $data = ['a' => ['x' => 1], 'b' => ['y' => 2]];
         $result = JsonPatch::applyPatch($data, [
-            ['op' => 'move', 'from' => '/a/x', 'path' => '/b/z'],
+            new JsonPatchOperation(op: 'move', path: '/b/z', from: '/a/x'),
         ]);
         expect($result['b']['z'])->toBe(1);
         expect($result['a'])->not->toHaveKey('x');
@@ -188,7 +245,7 @@ describe(JsonPatch::class, function () {
     it('copy operation on nested path', function () {
         $data = ['a' => ['x' => 1]];
         $result = JsonPatch::applyPatch($data, [
-            ['op' => 'copy', 'from' => '/a/x', 'path' => '/b'],
+            new JsonPatchOperation(op: 'copy', path: '/b', from: '/a/x'),
         ]);
         expect($result['a']['x'])->toBe(1);
         expect($result['b'])->toBe(1);
@@ -197,7 +254,7 @@ describe(JsonPatch::class, function () {
     it('remove from list array reindexes', function () {
         $result = JsonPatch::applyPatch(
             ['items' => ['a', 'b', 'c']],
-            [['op' => 'remove', 'path' => '/items/1']],
+            [new JsonPatchOperation(op: 'remove', path: '/items/1')],
         );
         expect($result['items'])->toBe(['a', 'c']);
     });
@@ -205,7 +262,7 @@ describe(JsonPatch::class, function () {
     it('setAtPointer creates intermediate keys', function () {
         $result = JsonPatch::applyPatch(
             [],
-            [['op' => 'add', 'path' => '/a/b/c', 'value' => 42]],
+            [new JsonPatchOperation(op: 'add', path: '/a/b/c', value: 42)],
         );
         expect($result['a']['b']['c'])->toBe(42);
     });
@@ -237,7 +294,7 @@ describe(JsonPatch::class, function () {
     it('remove at nonexistent nested path is safe', function () {
         $result = JsonPatch::applyPatch(
             ['a' => 1],
-            [['op' => 'remove', 'path' => '/x/y/z']],
+            [new JsonPatchOperation(op: 'remove', path: '/x/y/z')],
         );
         expect($result)->toBe(['a' => 1]);
     });
@@ -245,7 +302,7 @@ describe(JsonPatch::class, function () {
     it('getAtPointer resolves numeric keys in list arrays', function () {
         $result = JsonPatch::applyPatch(
             ['items' => ['a', 'b', 'c']],
-            [['op' => 'test', 'path' => '/items/1', 'value' => 'b']],
+            [new JsonPatchOperation(op: 'test', path: '/items/1', value: 'b')],
         );
         expect($result['items'])->toBe(['a', 'b', 'c']);
     });
@@ -253,7 +310,7 @@ describe(JsonPatch::class, function () {
     it('remove at root pointer returns empty array', function () {
         $result = JsonPatch::applyPatch(
             ['a' => 1, 'b' => 2],
-            [['op' => 'remove', 'path' => '']],
+            [new JsonPatchOperation(op: 'remove', path: '')],
         );
         expect($result)->toBe([]);
     });
@@ -261,7 +318,7 @@ describe(JsonPatch::class, function () {
     it('replace at root pointer with array value', function () {
         $result = JsonPatch::applyPatch(
             ['a' => 1],
-            [['op' => 'replace', 'path' => '', 'value' => ['b' => 2]]],
+            [new JsonPatchOperation(op: 'replace', path: '', value: ['b' => 2])],
         );
         expect($result)->toBe(['b' => 2]);
     });
@@ -272,7 +329,7 @@ describe(JsonPatch::class, function () {
         // 'a' is scalar 42; accessing '/a/nested' returns null via the else branch
         $result = JsonPatch::applyPatch(
             ['a' => 42],
-            [['op' => 'copy', 'from' => '/a/nested', 'path' => '/b']],
+            [new JsonPatchOperation(op: 'copy', path: '/b', from: '/a/nested')],
         );
         expect($result)->toHaveKey('b');
         expect($result['b'])->toBeNull();
@@ -283,7 +340,7 @@ describe(JsonPatch::class, function () {
     it('deepEqual — returns false and test-op throws when array compared to scalar', function () {
         JsonPatch::applyPatch(
             ['a' => 42],
-            [['op' => 'test', 'path' => '/a', 'value' => ['not' => 'a scalar']]],
+            [new JsonPatchOperation(op: 'test', path: '/a', value: ['not' => 'a scalar'])],
         );
     })->throws(JsonPatchTestFailedException::class);
 });
@@ -338,12 +395,16 @@ describe('AbstractAccessor diff/applyPatch', function () {
         $a = SafeAccess::fromJson('{"name":"Ana","age":30}');
         $b = SafeAccess::fromJson('{"name":"Ana","age":31}');
         $ops = $a->diff($b);
-        expect($ops)->toBe([['op' => 'replace', 'path' => '/age', 'value' => 31]]);
+        expect($ops)->toHaveCount(1);
+        expect($ops[0])->toBeInstanceOf(JsonPatchOperation::class);
+        expect($ops[0]->op)->toBe('replace');
+        expect($ops[0]->path)->toBe('/age');
+        expect($ops[0]->value)->toBe(31);
     });
 
     it('applyPatch applies patch to accessor', function () {
         $acc = SafeAccess::fromJson('{"name":"Ana","age":30}');
-        $patched = $acc->applyPatch([['op' => 'replace', 'path' => '/age', 'value' => 31]]);
+        $patched = $acc->applyPatch([new JsonPatchOperation(op: 'replace', path: '/age', value: 31)]);
         expect($patched->get('age'))->toBe(31);
         expect($acc->get('age'))->toBe(30);
     });
@@ -399,4 +460,5 @@ describe('AbstractAccessor getTemplate and merge(array)', function () {
         $ops = JsonPatch::diff($a, $b);
         expect($ops)->toBe([]);
     });
+
 });

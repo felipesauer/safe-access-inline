@@ -73,4 +73,50 @@ describe(IniAccessor::class, function () {
         IniAccessor::from("[section]\nkey=\"unclosed");
     })->throws(InvalidFormatException::class);
 
+    // ── toIni serialization ────────────────────────────────────────────────────
+
+    it('toIni — serializes flat keys without section header', function () {
+        $accessor = IniAccessor::from("key=value\nnum=42");
+        $ini = $accessor->toIni();
+        expect($ini)->toContain('key = value');
+        expect($ini)->toContain('num = 42');
+    });
+
+    it('toIni — serializes nested array as [section]', function () {
+        $accessor = IniAccessor::from("[db]\nhost=localhost\nport=3306");
+        $ini = $accessor->toIni();
+        expect($ini)->toContain('[db]');
+        expect($ini)->toContain('host = localhost');
+        expect($ini)->toContain('port = 3306');
+    });
+
+    it('toIni — round-trips: toIni → from → all() equals original', function () {
+        $original = IniAccessor::from("app=MyApp\n[db]\nhost=localhost\nport=3306");
+        $roundTripped = IniAccessor::from($original->toIni());
+        expect($roundTripped->all())->toEqual($original->all());
+    });
+
+    it('toIni — quotes values containing special characters', function () {
+        $accessor = IniAccessor::from('key=value')->set('expr', 'a=b');
+        $ini = $accessor->toIni();
+        expect($ini)->toContain('expr = "a=b"');
+    });
+
+    it('toIni — serializes boolean true as literal true', function () {
+        $accessor = IniAccessor::from('flag=true');
+        $ini = $accessor->toIni();
+        expect($ini)->toContain('flag = true');
+    });
+
+    it('toIni — serializes null as none', function () {
+        $accessor = IniAccessor::from('key=value')->set('nullable', null);
+        $ini = $accessor->toIni();
+        expect($ini)->toContain('nullable = none');
+    });
+
+    it('toIni — ends with a trailing newline', function () {
+        $ini = IniAccessor::from('key=value')->toIni();
+        expect(str_ends_with($ini, "\n"))->toBeTrue();
+    });
+
 });

@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use SafeAccessInline\Core\Parsers\FilterParser;
 use SafeAccessInline\Core\Resolvers\PathResolver;
 use SafeAccessInline\Enums\SegmentType;
 use SafeAccessInline\Exceptions\SecurityException;
@@ -139,5 +140,60 @@ describe(PathResolver::class, function () {
         $result = PathResolver::resolve($data, $segments, 0, null, 50);
 
         expect($result)->toBe(['Alice']);
+    });
+
+    // ── C1: Associative-array-as-collection — WILDCARD & FILTER ──────
+
+    it('WILDCARD on associative array collects all values (mirrors JS Object.values)', function () {
+        // PHP's array_values() makes wildcards work on associative arrays just
+        // as JS's Object.values() does: string keys are stripped, elements collected.
+        $data = [
+            'departments' => [
+                'eng'  => ['head' => 'Alice', 'size' => 10],
+                'mktg' => ['head' => 'Bob',   'size' => 5],
+                'ops'  => ['head' => 'Carol',  'size' => 8],
+            ],
+        ];
+        $segments = [
+            ['type' => SegmentType::KEY,      'value' => 'departments'],
+            ['type' => SegmentType::WILDCARD],
+            ['type' => SegmentType::KEY,      'value' => 'head'],
+        ];
+
+        $result = PathResolver::resolve($data, $segments, 0, null, 50);
+
+        expect($result)->toBe(['Alice', 'Bob', 'Carol']);
+    });
+
+    it('WILDCARD on associative array with no further segments returns all entries', function () {
+        $data = ['lookup' => ['a' => 1, 'b' => 2, 'c' => 3]];
+        $segments = [
+            ['type' => SegmentType::KEY,      'value' => 'lookup'],
+            ['type' => SegmentType::WILDCARD],
+        ];
+
+        $result = PathResolver::resolve($data, $segments, 0, null, 50);
+
+        expect($result)->toBe([1, 2, 3]);
+    });
+
+    it('FILTER on associative array returns matching entries (reindexed)', function () {
+        $data = [
+            'departments' => [
+                'eng'  => ['head' => 'Alice', 'size' => 10],
+                'mktg' => ['head' => 'Bob',   'size' => 5],
+                'ops'  => ['head' => 'Carol',  'size' => 8],
+            ],
+        ];
+        $filterExpr = FilterParser::parse('size>6');
+        $segments = [
+            ['type' => SegmentType::KEY,    'value'      => 'departments'],
+            ['type' => SegmentType::FILTER, 'expression' => $filterExpr],
+            ['type' => SegmentType::KEY,    'value'      => 'head'],
+        ];
+
+        $result = PathResolver::resolve($data, $segments, 0, null, 50);
+
+        expect($result)->toBe(['Alice', 'Carol']);
     });
 });
