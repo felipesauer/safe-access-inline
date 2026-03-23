@@ -2,6 +2,7 @@ import type yaml from 'js-yaml';
 import type { stringify as tomlStringify } from 'smol-toml';
 import { optionalRequire } from '../io/optional-require';
 import { PluginRegistry } from '../registries/plugin-registry';
+import type { IPluginRegistry } from '../../contracts/plugin-registry.contract';
 import { InvalidFormatError } from '../../exceptions/invalid-format.error';
 import { UnsupportedTypeError } from '../../exceptions/unsupported-type.error';
 import { getGlobalPolicy } from '../../security/guards/security-policy';
@@ -24,12 +25,16 @@ export class FormatSerializer {
      * Prefers a plugin-registered serializer; falls back to `smol-toml`.
      *
      * @param data - Data record to serialise.
+     * @param registry - Plugin registry to query. Defaults to the global default registry.
      * @returns TOML string.
      * @throws {@link InvalidFormatError} When serialization fails.
      */
-    static toToml(data: Record<string, unknown>): string {
-        if (PluginRegistry.hasSerializer('toml')) {
-            return PluginRegistry.getSerializer('toml').serialize(data);
+    static toToml(
+        data: Record<string, unknown>,
+        registry: IPluginRegistry = PluginRegistry.getDefault(),
+    ): string {
+        if (registry.hasSerializer('toml')) {
+            return registry.getSerializer('toml').serialize(data);
         }
         try {
             return getSmolToml().stringify(data);
@@ -44,11 +49,15 @@ export class FormatSerializer {
      * Prefers a plugin-registered serializer; falls back to `js-yaml`.
      *
      * @param data - Data record to serialise.
+     * @param registry - Plugin registry to query. Defaults to the global default registry.
      * @returns YAML string.
      */
-    static toYaml(data: Record<string, unknown>): string {
-        if (PluginRegistry.hasSerializer('yaml')) {
-            return PluginRegistry.getSerializer('yaml').serialize(data);
+    static toYaml(
+        data: Record<string, unknown>,
+        registry: IPluginRegistry = PluginRegistry.getDefault(),
+    ): string {
+        if (registry.hasSerializer('yaml')) {
+            return registry.getSerializer('yaml').serialize(data);
         }
         return getYaml().dump(data);
     }
@@ -60,15 +69,20 @@ export class FormatSerializer {
      *
      * @param data - Data record to serialise.
      * @param rootElement - Name of the XML root element (default `'root'`).
+     * @param registry - Plugin registry to query. Defaults to the global default registry.
      * @returns XML string including the `<?xml …?>` declaration.
      * @throws {@link InvalidFormatError} When `rootElement` contains invalid characters.
      */
-    static toXml(data: Record<string, unknown>, rootElement = 'root'): string {
+    static toXml(
+        data: Record<string, unknown>,
+        rootElement = 'root',
+        registry: IPluginRegistry = PluginRegistry.getDefault(),
+    ): string {
         if (!/^[a-zA-Z_][\w.-]*$/.test(rootElement)) {
             throw new InvalidFormatError(`Invalid XML root element name: '${rootElement}'`);
         }
-        if (PluginRegistry.hasSerializer('xml')) {
-            return PluginRegistry.getSerializer('xml').serialize(data);
+        if (registry.hasSerializer('xml')) {
+            return registry.getSerializer('xml').serialize(data);
         }
         return `<?xml version="1.0"?>\n<${rootElement}>${FormatSerializer.objectToXml(data)}</${rootElement}>\n`;
     }
@@ -133,26 +147,126 @@ export class FormatSerializer {
     }
 
     /**
+     * Serialises data to INI format.
+     *
+     * Top-level scalar values are emitted as `key = value` pairs; top-level plain objects are
+     * emitted as `[section]` blocks. Deeper nesting is serialised as a JSON string value.
+     * Prefers a plugin-registered `'ini'` serializer when available.
+     *
+     * @param data - Data record to serialise.
+     * @returns INI-formatted string.
+     */
+    static toIni(
+        data: Record<string, unknown>,
+        registry: IPluginRegistry = PluginRegistry.getDefault(),
+    ): string {
+        if (registry.hasSerializer('ini')) {
+            return registry.getSerializer('ini').serialize(data);
+        }
+        const flatLines: string[] = [];
+        const sectionBlocks: string[] = [];
+
+        for (const [key, value] of Object.entries(data)) {
+            if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+                const block: string[] = [`[${key}]`];
+                for (const [subKey, subValue] of Object.entries(value as Record<string, unknown>)) {
+                    const serialized =
+                        subValue !== null && typeof subValue === 'object'
+                            ? JSON.stringify(subValue)
+                            : subValue;
+                    block.push(`${subKey} = ${FormatSerializer.serializeIniValue(serialized)}`);
+                }
+                sectionBlocks.push(block.join('\n'));
+            } else {
+                flatLines.push(`${key} = ${FormatSerializer.serializeIniValue(value)}`);
+            }
+        }
+
+        const parts: string[] = [];
+        if (flatLines.length > 0) parts.push(flatLines.join('\n'));
+        parts.push(...sectionBlocks);
+        return parts.join('\n\n') + '\n';
+    }
+
+    /**
+     * Serialises data to `.env` format.
+     *
+     * Only flat (non-object) top-level values are emitted as `KEY=VALUE` pairs.
+     * Nested objects are skipped silently — ENV is an inherently flat format.
+     * Values containing spaces are wrapped in double quotes.
+     * Prefers a plugin-registered `'env'` serializer when available.
+     *
+     * @param data - Data record to serialise.
+     * @returns ENV-formatted string.
+     */
+    static toEnv(
+        data: Record<string, unknown>,
+        registry: IPluginRegistry = PluginRegistry.getDefault(),
+    ): string {
+        if (registry.hasSerializer('env')) {
+            return registry.getSerializer('env').serialize(data);
+        }
+        const lines: string[] = [];
+        for (const [key, value] of Object.entries(data)) {
+            if (value !== null && typeof value === 'object') {
+                continue;
+            }
+            const str = value == null ? '' : String(value);
+            const quotedValue = str.includes(' ') ? `"${str}"` : str;
+            lines.push(`${key}=${quotedValue}`);
+        }
+        return lines.join('\n') + '\n';
+    }
+
+    /**
      * Dispatches to the appropriate serializer for `format`.
      *
      * Plugin-registered serializers take priority; built-in serializers are used
-     * as fallback for `yaml`, `toml`, and `csv`.
+     * as fallback for `yaml`, `toml`, `csv`, `ini`, and `env`.
      *
      * @param data - Data record to serialise.
      * @param format - Target format identifier.
      * @returns Serialised string.
      */
-    static transform(data: Record<string, unknown>, format: string): string {
-        if (PluginRegistry.hasSerializer(format)) {
-            return PluginRegistry.getSerializer(format).serialize(data);
+    static transform(
+        data: Record<string, unknown>,
+        format: string,
+        registry: IPluginRegistry = PluginRegistry.getDefault(),
+    ): string {
+        if (registry.hasSerializer(format)) {
+            return registry.getSerializer(format).serialize(data);
         }
-        if (format === 'yaml') return FormatSerializer.toYaml(data);
-        if (format === 'toml') return FormatSerializer.toToml(data);
+        if (format === 'yaml') return FormatSerializer.toYaml(data, registry);
+        if (format === 'toml') return FormatSerializer.toToml(data, registry);
         if (format === 'csv') return FormatSerializer.toCsv(data);
+        if (format === 'ini') return FormatSerializer.toIni(data, registry);
+        if (format === 'env') return FormatSerializer.toEnv(data, registry);
         throw new UnsupportedTypeError(`No serializer registered for format '${format}'.`);
     }
 
     // ── Private helpers ─────────────────────────────
+
+    /**
+     * Serialises a scalar INI value to its string representation.
+     *
+     * Booleans and null are emitted as their INI keyword equivalents (`true`, `false`, `null`).
+     * String values containing INI special characters or whitespace are wrapped in double quotes,
+     * unless they already contain a `"` character (which would make quoting ambiguous).
+     *
+     * @param value - Scalar value to serialise.
+     * @returns INI-safe string representation.
+     */
+    private static serializeIniValue(value: unknown): string {
+        if (value === true) return 'true';
+        if (value === false) return 'false';
+        if (value === null) return 'null';
+        if (typeof value === 'number') return String(value);
+        const str = String(value);
+        if (/[=;#[\]\s]/.test(str) && !str.includes('"')) {
+            return `"${str}"`;
+        }
+        return str;
+    }
 
     /**
      * Escapes the five XML special characters.

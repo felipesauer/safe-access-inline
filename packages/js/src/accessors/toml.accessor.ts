@@ -3,6 +3,7 @@ import { optionalRequire } from '../core/io/optional-require';
 import { AbstractAccessor } from '../core/abstract-accessor';
 import { PluginRegistry } from '../core/registries/plugin-registry';
 import { InvalidFormatError } from '../exceptions/invalid-format.error';
+import { FormatSerializer } from '../core/rendering/format-serializer';
 
 const getSmolToml = optionalRequire<{ parse: typeof tomlParse }>('smol-toml', 'TOML');
 
@@ -55,9 +56,6 @@ export class TomlAccessor<
      * @returns A new {@link TomlAccessor} instance.
      */
     clone(data: Record<string, unknown>): TomlAccessor<T> {
-        const inst = Object.create(TomlAccessor.prototype) as TomlAccessor<T>;
-        inst.raw = this.raw;
-        inst.data = data;
-        return inst;
+        return new TomlAccessor(FormatSerializer.toToml(data)) as TomlAccessor<T>;
     }
 }

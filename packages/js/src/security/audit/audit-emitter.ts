@@ -47,8 +47,10 @@ export function emitAudit(type: AuditEventType, detail: Record<string, unknown>)
     for (const listener of snapshot) {
         try {
             listener(event);
-        } catch {
-            // Isolate listener errors so subsequent listeners still fire
+        } catch (err) {
+            // Isolate listener errors so subsequent listeners still fire.
+            // Log to stderr so failing listeners are observable in production.
+            console.warn('[AuditEmitter] Listener threw an error and was suppressed:', err);
         }
     }
 }

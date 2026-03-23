@@ -1,6 +1,7 @@
 import { FilterParser } from '../parsers/filter-parser';
 import { SegmentType } from '../../enums/segment-type.enum';
 import { assertMaxDepth } from '../../security/guards/security-options';
+import { SecurityGuard } from '../../security/guards/security-guard';
 import type { Segment } from '../parsers/segment-parser';
 
 /**
@@ -138,18 +139,52 @@ export class PathResolver {
             );
         }
 
+        if (segment.type === SegmentType.PROJECTION) {
+            const projectItem = (item: unknown): Record<string, unknown> => {
+                if (typeof item !== 'object' || item === null) {
+                    return segment.fields.reduce(
+                        (acc, { alias }) => ({ ...acc, [alias]: null }),
+                        {} as Record<string, unknown>,
+                    );
+                }
+                const obj = item as Record<string, unknown>;
+                const result: Record<string, unknown> = {};
+                for (const { alias, source } of segment.fields) {
+                    result[alias] = source in obj ? obj[source] : null;
+                }
+                return result;
+            };
+
+            const nextIndex = index + 1;
+
+            if (Array.isArray(current)) {
+                const projected = (current as unknown[]).map(projectItem);
+                if (nextIndex >= segments.length) return projected;
+                return projected.map((item) =>
+                    PathResolver.resolve(item, segments, nextIndex, defaultValue),
+                );
+            }
+
+            if (typeof current === 'object' && current !== null) {
+                const result = projectItem(current);
+                if (nextIndex >= segments.length) return result;
+                return PathResolver.resolve(result, segments, nextIndex, defaultValue);
+            }
+
+            return defaultValue;
+        }
+
         // type === SegmentType.KEY
-        if (
-            current !== null &&
-            typeof current === 'object' &&
-            segment.value in (current as Record<string, unknown>)
-        ) {
-            return PathResolver.resolve(
-                (current as Record<string, unknown>)[segment.value],
-                segments,
-                index + 1,
-                defaultValue,
-            );
+        if (current !== null && typeof current === 'object') {
+            SecurityGuard.assertSafeKey(segment.value);
+            if (segment.value in (current as Record<string, unknown>)) {
+                return PathResolver.resolve(
+                    (current as Record<string, unknown>)[segment.value],
+                    segments,
+                    index + 1,
+                    defaultValue,
+                );
+            }
         }
         return defaultValue;
     }

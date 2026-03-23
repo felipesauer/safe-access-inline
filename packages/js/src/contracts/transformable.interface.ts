@@ -1,3 +1,5 @@
+import type { CsvMode } from '../enums/csv-mode.enum';
+
 /**
  * Contract for serialising data into various output formats.
  *
@@ -22,6 +24,12 @@ export interface TransformableInterface {
 
     /**
      * Returns the data as a plain object (alias of {@link toArray}).
+     *
+     * @remarks
+     * **Cross-Language Divergence:** In JS/TS, `toObject()` returns a plain associative
+     * record (e.g. `Record<string, unknown>`). In PHP, `toObject()` returns a `stdClass`
+     * object, which requires property access syntax (`$obj->property`) rather than bracket notation.
+     * To get an associative array in PHP, use `toArray()`.
      *
      * @returns A plain record of the underlying data.
      */
@@ -52,11 +60,10 @@ export interface TransformableInterface {
     /**
      * Serialises data to CSV format.
      *
-     * @param csvMode - Formula injection handling: `'none'` (no protection), `'prefix'` (tab-prefix),
-     *                  `'strip'` (remove leading chars), `'error'` (throw on formula).
+     * @param csvMode - Formula injection handling strategy.
      * @returns CSV string.
      */
-    toCsv(csvMode?: 'none' | 'prefix' | 'strip' | 'error'): string;
+    toCsv(csvMode?: CsvMode | 'none' | 'prefix' | 'strip' | 'error'): string;
 
     /**
      * Serialises data to NDJSON (newline-delimited JSON) format.
@@ -64,6 +71,34 @@ export interface TransformableInterface {
      * @returns An NDJSON-formatted string.
      */
     toNdjson(): string;
+
+    /**
+     * Serialises data to INI format.
+     *
+     * Top-level scalar values become `key = value` pairs; top-level plain objects become
+     * `[section]` blocks. Deeper nesting is serialised as a JSON string value.
+     *
+     * @returns A valid INI string.
+     * @example
+     * accessor.toIni(); // "[section]\nkey = value"
+     */
+    toIni(): string;
+
+    /**
+     * Serialises data to `.env` format.
+     *
+     * Only flat (non-object) top-level values are emitted. Nested objects are skipped silently.
+     *
+     * @remarks
+     * ENV values are always strings. Typed values (booleans, numbers) are coerced via `String()`,
+     * so a round-trip through `toEnv → EnvAccessor.from` produces string values rather than the
+     * original typed primitives.
+     *
+     * @returns A valid `.env` string (KEY=VALUE per line).
+     * @example
+     * accessor.toEnv(); // "APP_NAME=MyApp\nDEBUG=true"
+     */
+    toEnv(): string;
 
     /**
      * Transforms data using a registered serializer plugin.

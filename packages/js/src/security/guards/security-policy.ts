@@ -32,8 +32,10 @@ const DEFAULT_POLICY: SecurityPolicy = {
  * NOTE: `allowedDirs` is intentionally not set — callers MUST provide it
  * via `mergePolicy(STRICT_POLICY, { allowedDirs: [...] })` when using
  * file-based operations, otherwise path traversal protection is not enforced.
- * NOTE: `url.allowedHosts` is left empty — callers MUST supply an explicit
- * allowlist via `mergePolicy(STRICT_POLICY, { url: { allowedHosts: [...] } })`.
+ * NOTE: `url.allowedHosts` is left empty by default — any public host is allowed.
+ * Callers SHOULD supply an explicit allowlist via
+ * `mergePolicy(STRICT_POLICY, { url: { allowedHosts: [...] } })` if network
+ * boundaries must be restricted.
  */
 export const STRICT_POLICY: Readonly<SecurityPolicy> = Object.freeze({
     maxDepth: 20,

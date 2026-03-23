@@ -19,11 +19,15 @@ export type {
  * Supported syntax:
  *   `[?field>value]` — comparison,
  *   `[?age>=18 && active==true]` — logical AND,
- *   `[?length(@.name)>3]` — function call.
+ *   `[?length(@.name)>3]` — function call,
+ *   `[?starts_with(@.name,'Ana')]` — string prefix match,
+ *   `[?contains(@.tags,'admin')]` — substring or array membership,
+ *   `[?values(@)>3]` — value count,
+ *   `[?price * qty > 100]` — arithmetic expression.
  *
  * Operators: `==`, `!=`, `>`, `<`, `>=`, `<=`.
  * Logical: `&&`, `||`.
- * Functions: `length`, `match`, `keys`.
+ * Functions: `length`, `match`, `keys`, `starts_with`, `contains`, `values`.
  */
 export class FilterParser {
     private static config: FilterParserConfig = DEFAULT_FILTER_PARSER_CONFIG;
@@ -233,6 +237,10 @@ export class FilterParser {
      * Resolves the field value (or function result) from `item` and applies
      * the comparison operator.
      *
+     * **Null / undefined equivalence:** PHP returns `null` for absent paths while JS
+     * returns `undefined`. For `==` and `!=` comparisons both sentinels are treated as
+     * identical so that `[?field == null]` matches absent fields in both languages.
+     *
      * @param item - The data object to test.
      * @param condition - The condition to evaluate.
      * @returns `true` if the item satisfies the condition.
@@ -245,6 +253,9 @@ export class FilterParser {
 
         if (condition.func) {
             fieldValue = FilterParser.evaluateFunction(item, condition.func, condition.funcArgs!);
+        } else if (/[@\w.]+\s*[+\-*/]\s*[@\w.]+/.test(condition.field)) {
+            // Arithmetic expression in field, e.g. `price * qty`
+            fieldValue = FilterParser.resolveArithmetic(item, condition.field);
         } else {
             fieldValue = FilterParser.resolveField(item, condition.field);
         }
@@ -253,9 +264,11 @@ export class FilterParser {
 
         switch (condition.operator) {
             case '==':
-                return fieldValue === expected;
+                // Null-equivalence: normalize undefined → null so absent JS paths
+                // match PHP's null sentinel (OWASP-safe: no type coercion beyond this).
+                return (fieldValue ?? null) === (expected ?? null);
             case '!=':
-                return fieldValue !== expected;
+                return (fieldValue ?? null) !== (expected ?? null);
             case '>':
                 if (typeof fieldValue !== 'number' || typeof expected !== 'number') return false;
                 return fieldValue > expected;
@@ -310,7 +323,9 @@ export class FilterParser {
                     pattern.length > FilterParser.config.maxPatternLength ||
                     /(\+|\*|\{[\d,]+\})\)(\+|\*|\{[\d,]+\})/.test(pattern) || // (group)+ or (group)*
                     /\([^)]*\|[^)]*\)(\+|\*|\{[\d,]+\})/.test(pattern) || // (a|b)+  alternation
-                    /\(\?[^)]*[+*]/.test(pattern) // (?...*)  non-capturing quantifier
+                    /\(\?[^)]*[+*]/.test(pattern) || // (?...*)  non-capturing quantifier
+                    /\([^)]*[+*{][^)]*\)\s*\([^)]*[+*{]/.test(pattern) || // Sibling groups with quantifiers inside
+                    /(\([^()]*\)){2,}[+*{]/.test(pattern) // Repeated non-nested groups followed by a quantifier
                 ) {
                     return false;
                 }
@@ -327,8 +342,89 @@ export class FilterParser {
                 }
                 return 0;
             }
+            case 'starts_with': {
+                const val = FilterParser.resolveFilterArg(item, funcArgs[0]);
+                if (typeof val !== 'string') return false;
+                let prefix = funcArgs[1]?.trim() ?? '';
+                if (
+                    (prefix.startsWith("'") && prefix.endsWith("'")) ||
+                    (prefix.startsWith('"') && prefix.endsWith('"'))
+                ) {
+                    prefix = prefix.slice(1, -1);
+                }
+                return val.startsWith(prefix);
+            }
+            case 'contains': {
+                const val = FilterParser.resolveFilterArg(item, funcArgs[0]);
+                let needle = funcArgs[1]?.trim() ?? '';
+                if (
+                    (needle.startsWith("'") && needle.endsWith("'")) ||
+                    (needle.startsWith('"') && needle.endsWith('"'))
+                ) {
+                    needle = needle.slice(1, -1);
+                }
+                if (typeof val === 'string') return val.includes(needle);
+                if (Array.isArray(val)) return val.includes(needle);
+                return false;
+            }
+            case 'values': {
+                const val = FilterParser.resolveFilterArg(item, funcArgs[0]);
+                if (typeof val === 'object' && val !== null && !Array.isArray(val)) {
+                    return Object.values(val).length;
+                }
+                if (Array.isArray(val)) return val.length;
+                return 0;
+            }
             default:
                 throw new Error(`Unknown filter function: "${func}"`);
+        }
+    }
+
+    /**
+     * Evaluates a simple binary arithmetic expression within a field string.
+     *
+     * Handles expressions of the form `fieldA OP fieldB` or `fieldA OP literal`,
+     * where OP is one of `+`, `-`, `*`, `/`.
+     *
+     * Operands prefixed with `@.` or bare names are resolved from `item`.
+     * Numeric literals are parsed directly.
+     *
+     * @param item - The data object providing field values.
+     * @param expr - The arithmetic expression string, e.g. `'price * qty'`.
+     * @returns The numeric result, or `undefined` when operands are non-numeric.
+     */
+    private static resolveArithmetic(
+        item: Record<string, unknown>,
+        expr: string,
+    ): number | undefined {
+        const match = expr.match(/^([@\w.]+)\s*([+\-*/])\s*([@\w.]+|\d+(?:\.\d+)?)$/);
+        if (!match) return undefined;
+
+        const toNumber = (token: string): number | undefined => {
+            if (/^\d+(?:\.\d+)?$/.test(token)) return Number(token);
+            const val = FilterParser.resolveFilterArg(item, token);
+            if (typeof val === 'number') return val;
+            if (typeof val === 'string' && val !== '' && !isNaN(Number(val))) return Number(val);
+            return undefined;
+        };
+
+        const left = toNumber(match[1]);
+        const right = toNumber(match[3]);
+        if (left === undefined || right === undefined) return undefined;
+
+        switch (match[2]) {
+            case '+':
+                return left + right;
+            case '-':
+                return left - right;
+            case '*':
+                return left * right;
+            case '/':
+                return right !== 0 ? left / right : undefined;
+            /* v8 ignore start */
+            default:
+                return undefined;
+            /* v8 ignore stop */
         }
     }
 

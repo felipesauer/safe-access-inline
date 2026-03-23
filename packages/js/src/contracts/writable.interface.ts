@@ -1,10 +1,10 @@
-import type { AbstractAccessor } from '../core/abstract-accessor';
+import type { AccessorInterface } from './accessor.interface';
 import type { DeepPaths, ValueAtPath } from '../types/deep-paths';
 
 /**
  * Contract for immutable write operations on data structures.
  *
- * All methods return a new {@link AbstractAccessor} instance — the original
+ * All methods return a new {@link AccessorInterface} instance — the original
  * data is never mutated.
  */
 export interface WritableInterface<T extends Record<string, unknown> = Record<string, unknown>> {
@@ -15,8 +15,8 @@ export interface WritableInterface<T extends Record<string, unknown> = Record<st
      * @param value - Value to set.
      * @returns New accessor instance with the change applied.
      */
-    set<P extends DeepPaths<T> & string>(path: P, value: ValueAtPath<T, P>): AbstractAccessor<T>;
-    set(path: string, value: unknown): AbstractAccessor<T>;
+    set<P extends DeepPaths<T> & string>(path: P, value: ValueAtPath<T, P>): AccessorInterface<T>;
+    set(path: string, value: unknown): AccessorInterface<T>;
 
     /**
      * Removes the value at the specified path.
@@ -24,7 +24,7 @@ export interface WritableInterface<T extends Record<string, unknown> = Record<st
      * @param path - Dot-notation path.
      * @returns New accessor instance without the path.
      */
-    remove(path: string): AbstractAccessor<T>;
+    remove(path: string): AccessorInterface<T>;
 
     /**
      * Deep merges data at root level.
@@ -32,7 +32,7 @@ export interface WritableInterface<T extends Record<string, unknown> = Record<st
      * @param value - Data to merge.
      * @returns New accessor instance.
      */
-    merge(value: Record<string, unknown>): AbstractAccessor<T>;
+    merge(value: Record<string, unknown>): AccessorInterface<T>;
 
     /**
      * Deep merges data at a specific path.
@@ -41,5 +41,5 @@ export interface WritableInterface<T extends Record<string, unknown> = Record<st
      * @param value - Data to merge at the path.
      * @returns New accessor instance.
      */
-    merge(path: string, value: Record<string, unknown>): AbstractAccessor<T>;
+    merge(path: string, value: Record<string, unknown>): AccessorInterface<T>;
 }
