@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SafeAccessInline\Traits;
 
+use SafeAccessInline\Contracts\TraceSegment;
 use SafeAccessInline\Core\Parsers\SegmentParser;
 use SafeAccessInline\Core\Resolvers\PathResolver;
 use SafeAccessInline\Enums\SegmentType;
@@ -19,22 +20,20 @@ trait HasDebugOperations
     /**
      * Walks `$path` segment by segment and reports the resolution status of each.
      *
-     * Returns one array entry per segment. Stops at the first segment that cannot
-     * be resolved — subsequent segments are not evaluated.
+     * Returns one {@see TraceSegment} per path segment. Stops at the first segment
+     * that cannot be resolved — subsequent segments are not evaluated.
      *
      * Never throws, even for entirely invalid paths; always returns an array.
      *
      * @param  string $path Dot-notation path to trace, e.g. `'user.address.city'`.
-     * @return list<array{segment: string, found: bool, type: string|null}>
+     * @return list<TraceSegment>
      *
      * @example
      * ```php
      * $trace = $accessor->trace('user.address.city');
-     * // [
-     * //   ['segment' => 'user',    'found' => true,  'type' => 'object'],
-     * //   ['segment' => 'address', 'found' => true,  'type' => 'object'],
-     * //   ['segment' => 'city',    'found' => false, 'type' => null],
-     * // ]
+     * // $trace[0]->segment === 'user',    $trace[0]->found === true,  $trace[0]->type === 'object'
+     * // $trace[1]->segment === 'address', $trace[1]->found === true,  $trace[1]->type === 'object'
+     * // $trace[2]->segment === 'city',    $trace[2]->found === false, $trace[2]->type === null
      * ```
      */
     public function trace(string $path): array
@@ -49,9 +48,9 @@ trait HasDebugOperations
             $label = self::segmentLabel($segment);
 
             if (!is_array($current)) {
-                $result[] = ['segment' => $label, 'found' => false, 'type' => null];
+                $result[] = new TraceSegment($label, false, null);
                 for ($j = $i + 1; $j < $segmentCount; $j++) {
-                    $result[] = ['segment' => self::segmentLabel($segments[$j]), 'found' => false, 'type' => null];
+                    $result[] = new TraceSegment(self::segmentLabel($segments[$j]), false, null);
                 }
                 break;
             }
@@ -66,15 +65,15 @@ trait HasDebugOperations
             );
 
             if ($nextValue === $sentinel) {
-                $result[] = ['segment' => $label, 'found' => false, 'type' => null];
+                $result[] = new TraceSegment($label, false, null);
                 for ($j = $i + 1; $j < $segmentCount; $j++) {
-                    $result[] = ['segment' => self::segmentLabel($segments[$j]), 'found' => false, 'type' => null];
+                    $result[] = new TraceSegment(self::segmentLabel($segments[$j]), false, null);
                 }
                 break;
             }
 
             $current = $nextValue;
-            $result[] = ['segment' => $label, 'found' => true, 'type' => self::segmentValueType($current)];
+            $result[] = new TraceSegment($label, true, self::segmentValueType($current));
         }
 
         return $result;

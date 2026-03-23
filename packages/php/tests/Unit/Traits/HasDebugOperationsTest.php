@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use SafeAccessInline\Accessors\ArrayAccessor;
+use SafeAccessInline\Contracts\TraceSegment;
 use SafeAccessInline\Traits\HasDebugOperations;
 
 describe(HasDebugOperations::class, function () {
@@ -13,9 +14,9 @@ describe(HasDebugOperations::class, function () {
             $result = $acc->trace('user.address.city');
 
             expect($result)->toHaveCount(3);
-            expect($result[0])->toBe(['segment' => 'user', 'found' => true, 'type' => 'object']);
-            expect($result[1])->toBe(['segment' => 'address', 'found' => true, 'type' => 'object']);
-            expect($result[2])->toBe(['segment' => 'city', 'found' => true, 'type' => 'string']);
+            expect($result[0])->toEqual(new TraceSegment('user', true, 'object'));
+            expect($result[1])->toEqual(new TraceSegment('address', true, 'object'));
+            expect($result[2])->toEqual(new TraceSegment('city', true, 'string'));
         });
 
         it('returns found:false for the first missing segment and fills remaining', function () {
@@ -23,9 +24,9 @@ describe(HasDebugOperations::class, function () {
             $result = $acc->trace('user.address.city');
 
             expect($result)->toHaveCount(3);
-            expect($result[0])->toBe(['segment' => 'user', 'found' => true, 'type' => 'object']);
-            expect($result[1])->toBe(['segment' => 'address', 'found' => false, 'type' => null]);
-            expect($result[2])->toBe(['segment' => 'city', 'found' => false, 'type' => null]);
+            expect($result[0])->toEqual(new TraceSegment('user', true, 'object'));
+            expect($result[1])->toEqual(new TraceSegment('address', false, null));
+            expect($result[2])->toEqual(new TraceSegment('city', false, null));
         });
 
         it('does not throw for an entirely invalid path', function () {
@@ -45,13 +46,13 @@ describe(HasDebugOperations::class, function () {
                 's'   => 'hello',
             ]);
 
-            expect($acc->trace('n')[0]['type'])->toBe('number');
-            expect($acc->trace('f')[0]['type'])->toBe('number');
-            expect($acc->trace('b')[0]['type'])->toBe('boolean');
-            expect($acc->trace('a')[0]['type'])->toBe('array');
-            expect($acc->trace('o')[0]['type'])->toBe('object');
-            expect($acc->trace('nil')[0]['type'])->toBe('null');
-            expect($acc->trace('s')[0]['type'])->toBe('string');
+            expect($acc->trace('n')[0]->type)->toBe('number');
+            expect($acc->trace('f')[0]->type)->toBe('number');
+            expect($acc->trace('b')[0]->type)->toBe('boolean');
+            expect($acc->trace('a')[0]->type)->toBe('array');
+            expect($acc->trace('o')[0]->type)->toBe('object');
+            expect($acc->trace('nil')[0]->type)->toBe('null');
+            expect($acc->trace('s')[0]->type)->toBe('string');
         });
 
         it('returns empty array for empty path', function () {
@@ -64,9 +65,9 @@ describe(HasDebugOperations::class, function () {
             $result = $acc->trace('user.address.city');
 
             expect($result)->toHaveCount(3);
-            expect($result[0])->toBe(['segment' => 'user', 'found' => true, 'type' => 'string']);
-            expect($result[1])->toBe(['segment' => 'address', 'found' => false, 'type' => null]);
-            expect($result[2])->toBe(['segment' => 'city', 'found' => false, 'type' => null]);
+            expect($result[0])->toEqual(new TraceSegment('user', true, 'string'));
+            expect($result[1])->toEqual(new TraceSegment('address', false, null));
+            expect($result[2])->toEqual(new TraceSegment('city', false, null));
         });
     });
 });
