@@ -1,6 +1,39 @@
 import type { CsvMode } from '../enums/csv-mode.enum';
 
 /**
+ * Optional output controls for {@link TransformableInterface.toJson}.
+ *
+ * Mirrors PHP's `toJson()` which always outputs UTF-8 with unicode characters
+ * unescaped (PHP `JSON_UNESCAPED_UNICODE`). JS escapes non-ASCII to `\uXXXX`
+ * by default; set `unescapeUnicode: true` to replicate PHP's behaviour.
+ */
+export interface ToJsonOptions {
+    /**
+     * When `true`, replaces `\uXXXX` escape sequences in the output with their
+     * actual Unicode characters — equivalent to PHP's `JSON_UNESCAPED_UNICODE`.
+     *
+     * @defaultValue false
+     */
+    readonly unescapeUnicode?: boolean;
+
+    /**
+     * When `true`, replaces `\/` with `/` in the output — equivalent to PHP's
+     * `JSON_UNESCAPED_SLASHES`.
+     *
+     * @defaultValue false
+     */
+    readonly unescapeSlashes?: boolean;
+
+    /**
+     * Indentation to use when `pretty` is `true`. Overrides the default of `2`.
+     * Accepts a number (spaces) or a string (e.g. `'\t'`).
+     *
+     * @defaultValue 2
+     */
+    readonly space?: number | string;
+}
+
+/**
  * Contract for serialising data into various output formats.
  *
  * Provides methods for JSON, YAML, TOML, XML, CSV, NDJSON, and
@@ -17,10 +50,11 @@ export interface TransformableInterface {
     /**
      * Serialises data to a JSON string.
      *
-     * @param pretty - Whether to pretty-print with indentation.
+     * @param pretty - When `true`, output is indented (default: 2 spaces; override via `options.space`).
+     * @param options - Optional output controls: unescape unicode/slashes, custom indent.
      * @returns JSON string.
      */
-    toJson(pretty?: boolean): string;
+    toJson(pretty?: boolean, options?: ToJsonOptions): string;
 
     /**
      * Returns the data as a plain object (alias of {@link toArray}).

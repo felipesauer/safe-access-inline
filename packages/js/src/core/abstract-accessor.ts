@@ -18,6 +18,7 @@ import type {
 import { SchemaRegistry } from './registries/schema-registry';
 import type { DeepPaths, ValueAtPath } from '../types/deep-paths';
 import { DebugMixin } from './mixins/debug.mixin';
+import type { ToJsonOptions } from '../contracts/transformable.interface';
 
 /**
  * Base class for all format-specific accessors.
@@ -283,11 +284,27 @@ export abstract class AbstractAccessor<T extends Record<string, unknown> = Recor
     /**
      * Serialises the data to a JSON string.
      *
-     * @param pretty - When `true`, output is indented with 2 spaces.
+     * @param pretty - When `true`, output is indented with 2 spaces (or `options.space`).
+     * @param options - Optional output controls: unescape unicode/slashes, custom indent.
+     *
+     * **PHP alignment:** PHP's `json_encode()` escapes `/` and `\uXXXX` depending on flags.
+     * Pass `{ unescapeUnicode: true, unescapeSlashes: true }` to match PHP defaults
+     * (`JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES`).
+     *
      * @returns JSON-encoded string.
      */
-    toJson(pretty = false): string {
-        return JSON.stringify(this.data, null, pretty ? 2 : undefined);
+    toJson(pretty = false, options?: ToJsonOptions): string {
+        const space = options?.space ?? (pretty ? 2 : undefined);
+        let json = JSON.stringify(this.data, null, space);
+        if (options?.unescapeUnicode === true) {
+            json = json.replace(/\\u([0-9a-fA-F]{4})/g, (_, code: string) =>
+                String.fromCodePoint(parseInt(code, 16)),
+            );
+        }
+        if (options?.unescapeSlashes === true) {
+            json = json.replace(/\\\//g, '/');
+        }
+        return json;
     }
 
     /**

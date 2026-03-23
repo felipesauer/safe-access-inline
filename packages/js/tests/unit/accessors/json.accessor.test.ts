@@ -76,6 +76,41 @@ describe(JsonAccessor.name, () => {
         expect(JSON.parse(accessor.toJson())).toEqual({ name: 'Ana' });
     });
 
+    it('toJson — pretty-prints with default 2-space indent', () => {
+        const accessor = JsonAccessor.from('{"a":1}');
+        expect(accessor.toJson(true)).toBe('{\n  "a": 1\n}');
+    });
+
+    it('toJson — options.space overrides the pretty flag', () => {
+        const accessor = JsonAccessor.from('{"a":1}');
+        const result = accessor.toJson(false, { space: 4 });
+        expect(result).toBe('{\n    "a": 1\n}');
+    });
+
+    it('toJson — unescapeUnicode converts control-char \\uXXXX escapes to literal chars', () => {
+        // JSON.stringify always escapes U+001F (unit sep) as \u001f.
+        // With unescapeUnicode: true the literal character takes its place.
+        const accessor = JsonAccessor.from('{}');
+        const result = accessor.set('k', '\u001F').toJson(false, { unescapeUnicode: true });
+        expect(result).not.toMatch(/\\u001[Ff]/);
+    });
+
+    it('toJson — unescapeSlashes unescapes forward slashes', () => {
+        const accessor = JsonAccessor.from('{}');
+        const unescaped = accessor
+            .set('url', 'https://example.com/path')
+            .toJson(false, { unescapeSlashes: true });
+        // The unescaped version has forward slashes intact (or at least no \\/)
+        expect(unescaped).not.toContain('\\/');
+    });
+
+    it('toJson — options without unescapeUnicode leaves output unchanged (NUL control char)', () => {
+        // NUL (\u0000) is always escaped by JSON.stringify — without unescapeUnicode it stays escaped
+        const accessor = JsonAccessor.from('{}');
+        const result = accessor.set('k', '\u0000').toJson(false, {});
+        expect(result).toContain('\\u0000');
+    });
+
     it('toObject', () => {
         const accessor = JsonAccessor.from('{"name": "Ana"}');
         expect(accessor.toObject()).toEqual({ name: 'Ana' });

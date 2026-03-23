@@ -26,10 +26,10 @@ interface TransformableInterface
      * @note PHP uses `int` flags (bitmask) while JS uses `boolean` — this is an expected
      *       language-idiomatic divergence and is intentional. See plan item A3.
      *
-     * @param int $flags Flags for `json_encode()` (e.g. `JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE`).
+     * @param int|bool|array<string, mixed> $flagsOrOptions Bitmask, boolean shorthand, or named options array.
      * @return string JSON-encoded data.
      */
-    public function toJson(int $flags = 0): string;
+    public function toJson(int|bool|array $flagsOrOptions = 0): string;
 
     /** @param string $rootElement Name of the root XML element */
     public function toXml(string $rootElement = 'root'): string;
