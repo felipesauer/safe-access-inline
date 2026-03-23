@@ -8,6 +8,14 @@ outline: deep
 
 - [SafeAccess Facade](#safeaccess-facade)
 - [Accessor Instance Methods](#accessor-instance-methods)
+- [Performance: Compiled Paths](#performance-compiled-paths)
+- [Array Operations (Immutable)](#array-operations-immutable)
+- [Security & Validation](#security-validation)
+- [Readonly](#readonly)
+- [JSON Patch (RFC 6902)](#json-patch-rfc-6902)
+- [Dependency Injection](#dependency-injection)
+- [I/O Types](#io-types)
+- [Security Utility Functions](#security-utility-functions)
 
 See also: [API — Operations & I/O](/js/api-features) · [API — Types & Internals](/js/api-types)
 
@@ -163,6 +171,61 @@ const accessor = SafeAccess.custom("custom", data);
 
 ---
 
+## Performance: Compiled Paths
+
+Pre-compile dot-notation paths that are accessed repeatedly to skip re-parsing on every call.
+
+#### `SafeAccess.compilePath(path: string): CompiledPath`
+
+Parses a dot-notation path once and returns an opaque `CompiledPath` object. Pass it to `getCompiled()` to resolve values without re-tokenizing the path string on each call. Best suited for tight loops or hot paths that access the same field across many accessors.
+
+**Parameters:**
+
+- `path` — dot-notation path to compile (e.g., `"user.address.city"`).
+
+**Returns:** A `CompiledPath` instance (opaque handle — do not access internal fields directly).
+
+```typescript
+import { SafeAccess } from "@safe-access-inline/safe-access-inline";
+
+// Compile once
+const compiledPath = SafeAccess.compilePath("user.address.city");
+
+// Reuse across many accessors — no re-parsing
+const a = SafeAccess.fromObject({ user: { address: { city: "São Paulo" } } });
+const b = SafeAccess.fromObject({ user: { address: { city: "Lisbon" } } });
+
+a.getCompiled(compiledPath); // "São Paulo"
+b.getCompiled(compiledPath); // "Lisbon"
+```
+
+#### `getCompiled(compiled: CompiledPath, defaultValue?: unknown): unknown`
+
+Resolves the pre-compiled path against this accessor's data. Returns `defaultValue` (or `null`) when the path does not exist.
+
+**Parameters:**
+
+- `compiled` — a `CompiledPath` created by `SafeAccess.compilePath()`.
+- `defaultValue` _(optional)_ — value to return when the path is missing.
+
+```typescript
+const compiled = SafeAccess.compilePath("app.timeout");
+const accessor = SafeAccess.fromObject({ app: { timeout: 30 } });
+
+accessor.getCompiled(compiled); // 30
+accessor.getCompiled(compiled, 60); // 30 (path exists)
+
+const empty = SafeAccess.fromObject({});
+empty.getCompiled(compiled); // null
+empty.getCompiled(compiled, 60); // 60
+```
+
+::: tip Performance tip
+`compilePath()` combined with `getCompiled()` performs better than `get()` in tight loops where the same path is used hundreds or thousands of times. For typical one-off access, prefer the simpler `get()` API.
+:::
+
+---
+
 ## Accessor Instance Methods
 
 All accessors extend `AbstractAccessor` and implement the `AccessorInterface`.
@@ -221,6 +284,16 @@ Access a value via an array of path segments (programmatic alternative to dot-no
 
 ```typescript
 accessor.getAt(["users", "0", "name"]); // 'Ana'
+```
+
+#### `getCompiled(compiled: CompiledPath, defaultValue?: unknown): unknown`
+
+Resolves a pre-compiled path (see [`SafeAccess.compilePath()`](#safeaccess-compilepath-path-string-compiledpath)) against this accessor's data. Prefer this over `get()` in hot loops where the same path is read repeatedly across many accessors.
+
+```typescript
+const compiled = SafeAccess.compilePath("user.name");
+accessor.getCompiled(compiled); // 'Ana'
+accessor.getCompiled(compiled, "N/A"); // 'Ana' if exists, 'N/A' if missing
 ```
 
 #### `hasAt(segments: string[]): boolean`
@@ -528,4 +601,287 @@ SchemaRegistry.setDefaultAdapter(myZodAdapter);
 
 // Validate inline
 accessor.validate(mySchema);
+```
+
+### Readonly
+
+All factory methods (`fromJson`, `fromArray`, etc.) accept `{ readonly: true }` to create an accessor that throws `ReadonlyViolationError` on any mutation. You can also freeze an existing instance at runtime.
+
+#### `freeze(): AbstractAccessor`
+
+Returns a frozen copy of this accessor. All subsequent write operations will throw a `ReadonlyViolationError`.
+
+```typescript
+const frozen = accessor.freeze();
+frozen.set("key", "value"); // throws ReadonlyViolationError
+
+// Via factory options
+const ro = SafeAccess.fromJson('{"key":"value"}', { readonly: true });
+ro.set("key", "new"); // throws ReadonlyViolationError
+```
+
+### JSON Patch (RFC 6902)
+
+Instance methods for computing and applying RFC 6902 JSON Patch operations. Free functions are also exported for standalone use — see [API — Operations & I/O](/js/api-features#json-patch).
+
+#### `diff(other: AbstractAccessor): JsonPatchOperation[]`
+
+Computes an RFC 6902 JSON Patch between this accessor and `other`.
+
+```typescript
+const patches = accessorA.diff(accessorB);
+// [{ op: 'replace', path: '/name', value: 'New' }, ...]
+```
+
+#### `applyPatch(ops: JsonPatchOperation[]): AbstractAccessor`
+
+Applies RFC 6902 JSON Patch operations. Returns a **new instance** — does not mutate.
+
+```typescript
+const updated = accessor.applyPatch([
+    { op: "replace", path: "/name", value: "Updated" },
+    { op: "add", path: "/newKey", value: 42 },
+    { op: "remove", path: "/oldKey" },
+]);
+```
+
+#### `validatePatch(ops: JsonPatchOperation[]): void`
+
+Validates a list of RFC 6902 JSON Patch operations. Throws `JsonPatchValidationError` if any operation is structurally invalid.
+
+```typescript
+accessor.validatePatch([{ op: "replace", path: "/name", value: "OK" }]); // passes
+accessor.validatePatch([{ op: "invalid" as any, path: "/" }]); // throws
+```
+
+#### `JsonPatchOperation`
+
+```typescript
+type JsonPatchOperation = {
+    op: "add" | "remove" | "replace" | "move" | "copy" | "test";
+    path: string;
+    value?: unknown;
+    from?: string;
+};
+```
+
+---
+
+## Dependency Injection
+
+**Import:** `import { ServiceContainer, defaultContainer } from '@safe-access-inline/safe-access-inline'`
+
+The library ships a lightweight service container that bundles the two core registries (`PluginRegistry` and `SchemaRegistry`). Dependency injection was introduced so tests can operate on fully isolated registry instances without calling global `resetAll()` methods and without interfering with other tests running in parallel.
+
+### `ServiceContainer`
+
+A lightweight container that holds a `pluginRegistry` and a `schemaRegistry`.
+
+#### Fields
+
+| Field            | Type              | Description                                  |
+| ---------------- | ----------------- | -------------------------------------------- |
+| `pluginRegistry` | `IPluginRegistry` | Plugin registry instance for this container. |
+| `schemaRegistry` | `ISchemaRegistry` | Schema registry instance for this container. |
+
+#### `ServiceContainer.create(): ServiceContainer`
+
+Creates a new container with **fresh, isolated** registry instances. No state is shared with the global defaults or with other containers created via this method.
+
+```typescript
+import { ServiceContainer } from "@safe-access-inline/safe-access-inline";
+
+const container = ServiceContainer.create();
+// container.pluginRegistry and container.schemaRegistry are brand-new instances
+// — completely independent from the global defaults
+```
+
+#### Constructor
+
+```typescript
+new ServiceContainer(opts?: {
+    pluginRegistry?: IPluginRegistry;
+    schemaRegistry?: ISchemaRegistry;
+})
+```
+
+When `opts` is omitted, the global default singletons are used. Prefer `ServiceContainer.create()` for isolated instances.
+
+### `defaultContainer`
+
+The process-wide default container. Wraps `PluginRegistry.getDefault()` and `SchemaRegistry.getDefault()` — the same singletons used implicitly by all static helper methods throughout the library.
+
+```typescript
+import { defaultContainer } from "@safe-access-inline/safe-access-inline";
+
+// Inspect the globally registered plugins
+defaultContainer.pluginRegistry.has("yaml", "parser"); // true if a YAML parser is registered
+```
+
+### When to use each
+
+| Scenario                                | Recommended                                            |
+| --------------------------------------- | ------------------------------------------------------ |
+| Production application code             | `defaultContainer` (implicit via static API)           |
+| Test isolation (no `resetAll()` needed) | `ServiceContainer.create()`                            |
+| Custom plugin scope for a feature       | `ServiceContainer.create()` with explicit registration |
+
+### Examples
+
+**Isolated container for testing:**
+
+```typescript
+import { ServiceContainer } from "@safe-access-inline/safe-access-inline";
+import type {
+    IPluginRegistry,
+    ISchemaRegistry,
+} from "@safe-access-inline/safe-access-inline";
+
+describe("MyFeature", () => {
+    let container: ServiceContainer;
+
+    beforeEach(() => {
+        // Fresh registries per test — no global state shared
+        container = ServiceContainer.create();
+    });
+
+    it("registers a custom parser without affecting other tests", () => {
+        container.pluginRegistry.registerParser("toml", myTomlParser);
+        expect(container.pluginRegistry.has("toml", "parser")).toBe(true);
+        // Global PluginRegistry is NOT affected
+    });
+});
+```
+
+**Injecting custom registries:**
+
+```typescript
+import {
+    ServiceContainer,
+    PluginRegistry,
+    SchemaRegistry,
+} from "@safe-access-inline/safe-access-inline";
+
+const myRegistry = PluginRegistry.create();
+myRegistry.registerParser("csv", myCsvParser);
+
+const container = new ServiceContainer({ pluginRegistry: myRegistry });
+// container.schemaRegistry falls back to SchemaRegistry.getDefault()
+```
+
+See also: [Architecture — Plugin System](/guide/architecture#plugin-system)
+
+---
+
+## I/O Types
+
+### `FileLoadOptions`
+
+Controls file-loading behaviour for `fromFile()`, `fromFileSync()`, `streamCsv()`, and `streamNdjson()`.
+
+```typescript
+import type { FileLoadOptions } from "@safe-access-inline/safe-access-inline";
+
+interface FileLoadOptions {
+    /** Explicit format override — auto-detected from extension if omitted. */
+    format?: string | Format;
+    /** Restrict loading to these directories. Path-traversal guard. */
+    allowedDirs?: string[];
+    /** Set to `true` to disable the allowed-dirs restriction. */
+    allowAnyPath?: boolean;
+    /** Maximum file size in bytes. Throws `SecurityError` when exceeded. */
+    maxSize?: number;
+    /** Allowlist of file extensions, e.g. `['.json', '.yaml']`. Throws `SecurityError` otherwise. */
+    allowedExtensions?: string[];
+}
+```
+
+### `HttpClientInterface`
+
+Injectable HTTP transport used by `fromUrl()` and `IoLoader`. Implementing this interface allows replacing the built-in `https.request()` call — useful for testing, proxies, and sandboxed environments.
+
+```typescript
+import type {
+    HttpClientInterface,
+    HttpRequestOptions,
+    HttpResponse,
+} from "@safe-access-inline/safe-access-inline";
+
+interface HttpRequestOptions {
+    headers?: Record<string, string>;
+    timeout?: number;
+    signal?: AbortSignal;
+}
+
+interface HttpResponse {
+    readonly ok: boolean;
+    readonly status: number;
+    text(): Promise<string>;
+    json(): Promise<unknown>;
+}
+
+interface HttpClientInterface {
+    fetch(url: string, options?: HttpRequestOptions): Promise<HttpResponse>;
+}
+```
+
+Inject via `configureIoLoader({ httpClient: myClient })`. SSRF validation still runs before any call to `httpClient.fetch()`.
+
+### `DnsResolverInterface`
+
+Injectable DNS resolver used by the SSRF guard prior to URL fetching. Replaces `dns.promises` lookups.
+
+```typescript
+import type { DnsResolverInterface } from "@safe-access-inline/safe-access-inline";
+
+interface DnsResolverInterface {
+    resolve(hostname: string): Promise<string[]>;
+    resolve4?(hostname: string): Promise<string[]>;
+    resolve6?(hostname: string): Promise<string[]>;
+}
+```
+
+Inject via `configureIoLoader({ dnsResolver: myResolver })`.
+
+---
+
+## Security Utility Functions
+
+### `sanitizeHeaders()`
+
+```typescript
+import { sanitizeHeaders } from "@safe-access-inline/safe-access-inline";
+
+function sanitizeHeaders(
+    headers: Record<string, string> | null | undefined,
+): Record<string, string>;
+```
+
+Sanitizes HTTP request headers before use in outgoing requests:
+
+- Header names are lowercased and validated against RFC 7230 token characters; invalid names are dropped.
+- Header values have CRLF sequences and control characters stripped (header-injection prevention).
+- Returns a new record — input is not mutated.
+- `null` / `undefined` returns `{}`.
+
+### `sanitizeCsvHeaders()`
+
+```typescript
+import { sanitizeCsvHeaders } from "@safe-access-inline/safe-access-inline";
+
+function sanitizeCsvHeaders(
+    headers: string[],
+    mode?: CsvSanitizeMode,
+): string[];
+```
+
+Applies `sanitizeCsvCell()` to each element of a header row. Protects against CSV formula injection in column names sourced from untrusted data.
+
+```typescript
+sanitizeCsvHeaders(["Name", "=SUM(A1)", "Email"], "strip");
+// ["Name", "SUM(A1)", "Email"]
+```
+
+```
+
 ```

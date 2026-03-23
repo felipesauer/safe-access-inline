@@ -11,15 +11,23 @@ import { describe, it, expect } from 'vitest';
 import * as fc from 'fast-check';
 import { SafeAccess } from '../src/safe-access';
 import { DotNotationParser } from '../src/core/parsers/dot-notation-parser';
+import { SecurityError } from '../src/exceptions/security.error';
 
 describe('Property-based invariants', () => {
-    // No path should ever crash the library — security above all else
+    // No path should ever crash the library — security above all else.
+    // SecurityError is an intentional, controlled rejection (prototype-pollution guard)
+    // and must NOT be treated as a crash. Any other error type is a bug.
     it('safety: no path makes the library throw', () => {
         fc.assert(
             fc.property(fc.string(), fc.anything(), (path, data) => {
-                expect(() =>
-                    DotNotationParser.get(data as Record<string, unknown>, path, null),
-                ).not.toThrow();
+                try {
+                    DotNotationParser.get(data as Record<string, unknown>, path, null);
+                } catch (e) {
+                    // Intentional security rejections are expected — propagate any other error
+                    if (!(e instanceof SecurityError)) {
+                        throw e;
+                    }
+                }
             }),
             { numRuns: 200 },
         );

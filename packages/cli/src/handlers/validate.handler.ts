@@ -38,7 +38,7 @@ export function handleValidate(rest: string[], io: CliIO): number {
     let schemaContent: string;
     try {
         schemaContent = io.readFileSync(
-            resolve(strOpt(values.schema) ?? ""),
+            resolve(strOpt(values.schema)!),
             "utf-8",
         ) as string;
     } catch (e) {

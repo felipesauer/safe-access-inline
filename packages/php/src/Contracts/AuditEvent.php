@@ -16,12 +16,12 @@ final readonly class AuditEvent
 {
     /**
      * @param AuditEventType $type    The category of this audit event.
-     * @param float          $timestamp Unix timestamp (seconds with microseconds) when the event was emitted.
+     * @param int            $timestamp Unix timestamp in milliseconds when the event was emitted.
      * @param array<string, mixed> $detail Arbitrary key-value metadata specific to the event type.
      */
     public function __construct(
         public AuditEventType $type,
-        public float $timestamp,
+        public int $timestamp,
         public array $detail,
     ) {
     }

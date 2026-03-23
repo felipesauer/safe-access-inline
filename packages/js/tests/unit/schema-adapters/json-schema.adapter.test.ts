@@ -88,4 +88,21 @@ describe(JsonSchemaAdapter.name, () => {
         const result = adapter.validate({ name: 'Ana' }, schema);
         expect(result.valid).toBe(true);
     });
+
+    it('validates pattern constraint — matching string passes (lines 138-140)', () => {
+        const schema = { pattern: '^[a-z]+$' };
+        expect(adapter.validate('hello', schema).valid).toBe(true);
+    });
+
+    it('validates pattern constraint — non-matching string fails', () => {
+        const schema = { pattern: '^[a-z]+$' };
+        const result = adapter.validate('Hello123', schema);
+        expect(result.valid).toBe(false);
+        expect(result.errors[0].message).toContain('does not match pattern');
+    });
+
+    it('pattern constraint is skipped for non-string values', () => {
+        const schema = { pattern: '^[a-z]+$' };
+        expect(adapter.validate(42, schema).valid).toBe(true);
+    });
 });

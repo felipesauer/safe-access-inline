@@ -10,6 +10,7 @@ use SafeAccessInline\Exceptions\InvalidFormatException;
 /**
  * Accessor for JSON strings.
  * Performs json_decode with strict validation.
+ * @extends AbstractAccessor<array<mixed>>
  */
 class JsonAccessor extends AbstractAccessor
 {

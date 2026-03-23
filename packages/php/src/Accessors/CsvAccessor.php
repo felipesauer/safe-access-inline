@@ -8,6 +8,8 @@ use SafeAccessInline\Core\AbstractAccessor;
 use SafeAccessInline\Enums\AuditEventType;
 use SafeAccessInline\Exceptions\InvalidFormatException;
 use SafeAccessInline\Security\Audit\AuditLogger;
+use SafeAccessInline\Security\Guards\SecurityPolicy;
+use SafeAccessInline\Security\Sanitizers\CsvSanitizer;
 
 /**
  * Accessor for CSV strings.
@@ -19,6 +21,7 @@ use SafeAccessInline\Security\Audit\AuditLogger;
  *     ['name' => 'Ana', 'age' => '30'],
  *     ['name' => 'Bob', 'age' => '25'],
  *   ]
+ * @extends AbstractAccessor<array<mixed>>
  */
 class CsvAccessor extends AbstractAccessor
 {
@@ -56,18 +59,25 @@ class CsvAccessor extends AbstractAccessor
             return [];
         }
 
-        $headers = str_getcsv(array_shift($lines), ',', '"', '');
+        $csvMode = SecurityPolicy::getGlobal() !== null ? SecurityPolicy::getGlobal()->csvMode : 'none';
+
+        // Sanitize header names with the same strategy applied to data cells so
+        // that CSV injection payloads in column names are neutralised.
+        $rawHeaders = str_getcsv(array_shift($lines), ',', '"', '');
+        $headers = CsvSanitizer::sanitizeHeaders(array_map('strval', $rawHeaders), $csvMode);
+
         $result = [];
 
-        foreach ($lines as $line) {
+        foreach ($lines as $lineIndex => $line) {
             $values = str_getcsv($line, ',', '"', '');
             if (count($values) === count($headers)) {
-                $result[] = array_combine(array_map('strval', $headers), $values);
+                $result[] = array_combine($headers, $values);
             } else {
                 AuditLogger::emit(AuditEventType::DATA_FORMAT_WARNING->value, [
                     'reason' => 'csv_column_mismatch',
                     'expected' => count($headers),
                     'actual' => count($values),
+                    'line' => $lineIndex + 2, // 1-indexed; +1 to account for the header row
                 ]);
             }
         }

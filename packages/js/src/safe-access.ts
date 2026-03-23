@@ -11,8 +11,19 @@ import { EnvAccessor } from './accessors/env.accessor';
 import { NdjsonAccessor } from './accessors/ndjson.accessor';
 import { TypeDetector } from './core/rendering/type-detector';
 import { InvalidFormatError } from './exceptions/invalid-format.error';
+import { SecurityError } from './exceptions/security.error';
 import { Format } from './enums/format.enum';
-import { readFileSync, readFile, fetchUrl, resolveFormatFromExtension } from './core/io/io-loader';
+import {
+    readFileSync,
+    readFile,
+    writeFileSync as ioWriteFileSync,
+    writeFile as ioWriteFile,
+    fetchUrl,
+    resolveFormatFromExtension,
+    assertPathWithinAllowedDirs,
+} from './core/io/io-loader';
+import type { FileLoadOptions } from './contracts/file-load-options.interface';
+import { streamLines, parseCsvLine } from './core/io/stream-reader';
 import { deepMerge } from './core/operations/deep-merger';
 import { watchFile } from './core/io/file-watcher';
 import type { SecurityPolicy } from './security/guards/security-policy';
@@ -31,8 +42,11 @@ import { PathCache } from './core/resolvers/path-cache';
 import { PluginRegistry } from './core/registries/plugin-registry';
 import { SchemaRegistry } from './core/registries/schema-registry';
 import { FilterParser } from './core/parsers/filter-parser';
+import { DotNotationParser } from './core/parsers/dot-notation-parser';
 import { resetIoLoaderConfig } from './core/io/io-loader';
 import { DEFAULT_SAFE_ACCESS_CONFIG } from './core/config/safe-access-config';
+import { renderTemplate } from './core/rendering/template-renderer';
+import { CompiledPath } from './types/compiled-path';
 
 /**
  * Primary façade for the safe-access-inline library.
@@ -310,21 +324,44 @@ export class SafeAccess {
     // ── File/URL I/O ─────────────────────────────────
 
     /**
+     * Validates `filePath` against the `allowedExtensions` list in `options`.
+     *
+     * @throws {@link SecurityError} When the extension is not permitted.
+     */
+    private static assertAllowedExtension(filePath: string, allowedExtensions?: string[]): void {
+        if (!allowedExtensions || allowedExtensions.length === 0) return;
+        const ext = filePath.slice(filePath.lastIndexOf('.')).toLowerCase();
+        if (!allowedExtensions.map((e) => e.toLowerCase()).includes(ext)) {
+            throw new SecurityError(
+                `File extension '${ext}' is not in the allowed list: [${allowedExtensions.join(', ')}].`,
+            );
+        }
+    }
+
+    /**
      * Reads a file synchronously and returns an accessor.
      *
      * The format is inferred from the file extension unless explicitly provided.
      * Path-traversal protection requires `allowedDirs` or `allowAnyPath: true`.
      *
-     * @throws {@link SecurityError} When the file is outside allowed directories.
+     * Accepts either a {@link FileLoadOptions} object or the legacy inline options shape
+     * (both have the same structure — all previous call-sites continue working).
+     *
+     * @param filePath - Path to the file.
+     * @param options - Optional {@link FileLoadOptions} controlling format, path restrictions,
+     *   extension allowlist, and maximum file size.
+     * @throws {@link SecurityError} When the file is outside allowed directories or the
+     *   extension/size constraints are violated.
      */
-    static fromFileSync(
-        filePath: string,
-        options?: { format?: string | Format; allowedDirs?: string[]; allowAnyPath?: boolean },
-    ): AbstractAccessor {
+    static fromFileSync(filePath: string, options?: FileLoadOptions): AbstractAccessor {
+        SafeAccess.assertAllowedExtension(filePath, options?.allowedExtensions);
         const content = readFileSync(filePath, {
             allowedDirs: options?.allowedDirs,
             allowAnyPath: options?.allowAnyPath,
         });
+        if (options?.maxSize && options.maxSize > 0) {
+            assertPayloadSize(content, options.maxSize);
+        }
         const format = options?.format ?? resolveFormatFromExtension(filePath);
         if (!format) {
             return TypeDetector.resolve(content);
@@ -335,16 +372,24 @@ export class SafeAccess {
     /**
      * Reads a file asynchronously and returns an accessor.
      *
-     * @throws {@link SecurityError} When the file is outside allowed directories.
+     * Accepts either a {@link FileLoadOptions} object or the legacy inline options shape
+     * (both have the same structure — all previous call-sites continue working).
+     *
+     * @param filePath - Path to the file.
+     * @param options - Optional {@link FileLoadOptions} controlling format, path restrictions,
+     *   extension allowlist, and maximum file size.
+     * @throws {@link SecurityError} When the file is outside allowed directories or the
+     *   extension/size constraints are violated.
      */
-    static async fromFile(
-        filePath: string,
-        options?: { format?: string | Format; allowedDirs?: string[]; allowAnyPath?: boolean },
-    ): Promise<AbstractAccessor> {
+    static async fromFile(filePath: string, options?: FileLoadOptions): Promise<AbstractAccessor> {
+        SafeAccess.assertAllowedExtension(filePath, options?.allowedExtensions);
         const content = await readFile(filePath, {
             allowedDirs: options?.allowedDirs,
             allowAnyPath: options?.allowAnyPath,
         });
+        if (options?.maxSize && options.maxSize > 0) {
+            assertPayloadSize(content, options.maxSize);
+        }
         const format = options?.format ?? resolveFormatFromExtension(filePath);
         if (!format) {
             return TypeDetector.resolve(content);
@@ -380,6 +425,40 @@ export class SafeAccess {
             return SafeAccess.from(content, detectedFormat as string);
         }
         return TypeDetector.resolve(content);
+    }
+
+    /**
+     * Synchronously writes `content` to `filePath` after enforcing path-traversal
+     * protection. Requires `allowedDirs` or `allowAnyPath: true`.
+     *
+     * @param filePath - Destination file path.
+     * @param content  - UTF-8 string to write.
+     * @param options  - Optional `allowedDirs` and `allowAnyPath` flags.
+     * @throws {@link SecurityError} When path validation fails.
+     */
+    static writeFile(
+        filePath: string,
+        content: string,
+        options?: Pick<FileLoadOptions, 'allowedDirs' | 'allowAnyPath'>,
+    ): void {
+        ioWriteFileSync(filePath, content, options);
+    }
+
+    /**
+     * Asynchronously writes `content` to `filePath` after enforcing path-traversal
+     * protection. Requires `allowedDirs` or `allowAnyPath: true`.
+     *
+     * @param filePath - Destination file path.
+     * @param content  - UTF-8 string to write.
+     * @param options  - Optional `allowedDirs` and `allowAnyPath` flags.
+     * @throws {@link SecurityError} When path validation fails.
+     */
+    static async writeFileAsync(
+        filePath: string,
+        content: string,
+        options?: Pick<FileLoadOptions, 'allowedDirs' | 'allowAnyPath'>,
+    ): Promise<void> {
+        await ioWriteFile(filePath, content, options);
     }
 
     // ── Layered Config ───────────────────────────────
@@ -443,7 +522,66 @@ export class SafeAccess {
             onChange(accessor);
         });
     }
+    // ── Streaming ─────────────────────────────────────────
 
+    /**
+     * Streams a CSV file line by line, yielding one {@link ObjectAccessor} per data row.
+     *
+     * The first line is treated as the header row. Memory usage is proportional to a single
+     * row, not the entire file. The underlying file handle is closed automatically even if
+     * the consumer breaks out of the `for await` loop early.
+     *
+     * @param filePath - Path to the CSV file.
+     * @param options  - Optional path-restriction options.
+     * @returns AsyncGenerator yielding an {@link ObjectAccessor} for each data row.
+     * @throws {@link SecurityError} When the path violates any constraint.
+     */
+    static async *streamCsv(
+        filePath: string,
+        options?: { allowedDirs?: string[]; allowAnyPath?: boolean },
+    ): AsyncGenerator<ObjectAccessor> {
+        const resolved = assertPathWithinAllowedDirs(filePath, options?.allowedDirs, {
+            allowAnyPath: options?.allowAnyPath,
+        });
+        let headers: string[] | null = null;
+        for await (const line of streamLines(resolved)) {
+            if (line.trim() === '') continue;
+            if (headers === null) {
+                headers = parseCsvLine(line);
+                continue;
+            }
+            const values = parseCsvLine(line);
+            const row: Record<string, unknown> = {};
+            for (let i = 0; i < headers.length; i++) {
+                row[headers[i]] = i < values.length ? values[i] : null;
+            }
+            yield ObjectAccessor.from(row);
+        }
+    }
+
+    /**
+     * Streams an NDJSON file line by line, yielding one {@link JsonAccessor} per JSON line.
+     *
+     * Empty lines are skipped. The underlying file handle is closed automatically even if
+     * the consumer breaks out of the `for await` loop early.
+     *
+     * @param filePath - Path to the NDJSON file.
+     * @param options  - Optional path-restriction options.
+     * @returns AsyncGenerator yielding a {@link JsonAccessor} for each JSON line.
+     * @throws {@link SecurityError} When the path violates any constraint.
+     */
+    static async *streamNdjson(
+        filePath: string,
+        options?: { allowedDirs?: string[]; allowAnyPath?: boolean },
+    ): AsyncGenerator<JsonAccessor> {
+        const resolved = assertPathWithinAllowedDirs(filePath, options?.allowedDirs, {
+            allowAnyPath: options?.allowAnyPath,
+        });
+        for await (const line of streamLines(resolved)) {
+            if (line.trim() === '') continue;
+            yield JsonAccessor.from(line);
+        }
+    }
     // ── SecurityPolicy ───────────────────────────────
 
     /**
@@ -554,6 +692,45 @@ export class SafeAccess {
         return accessor;
     }
 
+    // ── Path Utilities ──────────────────────────────
+
+    /**
+     * Pre-compiles a dot-notation path into a {@link CompiledPath} for repeated use.
+     *
+     * The returned object can be passed to {@link AbstractAccessor.getCompiled} to resolve
+     * values without re-parsing the path on each call. Combine with a tight loop or
+     * repeated access against different accessors for maximum throughput.
+     *
+     * @param path - Dot-notation path to compile.
+     * @returns A pre-compiled path object.
+     */
+    static compilePath(path: string): CompiledPath {
+        return new CompiledPath(DotNotationParser.getSegments(path));
+    }
+
+    /**
+     * Resolves a template path by substituting `{key}` placeholders with the
+     * provided bindings, returning the rendered dot-notation path string.
+     *
+     * This is a pure path-rendering utility — it does **not** access any data.
+     * To render a template path and then retrieve a value, call
+     * {@link AbstractAccessor.getTemplate} on an accessor instance instead.
+     *
+     * @example
+     * ```ts
+     * SafeAccess.getTemplate('users.{id}.name', { id: 42 });
+     * // → 'users.42.name'
+     * ```
+     *
+     * @param template - Template string with `{key}` placeholders.
+     * @param bindings - Key-value pairs to substitute.
+     * @returns Rendered dot-notation path string.
+     * @throws {Error} When a placeholder key is not present in `bindings`.
+     */
+    static getTemplate(template: string, bindings: Record<string, string | number>): string {
+        return renderTemplate(template, bindings);
+    }
+
     // ── Audit ────────────────────────────────────────
 
     /**
@@ -586,6 +763,7 @@ export class SafeAccess {
         PluginRegistry.reset();
         SchemaRegistry.clearDefaultAdapter();
         FilterParser.resetConfig();
+        DotNotationParser.resetConfig();
         resetIoLoaderConfig();
     }
 

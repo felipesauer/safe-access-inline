@@ -12,4 +12,5 @@ export enum SegmentType {
     MULTI_KEY = 'multi-key',
     FILTER = 'filter',
     SLICE = 'slice',
+    PROJECTION = 'projection',
 }

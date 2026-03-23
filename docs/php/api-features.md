@@ -7,6 +7,7 @@ outline: deep
 ## Table of Contents
 
 - [I/O & File Loading](#io--file-loading)
+- [Streaming Large Files](#streaming-large-files)
 - [Layered Configuration](#layered-configuration)
 - [File Watching](#file-watching)
 - [Audit Logging](#audit-logging)
@@ -19,6 +20,10 @@ outline: deep
 **Namespace:** `SafeAccessInline\Core\IoLoader`
 
 PHP I/O is synchronous by design. Unlike the JS package, PHP does not expose async `fromFile()` / `fromUrl()` variants; all file and URL reads complete before returning the accessor.
+
+::: tip PHP has synchronous streaming too
+The PHP package provides `streamCsv()` and `streamNdjson()` as PHP `Generator`-based methods — functionally equivalent to JS's `AsyncGenerator` variants. Use a `foreach` loop to process rows one at a time without loading the entire file into memory.
+:::
 
 #### `IoLoader::readFile(string $filePath, array $allowedDirs = []): string`
 
@@ -51,6 +56,44 @@ $format = IoLoader::resolveFormatFromExtension('/app/config.yaml'); // Format::Y
 $format = IoLoader::resolveFormatFromExtension('/app/data.ndjson');  // Format::Ndjson
 $format = IoLoader::resolveFormatFromExtension('/app/file.txt');     // null
 ```
+
+---
+
+## Streaming Large Files
+
+For memory-efficient processing of large CSV or NDJSON files, PHP provides synchronous `Generator`-based streaming — equivalent in functionality to the JS `AsyncGenerator` variants.
+
+#### `SafeAccess::streamCsv(string $filePath, array $allowedDirs = [], bool $allowAnyPath = false): Generator`
+
+Reads a CSV file row by row, yielding each row as an associative array (header keys → cell values). The file is never fully loaded into memory.
+
+```php
+use SafeAccessInline\SafeAccess;
+
+foreach (SafeAccess::streamCsv('/app/data/users.csv', ['/app/data']) as $row) {
+    // $row = ['name' => 'Ana', 'age' => '30', 'city' => 'Porto Alegre']
+    echo $row['name'] . "\n";
+}
+```
+
+::: tip JS comparison
+In JS, the equivalent is `for await (const row of SafeAccess.streamCsv(path))`. PHP's synchronous `foreach` delivers the same row-at-a-time semantics. See [Architecture — Streaming: Sync (PHP) vs Async (JS)](/guide/architecture#streaming-sync-php-vs-async-js) for a detailed comparison.
+:::
+
+#### `SafeAccess::streamNdjson(string $filePath, array $allowedDirs = [], bool $allowAnyPath = false): Generator`
+
+Reads an NDJSON file line by line, yielding each line as a decoded associative array.
+
+```php
+foreach (SafeAccess::streamNdjson('/app/data/events.ndjson', ['/app/data']) as $event) {
+    // $event = ['type' => 'click', 'ts' => 1711234567]
+    processEvent($event);
+}
+```
+
+::: warning Path security
+Both streaming methods enforce the same `$allowedDirs` path-traversal protection as `fromFile()`. Pass an allowlist or set `$allowAnyPath = true` explicitly when directory restrictions are not needed.
+:::
 
 ---
 
@@ -88,20 +131,121 @@ $config = SafeAccess::layerFiles(
 
 ## File Watching
 
-#### `SafeAccess::watchFile(string $filePath, callable $onChange, ?string $format = null, array $allowedDirs = []): array{poll: callable(): void, stop: callable(): void}`
+::: warning PHP File Watching is Polling-Based and Blocking
+The PHP `watchFile()` implementation uses **polling** (`filemtime()` check every 500 ms) inside a
+`while` loop. Calling `$watcher['poll']()` **blocks the current thread** for as long as the watcher
+is running — it does not return until `$watcher['stop']()` is called from another context (e.g. a
+signal handler, Swoole coroutine, or ReactPHP fiber).
 
-Watches a file for changes using polling. Calls `$onChange(AbstractAccessor)` when the file is modified. Returns an array with two callables: `poll` (starts the blocking poll loop) and `stop` (stops watching).
+**For non-blocking use**, run `poll()` inside a dedicated process, a Swoole coroutine, or a
+ReactPHP fiber. See examples below.
+
+**JavaScript difference:** the JS `watchFile()` uses `fs.watch()` (inotify/kqueue/FSEvents) which
+is fully event-driven and **non-blocking**. It also applies a 100 ms debounce to coalesce rapid
+successive changes. Refer to [Architecture — Feature Parity Matrix](/guide/architecture#feature-parity-matrix)
+for a side-by-side overview.
+:::
+
+#### `SafeAccess::watchFile(string $filePath, callable $onChange, FileLoadOptions|string|null $formatOrOptions = null, array $allowedDirs = [], bool $allowAnyPath = false): array{poll: callable(): void, stop: callable(): void}`
+
+Watches a file for changes using polling. Calls `$onChange(AbstractAccessor)` when the file is modified.
+Returns an array with two callables: `poll` (starts the **blocking** poll loop) and `stop` (sets
+the stop flag — the loop exits after the current iteration completes).
+
+**Parameters:**
+
+| Parameter          | Type                            | Default | Description                                                                          |
+| ------------------ | ------------------------------- | ------- | ------------------------------------------------------------------------------------ |
+| `$filePath`        | `string`                        | —       | Path to the file to watch.                                                           |
+| `$onChange`        | `callable`                      | —       | Callback invoked with a fresh `AbstractAccessor` on each file change.                |
+| `$formatOrOptions` | `FileLoadOptions\|string\|null` | `null`  | Format string, `FileLoadOptions` DTO, or `null` for auto-detect.                     |
+| `$allowedDirs`     | `array`                         | `[]`    | Legacy: directories the file must reside within (ignored when using DTO).            |
+| `$allowAnyPath`    | `bool`                          | `false` | When `true`, disables the `allowedDirs` restriction. Use with caution in production. |
 
 ```php
+// ── Basic usage (blocking) ───────────────────────────────────────────────
 $watcher = SafeAccess::watchFile('/app/config.json', function ($accessor) {
     echo "Config updated!\n";
+    // $accessor is a fresh AbstractAccessor wrapping the new file content
 });
 
-// Start polling (blocking — run in a separate process/fiber as needed)
+// poll() blocks until stop() is called from another context.
+// In a web request, call this from a CLI script or dedicated process only.
 $watcher['poll']();
+```
 
-// Stop watching from another context
-$watcher['stop']();
+```php
+// ── Non-blocking with Swoole coroutines ──────────────────────────────────
+use Swoole\Coroutine;
+
+Coroutine\run(function () {
+    $watcher = SafeAccess::watchFile('/app/config.json', function ($accessor) {
+        echo "Reloaded config\n";
+    });
+
+    Coroutine::create(function () use ($watcher) {
+        $watcher['poll'](); // runs in a coroutine — does not block the server
+    });
+
+    // Stop after 60 seconds
+    Coroutine::sleep(60);
+    $watcher['stop']();
+});
+```
+
+```php
+// ── Dedicated subprocess via pcntl_fork() ────────────────────────────────
+$pid = pcntl_fork();
+if ($pid === 0) {
+    // Child process — polls indefinitely
+    $watcher = SafeAccess::watchFile('/app/config.json', function ($accessor) {
+        // Handle reload
+    });
+    $watcher['poll']();
+    exit(0);
+}
+// Parent process continues unblocked
+```
+
+```php
+// ── Using FileLoadOptions DTO (ergonomic form) ───────────────────────────
+use SafeAccessInline\Contracts\FileLoadOptions;
+
+$watcher = SafeAccess::watchFile(
+    '/app/config.json',
+    fn ($accessor) => reload($accessor),
+    new FileLoadOptions(allowedDirs: ['/app'], format: 'json'),
+);
+$watcher['poll']();
+```
+
+#### `SafeAccess::watchFilePoll(string $filePath, callable $callback, FileLoadOptions|string|null $formatOrOptions = null, int $pollIntervalMs = 500, ?int $maxIterations = null): void`
+
+Blocking convenience wrapper around `watchFile()` that drives the polling loop internally. The method returns when `$maxIterations` ticks have completed (or runs forever when `null`).
+
+| Parameter          | Type                            | Default | Description                                             |
+| ------------------ | ------------------------------- | ------- | ------------------------------------------------------- |
+| `$filePath`        | `string`                        | —       | Path to the file to watch.                              |
+| `$callback`        | `callable`                      | —       | Invoked with a fresh accessor on every detected change. |
+| `$formatOrOptions` | `FileLoadOptions\|string\|null` | `null`  | Format or DTO.                                          |
+| `$pollIntervalMs`  | `int`                           | `500`   | Milliseconds between checks.                            |
+| `$maxIterations`   | `int\|null`                     | `null`  | Stop after N ticks. `null` = run forever.               |
+
+::: warning
+Always pass `$maxIterations` in tests to avoid infinite loops.
+:::
+
+```php
+// Poll for 10 seconds (20 ticks × 500 ms), then return.
+SafeAccess::watchFilePoll(
+    '/app/config.json',
+    function ($accessor) {
+        echo 'Config changed: ' . $accessor->get('version') . PHP_EOL;
+    },
+    new FileLoadOptions(allowedDirs: ['/app'], format: 'json'),
+    pollIntervalMs: 500,
+    maxIterations: 20,
+);
 ```
 
 ---
@@ -112,7 +256,7 @@ $watcher['stop']();
 
 Subscribes to audit events. Returns an unsubscribe function.
 
-Event types: `file.read`, `file.watch`, `url.fetch`, `security.violation`, `security.deprecation`, `data.mask`, `data.freeze`, `data.format_warning`, `schema.validate`.
+Event types: `file.read`, `file.write`, `file.watch`, `url.fetch`, `security.violation`, `security.deprecation`, `data.mask`, `data.freeze`, `data.format_warning`, `schema.validate`.
 
 ```php
 $unsub = SafeAccess::onAudit(function (array $event) {
@@ -289,6 +433,10 @@ The package exports ready-to-use adapters for the schema systems it supports:
 | ------------------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | `JsonSchemaAdapter`       | None                | Built-in validator supporting `type`, `required`, `properties`, `items`, `minimum`, `maximum`, `minLength`, `maxLength`, `enum`, and `pattern` |
 | `SymfonyValidatorAdapter` | `symfony/validator` | Accepts an optional validator instance, or auto-creates one when the package is installed                                                      |
+
+> **Note on Cross-Language Parity:**
+> The JS package offers adapters for Zod, Valibot, Yup, and JSON Schema.
+> In PHP, typical validation frameworks like `symfony/validator` and `JsonSchema` are supported natively. If you need support for Respect/Validation or another PHP validation library, you can implement the `SchemaAdapterInterface`.
 
 ---
 

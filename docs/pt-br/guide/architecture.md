@@ -7,29 +7,45 @@ outline: deep
 ## Índice
 
 - [Arquitetura](#arquitetura)
-    - [Índice](#indice)
-    - [Visão Geral](#visao-geral)
-    - [Princípios de Design](#principios-de-design)
+    - [Índice](#índice)
+    - [Visão Geral](#visão-geral)
+    - [Princípios de Design](#princípios-de-design)
     - [Diagrama de Componentes](#diagrama-de-componentes)
     - [Sistema de Plugins](#sistema-de-plugins)
         - [Contratos](#contratos)
         - [PluginRegistry](#pluginregistry)
         - [Comportamento PHP vs JS](#comportamento-php-vs-js)
+        - [Mapeamento de Camadas de Plugin](#mapeamento-de-camadas-de-plugin)
+            - [JavaScript / TypeScript](#javascript--typescript)
+            - [PHP](#php)
+            - [Diagrama de Camadas de Extensão](#diagrama-de-camadas-de-extensão)
+            - [Ciclo de Vida do Plugin](#ciclo-de-vida-do-plugin)
+            - [Adicionando um Plugin Customizado](#adicionando-um-plugin-customizado)
     - [Fluxo de Dados](#fluxo-de-dados)
     - [Motor DotNotationParser](#motor-dotnotationparser)
-    - [Padrão de Imutabilidade](#padrao-de-imutabilidade)
+    - [Padrão de Imutabilidade](#padrão-de-imutabilidade)
     - [TypeDetector](#typedetector)
     - [Estrutura do Monorepo](#estrutura-do-monorepo)
-    - [Arquitetura de Segurança](#arquitetura-de-seguranca)
-    - [I/O & Carregamento de Arquivos](#i-o-carregamento-de-arquivos)
-    - [Validação de Schema](#validacao-de-schema)
+    - [Arquitetura de Segurança](#arquitetura-de-segurança)
+    - [I/O \& Carregamento de Arquivos](#io--carregamento-de-arquivos)
+    - [Validação de Schema](#validação-de-schema)
     - [Sistema de Auditoria](#sistema-de-auditoria)
     - [Pacote CLI](#pacote-cli)
-    - [Integrações com Frameworks](#integracoes-com-frameworks)
-    - [Registros de Decisão de Arquitetura](#registros-de-decisao-de-arquitetura)
-        - [ADR-1: `set()` / `remove()` usam `clone` em vez de `static::from()`](#adr-1-set-remove-usam-clone-em-vez-de-static-from)
-        - [ADR-2: JS `toXml()` / `toYaml()` / `toToml()` via Bibliotecas Reais + Plugin Override](#adr-2-js-toxml-toyaml-totoml-via-bibliotecas-reais-plugin-override)
-        - [ADR-3: Dependências Reais para YAML/TOML + PluginRegistry para Override](#adr-3-dependencias-reais-para-yaml-toml-pluginregistry-para-override)
+    - [Integrações com Frameworks](#integrações-com-frameworks)
+    - [Registros de Decisão de Arquitetura](#registros-de-decisão-de-arquitetura)
+        - [ADR-1: `set()` / `remove()` usam `clone` em vez de `static::from()`](#adr-1-set--remove-usam-clone-em-vez-de-staticfrom)
+        - [ADR-2: JS `toXml()` / `toYaml()` / `toToml()` via Bibliotecas Reais + Plugin Override](#adr-2-js-toxml--toyaml--totoml-via-bibliotecas-reais--plugin-override)
+        - [ADR-3: Dependências Reais para YAML/TOML + PluginRegistry para Override](#adr-3-dependências-reais-para-yamltoml--pluginregistry-para-override)
+    - [Diferenças de Implementação PHP ↔ JS](#diferenças-de-implementação-php--js)
+        - [Matriz de Paridade de Funcionalidades](#matriz-de-paridade-de-funcionalidades)
+        - [`toArray()` vs `all()`](#toarray-vs-all)
+        - [Padrão de Composição: Traits (PHP) vs Delegação Estática (JS)](#padrão-de-composição-traits-php-vs-delegação-estática-js)
+        - [Streaming: Síncrono (PHP) vs Assíncrono (JS)](#streaming-síncrono-php-vs-assíncrono-js)
+        - [Diferença Interna do Accessor em CompiledPath](#diferença-interna-do-accessor-em-compiledpath)
+        - [Op `test` do JSON Patch: Alinhamento de Caminhos Ausentes](#op-test-do-json-patch-alinhamento-de-caminhos-ausentes)
+    - [Estado Estático e Isolamento de Testes (PHP)](#estado-estático-e-isolamento-de-testes-php)
+        - [Resetando o estado entre testes](#resetando-o-estado-entre-testes)
+        - [Roadmap: `SafeAccessContext` (container de DI)](#roadmap-safeaccesscontext-container-de-di)
 
 ## Visão Geral
 
@@ -105,6 +121,79 @@ PluginRegistry::registerSerializer('yaml', new SymfonyYamlSerializer());
 | Parsing YAML/TOML                                       | Biblioteca real por padrão (`ext-yaml` ou `symfony/yaml` para YAML, `devium/toml` para TOML); plugin **opcional** (overrides)        | Biblioteca real por padrão (`js-yaml`, `smol-toml`); plugin **opcional** (overrides) |
 | Serialização (`toYaml`, `toToml`, `toXml`, `transform`) | Plugin override → fallback para `ext-yaml`/biblioteca real (com fallback `SimpleXMLElement` para XML)                                | Biblioteca real por padrão para YAML/TOML; plugin necessário para XML                |
 | Plugins incluídos                                       | 6 plugins (SymfonyYamlParser, SymfonyYamlSerializer, NativeYamlParser, NativeYamlSerializer, DeviumTomlParser, DeviumTomlSerializer) | 4 plugins (JsYamlParser, JsYamlSerializer, SmolTomlParser, SmolTomlSerializer)       |
+
+### Mapeamento de Camadas de Plugin
+
+Cada plugin ocupa uma **camada** específica no pipeline de processamento. A tabela abaixo mapeia cada plugin incluído à sua camada, tipo e chave de registro.
+
+#### JavaScript / TypeScript
+
+| Plugin               | Chave de Formato | Tipo       | Camada        | Notas                                                        |
+| -------------------- | ---------------- | ---------- | ------------- | ------------------------------------------------------------ |
+| `JsYamlParser`       | `yaml`           | parser     | parsing       | Envolve `js-yaml`; **padrão** — registrado automaticamente   |
+| `JsYamlSerializer`   | `yaml`           | serializer | serialization | Envolve `js-yaml`; **padrão** — registrado automaticamente   |
+| `SmolTomlParser`     | `toml`           | parser     | parsing       | Envolve `smol-toml`; **padrão** — registrado automaticamente |
+| `SmolTomlSerializer` | `toml`           | serializer | serialization | Envolve `smol-toml`; **padrão** — registrado automaticamente |
+
+#### PHP
+
+| Plugin                  | Chave de Formato | Tipo       | Camada        | Notas                                               |
+| ----------------------- | ---------------- | ---------- | ------------- | --------------------------------------------------- |
+| `SymfonyYamlParser`     | `yaml`           | parser     | parsing       | Envolve `symfony/yaml`; override opcional           |
+| `SymfonyYamlSerializer` | `yaml`           | serializer | serialization | Envolve `symfony/yaml`; override opcional           |
+| `NativeYamlParser`      | `yaml`           | parser     | parsing       | Envolve `ext-yaml`; override opcional               |
+| `NativeYamlSerializer`  | `yaml`           | serializer | serialization | Envolve `ext-yaml`; override opcional               |
+| `DeviumTomlParser`      | `toml`           | parser     | parsing       | Envolve `devium/toml`; **padrão** — auto-detectado  |
+| `DeviumTomlSerializer`  | `toml`           | serializer | serialization | Envolve `devium/toml`; **padrão** — auto-detectado  |
+| `SimpleXmlSerializer`   | `xml`            | serializer | serialization | Envolve `SimpleXMLElement`; fallback para `toXml()` |
+
+#### Diagrama de Camadas de Extensão
+
+```mermaid
+flowchart LR
+    Input["String bruta / dados"] --> IoLoader["IoLoader\n(arquivo & URL)"]
+    IoLoader --> Parser["Parser de Formato\n(embutido ou Plugin)"]
+    Parser --> Accessor["AbstractAccessor\n(dados normalizados)"]
+    Accessor --> Serializer["Serializer de Formato\n(embutido ou Plugin)"]
+    Serializer --> Output["String de saída"]
+
+    subgraph PluginLayer["Camada de Plugin"]
+        P1["ParserPlugin\n.parse(raw) → array"]
+        P2["SerializerPlugin\n.serialize(array) → string"]
+    end
+
+    Parser -.->|"PluginRegistry.getParser(format)"| P1
+    Serializer -.->|"PluginRegistry.getSerializer(format)"| P2
+```
+
+#### Ciclo de Vida do Plugin
+
+1. **Registro** — `PluginRegistry.registerParser(format, plugin)` / `PluginRegistry.registerSerializer(format, plugin)`. Deve ocorrer antes que o primeiro accessor daquele formato seja criado.
+
+2. **Descoberta** — Quando um accessor chama `parse()` ou `toYaml()`, o registro é consultado com a chave de formato. Se um plugin estiver registrado, ele tem prioridade sobre o padrão embutido; caso contrário, a biblioteca embutida é usada.
+
+3. **Invocação** — O método `parse()` ou `serialize()` do plugin é chamado sincronamente. Plugins devem lançar `InvalidFormatException` em input malformado.
+
+4. **Precedência de override** — `plugin registrado > padrão da biblioteca real > parser leve embutido` (JS) / `plugin registrado > ext-yaml / symfony/yaml` (PHP).
+
+#### Adicionando um Plugin Customizado
+
+```typescript
+// Implementar uma interface
+import type { ParserPluginInterface } from "@safe-access-inline/safe-access-inline";
+
+class MyYamlParser implements ParserPluginInterface {
+    parse(raw: string): Record<string, unknown> {
+        return myCustomYamlLib.parse(raw);
+    }
+}
+
+// Registrar uma vez na inicialização — substitui o JsYamlParser padrão
+import { PluginRegistry } from "@safe-access-inline/safe-access-inline";
+PluginRegistry.registerParser("yaml", new MyYamlParser());
+```
+
+Veja também: [Guia de Plugins](/pt-br/js/plugins)
 
 ## Fluxo de Dados
 
@@ -285,6 +374,8 @@ Por isso, o file watching em PHP usa polling (`FileWatcher`) — verifica `mtime
 
 - **PathCache** — Cache LRU em memória entre `AbstractAccessor` e `DotNotationParser`. Arrays de segmentos de caminhos parseados são armazenados indexados pela string do caminho, eliminando re-parsing redundante em acessos frequentes.
 
+> **Divergência de interface de cache:** `remember()` / `forget()` do PHP aceitam `\Psr\SimpleCache\CacheInterface` (PSR-16). Os equivalentes JS aceitam uma `CacheInterface` compacta e personalizada (`get / set / delete`) intencionalmente mais simples que o contrato PSR-16 — sem `has()`, sem `clear()`, e `get()` retorna `unknown` ao invés de `mixed`. Implemente a interface JS diretamente ou envolva uma biblioteca compatível com PSR-16 em um adapter.
+
 Configuração em camadas (`layer()`, `layerFiles()`) realiza deep-merge de múltiplas fontes com semântica last-wins.
 
 ## Validação de Schema
@@ -354,6 +445,8 @@ Suporta entrada via stdin (`-`), todos os formatos (JSON, YAML, TOML, XML, INI, 
 
 **Decisão:** Tanto PHP quanto JS usam `clone` (PHP: `clone $this`; JS: método `clone(newData)`) para preservar qualquer metadata específica do accessor ao produzir uma nova instância. Apenas `$data` é atualizado.
 
+> **Divergência de parâmetro:** Em PHP, `clone` é uma palavra-chave da linguagem — `clone $this` não aceita argumentos. O accessor então muta diretamente `$this->data` na instância clonada. Em JS, `clone(newData)` é um método abstrato protegido que cada subclasse implementa, aceitando o novo registro de dados como único argumento. A abordagem PHP depende de mutação pós-clone; a JS é puramente baseada em construtor. O resultado observável é idêntico: uma nova instância com `data` atualizado e todos os outros campos preservados.
+
 **Consequência:** Metadata como `originalXml` sobrevive a mutações, que é o comportamento esperado. O round-trip `set() → toXml()` ainda pode acessar o XML original via `getOriginalXml()`.
 
 ### ADR-2: JS `toXml()` / `toYaml()` / `toToml()` via Bibliotecas Reais + Plugin Override
@@ -383,3 +476,133 @@ Suporta entrada via stdin (`-`), todos os formatos (JSON, YAML, TOML, XML, INI, 
 - **Testes**: Testes unitários usam plugins mock (classes/objetos anônimos) para isolamento. Testes de integração usam bibliotecas reais.
 
 **Consequência:** Zero configuração para YAML/TOML em ambas plataformas. Comportamento consistente entre PHP e JS. Usuários que precisam de parsers/serializers alternativos os registram via PluginRegistry.
+
+## Diferenças de Implementação PHP ↔ JS
+
+As duas implementações são semanticamente equivalentes — os mesmos caminhos dot-notation, as mesmas operações, as mesmas garantias de segurança — mas diferenças idiomáticas existem no nível da linguagem. Esta seção as documenta explicitamente.
+
+### Matriz de Paridade de Funcionalidades
+
+| Funcionalidade          | JavaScript / TypeScript                                           | PHP                                                                  |
+| ----------------------- | ----------------------------------------------------------------- | -------------------------------------------------------------------- |
+| **Operações de array**  | Classe estática (`ArrayOperations`) delegada pelo accessor        | Trait (`HasArrayOperations`) mixado em `AbstractAccessor`            |
+| **Inferência de tipos** | Parâmetros genéricos `DeepPaths<T>` / `ValueAtPath<T, P>`         | `@template TShape` + extensão PHPStan customizada                    |
+| **Imutabilidade**       | `Object.freeze()` + `deepFreeze()` em runtime                     | Campo privado `$data` + flag `$readonly` + `assertNotReadonly()`     |
+| **Constructor**         | `constructor(raw: unknown, options?: { readonly?: boolean })`     | `__construct(mixed $raw, bool $readonly = false)`                    |
+| **`toArray()`**         | Alias concreto de `all()` (não na interface)                      | Alias concreto de `all()` (não na interface)                         |
+| **I/O Assíncrono**      | `fromFile()` async + `fromFileSync()` sync                        | Apenas síncrono                                                      |
+| **Streaming**           | `streamCsv()` / `streamNdjson()` — `AsyncGenerator` (`for await`) | `streamCsv()` / `streamNdjson()` — `Generator` (`foreach`, síncrono) |
+| **File watcher**        | Retorna uma única função `stop()`                                 | Retorna `{ poll, stop }` — polling deve ser dirigido explicitamente  |
+| **Parsing XML**         | Delega para plugin; sem parser nativo                             | `simplexml_load_string()` com proteção XXE embutida                  |
+| **Adapters de schema**  | Zod, Valibot, Yup, JSON Schema                                    | JSON Schema, Symfony Validator                                       |
+
+### `toArray()` vs `all()`
+
+Ambas implementações expõem `all()` como método primário retornando uma cópia rasa dos dados internos. `toArray()` é um alias de classe concreta que segue idiomas PHP (convenções `ArrayAccess`, `Arrayable`). Não faz parte dos contratos publicados `ReadableInterface` / `AccessorInterface` em nenhuma linguagem:
+
+```typescript
+// JS — ambos são equivalentes
+accessor.all(); // Record<string, unknown>
+accessor.toArray(); // Record<string, unknown>
+```
+
+```php
+// PHP — ambos são equivalentes
+$accessor->all();     // array<mixed>
+$accessor->toArray(); // array<mixed>
+```
+
+### Padrão de Composição: Traits (PHP) vs Delegação Estática (JS)
+
+PHP usa composição de traits para anexar operações de array e transformações à base abstrata:
+
+```php
+abstract class AbstractAccessor implements AccessorInterface, WritableInterface
+{
+    use HasArrayOperations;
+    use HasTransformations;
+    use HasTypeAccess;
+    // ...
+}
+```
+
+JS alcança o mesmo resultado através de delegação para classe estática:
+
+```typescript
+// Em AbstractAccessor
+push(path: string, ...items: unknown[]): AbstractAccessor<T> {
+    return this.mutate(ArrayOperations.push(this.data, path, ...items));
+}
+```
+
+Ambas abordagens produzem APIs idênticas para o consumidor. A diferença é um detalhe de implementação sem impacto comportamental.
+
+### Streaming: Síncrono (PHP) vs Assíncrono (JS)
+
+Ambos os pacotes expõem `streamCsv()` e `streamNdjson()` para processamento eficiente de memória, linha por vez, de arquivos grandes. Os contratos são idênticos, mas os modelos de runtime diferem:
+
+| Aspecto         | JavaScript / TypeScript                 | PHP                                     |
+| --------------- | --------------------------------------- | --------------------------------------- |
+| Tipo de retorno | `AsyncGenerator<string[]>`              | `Generator` (síncrono, lazy)            |
+| Iteração        | `for await (const row of stream) {}`    | `foreach ($stream as $row) {}`          |
+| Bloqueante      | Não bloqueante — cede para o event loop | Bloqueante — executa na call stack      |
+| Concorrência    | Intercala com outras tarefas async      | Single-threaded; I/O durante a iteração |
+
+**Por que a diferença?** O runtime do PHP é inerentemente síncrono — a semântica lazy do `Generator` é a solução idiomática PHP e não requer event loop. No Node.js, o padrão `AsyncGenerator` se integra naturalmente com `async/await` e evita bloquear o event loop durante leituras de arquivos grandes.
+
+Ambas as abordagens entregam a mesma garantia ao usuário: linhas são produzidas uma de cada vez sem carregar o arquivo inteiro na memória. A escolha do paradigma é uma restrição do nível da linguagem, não uma diferença de funcionalidade.
+
+### Diferença Interna do Accessor em CompiledPath
+
+`SafeAccess.compilePath(path)` faz o pré-parse de um caminho dot-notation e retorna um token opaco `CompiledPath` que pode ser reutilizado em múltiplas chamadas para evitar re-parsing repetido.
+
+| Aspecto            | JavaScript / TypeScript                                                   | PHP                                                        |
+| ------------------ | ------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| Superfície pública | Classe `CompiledPath` — intencionalmente opaca, sem accessor público      | Classe `CompiledPath` — método público `segments(): array` |
+| Campo interno      | `_segments` (prefixo de sublinhado, sinaliza "não faz parte do contrato") | `$segments` (privado, exposto via `segments()`)            |
+
+**Em JS,** `_segments` recebe o prefixo `_` para sinalizar que é interno ao framework. Consumidores nunca devem lê-lo diretamente; o token `CompiledPath` só é significativo como argumento para `get()`, `set()`, `has()`, etc. Para inspecionar segmentos parseados para depuração, use `accessor.trace(path)`.
+
+**Em PHP,** `segments()` é público para compatibilidade com ferramentas que inspecionam a estrutura do caminho (ex: validadores personalizados). A divergência de design é intencional e não tem impacto no uso normal.
+
+### Op `test` do JSON Patch: Alinhamento de Caminhos Ausentes
+
+::: info Comportamento alinhado em ambos os runtimes
+A operação `test` do JSON Patch verifica que o valor em `path` é igual a `value`.
+Ambos os runtimes **lançam exceção** quando o caminho não existe.
+
+| Plataforma | Caminho ausente     | `test` em caminho ausente                |
+| ---------- | ------------------- | ---------------------------------------- |
+| **PHP**    | caminho inexistente | **LANÇA** `JsonPatchTestFailedException` |
+| **JS**     | caminho inexistente | **LANÇA** `JsonPatchTestFailedException` |
+
+Note que um caminho explicitamente definido como `null` é considerado _presente_, portanto
+`test` com `"value": null` em um caminho com valor `null` ainda _passa_.
+:::
+
+## Estado Estático e Isolamento de Testes (PHP)
+
+A fachada `SafeAccess` do PHP usa **estado estático** em `PluginRegistry`,
+`SchemaRegistry`, `PathCache` e a `SecurityPolicy` global. Isso significa que
+estado registrado em um teste pode vazar para o próximo se não for limpo.
+
+### Resetando o estado entre testes
+
+Chame `SafeAccess::reset()` (ou o equivalente `SafeAccess::resetAll()`) em um
+hook `beforeEach` ou `afterEach` para garantir um estado limpo:
+
+```php
+beforeEach(fn () => SafeAccess::reset());
+```
+
+### Roadmap: `SafeAccessContext` (container de DI)
+
+> **Status: Planejado**
+
+Uma futura classe `SafeAccessContext` espelhará o `ServiceContainer` do JS,
+permitindo registros por instância em vez de estado estático global.
+Isso habilita testes em paralelo, aplicações multi-tenant e injeção de
+dependência adequada sem efeitos colaterais globais.
+
+Até que `SafeAccessContext` seja lançado, use `SafeAccess::reset()` como
+a API canônica de limpeza.

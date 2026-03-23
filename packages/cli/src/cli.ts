@@ -140,7 +140,22 @@ export function run(args: string[], io: CliIO): number {
                 return 1;
         }
     } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
+        let message = err instanceof Error ? err.message : String(err);
+
+        // Sanitize error messages to prevent internal path / network topology disclosure
+        message = message.replace(
+            /Path '.*?' is outside allowed directories\./,
+            "Path is outside allowed directories.",
+        );
+        message = message.replace(
+            /Host '.*?' is not in the allowed list\./,
+            "Host is not in the allowed list.",
+        );
+        message = message.replace(
+            /Port \d+ is not in the allowed list: \[.*?\]/,
+            "Port is not in the allowed list.",
+        );
+
         io.stderr.write(`Error: ${message}\n`);
         if (process.env.DEBUG === "1" && err instanceof Error && err.stack) {
             io.stderr.write(`${err.stack}\n`);

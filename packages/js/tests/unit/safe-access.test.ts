@@ -19,6 +19,11 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 
 describe(SafeAccess.name, () => {
+    afterEach(() => {
+        // Clean up custom accessors registered in this describe block
+        SafeAccess.clearCustomAccessors();
+    });
+
     it('fromArray', () => {
         const accessor = SafeAccess.fromArray([{ name: 'Ana' }]);
         expect(accessor).toBeInstanceOf(ArrayAccessor);
@@ -264,7 +269,9 @@ describe('SafeAccess — fromFileSync auto-detect', () => {
             const acc = SafeAccess.fromFileSync(tmpFile, { allowAnyPath: true });
             expect(acc.get('auto')).toBe('detected');
         } finally {
-            fs.unlinkSync(tmpFile);
+            if (fs.existsSync(tmpFile)) {
+                fs.unlinkSync(tmpFile);
+            }
         }
     });
 });
@@ -278,7 +285,9 @@ describe('SafeAccess — fromFile auto-detect', () => {
             const acc = await SafeAccess.fromFile(tmpFile, { allowAnyPath: true });
             expect(acc.get('async_auto')).toBe('detected');
         } finally {
-            fs.unlinkSync(tmpFile);
+            if (fs.existsSync(tmpFile)) {
+                fs.unlinkSync(tmpFile);
+            }
         }
     });
 });
@@ -367,6 +376,35 @@ describe('SafeAccess.resetAll() — comprehensive', () => {
     });
 });
 
+// ── SafeAccess.getTemplate ──────────────────────────────────────
+describe('SafeAccess — getTemplate', () => {
+    it('renders a template path with bindings', () => {
+        expect(SafeAccess.getTemplate('users.{id}.name', { id: 42 })).toBe('users.42.name');
+    });
+
+    it('renders multiple bindings in order', () => {
+        expect(
+            SafeAccess.getTemplate('{ns}.{entity}.{field}', {
+                ns: 'app',
+                entity: 'user',
+                field: 'email',
+            }),
+        ).toBe('app.user.email');
+    });
+
+    it('works with string and number binding values', () => {
+        expect(SafeAccess.getTemplate('items.{idx}', { idx: 0 })).toBe('items.0');
+    });
+
+    it('throws when a binding key is missing', () => {
+        expect(() => SafeAccess.getTemplate('users.{id}.name', {})).toThrow();
+    });
+
+    it('returns the template unchanged when it has no placeholders', () => {
+        expect(SafeAccess.getTemplate('users.name', {})).toBe('users.name');
+    });
+});
+
 // ── optionalRequire — missing module throws ─────────────────────
 describe('optionalRequire — missing module', () => {
     it('throws descriptive error when required module is not installed', () => {
@@ -374,5 +412,176 @@ describe('optionalRequire — missing module', () => {
         expect(() => getter()).toThrow(
             'nonexistent-module-safe-access-test is required for TestFeature support',
         );
+    });
+});
+
+// ── SafeAccess.withPolicy — mutation-killing tests ───────────────
+describe('SafeAccess — withPolicy', () => {
+    afterEach(() => {
+        SafeAccess.clearGlobalPolicy();
+    });
+
+    it('withPolicy — applies maskPatterns to mask sensitive keys', () => {
+        const data = { username: 'alice', password: 'secret123', role: 'admin' };
+        const acc = SafeAccess.withPolicy(JSON.stringify(data), {
+            maskPatterns: ['password'],
+        });
+        expect(acc.get('username')).toBe('alice');
+        expect(acc.get('password')).toBe('[REDACTED]');
+        expect(acc.get('role')).toBe('admin');
+    });
+
+    it('withPolicy — empty maskPatterns array does NOT mask (> 0 not >= 0)', () => {
+        // Kills EqualityOperator mutation: maskPatterns.length >= 0 → always true
+        const data = { password: 'secret' };
+        const acc = SafeAccess.withPolicy(JSON.stringify(data), {
+            maskPatterns: [],
+        });
+        expect(acc.get('password')).toBe('secret');
+    });
+
+    it('withPolicy — no maskPatterns does not mask', () => {
+        const data = { password: 'secret' };
+        const acc = SafeAccess.withPolicy(JSON.stringify(data), {});
+        expect(acc.get('password')).toBe('secret');
+    });
+
+    it('withPolicy — enforces maxKeys limit', () => {
+        const data = { a: 1, b: 2, c: 3, d: 4 };
+        expect(() => SafeAccess.withPolicy(JSON.stringify(data), { maxKeys: 3 })).toThrow();
+    });
+
+    it('withPolicy — does not throw when maxKeys not set (ConditionalExpression path)', () => {
+        const data = { a: 1, b: 2, c: 3, d: 4 };
+        expect(() => SafeAccess.withPolicy(JSON.stringify(data), {})).not.toThrow();
+    });
+
+    it('withPolicy — enforces maxDepth limit', () => {
+        const deep = { a: { b: { c: { d: { e: 'deep' } } } } };
+        expect(() => SafeAccess.withPolicy(JSON.stringify(deep), { maxDepth: 2 })).toThrow();
+    });
+
+    it('withPolicy — does not throw when maxDepth not set (ConditionalExpression path)', () => {
+        const deep = { a: { b: { c: { d: 'value' } } } };
+        expect(() => SafeAccess.withPolicy(JSON.stringify(deep), {})).not.toThrow();
+    });
+
+    it('withPolicy — enforces maxPayloadBytes for string data', () => {
+        const bigStr = 'x'.repeat(1000);
+        const payload = JSON.stringify({ data: bigStr });
+        expect(() => SafeAccess.withPolicy(payload, { maxPayloadBytes: 10 })).toThrow();
+    });
+
+    it('withPolicy — maxPayloadBytes not applied to non-string data (ConditionalExpression)', () => {
+        // typeof data !== 'string' → maxPayloadBytes check is skipped
+        const data = { key: 'value' };
+        expect(() => SafeAccess.withPolicy(data, { maxPayloadBytes: 1 })).not.toThrow();
+    });
+
+    it('withPolicy — returns accessor with all policies when multiple are set', () => {
+        const data = { user: 'alice', token: 'abc123', a: 1, b: 2 };
+        const acc = SafeAccess.withPolicy(JSON.stringify(data), {
+            maskPatterns: ['token'],
+            maxKeys: 10,
+        });
+        expect(acc.get('user')).toBe('alice');
+        expect(acc.get('token')).toBe('[REDACTED]');
+    });
+});
+
+// ── SafeAccess.fromFileWithPolicy — mutation-killing tests ───────
+describe('SafeAccess — fromFileWithPolicy', () => {
+    it('applies maskPatterns to mask sensitive keys from file', async () => {
+        const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'safefile-'));
+        const tmpFile = path.join(tmpDir, 'data.json');
+        fs.writeFileSync(tmpFile, JSON.stringify({ username: 'alice', password: 'secret' }));
+        try {
+            const acc = await SafeAccess.fromFileWithPolicy(tmpFile, {
+                allowedDirs: [tmpDir],
+                maskPatterns: ['password'],
+            });
+            expect(acc.get('username')).toBe('alice');
+            expect(acc.get('password')).toBe('[REDACTED]');
+        } finally {
+            fs.unlinkSync(tmpFile);
+            fs.rmdirSync(tmpDir);
+        }
+    });
+
+    it('empty maskPatterns does NOT mask in fromFileWithPolicy (kills >= 0 mutation)', async () => {
+        const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'safefile-'));
+        const tmpFile = path.join(tmpDir, 'data.json');
+        fs.writeFileSync(tmpFile, JSON.stringify({ password: 'visible' }));
+        try {
+            const acc = await SafeAccess.fromFileWithPolicy(tmpFile, {
+                allowedDirs: [tmpDir],
+                maskPatterns: [],
+            });
+            expect(acc.get('password')).toBe('visible');
+        } finally {
+            fs.unlinkSync(tmpFile);
+            fs.rmdirSync(tmpDir);
+        }
+    });
+
+    it('no maskPatterns set does NOT mask in fromFileWithPolicy', async () => {
+        const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'safefile-'));
+        const tmpFile = path.join(tmpDir, 'data.json');
+        fs.writeFileSync(tmpFile, JSON.stringify({ secret: 'value' }));
+        try {
+            const acc = await SafeAccess.fromFileWithPolicy(tmpFile, {
+                allowedDirs: [tmpDir],
+            });
+            expect(acc.get('secret')).toBe('value');
+        } finally {
+            fs.unlinkSync(tmpFile);
+            fs.rmdirSync(tmpDir);
+        }
+    });
+});
+
+// ── SafeAccess.layer — mutation-killing tests ────────────────────
+describe('SafeAccess — layer', () => {
+    it('returns empty ObjectAccessor when layer called with empty array', () => {
+        // Kills ConditionalExpression → false mutation on sources.length === 0
+        const acc = SafeAccess.layer([]);
+        expect(acc.toObject()).toEqual({});
+    });
+
+    it('returns single accessor contents when called with one source', () => {
+        // Kills MethodExpression → sources mutation (sources.slice(1) etc.)
+        const acc = SafeAccess.layer([SafeAccess.fromObject({ a: 1 })]);
+        expect(acc.get('a')).toBe(1);
+    });
+
+    it('deep-merges multiple accessors (last wins for conflicting keys)', () => {
+        const base = SafeAccess.fromObject({ a: 1, b: 2 });
+        const override = SafeAccess.fromObject({ b: 99, c: 3 });
+        const merged = SafeAccess.layer([base, override]);
+        expect(merged.get('a')).toBe(1);
+        expect(merged.get('b')).toBe(99);
+        expect(merged.get('c')).toBe(3);
+    });
+});
+
+// ── SafeAccess.layerFiles — mutation-killing tests ───────────────
+describe('SafeAccess — layerFiles', () => {
+    it('merges multiple files with no options (tests options?.allowedDirs be undefined)', async () => {
+        // OptionalChaining mutations: options?.allowedDirs → options.allowedDirs
+        // Without options, calling options.allowedDirs would throw TypeError
+        const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'layerfiles-'));
+        const file1 = path.join(tmpDir, 'a.json');
+        const file2 = path.join(tmpDir, 'b.json');
+        fs.writeFileSync(file1, JSON.stringify({ a: 1 }));
+        fs.writeFileSync(file2, JSON.stringify({ b: 2 }));
+        try {
+            const acc = await SafeAccess.layerFiles([file1, file2], { allowAnyPath: true });
+            expect(acc.get('a')).toBe(1);
+            expect(acc.get('b')).toBe(2);
+        } finally {
+            fs.unlinkSync(file1);
+            fs.unlinkSync(file2);
+            fs.rmdirSync(tmpDir);
+        }
     });
 });

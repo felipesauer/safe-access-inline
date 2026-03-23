@@ -13,7 +13,25 @@ import { renderTemplate } from '../rendering/template-renderer';
  * is handled by {@link PathResolver}. This class provides the public
  * CRUD API over dot-notation paths.
  */
+import { type ParserConfig, DEFAULT_PARSER_CONFIG } from '../config/parser-config';
 export class DotNotationParser {
+    private static config: ParserConfig = DEFAULT_PARSER_CONFIG;
+
+    /**
+     * Overrides the parser configuration (e.g. `maxResolveDepth`, `maxXmlDepth`).
+     *
+     * @param config - Partial configuration to merge with the current defaults.
+     */
+    static configure(config: Partial<ParserConfig>): void {
+        DotNotationParser.config = { ...DEFAULT_PARSER_CONFIG, ...config };
+    }
+
+    /**
+     * Resets the parser configuration to its default values.
+     */
+    static resetConfig(): void {
+        DotNotationParser.config = DEFAULT_PARSER_CONFIG;
+    }
     /**
      * Accesses a value in a nested structure via dot notation.
      *
@@ -31,6 +49,17 @@ export class DotNotationParser {
         const segments = DotNotationParser.cachedParseSegments(path);
         return PathResolver.resolve(data, segments, 0, defaultValue);
     }
+    /**
+     * Returns the parsed and cached segments for `path`.
+     *
+     * Used by {@link SafeAccess.compilePath} to build a {@link CompiledPath}.
+     *
+     * @param path - Dot-notation path to compile.
+     * @returns Array of parsed path segments (retrieved from or stored in cache).
+     */
+    static getSegments(path: string): Segment[] {
+        return DotNotationParser.cachedParseSegments(path);
+    }
 
     /**
      * Returns parsed segments for `path`, retrieving from cache when available.
@@ -44,6 +73,13 @@ export class DotNotationParser {
         const cached = PathCache.get(path);
         if (cached) return cached as Segment[];
         const segments = SegmentParser.parseSegments(path);
+        // Validate all KEY segments for prototype-pollution at parse time so
+        // forbidden paths are rejected regardless of the current traversal value.
+        for (const seg of segments) {
+            if (seg.type === 'key' && 'value' in seg) {
+                SecurityGuard.assertSafeKey(seg.value as string);
+            }
+        }
         PathCache.set(path, segments);
         return segments;
     }

@@ -6,13 +6,83 @@ outline: deep
 
 ## Table of Contents
 
+- [Type-Safe Path Inference](#type-safe-path-inference)
 - [Array Operations](#array-operations)
 - [JSON Patch](#json-patch)
 - [Schema Validation](#schema-validation)
 - [Security](#security)
 - [I/O & File Loading](#io--file-loading)
+    - [Streaming Large Files](#streaming-large-files)
 - [Audit Logging](#audit-logging)
 - [Framework Integrations](#framework-integrations)
+
+---
+
+## Type-Safe Path Inference
+
+When you provide a concrete shape type via the generic parameter, the library automatically infers the value type returned by `get()` — no casting, no `unknown`.
+
+```typescript
+import { SafeAccess } from "@safe-access-inline/safe-access-inline";
+
+interface Config {
+    server: { host: string; port: number };
+    debug: boolean;
+    tags: string[];
+}
+
+const accessor = SafeAccess.fromObject<Config>({
+    server: { host: "localhost", port: 3000 },
+    debug: true,
+    tags: ["web", "api"],
+});
+
+const host = accessor.get("server.host"); // inferred: string | undefined
+const port = accessor.get("server.port"); // inferred: number | undefined
+const debug = accessor.get("debug", false); // inferred: boolean
+const tags = accessor.get("tags"); // inferred: string[] | undefined
+```
+
+### `DeepPaths<T>` — Autocomplete for Nested Paths
+
+The `DeepPaths<T>` utility type enumerates all valid dot-notation paths for a given shape. This powers IDE autocompletion and compile-time path validation:
+
+```typescript
+import type { DeepPaths } from "@safe-access-inline/safe-access-inline";
+
+type ConfigPaths = DeepPaths<Config>;
+// "server" | "server.host" | "server.port" | "debug" | "tags"
+
+// ✅ Valid — autocompleted and type-checked
+accessor.get("server.host");
+
+// ❌ TypeScript error: '"server.hostname"' is not assignable to 'DeepPaths<Config>'
+accessor.get("server.hostname");
+```
+
+### `ValueAtPath<T, P>` — Return Type Narrowing
+
+`ValueAtPath<T, P>` resolves the type at a given path:
+
+```typescript
+import type {
+    ValueAtPath,
+    DeepPaths,
+} from "@safe-access-inline/safe-access-inline";
+
+type HostType = ValueAtPath<Config, "server.host">; // string
+type PortType = ValueAtPath<Config, "server.port">; // number
+```
+
+### Untyped Access
+
+If no generic is provided (or you use `Record<string, unknown>`), `get()` falls back to returning `unknown` — full backward compatibility is preserved:
+
+```typescript
+// Untyped — returns unknown
+const accessor = SafeAccess.from(rawInput);
+const value = accessor.get("some.path"); // unknown
+```
 
 ---
 
@@ -105,7 +175,7 @@ accessor.nth("items", -1); // last item
 
 **Import:** `import { diff, applyPatch } from '@safe-access-inline/safe-access-inline'`
 
-#### `diff(a: Record<string, unknown>, b: Record<string, unknown>): JsonPatchOp[]`
+#### `diff(a: Record<string, unknown>, b: Record<string, unknown>): JsonPatchOperation[]`
 
 Computes a RFC 6902 JSON Patch between two objects.
 
@@ -114,7 +184,7 @@ const patches = diff(original, modified);
 // [{ op: 'replace', path: '/name', value: 'New' }, ...]
 ```
 
-#### `applyPatch(data: Record<string, unknown>, ops: JsonPatchOp[]): Record<string, unknown>`
+#### `applyPatch(data: Record<string, unknown>, ops: JsonPatchOperation[]): Record<string, unknown>`
 
 Applies a JSON Patch to an object. Returns a new object (does not mutate input).
 
@@ -131,10 +201,10 @@ const patches = accessorA.diff(accessorB);
 const patched = accessor.applyPatch(patches);
 ```
 
-#### `JsonPatchOp`
+#### `JsonPatchOperation`
 
 ```typescript
-type JsonPatchOp = {
+type JsonPatchOperation = {
     op: "add" | "remove" | "replace" | "move" | "copy" | "test";
     path: string;
     value?: unknown;
@@ -278,14 +348,40 @@ const safe = mask(data, ["api_*", "credentials"]);
 
 ### CSV Sanitization
 
-**Import:** `import { sanitizeCsvCell, sanitizeCsvRow } from '@safe-access-inline/safe-access-inline'`
+**Import:** `import { sanitizeCsvCell, sanitizeCsvRow, sanitizeCsvHeaders } from '@safe-access-inline/safe-access-inline'`
 
 Protects against CSV formula injection.
 
 - `sanitizeCsvCell(cell: string, mode?: CsvSanitizeMode): string`
 - `sanitizeCsvRow(row: string[], mode?: CsvSanitizeMode): string[]`
+- `sanitizeCsvHeaders(headers: string[], mode?: CsvSanitizeMode): string[]`
 
 Modes: `'prefix'` (prefix with `'`), `'strip'` (removes all CSV injection prefix characters: `=`, `+`, `-`, `@`, `\t`, `\r`, `\n` per OWASP CSV Injection guidance), `'error'` (throw), `'none'` (passthrough).
+
+`sanitizeCsvHeaders()` applies the same cell sanitization to an array of column headers — useful when header values originate from user-supplied data or external sources.
+
+### HTTP Header Sanitization
+
+**Import:** `import { sanitizeHeaders } from '@safe-access-inline/safe-access-inline'`
+
+#### `sanitizeHeaders(headers: Record<string, string> | null | undefined): Record<string, string>`
+
+Sanitizes a map of HTTP request headers before passing them to outgoing requests. Returns a new record — the input is never mutated.
+
+- Header names are lowercased and validated against RFC 7230 token characters; invalid names are silently dropped.
+- Header values have CRLF sequences (`\r\n`) and ASCII control characters stripped to prevent header injection.
+- Accepts `null` / `undefined` — returns an empty object.
+
+```typescript
+import { sanitizeHeaders } from "@safe-access-inline/safe-access-inline";
+
+const safe = sanitizeHeaders({
+    "Content-Type": "application/json",
+    "X-Custom": "value\r\nevil: injected", // CRLF stripped
+    "": "no-name", // empty name dropped
+});
+// { "content-type": "application/json", "x-custom": "valueevilinjected" }
+```
 
 ### Deep Freeze
 
@@ -301,6 +397,36 @@ Recursively freezes an object. Useful for making config immutable at runtime.
 
 - `assertSafeUrl(url: string, options?): void` — Throws `SecurityError` if the URL targets a private IP (SSRF protection).
 - `isPrivateIp(ip: string): boolean` — Returns `true` for private/loopback IPs.
+
+### FilterParser — ReDoS Protection
+
+**Import:** `import { FilterParser } from '@safe-access-inline/safe-access-inline'`
+
+Filter expressions (`[?age>=18 && active==true]`) in dot-notation paths are parsed and evaluated by `FilterParser`. To prevent ReDoS attacks, the `match()` filter function applies several guards before constructing a `RegExp`:
+
+| Guard                                  | What it catches                                                 |
+| -------------------------------------- | --------------------------------------------------------------- |
+| `maxPatternLength` (default: 128)      | Rejects patterns that exceed the configured length limit        |
+| Nested quantifiers                     | `(x+)+`, `(x+)*`, `(x*){2,}` — catastrophic backtracking shapes |
+| Alternation quantifiers                | `(a\|b)+`, `(x\|y)*` — polynomial backtracking over alternation |
+| Non-capturing quantifiers in lookahead | `(?...*)`, `(?...*[...]*)`                                      |
+| Sibling groups with quantifiers        | Adjacent quantified groups that multiply backtracking           |
+
+If any guard matches, `match()` returns `false` rather than throwing. This ensures filter expressions that include unsafe patterns degrade silently (non-match) without crashing the host application.
+
+```typescript
+import { FilterParser } from "@safe-access-inline/safe-access-inline";
+
+// Configuring the max pattern length (default: 128)
+FilterParser.configure({ maxPatternLength: 64 });
+
+// Resetting to defaults
+FilterParser.resetConfig();
+```
+
+**PHP alignment:** PHP's `FilterParser` applies the same static guards in `evaluateFunction()`. The `maxPatternLength` constant is 128 in both implementations.
+
+> **Tip:** Prefer `starts_with()` and `contains()` over `match()` for string tests — they are not regex-based and carry no ReDoS risk.
 
 ---
 
@@ -320,7 +446,58 @@ const accessor = SafeAccess.fromFileSync("./config.yaml", {
 const accessor = await SafeAccess.fromFile("./config.json");
 ```
 
+Both `fromFileSync()` and `fromFile()` accept a `FileLoadOptions` object as the second argument.
+
+#### `FileLoadOptions`
+
+```typescript
+import type { FileLoadOptions } from "@safe-access-inline/safe-access-inline";
+
+interface FileLoadOptions {
+    /** Explicit format override — auto-detected from extension if omitted. */
+    format?: string | Format;
+    /** Restrict loading to these directories (path-traversal guard). */
+    allowedDirs?: string[];
+    /** Set to `true` to disable the allowed-dirs restriction. */
+    allowAnyPath?: boolean;
+    /** Maximum file size in bytes (throws `SecurityError` if exceeded). */
+    maxSize?: number;
+    /** Allowlist of file extensions, e.g. `['.json', '.yaml']`. */
+    allowedExtensions?: string[];
+}
+```
+
 JavaScript exposes both synchronous and asynchronous file-loading APIs. This is a deliberate cross-language difference: the PHP package exposes synchronous I/O only, while the JS package provides async variants for Node runtimes and sync variants for bootstrap or CLI use cases.
+
+### Streaming Large Files
+
+For memory-efficient processing of large CSV or NDJSON files, JS provides asynchronous `AsyncGenerator`-based streaming — equivalent in functionality to PHP's synchronous `Generator` variants.
+
+#### `SafeAccess.streamCsv(filePath: string, options?: FileLoadOptions): AsyncGenerator<string[]>`
+
+Yields parsed CSV rows one at a time without loading the entire file into memory.
+
+```typescript
+for await (const row of SafeAccess.streamCsv("/app/data/users.csv", {
+    allowedDirs: ["/app/data"],
+})) {
+    console.log(row); // string[]
+}
+```
+
+#### `SafeAccess.streamNdjson(filePath: string, options?: FileLoadOptions): AsyncGenerator<unknown>`
+
+Yields parsed NDJSON records one at a time.
+
+```typescript
+for await (const event of SafeAccess.streamNdjson("/app/data/events.ndjson", {
+    allowedDirs: ["/app/data"],
+})) {
+    console.log(event); // parsed object
+}
+```
+
+In PHP, the equivalent is a synchronous `foreach ($stream as $row)` loop over a `Generator`. Both paradigms deliver the same guarantee: rows are yielded one at a time without loading the entire file into memory. See [Architecture — Streaming: Sync vs Async](/guide/architecture#streaming-sync-php-vs-async-js).
 
 ### URL Loading
 
@@ -361,6 +538,152 @@ stop();
 In the JS package, `watchFile()` returns a single unsubscribe function and uses the platform watcher (`fs.watch`) under the hood.
 
 This differs intentionally from PHP, where `watchFile()` returns `{ poll, stop }` because the polling loop must be driven explicitly in a synchronous runtime.
+
+### Writing Files
+
+`SafeAccess.writeFile()` and `SafeAccess.writeFileSync()` write a string to disk with the same path-traversal protection applied by `fromFile()`.
+
+```typescript
+import { SafeAccess } from "@safe-access-inline/safe-access-inline";
+
+// Synchronous
+SafeAccess.writeFile("./output.json", JSON.stringify({ key: "value" }));
+
+// Async (recommended)
+await SafeAccess.writeFileAsync(
+    "./output.json",
+    JSON.stringify({ key: "value" }),
+);
+
+// With directory restriction
+await SafeAccess.writeFileAsync("./output.json", content, {
+    allowedDirs: ["./output"],
+});
+```
+
+Both methods emit a `file.write` audit event (see [Audit Logging](#audit-logging)).
+
+### IoLoader
+
+**Import:** `import { configureIoLoader, resetIoLoaderConfig, assertPathWithinAllowedDirs, resolveFormatFromExtension } from '@safe-access-inline/safe-access-inline'`
+
+`IoLoader` is the internal I/O subsystem invoked by `fromFile()`, `fromFileSync()`, and `fromUrl()`. It enforces SSRF protection, path-traversal guards, and configurable request timeouts.
+
+#### Configuration
+
+```typescript
+import { configureIoLoader } from "@safe-access-inline/safe-access-inline";
+
+configureIoLoader({
+    requestTimeoutMs: 15_000, // total HTTP request timeout (default: 10 000 ms)
+    connectTimeoutMs: 8_000, // TCP connection-phase timeout (default: 5 000 ms)
+});
+```
+
+#### `IoLoaderConfig`
+
+```typescript
+interface IoLoaderConfig {
+    /** Total HTTP request timeout in milliseconds. */
+    readonly requestTimeoutMs: number;
+    /** Maximum milliseconds to wait while establishing the TCP connection. */
+    readonly connectTimeoutMs: number;
+    /** Injectable HTTP client (replaces the built-in `https.request` transport). */
+    readonly httpClient?: HttpClientInterface;
+    /** Injectable DNS resolver (replaces the built-in `dns.promises` resolver). */
+    readonly dnsResolver?: DnsResolverInterface;
+}
+```
+
+#### Dependency Injection — `HttpClientInterface` and `DnsResolverInterface`
+
+You can replace the built-in HTTP transport and DNS resolver with custom implementations — useful for testing, proxying, or restricted environments.
+
+**`HttpClientInterface`** replaces `https.request()`:
+
+```typescript
+import type { HttpClientInterface } from "@safe-access-inline/safe-access-inline";
+
+const mockClient: HttpClientInterface = {
+    async fetch(url, options) {
+        return {
+            ok: true,
+            status: 200,
+            async text() {
+                return '{"key":"value"}';
+            },
+            async json() {
+                return { key: "value" };
+            },
+        };
+    },
+};
+
+configureIoLoader({ httpClient: mockClient });
+const accessor = await SafeAccess.fromUrl("https://example.com/config.json");
+```
+
+**`DnsResolverInterface`** replaces `dns.promises`:
+
+```typescript
+import type { DnsResolverInterface } from "@safe-access-inline/safe-access-inline";
+
+const mockDns: DnsResolverInterface = {
+    async resolve(hostname) {
+        return ["93.184.216.34"];
+    },
+};
+
+configureIoLoader({ dnsResolver: mockDns });
+```
+
+> **Security:** SSRF validation (private-IP blocking) is always applied, even when a custom `httpClient` is configured. The DNS resolution and IP-range check run before any network call is made.
+
+#### `configureIoLoader(overrides: Partial<IoLoaderConfig>): void`
+
+Overrides the default I/O configuration. Unspecified keys retain their defaults.
+
+#### `resetIoLoaderConfig(): void`
+
+Resets the I/O configuration to the built-in defaults (`requestTimeoutMs: 10 000`, `connectTimeoutMs: 5 000`).
+
+#### `assertPathWithinAllowedDirs(filePath, allowedDirs?, options?): string`
+
+Validates that `filePath` is inside one of the `allowedDirs`. Returns the canonical resolved path (eliminating TOCTOU windows). Throws `SecurityError` on violation.
+
+```typescript
+import { assertPathWithinAllowedDirs } from "@safe-access-inline/safe-access-inline";
+
+// Validate before passing to downstream code
+const canonical = assertPathWithinAllowedDirs("./config.json", ["/app/config"]);
+```
+
+#### `resolveFormatFromExtension(filePath: string): Format | null`
+
+Derives the `Format` enum value from a file extension (e.g. `config.yaml` → `Format.Yaml`). Returns `null` for unrecognised extensions.
+
+```typescript
+import {
+    resolveFormatFromExtension,
+    Format,
+} from "@safe-access-inline/safe-access-inline";
+
+resolveFormatFromExtension("/app/config.yaml"); // Format.Yaml
+resolveFormatFromExtension("/app/data.ndjson"); // Format.Ndjson
+resolveFormatFromExtension("/app/file.txt"); // null
+```
+
+#### SSRF Protection
+
+URL fetching (`fromUrl()`) goes through a multi-layer SSRF guard:
+
+1. **Scheme enforcement** — only `https:` is allowed; `http:`, `file:`, `ftp:` are rejected.
+2. **DNS resolution** — the hostname is resolved before connecting; private IP ranges (RFC 1918, link-local, loopback) and cloud metadata endpoints are blocked.
+3. **DNS pinning** — the resolved IP is pinned to the HTTPS connection (`lookup` override) to prevent DNS rebinding attacks between the security check and the actual connection.
+4. **Redirect blocking** — HTTP 3xx redirects are rejected to prevent SSRF via open-redirect chains.
+5. **Payload size cap** — responses larger than `maxPayloadBytes` (default: 10 MB) are aborted.
+
+See also: [Security — SSRF Protection](/js/security)
 
 ---
 

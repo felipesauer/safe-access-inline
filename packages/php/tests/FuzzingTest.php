@@ -193,4 +193,48 @@ describe(SafeAccess::class . ' — fuzzing hostile inputs', function (): void {
             expect($crashed)->toBeFalse("Uncontrolled crash for prototype pollution path '{$path}'");
         }
     });
+
+    /**
+     * Paths with exotic characters in filter expressions must never throw unhandled RuntimeException.
+     * Reproducer: seed 3069461579750268649 generated '$RT7sVd89Ll`_"bGh;b+`[?u?;'
+     * FilterParser must return [] (no match) instead of propagating RuntimeException.
+     */
+    it('filter expressions with exotic tokens (backtick, double-quote, semicolon) return empty result', function (): void {
+        $data = ['items' => [['x' => 1], ['x' => 2]]];
+
+        // Reproducer from seed 3069461579750268649
+        $reproducerPath = '$RT7sVd89Ll`_"bGh;b+`[?u?;';
+
+        $corpus = [
+            // Exact reproducer
+            $reproducerPath,
+            // Generic: backtick in filter expression
+            'items[?name`field>1].x',
+            // Generic: double-quote in filter expression (unmatched string)
+            'items[?"field>1].x',
+            // Generic: semicolon in filter expression (no operator)
+            'items[?field;value].x',
+            // Combined exotic chars
+            'items[?`key`;`val`].x',
+        ];
+
+        foreach ($corpus as $path) {
+            $crashed = false;
+            try {
+                $result = DotNotationParser::get($data, $path, []);
+                // Must return [] or the default — never a non-array from an un-parseable filter
+                expect($result)->toBeArray("Exotic filter path must return an array, got: " . gettype($result));
+            } catch (SecurityException) {
+                // Acceptable: security guard may block certain chars
+            } catch (\Error $e) {
+                $crashed = true;
+            } catch (\RuntimeException $e) {
+                // RuntimeException must NOT escape from FilterParser — this is the bug we fixed
+                $crashed = true;
+            } catch (\Exception) {
+                // Other controlled exception — acceptable
+            }
+            expect($crashed)->toBeFalse("Uncontrolled crash for exotic filter path: " . addslashes($path));
+        }
+    });
 });

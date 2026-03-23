@@ -49,5 +49,115 @@
     "nullValue": null,
     "falseValue": false,
     "zeroValue": 0,
-    "emptyString": ""
+    "emptyString": "",
+    "departments": {
+        "eng": { "head": "Alice", "size": 10 },
+        "mktg": { "head": "Bob", "size": 5 },
+        "ops": { "head": "Carol", "size": 8 }
+    },
+    "products": [
+        {
+            "id": 10,
+            "label": "Alpha",
+            "price": 100,
+            "active": true,
+            "category": "A",
+            "rating": 4.5
+        },
+        {
+            "id": 20,
+            "label": "Beta",
+            "price": 200,
+            "active": false,
+            "category": "B",
+            "rating": 3.0
+        },
+        {
+            "id": 30,
+            "label": "Gamma",
+            "price": 150,
+            "active": true,
+            "category": "A",
+            "rating": 4.8
+        },
+        {
+            "id": 40,
+            "label": "Delta",
+            "price": 75,
+            "active": true,
+            "category": "C",
+            "rating": 2.1
+        },
+        {
+            "id": 50,
+            "label": "Eta",
+            "price": 200,
+            "active": false,
+            "category": "B",
+            "rating": 5.0
+        }
+    ],
+    "team": {
+        "lead": { "title": "Carlos", "role": "CTO", "level": 5 },
+        "members": [
+            { "title": "Diane", "role": "SWE", "level": 3 },
+            { "title": "Eve", "role": "SRE", "level": 2 },
+            { "title": "Frank", "role": "SWE", "level": 4 }
+        ]
+    },
+    "config": {
+        "database": {
+            "host": "db.internal",
+            "port": 5432,
+            "ssl": true,
+            "pool": { "min": 2, "max": 10 }
+        },
+        "cache": {
+            "ttl": 300,
+            "driver": "redis",
+            "clusters": [
+                { "host": "cache1.internal", "port": 6379 },
+                { "host": "cache2.internal", "port": 6380 }
+            ]
+        }
+    },
+    "catalog": {
+        "electronics": {
+            "laptops": {
+                "a1": { "sku": "LAP-001", "price": 999.99, "stock": 5 },
+                "a2": { "sku": "LAP-002", "price": 1299.99, "stock": 2 }
+            },
+            "phones": {
+                "b1": { "sku": "PHN-001", "price": 799.99, "stock": 10 }
+            }
+        }
+    },
+    "inventory": {
+        "warehouse": {
+            "zone_a": { "capacity": 1000, "used": 750 },
+            "zone_b": { "capacity": 500, "used": 100 }
+        }
+    },
+    "flags": {
+        "featureA": true,
+        "featureB": false,
+        "featureC": null,
+        "maintenance": false
+    },
+    "matrix": [
+        [1, 2, 3],
+        [4, 5, 6],
+        [7, 8, 9]
+    ],
+    "numerics": {
+        "integer": 42,
+        "float": 3.14,
+        "negative": -7,
+        "large": 9999999
+    },
+    "strings": {
+        "normal": "hello world",
+        "with_spaces": "foo bar baz",
+        "empty": ""
+    }
 }

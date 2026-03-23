@@ -1,8 +1,3 @@
-import { afterEach } from 'vitest';
-import { SafeAccess } from '../src/safe-access';
-
-// Ensure module-level singletons are reset between tests regardless of whether
-// individual test files call their own cleanup in afterEach.
-afterEach(() => {
-    SafeAccess.resetAll();
-});
+// Individual test files are responsible for resetting the global state they mutate.
+// See packages/js/src/core/container.ts and PluginRegistry.create() / SchemaRegistry.create()
+// for isolated-instance DI patterns that avoid shared-state issues entirely.

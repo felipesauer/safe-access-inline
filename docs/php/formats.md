@@ -11,6 +11,59 @@ outline: deep
 
 ## Working with Formats
 
+### Working with YAML
+
+YAML support is included out of the box. Parsing prefers `ext-yaml` when available, falling back to `symfony/yaml`. Serialization follows the same priority.
+
+```php
+$yaml = <<<YAML
+server:
+  host: localhost
+  port: 8080
+tags:
+  - web
+  - api
+YAML;
+
+$accessor = SafeAccess::fromYaml($yaml);
+$accessor->get('server.host');   // "localhost"
+$accessor->get('tags.0');        // "web"
+$accessor->get('tags.*');        // ["web", "api"]
+
+// Serialize back
+$accessor->toYaml();             // "server:\n    host: localhost\n..."
+```
+
+::: tip Plugin override
+Register a `SymfonyYamlParser` or `SymfonyYamlSerializer` via `PluginRegistry` to force `symfony/yaml` even when `ext-yaml` is present — useful in test environments where you want consistent output.
+:::
+
+### Working with TOML
+
+TOML support is provided by `devium/toml`, installed automatically as a dependency.
+
+```php
+$toml = <<<TOML
+title = "My App"
+
+[database]
+host = "localhost"
+port = 5432
+TOML;
+
+$accessor = SafeAccess::fromToml($toml);
+$accessor->get('title');             // "My App"
+$accessor->get('database.host');     // "localhost"
+$accessor->get('database.port');     // 5432
+
+// Serialize back
+$accessor->toToml();                 // 'title = "My App"\n\n[database]\n...'
+```
+
+::: tip Plugin override
+Register a custom `DeviumTomlParser` or `DeviumTomlSerializer` via `PluginRegistry` if you need to override encoding options.
+:::
+
 ### Working with XML
 
 ```php

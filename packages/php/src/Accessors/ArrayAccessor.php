@@ -10,6 +10,7 @@ use SafeAccessInline\Exceptions\InvalidFormatException;
 /**
  * Accessor for native PHP arrays.
  * The simplest format — parse() just returns the array as-is.
+ * @extends AbstractAccessor<array<mixed>>
  */
 class ArrayAccessor extends AbstractAccessor
 {

@@ -11,6 +11,7 @@ use SafeAccessInline\Exceptions\InvalidFormatException;
  * Accessor for NDJSON (Newline Delimited JSON) strings.
  * Each line is a separate JSON object.
  * Result: indexed array of parsed JSON objects.
+ * @extends AbstractAccessor<array<mixed>>
  */
 class NdjsonAccessor extends AbstractAccessor
 {

@@ -3,6 +3,7 @@ import { optionalRequire } from '../core/io/optional-require';
 import { AbstractAccessor } from '../core/abstract-accessor';
 import { PluginRegistry } from '../core/registries/plugin-registry';
 import { InvalidFormatError } from '../exceptions/invalid-format.error';
+import { FormatSerializer } from '../core/rendering/format-serializer';
 
 const getYaml = optionalRequire<typeof yaml>('js-yaml', 'YAML');
 
@@ -60,9 +61,6 @@ export class YamlAccessor<
      * @returns A new {@link YamlAccessor} instance.
      */
     clone(data: Record<string, unknown>): YamlAccessor<T> {
-        const inst = Object.create(YamlAccessor.prototype) as YamlAccessor<T>;
-        inst.raw = this.raw;
-        inst.data = data;
-        return inst;
+        return new YamlAccessor(FormatSerializer.toYaml(data)) as YamlAccessor<T>;
     }
 }

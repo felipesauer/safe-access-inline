@@ -30,6 +30,23 @@ describe(SecurityGuard::class, function () {
         SecurityGuard::assertSafeKey('prototype');
     })->throws(SecurityException::class);
 
+    // ── isForbiddenKey ───────────────────────────────
+
+    it('returns true for forbidden keys', function () {
+        expect(SecurityGuard::isForbiddenKey('__proto__'))->toBeTrue();
+        expect(SecurityGuard::isForbiddenKey('constructor'))->toBeTrue();
+        expect(SecurityGuard::isForbiddenKey('prototype'))->toBeTrue();
+        expect(SecurityGuard::isForbiddenKey('valueOf'))->toBeTrue();
+        expect(SecurityGuard::isForbiddenKey('toString'))->toBeTrue();
+    });
+
+    it('returns false for safe keys', function () {
+        expect(SecurityGuard::isForbiddenKey('name'))->toBeFalse();
+        expect(SecurityGuard::isForbiddenKey('user'))->toBeFalse();
+        expect(SecurityGuard::isForbiddenKey('__name__'))->toBeFalse();
+        expect(SecurityGuard::isForbiddenKey(''))->toBeFalse();
+    });
+
     // ── sanitizeObject ───────────────────────────────
 
     it('removes __proto__ keys recursively', function () {

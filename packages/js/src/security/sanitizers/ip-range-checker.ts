@@ -1,5 +1,6 @@
 import { SecurityError } from '../../exceptions/security.error';
 import { AuditEventType, emitAudit } from '../audit/audit-emitter';
+import type { DnsResolverInterface } from '../../contracts/dns-resolver.interface';
 
 const PRIVATE_IP_RANGES = [
     // 10.0.0.0/8
@@ -166,20 +167,37 @@ export function assertSafeUrl(
  * Resolves a hostname to IPv4, validates it is not a private IP, and returns
  * the resolved address for connection pinning. Returns null when skipped.
  * @internal Not part of the public API — used by fetchUrl for DNS pinning.
+ *
+ * @param hostname - Host to resolve.
+ * @param options - SSRF options including optional `dnsResolver` injection.
  */
 export async function resolveAndValidateIp(
     hostname: string,
-    options?: { allowPrivateIps?: boolean },
+    options?: { allowPrivateIps?: boolean; dnsResolver?: DnsResolverInterface },
 ): Promise<string | null> {
     if (options?.allowPrivateIps) return null;
 
     // Already a raw IPv4 — return directly (already checked synchronously by assertSafeUrl)
     if (/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname)) return hostname;
 
-    const dns = await import('node:dns/promises');
+    // Use injected resolver if provided; otherwise fall back to native dns/promises.
+    const resolver = options?.dnsResolver;
+    const resolve4 = resolver?.resolve4
+        ? (h: string) => resolver.resolve4!(h)
+        : async (h: string) => {
+              const dns = await import('node:dns/promises');
+              return dns.resolve4(h);
+          };
+    const resolve6 = resolver?.resolve6
+        ? (h: string) => resolver.resolve6!(h)
+        : async (h: string) => {
+              const dns = await import('node:dns/promises');
+              return dns.resolve6(h);
+          };
+
     try {
         // Check IPv4 (A records)
-        const v4Addresses = await dns.resolve4(hostname).catch(() => [] as string[]);
+        const v4Addresses = await resolve4(hostname).catch(() => [] as string[]);
         for (const ip of v4Addresses) {
             if (isPrivateIp(ip)) {
                 emitAudit(AuditEventType.SECURITY_VIOLATION, {
@@ -194,7 +212,7 @@ export async function resolveAndValidateIp(
         }
 
         // Check IPv6 (AAAA records) — prevents bypass via AAAA-only hostnames
-        const v6Addresses = await dns.resolve6(hostname).catch(() => [] as string[]);
+        const v6Addresses = await resolve6(hostname).catch(() => [] as string[]);
         for (const ip of v6Addresses) {
             if (isIpv6Loopback(ip)) {
                 emitAudit(AuditEventType.SECURITY_VIOLATION, {
@@ -214,15 +232,10 @@ export async function resolveAndValidateIp(
         if (v4Addresses.length > 0) return v4Addresses[0];
         if (v6Addresses.length > 0) return v6Addresses[0];
         return null;
-        /* v8 ignore start — defensive: the per-record .catch(() => []) handlers above absorb
-           expected DNS errors (ENOTFOUND, ENODATA). This outer catch only fires for truly
-           unexpected failures (e.g. OS-level or runtime errors). SecurityErrors are rethrown.
-           Testable via vi.spyOn(dns.promises, 'resolve4') throwing a non-DNS error. */
     } catch (err) {
         if (err instanceof SecurityError) throw err;
         return null;
     }
-    /* v8 ignore stop */
 }
 
 /**

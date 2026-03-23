@@ -90,6 +90,35 @@ export default withMermaid(defineConfig({
             htmlLabels: true,
         },
     },
+
+    vite: {
+        build: {
+            // The Mermaid library (~2.5 MB minified) is the sole driver of the
+            // "chunk > 500 kB" warning. It has been isolated into its own chunk
+            // so it does not inflate the main app bundle. All large chunks are
+            // lazily loaded by VitePress on route navigation and do not affect
+            // the initial page-load performance.
+            chunkSizeWarningLimit: 2700,
+            rollupOptions: {
+                output: {
+                    manualChunks(id: string) {
+                        // Isolate Mermaid so it loads only on pages that use diagrams.
+                        if (id.includes("mermaid") || id.includes("@mermaid-js")) {
+                            return "vendor-mermaid";
+                        }
+                        // Isolate KaTeX to keep the main bundle leaner.
+                        if (id.includes("katex")) {
+                            return "vendor-katex";
+                        }
+                        // Separate PT-BR locale pages from the EN main bundle.
+                        if (id.includes("/pt-br/")) {
+                            return "docs-ptbr";
+                        }
+                    },
+                },
+            },
+        },
+    },
 }));
 
 /* ---------- English ---------- */

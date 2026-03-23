@@ -23,6 +23,17 @@ const FORBIDDEN_KEYS = new Set([
  */
 export class SecurityGuard {
     /**
+     * Returns `true` when `key` is a forbidden prototype-pollution vector,
+     * without throwing. Useful for read-path guards where the safe behaviour
+     * is to silently skip / return a default rather than to error.
+     *
+     * @param key - The property name to test.
+     */
+    static isForbiddenKey(key: string): boolean {
+        return FORBIDDEN_KEYS.has(key);
+    }
+
+    /**
      * Throws if `key` is a prototype-pollution vector.
      *
      * @param key - The property name to validate.

@@ -6,7 +6,6 @@ import { SecurityError } from '../../exceptions/security.error';
 import { assertSafeUrl, resolveAndValidateIp } from '../../security/sanitizers/ip-range-checker';
 import { Format } from '../../enums/format.enum';
 import { emitAudit, AuditEventType } from '../../security/audit/audit-emitter';
-import { DEFAULT_SECURITY_OPTIONS } from '../../security/guards/security-options';
 import { type IoLoaderConfig, DEFAULT_IO_LOADER_CONFIG } from '../config/io-loader-config';
 
 let ioConfig: IoLoaderConfig = DEFAULT_IO_LOADER_CONFIG;
@@ -158,10 +157,58 @@ export async function readFile(
 }
 
 /**
+ * Synchronously writes `content` to `filePath` after verifying it is within
+ * `allowedDirs`. Prevents path-traversal attacks with the same guards used by
+ * {@link readFileSync}.
+ *
+ * @param filePath - Destination file path.
+ * @param content  - UTF-8 string content to write.
+ * @param options  - Optional `allowedDirs` and `allowAnyPath` flags.
+ * @throws {@link SecurityError} When path validation fails.
+ */
+export function writeFileSync(
+    filePath: string,
+    content: string,
+    options?: { allowedDirs?: string[]; allowAnyPath?: boolean },
+): void {
+    const resolved = assertPathWithinAllowedDirs(filePath, options?.allowedDirs, {
+        allowAnyPath: options?.allowAnyPath,
+    });
+    emitAudit(AuditEventType.FILE_WRITE, { filePath });
+    fs.writeFileSync(resolved, content, 'utf-8');
+}
+
+/**
+ * Asynchronously writes `content` to `filePath` after verifying it is within
+ * `allowedDirs`. Prevents path-traversal attacks with the same guards used by
+ * {@link readFile}.
+ *
+ * @param filePath - Destination file path.
+ * @param content  - UTF-8 string content to write.
+ * @param options  - Optional `allowedDirs` and `allowAnyPath` flags.
+ * @throws {@link SecurityError} When path validation fails.
+ */
+export async function writeFile(
+    filePath: string,
+    content: string,
+    options?: { allowedDirs?: string[]; allowAnyPath?: boolean },
+): Promise<void> {
+    const resolved = assertPathWithinAllowedDirs(filePath, options?.allowedDirs, {
+        allowAnyPath: options?.allowAnyPath,
+    });
+    emitAudit(AuditEventType.FILE_WRITE, { filePath });
+    await fsp.writeFile(resolved, content, 'utf-8');
+}
+
+/**
  * Fetches a remote URL over HTTPS with full SSRF protection.
  *
  * Validates the URL, resolves DNS, pins the connection to the pre-validated IP,
  * blocks redirects, and enforces payload-size limits.
+ *
+ * When `ioConfig.httpClient` is set, the custom client is used for the actual
+ * HTTP request (SSRF validation and DNS pinning are still performed first).
+ * When `ioConfig.dnsResolver` is set, DNS lookups use the injected resolver.
  *
  * @throws {@link SecurityError} On any policy violation or connection failure.
  */
@@ -182,9 +229,27 @@ export async function fetchUrl(
     // Resolve and validate the IP before connecting — prevents SSRF via private/internal hosts.
     const resolvedIp = await resolveAndValidateIp(parsed.hostname, {
         allowPrivateIps: options?.allowPrivateIps,
+        dnsResolver: ioConfig.dnsResolver,
     });
 
     emitAudit(AuditEventType.URL_FETCH, { url });
+
+    // Use injected HTTP client if configured (tests, proxies, custom TLS, etc.).
+    // SSRF validation above is always applied regardless of which client handles the request.
+    if (ioConfig.httpClient) {
+        const resp = await ioConfig.httpClient.fetch(url, {
+            timeout: ioConfig.requestTimeoutMs,
+        });
+        if (!resp.ok) {
+            throw new SecurityError(`Failed to fetch URL '${url}': HTTP ${resp.status}`);
+        }
+        const body = await resp.text();
+        const maxBytes = options?.maxPayloadBytes ?? ioConfig.maxPayloadBytes;
+        if (Buffer.byteLength(body, 'utf-8') > maxBytes) {
+            throw new SecurityError(`Response body exceeds maximum size of ${maxBytes} bytes.`);
+        }
+        return body;
+    }
 
     // Pin the pre-validated IP to the HTTPS connection to prevent DNS rebinding (TOCTOU).
     // native fetch() performs its own independent DNS lookup after our security check, opening
@@ -217,8 +282,7 @@ export async function fetchUrl(
                     );
                     return;
                 }
-                const maxBytes =
-                    options?.maxPayloadBytes ?? DEFAULT_SECURITY_OPTIONS.maxPayloadBytes;
+                const maxBytes = options?.maxPayloadBytes ?? ioConfig.maxPayloadBytes;
                 let body = '';
                 let received = 0;
                 res.setEncoding('utf-8');

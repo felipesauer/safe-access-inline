@@ -118,6 +118,66 @@ final class SecurityPolicy
     }
 
     /**
+     * Merges a base policy with a set of overrides, returning a new policy instance.
+     *
+     * `$overrides` may be either:
+     *   - a **partial array** of field names → values (preferred, mirrors JS ergonomics), or
+     *   - a **complete `SecurityPolicy` object** for full backward compatibility.
+     *
+     * Array fields (`allowedDirs`, `maskPatterns`) fall back to `$base` values when the
+     * key is absent from `$overrides`, preserving useful base configuration. The `url`
+     * sub-policy is shallow-merged so callers can extend only the properties they care about.
+     *
+     * Unknown array keys throw `\InvalidArgumentException` to catch typos early.
+     *
+     * **JS alignment:** mirrors `mergePolicy(base, overrides?: Partial<SecurityPolicy>)` in
+     * the JS package, allowing callers to specify only the fields they want to override.
+     *
+     * @param  self                    $base            Foundation policy.
+     * @param  self|array<string,mixed> $overrides       Policy object (BC) or partial array of overrides.
+     * @return self New merged policy instance.
+     *
+     * @throws \InvalidArgumentException When `$overrides` contains an unrecognised key.
+     *
+     * @example
+     * ```php
+     * // Partial array override (preferred)
+     * $policy = SecurityPolicy::mergePolicy($base, ['maxDepth' => 50]);
+     *
+     * // Full SecurityPolicy object (backward compatible)
+     * $policy = SecurityPolicy::mergePolicy($base, SecurityPolicy::strict());
+     * ```
+     */
+    public static function mergePolicy(self $base, self|array $overrides = []): self
+    {
+        if ($overrides instanceof self) {
+            // Backward-compatible path: convert the full SecurityPolicy object to an array
+            $overrides = [
+                'maxDepth'        => $overrides->maxDepth,
+                'maxPayloadBytes' => $overrides->maxPayloadBytes,
+                'maxKeys'         => $overrides->maxKeys,
+                'allowedDirs'     => $overrides->allowedDirs,
+                'allowAnyPath'    => $overrides->allowAnyPath,
+                'url'             => $overrides->url,
+                'csvMode'         => $overrides->csvMode,
+                'maskPatterns'    => $overrides->maskPatterns,
+            ];
+        }
+
+        $validKeys = ['maxDepth', 'maxPayloadBytes', 'maxKeys', 'allowedDirs', 'allowAnyPath', 'url', 'csvMode', 'maskPatterns'];
+        foreach (array_keys($overrides) as $key) {
+            if (!in_array($key, $validKeys, true)) {
+                throw new \InvalidArgumentException(
+                    "SecurityPolicy::mergePolicy() received unknown override key '{$key}'. " .
+                    'Valid keys: ' . implode(', ', $validKeys) . '.'
+                );
+            }
+        }
+
+        return $base->merge($overrides);
+    }
+
+    /**
      * @param array<string, mixed> $overrides
      */
     public function merge(array $overrides): self

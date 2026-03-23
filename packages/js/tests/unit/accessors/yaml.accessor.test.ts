@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { YamlAccessor } from '../../../src/accessors/yaml.accessor';
 import { PluginRegistry } from '../../../src/core/registries/plugin-registry';
 import { InvalidFormatError } from '../../../src/exceptions/invalid-format.error';
@@ -212,6 +212,10 @@ features:
 
     describe('with registered parser plugin', () => {
         beforeEach(() => {
+            PluginRegistry.reset();
+        });
+
+        afterEach(() => {
             PluginRegistry.reset();
         });
 

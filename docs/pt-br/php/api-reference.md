@@ -9,6 +9,7 @@ outline: deep
 - [Facade SafeAccess](#facade-safeaccess)
 - [Métodos de Instância do Accessor](#metodos-de-instancia-do-accessor)
     - [Leitura](#leitura)
+    - [Leitura Tipada](#leitura-tipada)
     - [Escrita (Imutável)](#escrita-imutavel)
     - [Transformação](#transformacao)
     - [Segurança & Validação](#seguranca-validacao)
@@ -16,6 +17,8 @@ outline: deep
     - [Operações de Array (Imutável)](#operacoes-de-array-imutavel)
     - [JSON Patch & Diff](#json-patch-diff)
     - [Acesso por Segmentos](#acesso-por-segmentos)
+    - [Depuração](#depuracao)
+    - [Wildcard Conveniente](#wildcard-conveniente)
 
 **Ver também:**
 
@@ -189,18 +192,64 @@ afterEach(function (): void {
 });
 ```
 
-#### `SafeAccess::fromFile(string $filePath, ?string $format = null, array $allowedDirs = [], bool $allowAnyPath = false): AbstractAccessor`
+#### `SafeAccess::resetAll(): void`
 
-Lê um arquivo do disco e cria o accessor apropriado. Auto-detecta o formato pela extensão do arquivo se `$format` for `null`. O parâmetro `$allowedDirs` restringe quais diretórios podem ser lidos (proteção contra path-traversal). Defina `$allowAnyPath = true` para ignorar restrições de diretório (use com cautela).
+Reseta **todo** o estado global de uma vez: política de segurança global, listeners de auditoria, registry de plugins e registry de schemas. Indicado para teardown de suite de testes quando múltiplos subsistemas foram configurados.
+
+```php
+afterEach(function (): void {
+    SafeAccess::resetAll();
+});
+```
+
+::: tip vs. clearCustomAccessors()
+`resetAll()` é um superconjunto de `clearCustomAccessors()` — também limpa o registry de plugins, registry de schemas, política global e listeners de auditoria. Use quando precisar de um estado completamente limpo entre testes.
+:::
+
+#### `SafeAccess::reset(): void`
+
+Alias para `resetAll()`. Prefira este nome em hooks de teste por ser mais legível:
+
+```php
+beforeEach(fn () => SafeAccess::reset());
+```
+
+#### `SafeAccess::fromFile(string $filePath, FileLoadOptions|string|null $formatOrOptions = null, array $allowedDirs = [], bool $allowAnyPath = false): AbstractAccessor`
+
+Lê um arquivo do disco e cria o accessor apropriado. Auto-detecta o formato pela extensão do arquivo quando `$formatOrOptions` for `null`. O parâmetro `$allowedDirs` restringe quais diretórios podem ser lidos (proteção contra path-traversal). Defina `$allowAnyPath = true` para ignorar restrições de diretório (use com cautela).
 
 Esta API é síncrona. O accessor já retorna completamente carregado.
 
+**Três formas de chamar:**
+
+| Forma                 | Exemplo                                                                              |
+| --------------------- | ------------------------------------------------------------------------------------ |
+| Sem segundo argumento | `SafeAccess::fromFile('/app/config.json')`                                           |
+| String de formato     | `SafeAccess::fromFile('/app/data.yml', 'yaml')`                                      |
+| DTO `FileLoadOptions` | `SafeAccess::fromFile('/app/data.json', new FileLoadOptions(allowedDirs: ['/app']))` |
+
 ```php
+// Auto-detectar formato pela extensão
 $accessor = SafeAccess::fromFile('/etc/config.json');
+
+// String de formato explícita
 $accessor = SafeAccess::fromFile('/app/config.yaml', 'yaml');
+
+// Legado: allowedDirs como argumentos posicionais
 $accessor = SafeAccess::fromFile('/app/config.json', null, ['/app']);
 $accessor = SafeAccess::fromFile('/tmp/data.json', null, [], true); // caminho irrestrito
+
+// Ergonômico: DTO FileLoadOptions
+use SafeAccessInline\Contracts\FileLoadOptions;
+
+$accessor = SafeAccess::fromFile('/app/config.json', new FileLoadOptions(
+    allowedDirs: ['/app/config'],
+));
 ```
+
+::: tip DTO FileLoadOptions
+Use `FileLoadOptions` quando precisar configurar mais de uma opção — é mais legível e auto-documentado do que passar argumentos posicionais. Veja [FileLoadOptions](/pt-br/php/api-types#fileloadoptions).
+:::
 
 Lança `SecurityException` se o caminho estiver fora dos diretórios permitidos.
 
@@ -253,6 +302,43 @@ $policy = new SecurityPolicy(url: [
 $accessor = SafeAccess::fromUrlWithPolicy('https://api.example.com/config.json', $policy);
 ```
 
+#### `SafeAccess::getTemplate(string $template, array $bindings): string`
+
+Renderiza uma string de template substituindo os placeholders `{chave}` pelos valores correspondentes do array de bindings. **Nota**: Esta é uma utilidade estática de manipulação de strings. Para ler um caminho de template diretamente de um accessor, use `$accessor->getTemplate()`.
+
+```php
+$resultado = SafeAccess::getTemplate('Olá {user.name}', ['user' => ['name' => 'João']]);
+// "Olá João"
+```
+
+#### `SafeAccess::compilePath(string $path): CompiledPath`
+
+Analisa um caminho em notação de ponto uma única vez e retorna um objeto `CompiledPath` opaco. Passe-o para `getCompiled()` para resolver valores sem re-tokenizar o caminho a cada chamada. Indicado para laços com muitas iterações ou caminhos críticos de performance.
+
+**Parâmetros:**
+
+- `$path` — caminho em notação de ponto a compilar (ex.: `'user.address.city'`).
+
+**Retorno:** Uma instância de `CompiledPath` (handle opaco).
+
+```php
+use SafeAccessInline\SafeAccess;
+
+// Compilar uma vez
+$caminhoCompilado = SafeAccess::compilePath('user.address.city');
+
+// Reutilizar em vários accessors — sem re-análise
+$a = SafeAccess::fromArray(['user' => ['address' => ['city' => 'São Paulo']]]);
+$b = SafeAccess::fromArray(['user' => ['address' => ['city' => 'Lisboa']]]);
+
+$a->getCompiled($caminhoCompilado); // "São Paulo"
+$b->getCompiled($caminhoCompilado); // "Lisboa"
+```
+
+::: tip Dica de performance
+`compilePath()` combinado com `getCompiled()` tem desempenho superior ao `get()` em laços onde o mesmo caminho é usado muitas vezes. Para acesso pontual, prefira a API mais simples com `get()`.
+:::
+
 ---
 
 ## Métodos de Instância do Accessor
@@ -293,6 +379,16 @@ Resolve uma string de template substituindo as chaves de `$bindings` pelos seus 
 // O template usa placeholders {chave} resolvidos contra $bindings
 $accessor->getTemplate('users.{id}.name', ['id' => '0']); // 'Ana'
 $accessor->getTemplate('settings.{section}.{key}', ['section' => 'db', 'key' => 'host'], 'localhost');
+```
+
+#### `getCompiled(CompiledPath $compiled, mixed $default = null): mixed`
+
+Resolve um caminho pré-compilado (veja [`SafeAccess::compilePath()`](#safeaccess-compilepath-string-path-compiledpath)) nos dados deste accessor. Prefira este método em vez de `get()` quando o mesmo caminho é lido repetidamente em um laço.
+
+```php
+$compilado = SafeAccess::compilePath('user.name');
+$accessor->getCompiled($compilado);           // 'Ana'
+$accessor->getCompiled($compilado, 'N/A');    // 'Ana' se existir, 'N/A' se ausente
 ```
 
 #### `has(string $path): bool`
@@ -343,6 +439,45 @@ Retorna todos os dados como array associativo. Intenção semântica: "me dê tu
 $accessor->all(); // ['name' => 'Ana', 'age' => 30, ...]
 ```
 
+### Leitura Tipada
+
+Métodos de conveniência que convertem o resultado para um tipo escalar PHP específico. Cada um retorna `$default` se o caminho não existir, e o valor convertido caso contrário.
+
+#### `getInt(string $path, int $default = 0): int`
+
+```php
+$accessor->getInt('user.age');        // (int) valor ou 0
+$accessor->getInt('score', -1);       // -1 se caminho ausente
+```
+
+#### `getBool(string $path, bool $default = false): bool`
+
+```php
+$accessor->getBool('feature.enabled');    // (bool) valor ou false
+$accessor->getBool('debug', true);        // true se caminho ausente
+```
+
+#### `getString(string $path, string $default = ''): string`
+
+```php
+$accessor->getString('user.name');         // (string) valor ou ''
+$accessor->getString('env', 'production'); // 'production' se caminho ausente
+```
+
+#### `getArray(string $path, array $default = []): array`
+
+```php
+$accessor->getArray('items');              // (array) valor ou []
+$accessor->getArray('tags', ['default']);  // ['default'] se caminho ausente
+```
+
+#### `getFloat(string $path, float $default = 0.0): float`
+
+```php
+$accessor->getFloat('price');      // (float) valor ou 0.0
+$accessor->getFloat('rate', 1.5);  // 1.5 se caminho ausente
+```
+
 ### Escrita (Imutável)
 
 #### `set(string $path, mixed $value): static`
@@ -383,13 +518,24 @@ $new = $accessor->remove('user.age');
 
 Converte dados para array PHP. Intenção semântica: "converter para formato array". Atualmente idêntico a `all()`, mas semanticamente distinto para extensibilidade futura.
 
-#### `toJson(int $flags = 0): string`
+#### `toJson(int|bool|array $flagsOrOptions = 0): string`
 
-Converte dados para string JSON.
+Converte dados para string JSON. Aceita três formas:
+
+| Tipo do argumento | Comportamento                                                            |
+| ----------------- | ------------------------------------------------------------------------ |
+| `int`             | Bitmask `JSON_*` bruto (ex: `JSON_PRETTY_PRINT`)                         |
+| `bool`            | `true` → `JSON_PRETTY_PRINT`; `false` → compacto                         |
+| `array`           | Opções nomeadas: `pretty`, `unescapeUnicode`, `unescapeSlashes`, `space` |
 
 ```php
-$accessor->toJson();                    // compacto
-$accessor->toJson(JSON_PRETTY_PRINT);   // formatado
+$accessor->toJson();                                     // compacto
+$accessor->toJson(JSON_PRETTY_PRINT);                    // bitmask (legado)
+$accessor->toJson(true);                                 // atalho para pretty
+$accessor->toJson(['pretty' => true]);                   // opção nomeada
+$accessor->toJson(['unescapeUnicode' => true]);           // mantém unicode
+$accessor->toJson(['unescapeSlashes' => true]);           // mantém barras
+$accessor->toJson(['pretty' => true, 'unescapeUnicode' => true]); // combinado
 ```
 
 #### `toObject(): stdClass`
@@ -651,5 +797,34 @@ $accessor->getAt(['users', '0', 'name']); // travessia literal
 #### `setAt(array $segments, mixed $value): static`
 
 #### `removeAt(array $segments): static`
+
+---
+
+### Depuração
+
+#### `trace(string $path): array`
+
+Retorna um array ordenado de etapas de resolução usadas para percorrer o caminho. Útil para diagnosticar retornos `null` inesperados ou entender como wildcards e filtros são resolvidos.
+
+```php
+$accessor = SafeAccess::fromArray(['users' => [['name' => 'Ana']]]);
+$steps = $accessor->trace('users.0.name');
+// [
+//   ['step' => 'users',  'value' => [['name' => 'Ana']]],
+//   ['step' => '0',      'value' => ['name' => 'Ana']],
+//   ['step' => 'name',   'value' => 'Ana'],
+// ]
+```
+
+### Wildcard Conveniente
+
+#### `getWildcard(string $path, mixed $default = null): array`
+
+Wrapper de conveniência para caminhos wildcard — sempre retorna um `array`. Equivalente a chamar `get($path)` onde `$path` contém uma expressão `*` ou `.**`, mas explicitamente tipado para análise estática.
+
+```php
+$names = $accessor->getWildcard('users.*.name');   // ['Ana', 'Bob']
+$all   = $accessor->getWildcard('missing.*', []);   // [] (default)
+```
 
 ---

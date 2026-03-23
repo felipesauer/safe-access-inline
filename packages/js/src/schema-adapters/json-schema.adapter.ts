@@ -9,7 +9,7 @@ type JsonSchema = Record<string, unknown>;
 /**
  * Schema adapter for JSON Schema (draft-07 subset).
  * Supports: type, required, properties, items, minimum, maximum,
- * minLength, maxLength, enum.
+ * minLength, maxLength, enum, pattern.
  *
  * @example
  * import { JsonSchemaAdapter } from '@safe-access-inline/safe-access-inline';
@@ -130,6 +130,16 @@ export class JsonSchemaAdapter implements SchemaAdapterInterface<JsonSchema> {
                 errors.push({
                     path,
                     message: `value must be one of: ${enumVals.map((v) => JSON.stringify(v)).join(', ')}`,
+                });
+            }
+        }
+
+        if (schema.pattern !== undefined && typeof data === 'string') {
+            const re = new RegExp(schema.pattern as string);
+            if (!re.test(data)) {
+                errors.push({
+                    path,
+                    message: `value does not match pattern '${schema.pattern as string}'`,
                 });
             }
         }

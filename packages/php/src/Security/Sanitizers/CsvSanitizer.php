@@ -59,4 +59,22 @@ final class CsvSanitizer
     {
         return array_map(fn (string $cell) => self::sanitizeCell($cell, $mode), $row);
     }
+
+    /**
+     * Sanitises CSV header names to prevent formula injection via column names.
+     *
+     * Header names are typically developer-controlled but may originate from
+     * untrusted sources (e.g. user-uploaded files). Applying the same
+     * sanitisation strategy as data rows ensures consistency and prevents
+     * CSV injection payloads from hiding in column headers.
+     *
+     * @param string[] $headers Array of raw header strings.
+     * @param 'prefix'|'strip'|'error'|'none' $mode Sanitisation strategy.
+     * @return string[] Array of sanitised header strings.
+     * @throws SecurityException When mode is 'error' and a header starts with a dangerous character.
+     */
+    public static function sanitizeHeaders(array $headers, string $mode = 'none'): array
+    {
+        return array_map(fn (string $header) => self::sanitizeCell($header, $mode), $headers);
+    }
 }

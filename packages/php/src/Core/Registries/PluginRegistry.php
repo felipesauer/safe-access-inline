@@ -6,6 +6,7 @@ namespace SafeAccessInline\Core\Registries;
 
 use SafeAccessInline\Contracts\ParserPluginInterface;
 use SafeAccessInline\Contracts\SerializerPluginInterface;
+use SafeAccessInline\Core\Config\PluginRegistryConfig;
 use SafeAccessInline\Exceptions\UnsupportedTypeException;
 use SafeAccessInline\Security\Audit\AuditLogger;
 
@@ -24,6 +25,12 @@ use SafeAccessInline\Security\Audit\AuditLogger;
  */
 final class PluginRegistry
 {
+    /** Maximum number of distinct parser formats that can be registered. */
+    private const MAX_PARSERS = PluginRegistryConfig::DEFAULT_MAX_PARSERS;
+
+    /** Maximum number of distinct serializer formats that can be registered. */
+    private const MAX_SERIALIZERS = PluginRegistryConfig::DEFAULT_MAX_SERIALIZERS;
+
     /** @var array<string, ParserPluginInterface> Map of format identifier to registered parser plugin. */
     private static array $parsers = [];
 
@@ -40,6 +47,14 @@ final class PluginRegistry
      */
     public static function registerParser(string $format, ParserPluginInterface $parser): void
     {
+        if (!isset(self::$parsers[$format]) && count(self::$parsers) >= self::MAX_PARSERS) {
+            throw new \RangeException(
+                sprintf(
+                    'Max parser plugins (%d) reached. Call PluginRegistry::reset() to clear before registering new formats.',
+                    self::MAX_PARSERS,
+                )
+            );
+        }
         if (isset(self::$parsers[$format])) {
             AuditLogger::emit('plugin.overwrite', [
                 'kind' => 'parser',
@@ -85,6 +100,14 @@ final class PluginRegistry
      */
     public static function registerSerializer(string $format, SerializerPluginInterface $serializer): void
     {
+        if (!isset(self::$serializers[$format]) && count(self::$serializers) >= self::MAX_SERIALIZERS) {
+            throw new \RangeException(
+                sprintf(
+                    'Max serializer plugins (%d) reached. Call PluginRegistry::reset() to clear before registering new formats.',
+                    self::MAX_SERIALIZERS,
+                )
+            );
+        }
         if (isset(self::$serializers[$format])) {
             AuditLogger::emit('plugin.overwrite', [
                 'kind' => 'serializer',

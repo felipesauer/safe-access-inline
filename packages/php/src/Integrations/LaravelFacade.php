@@ -16,6 +16,20 @@ use SafeAccessInline\Core\AbstractAccessor;
  *   LaravelFacade::get('database.host');
  *   LaravelFacade::has('database.host');
  *   LaravelFacade::all();
+ *
+ * @method static mixed   get(string $path, mixed $default = null)
+ * @method static bool    has(string $path)
+ * @method static array<mixed> all()
+ * @method static array<mixed> toArray()
+ * @method static static  set(string $path, mixed $value)
+ * @method static static  remove(string $path)
+ * @method static static  merge(array<mixed>|string $pathOrValue, array<mixed>|null $value = null)
+ * @method static array<mixed> keys(?string $path = null)
+ * @method static int     count(?string $path = null)
+ * @method static string|null type(string $path)
+ * @method static string  toJson(int $flags = 0)
+ * @method static string  toYaml()
+ * @method static static  mask(array<string> $patterns = [])
  */
 class LaravelFacade
 {
@@ -31,6 +45,7 @@ class LaravelFacade
      * Resolve the underlying accessor from the Laravel container.
      *
      * @param object $app Laravel application instance
+     * @return AbstractAccessor<array<mixed>> The resolved accessor instance.
      */
     public static function resolve(object $app): AbstractAccessor
     {

@@ -15,6 +15,12 @@ outline: deep
         - [Contracts](#contracts)
         - [PluginRegistry](#pluginregistry)
         - [PHP vs JS Behavior](#php-vs-js-behavior)
+        - [Plugin Layer Mapping](#plugin-layer-mapping)
+            - [JavaScript / TypeScript](#javascript--typescript)
+            - [PHP](#php)
+            - [Extension Layer Diagram](#extension-layer-diagram)
+            - [Plugin Lifecycle](#plugin-lifecycle)
+            - [Adding a Custom Plugin](#adding-a-custom-plugin)
     - [Data Flow](#data-flow)
     - [DotNotationParser Engine](#dotnotationparser-engine)
     - [Immutability Pattern](#immutability-pattern)
@@ -30,6 +36,14 @@ outline: deep
         - [ADR-1: `set()` / `remove()` use `clone` instead of `static::from()`](#adr-1-set--remove-use-clone-instead-of-staticfrom)
         - [ADR-2: JS `toXml()` / `toYaml()` / `toToml()` via Real Libraries + Plugin Override](#adr-2-js-toxml--toyaml--totoml-via-real-libraries--plugin-override)
         - [ADR-3: Real Dependencies for YAML/TOML + PluginRegistry for Override](#adr-3-real-dependencies-for-yamltoml--pluginregistry-for-override)
+    - [PHP ↔ JS Implementation Differences](#php--js-implementation-differences)
+        - [Feature Parity Matrix](#feature-parity-matrix)
+        - [`toArray()` vs `all()`](#toarray-vs-all)
+        - [Composition Pattern: Traits (PHP) vs Static Delegation (JS)](#composition-pattern-traits-php-vs-static-delegation-js)
+        - [Streaming: Sync (PHP) vs Async (JS)](#streaming-sync-php-vs-async-js)
+        - [CompiledPath Internal Accessor Difference](#compiledpath-internal-accessor-difference)
+        - [JSON Patch `test` Op: Absent Path Alignment](#json-patch-test-op-absent-path-alignment)
+    - [Static State & Test Isolation (PHP)](#static-state--test-isolation-php)
 
 ## Overview
 
@@ -105,6 +119,79 @@ PluginRegistry::registerSerializer('yaml', new SymfonyYamlSerializer());
 | YAML/TOML parsing                                        | Real library by default (`ext-yaml` or `symfony/yaml` for YAML, `devium/toml` for TOML); plugin **optional** (overrides)             | Real library by default (`js-yaml`, `smol-toml`); plugin **optional** (overrides) |
 | Serialization (`toYaml`, `toToml`, `toXml`, `transform`) | Plugin override → `ext-yaml`/real library fallback (with `SimpleXMLElement` fallback for XML)                                        | Real library by default for YAML/TOML; plugin required for XML                    |
 | Shipped plugins                                          | 6 plugins (SymfonyYamlParser, SymfonyYamlSerializer, NativeYamlParser, NativeYamlSerializer, DeviumTomlParser, DeviumTomlSerializer) | 4 plugins (JsYamlParser, JsYamlSerializer, SmolTomlParser, SmolTomlSerializer)    |
+
+### Plugin Layer Mapping
+
+Each plugin occupies a specific **layer** in the processing pipeline. The table below maps every shipped plugin to its layer, type, and registration key.
+
+#### JavaScript / TypeScript
+
+| Plugin               | Format Key | Type       | Layer         | Notes                                                     |
+| -------------------- | ---------- | ---------- | ------------- | --------------------------------------------------------- |
+| `JsYamlParser`       | `yaml`     | parser     | parsing       | Wraps `js-yaml`; **default** — registered automatically   |
+| `JsYamlSerializer`   | `yaml`     | serializer | serialization | Wraps `js-yaml`; **default** — registered automatically   |
+| `SmolTomlParser`     | `toml`     | parser     | parsing       | Wraps `smol-toml`; **default** — registered automatically |
+| `SmolTomlSerializer` | `toml`     | serializer | serialization | Wraps `smol-toml`; **default** — registered automatically |
+
+#### PHP
+
+| Plugin                  | Format Key | Type       | Layer         | Notes                                            |
+| ----------------------- | ---------- | ---------- | ------------- | ------------------------------------------------ |
+| `SymfonyYamlParser`     | `yaml`     | parser     | parsing       | Wraps `symfony/yaml`; optional override          |
+| `SymfonyYamlSerializer` | `yaml`     | serializer | serialization | Wraps `symfony/yaml`; optional override          |
+| `NativeYamlParser`      | `yaml`     | parser     | parsing       | Wraps `ext-yaml`; optional override              |
+| `NativeYamlSerializer`  | `yaml`     | serializer | serialization | Wraps `ext-yaml`; optional override              |
+| `DeviumTomlParser`      | `toml`     | parser     | parsing       | Wraps `devium/toml`; **default** — auto-detected |
+| `DeviumTomlSerializer`  | `toml`     | serializer | serialization | Wraps `devium/toml`; **default** — auto-detected |
+| `SimpleXmlSerializer`   | `xml`      | serializer | serialization | Wraps `SimpleXMLElement`; fallback for `toXml()` |
+
+#### Extension Layer Diagram
+
+```mermaid
+flowchart LR
+    Input["Raw string / data"] --> IoLoader["IoLoader\n(file & URL)"]
+    IoLoader --> Parser["Format Parser\n(built-in or Plugin)"]
+    Parser --> Accessor["AbstractAccessor\n(normalized data)"]
+    Accessor --> Serializer["Format Serializer\n(built-in or Plugin)"]
+    Serializer --> Output["Output string"]
+
+    subgraph PluginLayer["Plugin Layer"]
+        P1["ParserPlugin\n.parse(raw) → array"]
+        P2["SerializerPlugin\n.serialize(array) → string"]
+    end
+
+    Parser -.->|"PluginRegistry.getParser(format)"| P1
+    Serializer -.->|"PluginRegistry.getSerializer(format)"| P2
+```
+
+#### Plugin Lifecycle
+
+1. **Registration** — `PluginRegistry.registerParser(format, plugin)` / `PluginRegistry.registerSerializer(format, plugin)`. Must happen before the first accessor of that format is created.
+
+2. **Discovery** — When an accessor calls `parse()` or `toYaml()`, the registry is queried with the format key. If a plugin is registered it takes priority over the built-in default; otherwise the built-in library is used.
+
+3. **Invocation** — The plugin's `parse()` or `serialize()` method is called synchronously. Plugins must throw `InvalidFormatException` on malformed input.
+
+4. **Override precedence** — `registered plugin > real library default > built-in lightweight parser` (JS) / `registered plugin > ext-yaml / symfony/yaml` (PHP).
+
+#### Adding a Custom Plugin
+
+```typescript
+// Implement one interface
+import type { ParserPluginInterface } from "@safe-access-inline/safe-access-inline";
+
+class MyYamlParser implements ParserPluginInterface {
+    parse(raw: string): Record<string, unknown> {
+        return myCustomYamlLib.parse(raw);
+    }
+}
+
+// Register once at startup — overrides the default JsYamlParser
+import { PluginRegistry } from "@safe-access-inline/safe-access-inline";
+PluginRegistry.registerParser("yaml", new MyYamlParser());
+```
+
+See also: [Plugin Guide](/js/plugins)
 
 ## Data Flow
 
@@ -285,6 +372,8 @@ File watching in PHP therefore uses polling (`FileWatcher`) — checks mtime at 
 
 - **PathCache** — LRU in-memory cache layered between `AbstractAccessor` and `DotNotationParser`. Parsed path segment arrays are stored keyed by path string, eliminating redundant re-parsing on repeated hot-path accesses.
 
+> **Cache interface divergence:** PHP's `remember()` / `forget()` accept `\Psr\SimpleCache\CacheInterface` (PSR-16). The JS equivalents accept a compact custom `CacheInterface` (`get / set / delete`) that is intentionally simpler than the PSR-16 contract — no `has()`, no `clear()`, and `get()` returns `unknown` instead of `mixed`. Implement the JS interface directly or wrap an existing PSR-16-compatible library.
+
 Layered configuration (`layer()`, `layerFiles()`) deep-merges multiple sources with last-wins semantics.
 
 ## Schema Validation
@@ -359,6 +448,8 @@ any accessor-specific metadata when producing a new instance. Only `$data` is up
 **Consequence:** Metadata like `originalXml` survives mutations, which is the expected behavior. The
 round-trip `set() → toXml()` can still access the original XML via `getOriginalXml()`.
 
+> **Parameter divergence:** In PHP, `clone` is a language keyword — `clone $this` accepts no arguments. The accessor then directly mutates `$this->data` on the cloned instance. In JS, `clone(newData)` is a protected abstract method that each subclass implements, accepting the new data record as its sole argument. The PHP approach relies on post-clone mutation; the JS approach is purely constructor-based. The observable result is identical: a new instance with updated `data` and all other fields preserved.
+
 ### ADR-2: JS `toXml()` / `toYaml()` / `toToml()` via Real Libraries + Plugin Override
 
 **Context:** Initially, the JS package omitted `toXml()` and `toYaml()` because JavaScript has no native XML emitter and YAML serialization would require a runtime dependency.
@@ -386,3 +477,136 @@ round-trip `set() → toXml()` can still access the original XML via `getOrigina
 - **Testing**: Unit tests use mock plugins (anonymous classes/objects) for isolation. Integration tests use real libraries.
 
 **Consequence:** Zero configuration for YAML/TOML in both platforms. Consistent behavior between PHP and JS. Users who need alternative parsers/serializers register them via PluginRegistry.
+
+---
+
+## PHP ↔ JS Implementation Differences
+
+The two implementations are semantically equivalent — the same dot-notation paths, the same operations, the same security guarantees — but idiomatic differences exist at the language level. This section documents them explicitly.
+
+### Feature Parity Matrix
+
+| Feature              | JavaScript / TypeScript                                                 | PHP                                                                                                                |
+| -------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| **Array operations** | Static class (`ArrayOperations`) delegated from the accessor            | Trait (`HasArrayOperations`) mixed into `AbstractAccessor`                                                         |
+| **Type inference**   | `DeepPaths<T>` / `ValueAtPath<T, P>` generic parameters                 | `@template TShape` + custom PHPStan extension                                                                      |
+| **Immutability**     | `Object.freeze()` + `deepFreeze()` at runtime                           | Private `$data` field + `$readonly` flag + `assertNotReadonly()`                                                   |
+| **Constructor**      | `constructor(raw: unknown, options?: { readonly?: boolean })`           | `__construct(mixed $raw, bool $readonly = false)`                                                                  |
+| **`toArray()`**      | Concrete alias of `all()` (not on interface)                            | Concrete alias of `all()` (not on interface)                                                                       |
+| **I/O model**        | `fromFile()` async (Promise) + `fromFileSync()` sync; `fromUrl()` async | Synchronous only — all I/O completes before returning                                                              |
+| **Async I/O**        | `fromFile()` async + `fromFileSync()` sync                              | Synchronous only                                                                                                   |
+| **Streaming**        | `streamCsv()` / `streamNdjson()` — `AsyncGenerator` (`for await`)       | `streamCsv()` / `streamNdjson()` — `Generator` (`foreach`, synchronous)                                            |
+| **File watcher**     | `fs.watch()` event-driven, non-blocking, debounced (100 ms)             | `filemtime()` polling (default 500 ms), **blocks the calling thread** — use Swoole/ReactPHP for non-blocking usage |
+| **XML parsing**      | Delegates to plugin; no native parser                                   | `simplexml_load_string()` with XXE protection built-in                                                             |
+| **Schema adapters**  | Zod, Valibot, Yup, JSON Schema                                          | JSON Schema, Symfony Validator                                                                                     |
+
+### `toArray()` vs `all()`
+
+Both implementations expose `all()` as the primary method returning a shallow copy of the internal data. `toArray()` is a concrete-class alias that follows PHP idioms (`ArrayAccess`, `Arrayable` conventions). It is not part of the published `ReadableInterface` / `AccessorInterface` contracts in either language:
+
+```typescript
+// JS — both are equivalent
+accessor.all(); // Record<string, unknown>
+accessor.toArray(); // Record<string, unknown>
+```
+
+```php
+// PHP — both are equivalent
+$accessor->all();     // array<mixed>
+$accessor->toArray(); // array<mixed>
+```
+
+### Composition Pattern: Traits (PHP) vs Static Delegation (JS)
+
+PHP uses trait composition to attach array operations and transformations to the abstract base:
+
+```php
+abstract class AbstractAccessor implements AccessorInterface, WritableInterface
+{
+    use HasArrayOperations;
+    use HasTransformations;
+    use HasTypeAccess;
+    // ...
+}
+```
+
+JS achieves the same result through static class delegation:
+
+```typescript
+// In AbstractAccessor
+push(path: string, ...items: unknown[]): AbstractAccessor<T> {
+    return this.mutate(ArrayOperations.push(this.data, path, ...items));
+}
+```
+
+Both approaches produce identical consumer-facing APIs. The difference is an implementation detail with no behavioral impact.
+
+### Streaming: Sync (PHP) vs Async (JS)
+
+Both packages expose `streamCsv()` and `streamNdjson()` for memory-efficient, row-at-a-time processing of large files. The contracts are identical, but the runtime models differ:
+
+| Aspect      | JavaScript / TypeScript                 | PHP                                   |
+| ----------- | --------------------------------------- | ------------------------------------- |
+| Return type | `AsyncGenerator<string[]>`              | `Generator` (synchronous, lazy)       |
+| Iteration   | `for await (const row of stream) {}`    | `foreach ($stream as $row) {}`        |
+| Blocking    | Non-blocking — yields to the event loop | Blocking — runs on the call stack     |
+| Concurrency | Interleaves with other async tasks      | Single-threaded; I/O during iteration |
+
+**Why the difference?** PHP's runtime is inherently synchronous — lazy `Generator` semantics are the idiomatic PHP solution and require no event loop. In Node.js, the `AsyncGenerator` pattern integrates naturally with `async/await` and avoids blocking the event loop during large file reads.
+
+Both approaches deliver the same user-facing guarantee: rows are yielded one at a time without loading the entire file into memory. The choice of paradigm is a language-level constraint, not a feature difference.
+
+### CompiledPath Internal Accessor Difference
+
+`SafeAccess.compilePath(path)` pre-parses a dot-notation path and returns an opaque `CompiledPath` token that can be reused across multiple calls to avoid repeated parsing.
+
+| Aspect         | JavaScript / TypeScript                                               | PHP                                                      |
+| -------------- | --------------------------------------------------------------------- | -------------------------------------------------------- |
+| Public surface | `CompiledPath` class — intentionally opaque, no public accessor       | `CompiledPath` class — `segments(): array` public method |
+| Internal field | `_segments` (underscore-prefixed, signals "not part of the contract") | `$segments` (private, surfaced via `segments()`)         |
+
+**In JS,** `_segments` is prefixed with `_` to signal it is framework-internal. Consumers should never read it directly; the `CompiledPath` token is only meaningful as an argument to `get()`, `set()`, `has()`, etc. If you need to inspect parsed segments for debugging, use `accessor.trace(path)` instead.
+
+**In PHP,** `segments()` is public for compatibility with tooling that inspects path structure (e.g. custom validators). The design divergence is intentional and has no impact on normal usage.
+
+### JSON Patch `test` Op: Absent Path Alignment
+
+::: info Behaviour aligned in both runtimes
+The JSON Patch `test` operation checks that the value at `path` equals `value`.
+Both runtimes **throw** when the target path does not exist.
+
+| Platform | Absent path  | `test` on absent path                     |
+| -------- | ------------ | ----------------------------------------- |
+| **PHP**  | path missing | **THROWS** `JsonPatchTestFailedException` |
+| **JS**   | path missing | **THROWS** `JsonPatchTestFailedException` |
+
+Note that a path explicitly set to `null` is considered _present_, so
+`test` with `"value": null` on a `null`-valued path still _passes_.
+:::
+
+## Static State & Test Isolation (PHP)
+
+The PHP `SafeAccess` façade uses **static state** in `PluginRegistry`,
+`SchemaRegistry`, `PathCache`, and the global `SecurityPolicy`. This means
+state registered in one test can leak into the next if not cleaned up.
+
+### Resetting state between tests
+
+Call `SafeAccess::reset()` (or the equivalent `SafeAccess::resetAll()`) in a
+`beforeEach` or `afterEach` hook to guarantee a clean slate:
+
+```php
+beforeEach(fn () => SafeAccess::reset());
+```
+
+### Roadmap: `SafeAccessContext` (DI container)
+
+> **Status: Planned**
+
+A future `SafeAccessContext` class will mirror the JS `ServiceContainer`,
+allowing per-instance registries instead of process-wide static state.
+This enables parallel testing, multi-tenant applications, and proper
+dependency injection without global side-effects.
+
+Until `SafeAccessContext` ships, use `SafeAccess::reset()` as the
+authoritative cleanup API.

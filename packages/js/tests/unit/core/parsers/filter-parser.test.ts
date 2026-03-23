@@ -183,6 +183,34 @@ describe(FilterParser.name, () => {
         expect(FilterParser.evaluate({ deleted: false }, expr)).toBe(false);
     });
 
+    // ── C2: null / undefined equivalence (PHP–JS alignment) ─────────────
+
+    it('evaluate == null — absent field (undefined) matches null (PHP alignment)', () => {
+        // PHP returns null for absent paths; JS returns undefined.
+        // [?field == null] must match both to be cross-language consistent.
+        const expr = FilterParser.parse('score==null');
+        expect(FilterParser.evaluate({}, expr)).toBe(true); // undefined ≡ null
+        expect(FilterParser.evaluate({ score: null }, expr)).toBe(true); // explicit null
+        expect(FilterParser.evaluate({ score: 0 }, expr)).toBe(false); // 0 is not null
+        expect(FilterParser.evaluate({ score: false }, expr)).toBe(false); // false is not null
+    });
+
+    it('evaluate != null — absent field (undefined) treated as null so != null is false', () => {
+        const expr = FilterParser.parse('score!=null');
+        expect(FilterParser.evaluate({}, expr)).toBe(false); // undefined ≡ null → equal
+        expect(FilterParser.evaluate({ score: null }, expr)).toBe(false);
+        expect(FilterParser.evaluate({ score: 0 }, expr)).toBe(true); // 0 ≠ null
+        expect(FilterParser.evaluate({ score: 'x' }, expr)).toBe(true);
+    });
+
+    it('evaluate == null — does NOT coerce 0, false, or empty string to null', () => {
+        // null-equivalence is ONLY between null and undefined — no broader coercion.
+        const expr = FilterParser.parse('val==null');
+        expect(FilterParser.evaluate({ val: 0 }, expr)).toBe(false);
+        expect(FilterParser.evaluate({ val: false }, expr)).toBe(false);
+        expect(FilterParser.evaluate({ val: '' }, expr)).toBe(false);
+    });
+
     // ── splitLogical (via parse — string-aware) ───────
 
     it('parse — does not split on && inside quoted string', () => {
@@ -481,5 +509,195 @@ describe('FilterParser — numeric type guard regression', () => {
         const expr = FilterParser.parse('price>5');
         expect(FilterParser.evaluate({ price: 10 }, expr)).toBe(true);
         expect(FilterParser.evaluate({ price: 3 }, expr)).toBe(false);
+    });
+
+    // ── starts_with() ─────────────────────────────────
+
+    it('evaluate — starts_with returns true when field starts with prefix', () => {
+        const expr = FilterParser.parse("starts_with(@.name,'Ana')");
+        expect(FilterParser.evaluate({ name: 'Ana Lima' }, expr)).toBe(true);
+        expect(FilterParser.evaluate({ name: 'João' }, expr)).toBe(false);
+    });
+
+    it('evaluate — starts_with returns false for non-string field', () => {
+        const expr = FilterParser.parse("starts_with(@.age,'4')");
+        expect(FilterParser.evaluate({ age: 42 }, expr)).toBe(false);
+    });
+
+    it('evaluate — starts_with handles double-quoted prefix', () => {
+        const expr = FilterParser.parse('starts_with(@.name,"Ana")');
+        expect(FilterParser.evaluate({ name: 'Ana Lima' }, expr)).toBe(true);
+    });
+
+    // ── contains() ────────────────────────────────────
+
+    it('evaluate — contains returns true when string field contains needle', () => {
+        const expr = FilterParser.parse("contains(@.name,'silva')");
+        expect(FilterParser.evaluate({ name: 'Ana silva' }, expr)).toBe(true);
+        expect(FilterParser.evaluate({ name: 'João Lima' }, expr)).toBe(false);
+    });
+
+    it('evaluate — contains returns true when array field contains element', () => {
+        const expr = FilterParser.parse("contains(@.tags,'admin')");
+        expect(FilterParser.evaluate({ tags: ['user', 'admin'] }, expr)).toBe(true);
+        expect(FilterParser.evaluate({ tags: ['user'] }, expr)).toBe(false);
+    });
+
+    it('evaluate — contains returns false for non-string non-array field', () => {
+        const expr = FilterParser.parse("contains(@.count,'1')");
+        expect(FilterParser.evaluate({ count: 10 }, expr)).toBe(false);
+    });
+
+    // ── values() ──────────────────────────────────────
+
+    it('evaluate — values returns object value count', () => {
+        const exprGt = FilterParser.parse('values(@)>2');
+        expect(FilterParser.evaluate({ a: 1, b: 2, c: 3 }, exprGt)).toBe(true);
+        expect(FilterParser.evaluate({ a: 1, b: 2 }, exprGt)).toBe(false);
+    });
+
+    it('evaluate — values returns 0 for non-object non-array', () => {
+        const expr = FilterParser.parse('values(@)>0');
+        expect(FilterParser.evaluate('hello' as unknown as Record<string, unknown>, expr)).toBe(
+            false,
+        );
+    });
+
+    // ── arithmetic ────────────────────────────────────
+
+    it('evaluate — arithmetic price * qty > 100', () => {
+        const expr = FilterParser.parse('price * qty > 100');
+        expect(FilterParser.evaluate({ price: 20, qty: 6 }, expr)).toBe(true);
+        expect(FilterParser.evaluate({ price: 5, qty: 10 }, expr)).toBe(false);
+    });
+
+    it('evaluate — arithmetic addition field + field > value', () => {
+        const expr = FilterParser.parse('a + b > 10');
+        expect(FilterParser.evaluate({ a: 7, b: 5 }, expr)).toBe(true);
+        expect(FilterParser.evaluate({ a: 2, b: 3 }, expr)).toBe(false);
+    });
+
+    it('evaluate — arithmetic with @.field prefix', () => {
+        const expr = FilterParser.parse('@.price * @.qty > 50');
+        expect(FilterParser.evaluate({ price: 10, qty: 6 }, expr)).toBe(true);
+    });
+
+    it('evaluate — arithmetic returns undefined for non-numeric operands', () => {
+        const expr = FilterParser.parse('price * name > 10');
+        expect(FilterParser.evaluate({ price: 5, name: 'hello' }, expr)).toBe(false);
+    });
+
+    // ── splitLogical — quoted string edge cases ────────
+
+    it("parse — '&&' inside a quoted string value is not treated as a logical operator", () => {
+        // The condition value contains '&&' literally; it must be parsed as one condition
+        const expr = FilterParser.parse("label=='a&&b'");
+        expect(expr.conditions).toHaveLength(1);
+        expect(expr.conditions[0]).toEqual({ field: 'label', operator: '==', value: 'a&&b' });
+        expect(expr.logicals).toHaveLength(0);
+    });
+
+    it("parse — '||' inside a quoted string value is not treated as a logical operator", () => {
+        const expr = FilterParser.parse('label=="x||y"');
+        expect(expr.conditions).toHaveLength(1);
+        expect(expr.conditions[0]).toEqual({ field: 'label', operator: '==', value: 'x||y' });
+        expect(expr.logicals).toHaveLength(0);
+    });
+
+    it('parse — mixed: quoted && inside value alongside a real && logical operator', () => {
+        // "label=='a&&b' && active==true"  →  2 conditions, 1 logical
+        const expr = FilterParser.parse("label=='a&&b' && active==true");
+        expect(expr.conditions).toHaveLength(2);
+        expect(expr.conditions[0]).toEqual({ field: 'label', operator: '==', value: 'a&&b' });
+        expect(expr.conditions[1]).toEqual({ field: 'active', operator: '==', value: true });
+        expect(expr.logicals).toEqual(['&&']);
+    });
+
+    it('parse — double-quoted value containing || alongside a real || logical operator', () => {
+        const expr = FilterParser.parse('env=="a||b" || env=="prod"');
+        expect(expr.conditions).toHaveLength(2);
+        expect(expr.conditions[0]).toEqual({ field: 'env', operator: '==', value: 'a||b' });
+        expect(expr.conditions[1]).toEqual({ field: 'env', operator: '==', value: 'prod' });
+        expect(expr.logicals).toEqual(['||']);
+    });
+
+    // ── arithmetic edge cases (lines 418, 422, 424) ────────────
+
+    it('evaluate — arithmetic subtraction field - field > value (line 418)', () => {
+        const expr = FilterParser.parse('a - b > 2');
+        expect(FilterParser.evaluate({ a: 10, b: 5 }, expr)).toBe(true);
+        expect(FilterParser.evaluate({ a: 3, b: 2 }, expr)).toBe(false);
+    });
+
+    it('evaluate — arithmetic division field / field > value (line 422)', () => {
+        const expr = FilterParser.parse('price / qty > 5');
+        expect(FilterParser.evaluate({ price: 30, qty: 5 }, expr)).toBe(true);
+        expect(FilterParser.evaluate({ price: 10, qty: 5 }, expr)).toBe(false);
+    });
+
+    it('evaluate — arithmetic division by zero returns falsy (line 422 false branch)', () => {
+        const expr = FilterParser.parse('price / qty > 5');
+        expect(FilterParser.evaluate({ price: 30, qty: 0 }, expr)).toBe(false);
+    });
+
+    it('evaluate — starts_with with no prefix arg (funcArgs[1] undefined → ?? fallback)', () => {
+        // funcArgs[1] is undefined → prefix = '' → val.startsWith('') is always true
+        const expr = FilterParser.parse('starts_with(@.name)==true');
+        expect(FilterParser.evaluate({ name: 'test' }, expr)).toBe(true);
+    });
+
+    it('evaluate — contains with no needle arg (funcArgs[1] undefined → ?? fallback)', () => {
+        // funcArgs[1] is undefined → needle = '' → val.includes('') is always true
+        const expr = FilterParser.parse('contains(@.name)==true');
+        expect(FilterParser.evaluate({ name: 'test' }, expr)).toBe(true);
+    });
+
+    it('evaluate — contains with unquoted needle (if-block false branch)', () => {
+        // needle = 'silva' (no quotes) → startsWith("'") is false → if-block skipped
+        const expr = FilterParser.parse('contains(@.name,silva)==true');
+        expect(FilterParser.evaluate({ name: 'Ana silva' }, expr)).toBe(true);
+        expect(FilterParser.evaluate({ name: 'João Lima' }, expr)).toBe(false);
+    });
+
+    it("evaluate — contains with malformed single-quote needle (starts ' no end ')", () => {
+        // needle starts with "'" but doesn't end with "'" → first && is false
+        const expr = FilterParser.parse("contains(@.name,'silva)==true");
+        // needle = "'silva" (no closing quote) — not stripped — unlikely to match
+        expect(FilterParser.evaluate({ name: 'Ana silva' }, expr)).toBe(false);
+    });
+
+    it('evaluate — contains with malformed double-quote needle (starts " no end ")', () => {
+        // needle starts with '"' but doesn't end with '"' → second && is false
+        const expr = FilterParser.parse('contains(@.name,"silva)==true');
+        // needle = '"silva' (no closing quote) — not stripped — unlikely to match
+        expect(FilterParser.evaluate({ name: 'Ana silva' }, expr)).toBe(false);
+    });
+
+    it('evaluate — values returns array length for array value (line 375)', () => {
+        // values(@.items) → val is an array → returns val.length
+        const expr = FilterParser.parse('values(@.items)>2');
+        expect(FilterParser.evaluate({ items: [1, 2, 3] }, expr)).toBe(true);
+        expect(FilterParser.evaluate({ items: [1, 2] }, expr)).toBe(false);
+    });
+
+    it('evaluate — arithmetic with chained expression (resolveArithmetic regex no match → undefined)', () => {
+        // 'a + b + c' matches the outer hasArithmetic check but fails the inner regex
+        // → resolveArithmetic returns undefined → fieldValue undefined → comparison false
+        const expr = FilterParser.parse('a + b + c > 10');
+        expect(FilterParser.evaluate({ a: 5, b: 3, c: 3 }, expr)).toBe(false);
+    });
+
+    it('evaluate — arithmetic with numeric literal operand (toNumber → Number(token) path)', () => {
+        // token '5' matches /^\d+/ → returns Number('5') directly (line 404 true branch)
+        const expr = FilterParser.parse('price + 5 > 10');
+        expect(FilterParser.evaluate({ price: 7 }, expr)).toBe(true);
+        expect(FilterParser.evaluate({ price: 4 }, expr)).toBe(false);
+    });
+
+    it('evaluate — arithmetic with string-encoded number operand (toNumber → Number(val) path)', () => {
+        // qty is string '3' → typeof === 'string', !isNaN → returns Number('3') (line 407)
+        const expr = FilterParser.parse('price * qty > 10');
+        expect(FilterParser.evaluate({ price: 5, qty: '3' }, expr)).toBe(true);
+        expect(FilterParser.evaluate({ price: 2, qty: '3' }, expr)).toBe(false);
     });
 });

@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace SafeAccessInline\Core\Parsers;
 
 use SafeAccessInline\Core\Config\FilterParserConfig;
+use SafeAccessInline\Enums\AuditEventType;
+use SafeAccessInline\Security\Audit\AuditLogger;
 use SafeAccessInline\Security\Guards\SecurityGuard;
 
 /**
@@ -18,11 +20,16 @@ use SafeAccessInline\Security\Guards\SecurityGuard;
  *   [?length(@.name)>3]       — function: length
  *   [?match(@.name,'Ana.*')]  — function: match
  *   [?keys(@)>2]              — function: keys (count of keys)
+ *   [?starts_with(@.name,'Ana')] — function: string prefix match
+ *   [?contains(@.tags,'admin')] — function: substring or array membership
+ *   [?values(@)>3]            — function: value count
+ *   [?price * qty > 100]      — arithmetic expression
  *
  * Operators: ==, !=, >, <, >=, <=
  * Logical:   &&, ||
  * Values:    number, 'string', "string", true, false, null
- * Functions: length(@.field), match(@.field, 'pattern'), keys(@)
+ * Functions: length(@.field), match(@.field, 'pattern'), keys(@),
+ *            starts_with(@.field, 'prefix'), contains(@.field, 'needle'), values(@)
  */
 final class FilterParser
 {
@@ -67,7 +74,21 @@ final class FilterParser
         $parts = self::splitLogical($expression);
 
         foreach ($parts['tokens'] as $token) {
-            $conditions[] = self::parseCondition(trim($token));
+            try {
+                $conditions[] = self::parseCondition(trim($token));
+            } catch (\RuntimeException $e) {
+                // Exotic tokens (backticks, semicolons, unrecognised operators) cannot be
+                // parsed into a valid condition. Return empty conditions so the caller treats
+                // this filter as "no match" — consistent with "path not found" semantics.
+                AuditLogger::emit(AuditEventType::DATA_FORMAT_WARNING->value, [
+                    'reason'     => 'invalid_filter_condition',
+                    'expression' => $expression,
+                    'token'      => $token,
+                    'error'      => $e->getMessage(),
+                ]);
+
+                return ['conditions' => [], 'logicals' => []];
+            }
         }
 
         $logicals = $parts['operators'];
@@ -265,6 +286,9 @@ final class FilterParser
     {
         if (isset($condition['func'])) {
             $fieldValue = self::evaluateFunction($item, $condition['func'], $condition['funcArgs'] ?? []);
+        } elseif (preg_match('/[@\w.]+\s*[+\-*\/]\s*[@\w.]+/', $condition['field']) === 1) {
+            // Arithmetic expression in field, e.g. `price * qty`
+            $fieldValue = self::resolveArithmetic($item, $condition['field']);
         } else {
             $fieldValue = self::resolveField($item, $condition['field']);
         }
@@ -300,6 +324,9 @@ final class FilterParser
             'length' => self::evalLength($item, $funcArgs),
             'match' => self::evalMatch($item, $funcArgs),
             'keys' => self::evalKeys($item, $funcArgs),
+            'starts_with' => self::evalStartsWith($item, $funcArgs),
+            'contains' => self::evalContains($item, $funcArgs),
+            'values' => self::evalValues($item, $funcArgs),
             default => throw new \RuntimeException("Unknown filter function: \"{$func}\""),
         };
     }
@@ -354,8 +381,18 @@ final class FilterParser
         ) {
             $pattern = substr($pattern, 1, -1);
         }
-        // ReDoS guard: reject patterns with nested quantifiers or excessive length
-        if (preg_match('/([+*])\)\1|\(\?[^)]*[+*]/', $pattern) === 1 || strlen($pattern) > self::config()->maxPatternLength) {
+        // ReDoS guard: reject patterns exhibiting catastrophic backtracking or excessive length.
+        // Detected forms (in order of coverage):
+        //   [+*])[+*{]      — classic nested quantifier via capturing group: (a+)+ or (a+){n,m}
+        //   [+*])[+*{]      — same via non-capturing group: (?:a+)+ or (?:a+){n,m}
+        //   ({...})[+*{]    — nested range quantifier: (a{2,5})+
+        //   ([^|)]*|[^)]*)[+*{] — quantified alternation: (a|b)+
+        //   (?...[+*])      — inline-flag or atomic group with quantifier inside
+        //   (.+|.+)         — tautological alternation with dot: (.+|.+) variants
+        if (
+            preg_match('/[+*]\)[+*{]|\(\?:[^)]*[+*]\)[+*{]|\([^)]*\{[0-9,]+\}\)[+*{]|\([^)]*\|[^)]*\)[+*{]|\(\?[^)]*[+*]|\([.][+*]\|[.][+*]\)/', $pattern) === 1
+            || strlen($pattern) > self::config()->maxPatternLength
+        ) {
             return false;
         }
         // Escape the PCRE delimiter to prevent flag injection (e.g. 'foo/i')
@@ -378,22 +415,144 @@ final class FilterParser
     /**
      * Evaluates the `keys()` filter function.
      *
-     * Returns the number of keys in the resolved associative array;
-     * returns 0 for non-associative arrays or non-array values.
+     * Returns the number of keys in the resolved array (both list and associative).
+     * This matches the JS `Object.keys()` behaviour where numeric indices count as keys.
+     * Returns 0 for non-array values.
      *
      * @param  array<mixed>  $item     Data item to operate on.
      * @param  array<string> $funcArgs Parsed function arguments; first arg is the field path.
-     * @return int Number of keys in the resolved associative array.
+     * @return int Number of keys in the resolved array.
      */
     private static function evalKeys(array $item, array $funcArgs): int
     {
         $val = self::resolveFilterArg($item, $funcArgs[0] ?? '@');
-        if (is_array($val) && !array_is_list($val)) {
+        if (is_array($val)) {
             return count(array_keys($val));
         }
         return 0;
     }
+    /**
+     * Evaluates the `starts_with()` filter function.
+     *
+     * Returns `true` when the resolved string value starts with the given prefix.
+     * Returns `false` for non-string values.
+     *
+     * @param  array<mixed>  $item     Data item to operate on.
+     * @param  array<string> $funcArgs Arguments: [0] = field path, [1] = prefix.
+     * @return bool
+     */
+    private static function evalStartsWith(array $item, array $funcArgs): bool
+    {
+        $val = self::resolveFilterArg($item, $funcArgs[0] ?? '@');
+        if (!is_string($val)) {
+            return false;
+        }
+        $prefix = trim($funcArgs[1] ?? '');
+        if (
+            (str_starts_with($prefix, "'") && str_ends_with($prefix, "'"))
+            || (str_starts_with($prefix, '"') && str_ends_with($prefix, '"'))
+        ) {
+            $prefix = substr($prefix, 1, -1);
+        }
+        return str_starts_with($val, $prefix);
+    }
 
+    /**
+     * Evaluates the `contains()` filter function.
+     *
+     * For string values, returns `true` when the string contains the needle
+     * as a substring. For array values, returns `true` when the needle is a
+     * member of the array (strict comparison). Returns `false` otherwise.
+     *
+     * @param  array<mixed>  $item     Data item to operate on.
+     * @param  array<string> $funcArgs Arguments: [0] = field path, [1] = needle.
+     * @return bool
+     */
+    private static function evalContains(array $item, array $funcArgs): bool
+    {
+        $val = self::resolveFilterArg($item, $funcArgs[0] ?? '@');
+        $needle = trim($funcArgs[1] ?? '');
+        if (
+            (str_starts_with($needle, "'") && str_ends_with($needle, "'"))
+            || (str_starts_with($needle, '"') && str_ends_with($needle, '"'))
+        ) {
+            $needle = substr($needle, 1, -1);
+        }
+        if (is_string($val)) {
+            return str_contains($val, $needle);
+        }
+        if (is_array($val)) {
+            return in_array($needle, $val, true);
+        }
+        return false;
+    }
+
+    /**
+     * Evaluates the `values()` filter function.
+     *
+     * Returns the number of values in the resolved array or object.
+     * Mirrors the semantics of `keys()` but counts values instead of keys.
+     * Returns 0 for non-array values.
+     *
+     * @param  array<mixed>  $item     Data item to operate on.
+     * @param  array<string> $funcArgs Parsed function arguments; first arg is the field path.
+     * @return int
+     */
+    private static function evalValues(array $item, array $funcArgs): int
+    {
+        $val = self::resolveFilterArg($item, $funcArgs[0] ?? '@');
+        if (is_array($val)) {
+            return count(array_values($val));
+        }
+        return 0;
+    }
+
+    /**
+     * Evaluates a simple binary arithmetic expression within a field string.
+     *
+     * Handles expressions of the form `fieldA OP fieldB` or `fieldA OP literal`,
+     * where OP is one of `+`, `-`, `*`, `/`.
+     *
+     * Operands prefixed with `@.` or bare names are resolved from `$item`.
+     * Numeric literals are parsed directly. Division by zero returns `null`.
+     *
+     * @param  array<mixed> $item Data item providing field values.
+     * @param  string       $expr The arithmetic expression string, e.g. `'price * qty'`.
+     * @return float|int|null The numeric result, or `null` when operands are non-numeric.
+     */
+    private static function resolveArithmetic(array $item, string $expr): float|int|null
+    {
+        if (preg_match('/^([@\w.]+)\s*([+\-*\/])\s*([@\w.]+|\d+(?:\.\d+)?)$/', $expr, $m) !== 1) {
+            return null;
+        }
+
+        $toNumber = static function (string $token) use ($item): float|int|null {
+            if (is_numeric($token) && !str_starts_with($token, '@')) {
+                return str_contains($token, '.') ? (float) $token : (int) $token;
+            }
+            $val = FilterParser::resolveFilterArg($item, $token);
+            if (is_int($val) || is_float($val)) {
+                return $val;
+            }
+            if (is_numeric($val)) {
+                return str_contains((string) $val, '.') ? (float) $val : (int) $val;
+            }
+            return null;
+        };
+
+        $left = $toNumber($m[1]);
+        $right = $toNumber($m[3]);
+        if ($left === null || $right === null) {
+            return null;
+        }
+
+        return match ($m[2]) {
+            '+' => $left + $right,
+            '-' => $left - $right,
+            '*' => $left * $right,
+            default => $right != 0 ? $left / $right : null, // only '/' reaches here (regex-guaranteed)
+        };
+    }
     /**
      * Resolves a filter argument string to a value within `$item`.
      *

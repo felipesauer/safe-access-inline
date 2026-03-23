@@ -4,11 +4,33 @@ import type { AuditEvent, AuditListener } from '../../contracts/audit-event.inte
 export { AuditEventType } from '../../enums/audit-event-type.enum';
 export type { AuditEvent, AuditListener } from '../../contracts/audit-event.interface';
 
-import { DEFAULT_AUDIT_CONFIG } from '../../core/config/audit-config';
+import { type AuditConfig, DEFAULT_AUDIT_CONFIG } from '../../core/config/audit-config';
 
 const listeners: AuditListener[] = [];
 
-const MAX_LISTENERS = DEFAULT_AUDIT_CONFIG.maxListeners;
+let MAX_LISTENERS = DEFAULT_AUDIT_CONFIG.maxListeners;
+
+/**
+ * Reconfigures the audit emitter at runtime.
+ *
+ * Updates the maximum number of concurrent listeners. Listeners already registered
+ * are **not** removed — only future `onAudit()` calls are checked against the new cap.
+ * If the new `maxListeners` is lower than the current listener count, a `console.warn`
+ * is emitted to alert the operator; the existing listeners continue to fire normally.
+ *
+ * **PHP alignment:** mirrors `AuditLogger::configure(AuditConfig $config)` in the PHP package.
+ *
+ * @param config - New {@link AuditConfig} to apply.
+ */
+export function configure(config: AuditConfig): void {
+    if (config.maxListeners < listeners.length) {
+        console.warn(
+            `[AuditEmitter] configure(): new maxListeners (${config.maxListeners}) is lower than ` +
+                `the current listener count (${listeners.length}). Existing listeners are preserved.`,
+        );
+    }
+    MAX_LISTENERS = config.maxListeners;
+}
 
 /**
  * Registers an audit listener that is invoked for every {@link emitAudit} call.
@@ -47,8 +69,10 @@ export function emitAudit(type: AuditEventType, detail: Record<string, unknown>)
     for (const listener of snapshot) {
         try {
             listener(event);
-        } catch {
-            // Isolate listener errors so subsequent listeners still fire
+        } catch (err) {
+            // Isolate listener errors so subsequent listeners still fire.
+            // Log to stderr so failing listeners are observable in production.
+            console.warn('[AuditEmitter] Listener threw an error and was suppressed:', err);
         }
     }
 }

@@ -41,12 +41,14 @@
         "devium/toml": "^1.0",
         "symfony/yaml": "^8.0",
         "spatie/phpunit-snapshot-assertions": "^5.3",
-        "phpbench/phpbench": "^1.5"
+        "phpbench/phpbench": "^1.5",
+        "psr/simple-cache": "^3.0"
     },
     "suggest": {
         "ext-yaml": "Preferred YAML engine — when installed, used automatically over symfony/yaml for better performance",
         "symfony/yaml": "Required for YAML parsing when ext-yaml is not available (^7.0)",
-        "devium/toml": "Required for TOML parsing (^1.0)"
+        "devium/toml": "Required for TOML parsing (^1.0)",
+        "psr/simple-cache": "Required for remember()/forget() cache integration methods (^3.0)"
     },
     "autoload": {
         "psr-4": {
@@ -55,7 +57,8 @@
     },
     "autoload-dev": {
         "psr-4": {
-            "SafeAccessInline\\Tests\\": "tests/"
+            "SafeAccessInline\\Tests\\": "tests/",
+            "SafeAccessInline\\PHPStan\\": "phpstan/"
         }
     },
     "scripts": {

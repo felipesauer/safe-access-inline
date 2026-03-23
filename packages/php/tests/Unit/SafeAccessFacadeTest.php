@@ -201,6 +201,30 @@ describe(SafeAccess::class, function () {
         expect(SecurityPolicy::getGlobal())->toBeNull();
     });
 
+    it('mergePolicy — partial array overrides single field', function () {
+        $base   = new SecurityPolicy(maxDepth: 512, maxKeys: 10_000);
+        $merged = SecurityPolicy::mergePolicy($base, ['maxDepth' => 32]);
+        expect($merged->maxDepth)->toBe(32);
+        expect($merged->maxKeys)->toBe(10_000);   // untouched
+    });
+
+    it('mergePolicy — accepts SecurityPolicy object (backward compat)', function () {
+        $base      = new SecurityPolicy(maxDepth: 512);
+        $overrides = new SecurityPolicy(maxDepth: 64);
+        $merged    = SecurityPolicy::mergePolicy($base, $overrides);
+        expect($merged->maxDepth)->toBe(64);
+    });
+
+    it('mergePolicy — empty array returns base unchanged', function () {
+        $base   = new SecurityPolicy(maxDepth: 100);
+        $merged = SecurityPolicy::mergePolicy($base);
+        expect($merged->maxDepth)->toBe(100);
+    });
+
+    it('mergePolicy — unknown key throws InvalidArgumentException', function () {
+        SecurityPolicy::mergePolicy(new SecurityPolicy(), ['unknownKey' => 'val']);
+    })->throws(\InvalidArgumentException::class);
+
     // ── withPolicy enforcement ──────────────────────
 
     it('withPolicy enforces maxPayloadBytes', function () {
@@ -485,5 +509,90 @@ describe(SafeAccess::class, function () {
         } finally {
             IoLoader::resetHttpClient();
         }
+    });
+
+    it('reset() is an alias for resetAll() and clears global policy', function () {
+        SafeAccess::setGlobalPolicy(new SecurityPolicy(maxDepth: 5));
+        expect(SecurityPolicy::getGlobal())->not->toBeNull();
+
+        SafeAccess::reset();
+
+        expect(SecurityPolicy::getGlobal())->toBeNull();
+    });
+
+    it('reset() clears PluginRegistry state', function () {
+        \SafeAccessInline\Core\Registries\PluginRegistry::registerSerializer(
+            'customFmt',
+            new class () implements \SafeAccessInline\Contracts\SerializerPluginInterface {
+                public function serialize(array $data): string
+                {
+                    return '';
+                }
+            },
+        );
+        expect(\SafeAccessInline\Core\Registries\PluginRegistry::hasSerializer('customFmt'))->toBeTrue();
+
+        SafeAccess::reset();
+
+        expect(\SafeAccessInline\Core\Registries\PluginRegistry::hasSerializer('customFmt'))->toBeFalse();
+    });
+
+    it('watchFilePoll runs for maxIterations ticks without calling callback when file unchanged', function () {
+        $tmp = tempnam(sys_get_temp_dir(), 'sa_wfp_') . '.json';
+        file_put_contents($tmp, '{"v":1}');
+
+        $called = 0;
+
+        try {
+            SafeAccess::watchFilePoll(
+                $tmp,
+                function () use (&$called): void {
+                    $called++;
+                },
+                new FileLoadOptions(allowAnyPath: true),
+                0,
+                3,
+            );
+        } finally {
+            @unlink($tmp);
+        }
+
+        // File was not modified during polling — callback must not fire.
+        expect($called)->toBe(0);
+    });
+
+    it('watchFilePoll completes without error for a valid file with FileLoadOptions DTO', function () {
+        $tmp = tempnam(sys_get_temp_dir(), 'sa_wfp2_') . '.json';
+        file_put_contents($tmp, '{"status":"ok"}');
+
+        try {
+            SafeAccess::watchFilePoll(
+                $tmp,
+                function ($accessor): void {
+                },
+                new FileLoadOptions(format: 'json', allowAnyPath: true),
+                0,
+                2,
+            );
+        } finally {
+            @unlink($tmp);
+        }
+
+        expect(true)->toBeTrue(); // no exception thrown
+    });
+
+    it('watchFilePoll completes gracefully when file does not exist', function () {
+        $nonExistent = sys_get_temp_dir() . '/sa_wfp_noexist_' . uniqid() . '.json';
+
+        SafeAccess::watchFilePoll(
+            $nonExistent,
+            function ($accessor): void {
+            },
+            new FileLoadOptions(allowAnyPath: true),
+            0,
+            2,
+        );
+
+        expect(true)->toBeTrue(); // no exception thrown when file is absent
     });
 });

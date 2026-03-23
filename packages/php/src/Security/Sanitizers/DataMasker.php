@@ -23,7 +23,8 @@ final class DataMasker
      *
      * Bounded by {@see MaskerConfig::$maxPatternCacheSize} to prevent unbounded
      * memory growth in long-running processes that mask with many distinct patterns.
-     * Eviction is FIFO: when the cache is full, the oldest entry is removed.
+     * Eviction is LRU: a cache hit moves the entry to the end of the array;
+     * when the cache is full, the least-recently-used entry (first in array) is removed.
      *
      * @var array<string, bool> Keys are raw pattern strings; values are always `true`.
      */
@@ -123,7 +124,8 @@ final class DataMasker
      * case-insensitive glob patterns via {@see fnmatch()}.
      *
      * Compiled regex patterns are cached up to {@see MaskerConfig::$maxPatternCacheSize}
-     * entries. When the limit is reached, the oldest entry is evicted (FIFO).
+     * entries with LRU semantics: a cache hit promotes the entry to the most-recently-used
+     * position; when the cache is full, the least-recently-used entry is evicted.
      *
      * @param  string        $key      Key name to test.
      * @param  array<string> $patterns Caller-supplied patterns (glob or `/regex/`).
@@ -141,10 +143,14 @@ final class DataMasker
             // Regex pattern: delimited by /
             if (str_starts_with($pattern, '/') && preg_match('/\/[a-zA-Z]*$/', $pattern) === 1) {
                 $cacheKey = $pattern;
-                if (!array_key_exists($cacheKey, self::$patternCache)) {
+                if (array_key_exists($cacheKey, self::$patternCache)) {
+                    // LRU: promote to most-recently-used position
+                    unset(self::$patternCache[$cacheKey]);
+                    self::$patternCache[$cacheKey] = true;
+                } else {
                     $maxCacheSize = self::config()->maxPatternCacheSize;
                     if (count(self::$patternCache) >= $maxCacheSize) {
-                        // FIFO eviction: remove the oldest entry
+                        // LRU eviction: remove the least-recently-used entry (first in array)
                         reset(self::$patternCache);
                         $oldestKey = key(self::$patternCache);
                         if ($oldestKey !== null) {
@@ -153,8 +159,8 @@ final class DataMasker
                     }
                     self::$patternCache[$cacheKey] = true;
                 }
-                $result = preg_match($pattern, $key);
-                if ($result === false) {
+                $result = @preg_match($pattern, $key);
+                if ($result === false || preg_last_error() !== PREG_NO_ERROR) {
                     throw new \InvalidArgumentException(
                         "Invalid regex pattern provided to DataMasker: '{$pattern}'. Error: " . preg_last_error_msg()
                     );

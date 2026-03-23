@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { SafeAccess } from '../../src/safe-access';
 import { PluginRegistry } from '../../src/core/registries/plugin-registry';
 
@@ -117,6 +117,10 @@ describe('Cross-format conversion', () => {
 
     describe('Serialization via plugins', () => {
         beforeEach(() => {
+            PluginRegistry.reset();
+        });
+
+        afterEach(() => {
             PluginRegistry.reset();
         });
 

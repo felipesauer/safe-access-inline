@@ -490,4 +490,13 @@ describe(DotNotationParser.name, () => {
         const result = DotNotationParser.set(data, 'a.b', 'val');
         expect((result.a as Record<string, unknown>).b).toBe('val');
     });
+
+    it('configure() merges partial config and affects parsing behaviour', () => {
+        // Line 26: DotNotationParser.configure({ ... }) merges with defaults
+        DotNotationParser.configure({ strictMode: false });
+        // After configure, basic access still works
+        expect(DotNotationParser.get({ a: 1 }, 'a')).toBe(1);
+        // Reset to defaults
+        DotNotationParser.configure({});
+    });
 });

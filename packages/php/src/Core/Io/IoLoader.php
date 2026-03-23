@@ -10,6 +10,8 @@ use SafeAccessInline\Core\Config\IoLoaderConfig;
 use SafeAccessInline\Enums\Format;
 use SafeAccessInline\Exceptions\SecurityException;
 use SafeAccessInline\Security\Audit\AuditLogger;
+use SafeAccessInline\Security\Guards\IpRangeChecker;
+use SafeAccessInline\Security\Guards\SecurityOptions;
 
 /**
  * I/O loader for reading files and fetching URLs.
@@ -174,6 +176,7 @@ final class IoLoader
         /** @var string $host */
         $host = $parsed['host'] ?? '';
         $port = $parsed['port'] ?? 443;
+        $maxPayloadBytes = self::config()->maxPayloadBytes;
 
         $curlOptions = [
             CURLOPT_RETURNTRANSFER => true,
@@ -184,9 +187,17 @@ final class IoLoader
             CURLOPT_SSL_VERIFYHOST => 2,
             CURLOPT_PROTOCOLS => CURLPROTO_HTTPS,
             CURLOPT_RESOLVE => ["{$host}:{$port}:{$resolvedIp}"],
+            // Layer 1: abort early when the server sends a Content-Length header
+            // that already exceeds the limit — avoids buffering the body at all.
+            CURLOPT_MAXFILESIZE => $maxPayloadBytes,
         ];
 
-        return self::getHttpClient()->fetch($url, $curlOptions);
+        $body = self::getHttpClient()->fetch($url, $curlOptions);
+
+        // Layer 2: post-fetch byte count — catches servers that omit Content-Length.
+        SecurityOptions::assertPayloadSize($body, $maxPayloadBytes);
+
+        return $body;
     }
 
     /**
@@ -299,7 +310,7 @@ final class IoLoader
             // Block ::ffff:0:0/96 (IPv4-mapped IPv6)
             if (str_starts_with(strtolower($cleaned), '::ffff:')) {
                 $mappedIp = substr($cleaned, 7);
-                if (self::isPrivateIp($mappedIp)) {
+                if (IpRangeChecker::isPrivateIpv4($mappedIp)) {
                     throw new SecurityException(
                         "Access to private/internal IP '{$cleaned}' is blocked (SSRF protection)."
                     );
@@ -327,7 +338,7 @@ final class IoLoader
             // IPv4 resolution failed — try IPv6 AAAA records
             $ipv6 = $resolver->resolveIPv6($host);
             if ($ipv6 !== null) {
-                if (!$allowPrivateIps && self::isPrivateIpv6($ipv6)) {
+                if (!$allowPrivateIps && IpRangeChecker::isPrivateIpv6($ipv6)) {
                     throw new SecurityException(
                         "Access to private/internal IPv6 '{$ipv6}' is blocked (SSRF protection)."
                     );
@@ -337,7 +348,7 @@ final class IoLoader
             }
         }
 
-        if (!$allowPrivateIps && self::isPrivateIp($ip)) {
+        if (!$allowPrivateIps && IpRangeChecker::isPrivateIpv4($ip)) {
             throw new SecurityException(
                 "Access to private/internal IP '{$ip}' is blocked (SSRF protection)."
             );
@@ -349,74 +360,26 @@ final class IoLoader
     /**
      * Determines whether an IPv6 address falls within a private or reserved range.
      *
-     * Covers: loopback (::1), link-local (fe80::/10), ULA (fc00::/7), and
-     * IPv4-mapped (::ffff:0:0/96) ranges.
+     * @deprecated Use {@see IpRangeChecker::isPrivateIpv6()} directly.
      *
      * @param  string $ip Normalized IPv6 address string.
      * @return bool True when the address is private or reserved.
      */
     public static function isPrivateIpv6(string $ip): bool
     {
-        $lower = strtolower($ip);
-
-        // ::1 loopback
-        if ($lower === '::1' || $lower === '0:0:0:0:0:0:0:1') {
-            return true;
-        }
-
-        // fe80::/10 link-local — full range fe80::–febf::, not just fe80::
-        // The /10 prefix covers second bytes 0x80–0xbf: fe8x, fe9x, feax, febx
-        if (preg_match('/^fe[89ab][0-9a-f]:/i', $lower)) {
-            return true;
-        }
-
-        // fc00::/7 ULA (unique local addresses): fd00::/8 and fc00::/8
-        if (preg_match('/^f[cd][0-9a-f]{0,2}:/i', $lower)) {
-            return true;
-        }
-
-        // ::ffff:0:0/96 IPv4-mapped — check the mapped IPv4 address
-        if (str_starts_with($lower, '::ffff:')) {
-            $mappedIp = substr($lower, 7);
-            return self::isPrivateIp($mappedIp);
-        }
-
-        return false;
+        return IpRangeChecker::isPrivateIpv6($ip);
     }
 
     /**
      * Determines whether an IPv4 address falls within a private or reserved range.
      *
-     * Covers: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 127.0.0.0/8,
-     * 169.254.0.0/16, 0.0.0.0/8, and 100.64.0.0/10 (CGNAT — RFC 6598).
-     * Invalid addresses return true (treated as private).
+     * @deprecated Use {@see IpRangeChecker::isPrivateIpv4()} directly.
      *
      * @param  string $ip Dotted-decimal IPv4 address string.
      * @return bool True when the address is private, reserved, or invalid.
      */
     public static function isPrivateIp(string $ip): bool
     {
-        $long = ip2long($ip);
-        if ($long === false) {
-            return true; // Invalid = treat as private for safety
-        }
-
-        $ranges = [
-            [0x0a000000, 0x0affffff], // 10.0.0.0/8
-            [0xac100000, 0xac1fffff], // 172.16.0.0/12
-            [0xc0a80000, 0xc0a8ffff], // 192.168.0.0/16
-            [0x7f000000, 0x7fffffff], // 127.0.0.0/8
-            [0xa9fe0000, 0xa9feffff], // 169.254.0.0/16 (link-local, AWS metadata)
-            [0x00000000, 0x00ffffff], // 0.0.0.0/8
-            [0x64400000, 0x647fffff], // 100.64.0.0/10 (CGNAT — RFC 6598)
-        ];
-
-        foreach ($ranges as [$start, $end]) {
-            if ($long >= $start && $long <= $end) {
-                return true;
-            }
-        }
-
-        return false;
+        return IpRangeChecker::isPrivateIpv4($ip);
     }
 }

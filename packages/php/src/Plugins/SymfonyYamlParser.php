@@ -40,16 +40,34 @@ class SymfonyYamlParser extends AbstractPlugin implements ParserPluginInterface
     /**
      * Parses a YAML string into an associative array using symfony/yaml.
      *
+     * The {@see \Symfony\Component\Yaml\Yaml::PARSE_EXCEPTION_ON_INVALID_TYPE} flag
+     * causes symfony/yaml to throw a {@see \Symfony\Component\Yaml\Exception\ParseException}
+     * for unsafe PHP-specific tags such as `!php/object:ClassName`, preventing
+     * arbitrary PHP object deserialization. The exception is caught here and
+     * re-thrown as a `\RuntimeException` so callers receive a consistent
+     * domain-level error.
+     *
      * @param  string              $raw Raw YAML content.
      * @return array<string, mixed> Parsed data.
      *
-     * @throws \RuntimeException If symfony/yaml is not installed.
+     * @throws \RuntimeException If symfony/yaml is not installed or a dangerous/invalid type is encountered.
      */
     public function parse(string $raw): array
     {
         $this->assertAvailable();
 
-        $parsed = \Symfony\Component\Yaml\Yaml::parse($raw, \Symfony\Component\Yaml\Yaml::PARSE_EXCEPTION_ON_INVALID_TYPE);
+        try {
+            $parsed = \Symfony\Component\Yaml\Yaml::parse(
+                $raw,
+                \Symfony\Component\Yaml\Yaml::PARSE_EXCEPTION_ON_INVALID_TYPE,
+            );
+        } catch (\Symfony\Component\Yaml\Exception\ParseException $e) {
+            throw new \RuntimeException(
+                'YAML parsing failed (dangerous or invalid type encountered): ' . $e->getMessage(),
+                0,
+                $e,
+            );
+        }
 
         return is_array($parsed) ? $parsed : [];
     }

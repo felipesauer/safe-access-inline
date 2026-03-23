@@ -15,6 +15,7 @@ use SafeAccessInline\Exceptions\InvalidFormatException;
  *
  * @example
  * SafeAccess::fromToml($tomlString)->get('database.host');
+ * @extends AbstractAccessor<array<mixed>>
  */
 class TomlAccessor extends AbstractAccessor
 {

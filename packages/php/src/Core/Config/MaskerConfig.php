@@ -9,6 +9,19 @@ namespace SafeAccessInline\Core\Config;
  *
  * Defines the replacement string applied to redacted values and the maximum
  * recursion depth searched when masking nested structures.
+ *
+ * Both PHP and JS `DataMasker` accept two kinds of patterns:
+ *
+ *   - **Glob** (`string`): case-insensitive shell-glob notation, e.g. `'*_secret'`.
+ *     PHP delegates to `fnmatch()` with `FNM_CASEFOLD`; JS uses a glob-to-regex conversion.
+ *
+ *   - **Regex** (`string` delimited by `/`): PCRE in PHP, native `RegExp` in JS.
+ *     PHP: `'/^password_\d+$/i'`; JS: `'/^password_\d+$/i'` (same delimiter notation).
+ *
+ * Key naming for glob patterns is case-insensitive on both platforms. The `RegExp`
+ * type itself (as a JS runtime value) has no direct PHP equivalent — callers using
+ * the PHP package must pass the regex as a delimited `string` rather than a `RegExp`
+ * object. This is an expected language-idiomatic difference (plan item D3).
  */
 final readonly class MaskerConfig
 {

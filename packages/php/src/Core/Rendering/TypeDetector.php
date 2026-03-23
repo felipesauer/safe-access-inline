@@ -39,7 +39,7 @@ final class TypeDetector
      * TOML → INI → ENV. Throws when no format can be inferred.
      *
      * @param  mixed $data Raw input to detect and wrap.
-     * @return AbstractAccessor Accessor instance wrapping the detected data.
+     * @return AbstractAccessor<array<mixed>> Accessor instance wrapping the detected data.
      *
      * @throws \SafeAccessInline\Exceptions\UnsupportedTypeException When the format cannot be auto-detected.
      */

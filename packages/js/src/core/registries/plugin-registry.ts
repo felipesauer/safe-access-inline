@@ -1,55 +1,64 @@
 import { UnsupportedTypeError } from '../../exceptions/unsupported-type.error';
 import { AuditEventType, emitAudit } from '../../security/audit/audit-emitter';
+import { DEFAULT_PLUGIN_REGISTRY_CONFIG } from '../config/plugin-registry-config';
+import type {
+    IPluginRegistry,
+    ParserPlugin,
+    SerializerPlugin,
+} from '../../contracts/plugin-registry.contract';
+
+export type { ParserPlugin, SerializerPlugin };
 
 /**
- * Contract for parser plugins.
- * A parser converts raw input (string) into a Record.
+ * Concrete, instantiable implementation of {@link IPluginRegistry}.
+ *
+ * Used internally by the global {@link PluginRegistry} static facade and by
+ * isolated instances created via {@link PluginRegistry.create} for DI / testing.
+ *
+ * @internal
  */
-export interface ParserPlugin {
-    parse(raw: string): Record<string, unknown>;
-}
+class PluginRegistryImpl implements IPluginRegistry {
+    private parsers = new Map<string, ParserPlugin>();
+    private serializers = new Map<string, SerializerPlugin>();
+    private readonly MAX_PARSERS: number;
+    private readonly MAX_SERIALIZERS: number;
 
-/**
- * Contract for serializer plugins.
- * A serializer converts a Record into a formatted string.
- */
-export interface SerializerPlugin {
-    serialize(data: Record<string, unknown>): string;
-}
-
-/**
- * Central registry for parser and serializer plugins.
- * Same architecture as the PHP PluginRegistry.
- */
-export class PluginRegistry {
-    private static parsers = new Map<string, ParserPlugin>();
-    private static serializers = new Map<string, SerializerPlugin>();
+    constructor(config = DEFAULT_PLUGIN_REGISTRY_CONFIG) {
+        this.MAX_PARSERS = config.maxParsers;
+        this.MAX_SERIALIZERS = config.maxSerializers;
+    }
 
     // ── Parsers ──
 
     /** Registers (or overwrites) a parser plugin for the given `format`. */
-    static registerParser(format: string, parser: ParserPlugin): void {
-        if (PluginRegistry.parsers.has(format)) {
+    registerParser(format: string, parser: ParserPlugin): void {
+        if (!this.parsers.has(format) && this.parsers.size >= this.MAX_PARSERS) {
+            throw new RangeError(
+                `Max parser plugins (${this.MAX_PARSERS}) reached. ` +
+                    `Call PluginRegistry.reset() to clear before registering new formats.`,
+            );
+        }
+        if (this.parsers.has(format)) {
             emitAudit(AuditEventType.PLUGIN_OVERWRITE, {
                 kind: 'parser',
                 format,
                 message: `Parser for format '${format}' is being overwritten.`,
             });
         }
-        PluginRegistry.parsers.set(format, parser);
+        this.parsers.set(format, parser);
     }
 
     /** Returns `true` if a parser is registered for `format`. */
-    static hasParser(format: string): boolean {
-        return PluginRegistry.parsers.has(format);
+    hasParser(format: string): boolean {
+        return this.parsers.has(format);
     }
 
     /**
      * Returns the registered parser for `format`.
      * @throws {@link UnsupportedTypeError} When no parser is registered.
      */
-    static getParser(format: string): ParserPlugin {
-        const parser = PluginRegistry.parsers.get(format);
+    getParser(format: string): ParserPlugin {
+        const parser = this.parsers.get(format);
         if (!parser) {
             throw new UnsupportedTypeError(
                 `No parser registered for format '${format}'. ` +
@@ -62,28 +71,34 @@ export class PluginRegistry {
     // ── Serializers ──
 
     /** Registers (or overwrites) a serializer plugin for the given `format`. */
-    static registerSerializer(format: string, serializer: SerializerPlugin): void {
-        if (PluginRegistry.serializers.has(format)) {
+    registerSerializer(format: string, serializer: SerializerPlugin): void {
+        if (!this.serializers.has(format) && this.serializers.size >= this.MAX_SERIALIZERS) {
+            throw new RangeError(
+                `Max serializer plugins (${this.MAX_SERIALIZERS}) reached. ` +
+                    `Call PluginRegistry.reset() to clear before registering new formats.`,
+            );
+        }
+        if (this.serializers.has(format)) {
             emitAudit(AuditEventType.PLUGIN_OVERWRITE, {
                 kind: 'serializer',
                 format,
                 message: `Serializer for format '${format}' is being overwritten.`,
             });
         }
-        PluginRegistry.serializers.set(format, serializer);
+        this.serializers.set(format, serializer);
     }
 
     /** Returns `true` if a serializer is registered for `format`. */
-    static hasSerializer(format: string): boolean {
-        return PluginRegistry.serializers.has(format);
+    hasSerializer(format: string): boolean {
+        return this.serializers.has(format);
     }
 
     /**
      * Returns the registered serializer for `format`.
      * @throws {@link UnsupportedTypeError} When no serializer is registered.
      */
-    static getSerializer(format: string): SerializerPlugin {
-        const serializer = PluginRegistry.serializers.get(format);
+    getSerializer(format: string): SerializerPlugin {
+        const serializer = this.serializers.get(format);
         if (!serializer) {
             throw new UnsupportedTypeError(
                 `No serializer registered for format '${format}'. ` +
@@ -93,11 +108,90 @@ export class PluginRegistry {
         return serializer;
     }
 
-    // ── Reset (testing) ──
+    /** Removes all registered parsers and serializers. */
+    reset(): void {
+        this.parsers.clear();
+        this.serializers.clear();
+    }
+}
+
+/** Module-level default instance backing the static facade. */
+const _defaultPluginRegistry: PluginRegistryImpl = new PluginRegistryImpl();
+
+/**
+ * Central registry for parser and serializer plugins.
+ *
+ * All static methods delegate to a shared module-level default instance, preserving
+ * the existing API. For test isolation or DI, use {@link PluginRegistry.create} to
+ * obtain a fresh {@link IPluginRegistry} instance that is fully independent of the global state.
+ *
+ * Same architecture as the PHP PluginRegistry.
+ */
+export class PluginRegistry {
+    /**
+     * Creates a new, isolated plugin registry instance.
+     *
+     * Use this in tests or DI contexts where you need a scope that is completely
+     * independent of the global default registry.
+     *
+     * @returns A fresh {@link IPluginRegistry} instance.
+     */
+    static create(): IPluginRegistry {
+        return new PluginRegistryImpl();
+    }
+
+    /**
+     * Returns the global default registry instance backing all static methods.
+     *
+     * Prefer the static convenience methods for most use-cases; use `getDefault()`
+     * only when you need to pass the registry as an {@link IPluginRegistry} reference.
+     *
+     * @returns The shared module-level {@link IPluginRegistry}.
+     */
+    static getDefault(): IPluginRegistry {
+        return _defaultPluginRegistry;
+    }
+
+    // ── Static facade (backward-compatible API) ──
+
+    /** Registers (or overwrites) a parser plugin for the given `format`. */
+    static registerParser(format: string, parser: ParserPlugin): void {
+        _defaultPluginRegistry.registerParser(format, parser);
+    }
+
+    /** Returns `true` if a parser is registered for `format`. */
+    static hasParser(format: string): boolean {
+        return _defaultPluginRegistry.hasParser(format);
+    }
+
+    /**
+     * Returns the registered parser for `format`.
+     * @throws {@link UnsupportedTypeError} When no parser is registered.
+     */
+    static getParser(format: string): ParserPlugin {
+        return _defaultPluginRegistry.getParser(format);
+    }
+
+    /** Registers (or overwrites) a serializer plugin for the given `format`. */
+    static registerSerializer(format: string, serializer: SerializerPlugin): void {
+        _defaultPluginRegistry.registerSerializer(format, serializer);
+    }
+
+    /** Returns `true` if a serializer is registered for `format`. */
+    static hasSerializer(format: string): boolean {
+        return _defaultPluginRegistry.hasSerializer(format);
+    }
+
+    /**
+     * Returns the registered serializer for `format`.
+     * @throws {@link UnsupportedTypeError} When no serializer is registered.
+     */
+    static getSerializer(format: string): SerializerPlugin {
+        return _defaultPluginRegistry.getSerializer(format);
+    }
 
     /** Removes all registered parsers and serializers. Intended for test teardown. */
     static reset(): void {
-        PluginRegistry.parsers.clear();
-        PluginRegistry.serializers.clear();
+        _defaultPluginRegistry.reset();
     }
 }

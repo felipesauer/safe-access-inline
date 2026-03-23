@@ -1,0 +1,17 @@
+# Dev-only files — blacklist reinforcing the `files` whitelist in package.json
+# If a new file is added to the package without updating `files`, this catches it.
+
+tests/
+coverage/
+reports/
+
+*.test.ts
+*.spec.ts
+
+vitest.config.ts
+tsup.config.ts
+tsconfig.json
+eslint.config.js
+stryker.config.json
+.gitattributes
+.gitignore

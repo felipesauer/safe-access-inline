@@ -1,6 +1,7 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { PluginRegistry } from '../../../../src/core/registries/plugin-registry';
 import { UnsupportedTypeError } from '../../../../src/exceptions/unsupported-type.error';
+import { DEFAULT_PLUGIN_REGISTRY_CONFIG } from '../../../../src/core/config/plugin-registry-config';
 import { SafeAccess } from '../../../../src/safe-access';
 import type {
     ParserPlugin,
@@ -8,6 +9,10 @@ import type {
 } from '../../../../src/core/registries/plugin-registry';
 
 beforeEach(() => {
+    PluginRegistry.reset();
+});
+
+afterEach(() => {
     PluginRegistry.reset();
 });
 
@@ -189,5 +194,53 @@ describe(PluginRegistry.name, () => {
         const accessor = SafeAccess.fromToml('title = "Test"\nport = 8080');
         expect(accessor.get('title')).toBe('Test');
         expect(accessor.get('port')).toBe(8080);
+    });
+
+    // ── Registry size limits ──
+
+    it('throws RangeError when max parser limit is exceeded', () => {
+        for (let i = 0; i < DEFAULT_PLUGIN_REGISTRY_CONFIG.maxParsers; i++) {
+            PluginRegistry.registerParser(`format-${i}`, { parse: () => ({}) });
+        }
+        expect(() =>
+            PluginRegistry.registerParser('overflow-format', { parse: () => ({}) }),
+        ).toThrow(RangeError);
+        expect(() =>
+            PluginRegistry.registerParser('overflow-format', { parse: () => ({}) }),
+        ).toThrow(`Max parser plugins (${DEFAULT_PLUGIN_REGISTRY_CONFIG.maxParsers})`);
+    });
+
+    it('does not count overwrite of existing format toward parser limit', () => {
+        for (let i = 0; i < DEFAULT_PLUGIN_REGISTRY_CONFIG.maxParsers; i++) {
+            PluginRegistry.registerParser(`format-${i}`, { parse: () => ({}) });
+        }
+        // Re-registering an already-known format must not throw
+        expect(() =>
+            PluginRegistry.registerParser('format-0', { parse: () => ({ overwritten: true }) }),
+        ).not.toThrow();
+    });
+
+    it('throws RangeError when max serializer limit is exceeded', () => {
+        for (let i = 0; i < DEFAULT_PLUGIN_REGISTRY_CONFIG.maxSerializers; i++) {
+            PluginRegistry.registerSerializer(`format-${i}`, { serialize: () => '' });
+        }
+        expect(() =>
+            PluginRegistry.registerSerializer('overflow-format', { serialize: () => '' }),
+        ).toThrow(RangeError);
+        expect(() =>
+            PluginRegistry.registerSerializer('overflow-format', { serialize: () => '' }),
+        ).toThrow(`Max serializer plugins (${DEFAULT_PLUGIN_REGISTRY_CONFIG.maxSerializers})`);
+    });
+
+    it('does not count overwrite of existing format toward serializer limit', () => {
+        for (let i = 0; i < DEFAULT_PLUGIN_REGISTRY_CONFIG.maxSerializers; i++) {
+            PluginRegistry.registerSerializer(`format-${i}`, { serialize: () => '' });
+        }
+        // Re-registering an already-known format must not throw
+        expect(() =>
+            PluginRegistry.registerSerializer('format-0', {
+                serialize: () => 'overwritten',
+            }),
+        ).not.toThrow();
     });
 });

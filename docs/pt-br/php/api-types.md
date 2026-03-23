@@ -306,3 +306,71 @@ Enum backed por string que espelha os nomes das operações RFC 6902 JSON Patch.
 | `PatchOperationType::MOVE`    | `'move'`    |
 | `PatchOperationType::COPY`    | `'copy'`    |
 | `PatchOperationType::TEST`    | `'test'`    |
+
+### `CsvMode`
+
+**Namespace:** `SafeAccessInline\Enums\CsvMode`
+
+Controla a sanitização contra CSV injection aplicada durante a serialização com `toCsv()` e ao ler através de um `SecurityPolicy`. Tem como alvo células cujo primeiro caractere é `=`, `+`, `-` ou `@`.
+
+| Caso              | Valor      | Comportamento                                                 |
+| ----------------- | ---------- | ------------------------------------------------------------- |
+| `CsvMode::NONE`   | `'none'`   | Sem sanitização (padrão)                                      |
+| `CsvMode::PREFIX` | `'prefix'` | Adiciona um caractere de tabulação antes de células perigosas |
+| `CsvMode::STRIP`  | `'strip'`  | Remove o caractere inicial perigoso                           |
+| `CsvMode::ERROR`  | `'error'`  | Lança `SecurityException` ao detectar                         |
+
+```php
+use SafeAccessInline\Enums\CsvMode;
+use SafeAccessInline\Security\Guards\SecurityPolicy;
+
+// Via toCsv() diretamente
+$accessor->toCsv(CsvMode::STRIP->value); // ou string simples 'strip'
+
+// Via SecurityPolicy
+$policy = new SecurityPolicy(csvMode: CsvMode::STRIP->value);
+$accessor = SafeAccess::withPolicy($csvString, $policy);
+```
+
+### `FileLoadOptions`
+
+**Namespace:** `SafeAccessInline\Contracts\FileLoadOptions`
+
+DTO readonly que encapsula opções de carregamento de arquivos. Aceito por `fromFile()`, `layerFiles()`, `watchFile()` e `watchFilePoll()` como alternativa a argumentos posicionais.
+
+| Propriedade          | Tipo      | Padrão  | Descrição                                                              |
+| -------------------- | --------- | ------- | ---------------------------------------------------------------------- |
+| `$format`            | `?string` | `null`  | Forçar um formato específico; sobrescreve detecção auto                |
+| `$allowedDirs`       | `array`   | `[]`    | Allowlist de diretórios para proteção contra path-traversal            |
+| `$allowAnyPath`      | `bool`    | `false` | Ignora restrições de diretório (use com cautela)                       |
+| `$maxSize`           | `?int`    | `null`  | Rejeita arquivos maiores que este valor em bytes (`null` = sem limite) |
+| `$allowedExtensions` | `array`   | `[]`    | Allowlist de extensões (ex: `['json', 'yaml']`). Vazio = permite todas |
+
+```php
+use SafeAccessInline\Contracts\FileLoadOptions;
+use SafeAccessInline\SafeAccess;
+
+// Mínimo: restringir a um diretório
+$opts = new FileLoadOptions(allowedDirs: ['/app/config']);
+$accessor = SafeAccess::fromFile('/app/config/app.json', $opts);
+
+// Com formato explícito + diretório
+$opts = new FileLoadOptions(
+    format: 'json',
+    allowedDirs: ['/app/config', '/etc/myapp'],
+);
+
+// Permissivo — apenas para testes ou scripts internos
+$opts = new FileLoadOptions(allowAnyPath: true);
+
+// Com restrições de tamanho e extensão
+$opts = new FileLoadOptions(
+    allowedDirs: ['/uploads'],
+    maxSize: 512 * 1024,              // limite de 512 KB
+    allowedExtensions: ['json', 'yaml'],
+);
+```
+
+::: tip Quando usar o DTO
+Prefira `FileLoadOptions` em vez dos argumentos posicionais `$format` / `$allowedDirs` / `$allowAnyPath` quando precisar configurar mais de uma opção. O DTO é mais legível, auto-documentado e compatível com futuras adições.
+:::

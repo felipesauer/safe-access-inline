@@ -202,6 +202,16 @@ describe('ip-range-checker', () => {
             vi.mocked(dns.resolve6).mockResolvedValueOnce(['2001:db8::1']);
             await expect(resolveAndValidateIp('v6only.example.com')).resolves.toBe('2001:db8::1');
         });
+
+        it('returns null when resolve4 throws synchronously (unexpected OS-level error)', async () => {
+            const dns = await import('node:dns/promises');
+            // A synchronous throw bypasses the per-record .catch(() => []) handler and
+            // falls through to the outer catch, which swallows non-SecurityErrors.
+            vi.mocked(dns.resolve4).mockImplementationOnce(() => {
+                throw new TypeError('Unexpected OS-level failure');
+            });
+            await expect(resolveAndValidateIp('example.com')).resolves.toBeNull();
+        });
     });
 });
 
@@ -229,5 +239,167 @@ describe('IpRangeChecker — positive paths', () => {
 
     it('allows public IP addresses (non-private)', () => {
         expect(() => assertSafeUrl('https://8.8.8.8')).not.toThrow();
+    });
+});
+
+// ── ipToLong — boundary values ──────────────────────────────────
+describe('ipToLong — boundary values', () => {
+    it('treats 255 as a valid octet (max allowed value, not > 255)', () => {
+        // Mutation: changes p > 255 to p >= 255, which would reject 255
+        expect(ipToLong('255.255.255.255')).not.toBe(-1);
+        expect(ipToLong('255.0.0.0')).toBe(0xff000000 >>> 0);
+        expect(ipToLong('0.0.0.255')).toBe(255);
+    });
+
+    it('returns -1 for negative octets (p < 0 with LogicalOperator || not &&)', () => {
+        // Mutation: changes isNaN(p) || p < 0 to isNaN(p) && p < 0
+        // With &&, a negative NaN-free number like -1 would not be rejected
+        expect(ipToLong('1.-1.0.0')).toBe(-1);
+        expect(ipToLong('-1.0.0.0')).toBe(-1);
+        expect(ipToLong('0.0.0.-1')).toBe(-1);
+    });
+
+    it('returns -1 for IPs with too few parts (parts.length !== 4)', () => {
+        expect(ipToLong('1.2.3')).toBe(-1);
+        expect(ipToLong('1.2')).toBe(-1);
+    });
+
+    it('returns correct numeric value for typical addresses', () => {
+        expect(ipToLong('0.0.0.0')).toBe(0);
+        expect(ipToLong('1.0.0.0')).toBe(0x01000000);
+        expect(ipToLong('10.0.0.1')).toBe(0x0a000001);
+    });
+});
+
+// ── isPrivateIp — exact range boundary (start of each range) ────
+describe('isPrivateIp — range boundary tests', () => {
+    it('returns true for the exact start address of each private range', () => {
+        // Mutation: changes long >= range.start to long > range.start
+        // That would make addresses exactly AT range.start appear public
+        expect(isPrivateIp('10.0.0.0')).toBe(true); // 10.0.0.0/8 start
+        expect(isPrivateIp('172.16.0.0')).toBe(true); // 172.16.0.0/12 start
+        expect(isPrivateIp('192.168.0.0')).toBe(true); // 192.168.0.0/16 start
+        expect(isPrivateIp('127.0.0.0')).toBe(true); // 127.0.0.0/8 start
+        expect(isPrivateIp('169.254.0.0')).toBe(true); // 169.254.0.0/16 start
+        expect(isPrivateIp('0.0.0.0')).toBe(true); // 0.0.0.0/8 start
+        expect(isPrivateIp('100.64.0.0')).toBe(true); // 100.64.0.0/10 start
+    });
+
+    it('returns false for addresses just before the first private range', () => {
+        expect(isPrivateIp('9.255.255.255')).toBe(false);
+    });
+});
+
+// ── isIpv6Loopback — regex anchor and pattern edge cases ────────
+describe('isIpv6Loopback — regex mutation edge cases', () => {
+    it('returns false for host with embedded [ not at start (kills no-^ regex mutation)', () => {
+        // Mutation removes ^ from /^\[|\]$/g → /\[|\]$/g cleans embedded [ anywhere
+        // Real regex only removes [ at START; if real cleaning leaves [, ULA check fails
+        expect(isIpv6Loopback('fc[00::1]')).toBe(false);
+    });
+
+    it('returns false for host with ] in middle not at end (kills no-$ regex mutation)', () => {
+        // Mutation removes $ from /^\[|\]$/g → /^\[|\]/g removes any ]
+        // With mutation, fd00]::1 becomes fd00::1 which matches ULA
+        expect(isIpv6Loopback('fd00]::1')).toBe(false);
+    });
+
+    it('returns false for ULA-like prefix not at line start (kills no-^ ULA regex)', () => {
+        // Mutation removes ^ from /^f[cd].../ → matches f[cd] anywhere
+        expect(isIpv6Loopback('2001:fd00::1')).toBe(false);
+        expect(isIpv6Loopback('2001:fc00::1')).toBe(false);
+    });
+
+    it('returns true for fe8-prefixed link-local with empty hex digit (kills {0,1}→{1} mutation)', () => {
+        // Real regex /^fe[89ab][0-9a-f]{0,1}:/ allows 0 or 1 hex digit after fe8
+        // Mutation /^fe[89ab][0-9a-f]:/ requires exactly 1 digit → fe8::1 would fail
+        expect(isIpv6Loopback('fe8::1')).toBe(true);
+        expect(isIpv6Loopback('fe9::1')).toBe(true);
+    });
+
+    it('returns false for link-local prefix not at line start (kills no-^ link-local regex)', () => {
+        // Mutation removes ^ from /^fe[89ab].../ → matches fe8x anywhere
+        expect(isIpv6Loopback('2001:fe80::1')).toBe(false);
+    });
+
+    it('correctly handles addresses without bracket wrapping', () => {
+        expect(isIpv6Loopback('fc00::1')).toBe(true);
+        expect(isIpv6Loopback('fd00::1')).toBe(true);
+        expect(isIpv6Loopback('fe80::1')).toBe(true);
+    });
+});
+
+// ── assertSafeUrl — additional mutation-killing tests ────────────
+describe('assertSafeUrl — additional edge cases', () => {
+    it('rejects URL with username but no password (kills || → && LogicalOperator mutation)', () => {
+        // Mutation changes parsed.username || parsed.password to &&
+        // With &&: username='user', password='' → 'user' && '' = false → no throw
+        expect(() => assertSafeUrl('https://user@example.com')).toThrow('embedded credentials');
+    });
+
+    it('does not reject when allowedHosts is empty array (kills length > 0 mutation)', () => {
+        // Mutation changes length > 0 to length >= 0 → empty array triggers check
+        // and any host would be rejected (not in empty list)
+        expect(() => assertSafeUrl('https://example.com', { allowedHosts: [] })).not.toThrow();
+    });
+
+    it('blocks metadata.oracle.internal cloud hostname', () => {
+        // Tests the third hostname check in the cloud metadata block
+        expect(() => assertSafeUrl('https://metadata.oracle.internal')).toThrow('cloud metadata');
+    });
+
+    it('rejects raw IPv4 matching the full pattern /^\\d{1,3}...$/  (kills no-$ mutation)', () => {
+        // Mutation removes $ anchor → /^\d{1,3}.\d{1,3}.\d{1,3}.\d{1,3}/ matches prefix
+        // assertSafeUrl with private IP should always throw regardless
+        expect(() => assertSafeUrl('https://192.168.1.1')).toThrow('SSRF protection');
+    });
+
+    it('allows valid HTTPS URL with allowPrivateIps overriding private IP check', () => {
+        expect(() => assertSafeUrl('https://10.0.0.1', { allowPrivateIps: true })).not.toThrow();
+    });
+
+    it('rejects port error message contains join of allowed ports list', () => {
+        // StringLiteral mutation for the join separator in error message
+        expect(() =>
+            assertSafeUrl('https://example.com:9090', { allowedPorts: [443, 8080] }),
+        ).toThrow('[443, 8080]');
+    });
+});
+
+// ── resolveAndValidateIp — additional mutation-killing tests ─────
+describe('resolveAndValidateIp — edge cases', () => {
+    it('returns null immediately when allowPrivateIps is true (early return path)', async () => {
+        // Mutation: ConditionalExpression → false skips early return
+        const result = await resolveAndValidateIp('example.com', { allowPrivateIps: true });
+        expect(result).toBeNull();
+    });
+
+    it('returns raw IPv4 directly without DNS lookup', async () => {
+        // Mutation: regex mutations on the raw-IP check pattern
+        const result = await resolveAndValidateIp('8.8.8.8');
+        expect(result).toBe('8.8.8.8');
+    });
+
+    it('returns raw 2-digit and 3-digit octet IPv4 directly', async () => {
+        // Kills regex mutations {1,3}→{1} which would reject multi-digit octets
+        const r1 = await resolveAndValidateIp('10.10.10.10');
+        expect(r1).toBe('10.10.10.10');
+        const r2 = await resolveAndValidateIp('100.200.100.200');
+        expect(r2).toBe('100.200.100.200');
+    });
+
+    it('returns first v4 address when both v4 and v6 resolve (kills v4 first check)', async () => {
+        const dns = await import('node:dns/promises');
+        vi.mocked(dns.resolve4).mockResolvedValueOnce(['8.8.8.8']);
+        vi.mocked(dns.resolve6).mockResolvedValueOnce(['2001:db8::1']);
+        const result = await resolveAndValidateIp('dual-stack.example.com');
+        expect(result).toBe('8.8.8.8');
+    });
+
+    it('throws SecurityError when v4 address resolves to a private IP', async () => {
+        const dns = await import('node:dns/promises');
+        vi.mocked(dns.resolve4).mockResolvedValueOnce(['10.0.0.1']);
+        vi.mocked(dns.resolve6).mockResolvedValueOnce([]);
+        await expect(resolveAndValidateIp('evil.example.com')).rejects.toThrow(SecurityError);
     });
 });

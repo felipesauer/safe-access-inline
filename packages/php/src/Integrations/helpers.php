@@ -8,11 +8,11 @@ if (!function_exists('safe_access')) {
      *
      * @codeCoverageIgnore
      *
-     * @return \SafeAccessInline\Core\AbstractAccessor
+     * @return \SafeAccessInline\Core\AbstractAccessor<array<mixed>>
      */
     function safe_access(): \SafeAccessInline\Core\AbstractAccessor
     {
-        /** @var \SafeAccessInline\Core\AbstractAccessor */
+        /** @var \SafeAccessInline\Core\AbstractAccessor<array<mixed>> */
         return app('safe-access'); // @phpstan-ignore function.notFound
     }
 }

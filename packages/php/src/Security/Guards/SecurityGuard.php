@@ -55,6 +55,24 @@ final class SecurityGuard
     }
 
     /**
+     * Returns `true` when `$key` is a forbidden prototype-pollution vector,
+     * without throwing an exception.
+     *
+     * Use this method in hot-path read guards where the desired behaviour is to
+     * silently skip or return a default value rather than to error. Avoids the
+     * overhead of a try-catch around {@see assertSafeKey()}.
+     *
+     * **JS alignment:** mirrors `SecurityGuard.isForbiddenKey(key)` in the JS package.
+     *
+     * @param string $key The property name to test.
+     * @see assertSafeKey() for the throwing variant
+     */
+    public static function isForbiddenKey(string $key): bool
+    {
+        return isset(self::getForbiddenKeysMap()[$key]);
+    }
+
+    /**
      * @throws SecurityException
      */
     public static function assertSafeKey(string $key): void

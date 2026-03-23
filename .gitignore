@@ -48,6 +48,7 @@ package-lock.json
 .github/audit/
 .github/prompts/
 .agents/
+.ignore/
 .github/copilot-instructions.md
 
 # OS

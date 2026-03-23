@@ -112,7 +112,44 @@ describe(CsvAccessor::class, function () {
             'reason' => 'csv_column_mismatch',
             'expected' => 2,
             'actual' => 1,
+            'line' => 3,
         ]);
+    });
+
+    // ── S7: Header sanitization ──────────────────────
+
+    it('strips injection payload from header names when global policy csvMode is strip (S7)', function () {
+        \SafeAccessInline\Security\Guards\SecurityPolicy::setGlobal(
+            new \SafeAccessInline\Security\Guards\SecurityPolicy(csvMode: 'strip'),
+        );
+
+        try {
+            $accessor = CsvAccessor::from("=CMD,age\nAna,30");
+            // The header "=CMD" should be stripped to "CMD"
+            expect($accessor->get('0.CMD'))->toBe('Ana');
+        } finally {
+            \SafeAccessInline\Security\Guards\SecurityPolicy::clearGlobal();
+        }
+    });
+
+    it('prefixes injection payload in header names when global policy csvMode is prefix (S7)', function () {
+        \SafeAccessInline\Security\Guards\SecurityPolicy::setGlobal(
+            new \SafeAccessInline\Security\Guards\SecurityPolicy(csvMode: 'prefix'),
+        );
+
+        try {
+            $accessor = CsvAccessor::from("=CMD,age\nAna,30");
+            // The header "=CMD" should be prefixed to "'=CMD"
+            expect($accessor->get("0.'=CMD"))->toBe('Ana');
+        } finally {
+            \SafeAccessInline\Security\Guards\SecurityPolicy::clearGlobal();
+        }
+    });
+
+    it('keeps headers intact when global policy csvMode is none (S7)', function () {
+        // With mode 'none' (default) normal headers pass through unchanged
+        $accessor = CsvAccessor::from("name,age\nAna,30");
+        expect($accessor->get('0.name'))->toBe('Ana');
     });
 
 });

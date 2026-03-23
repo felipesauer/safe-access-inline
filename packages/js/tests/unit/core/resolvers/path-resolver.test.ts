@@ -208,4 +208,41 @@ describe('PathResolver', () => {
         const data = { a: { b: 1 } };
         expect(DotNotationParser.get(data, 'a.x', 'miss')).toBe('miss');
     });
+
+    // ── PROJECTION ───────────────────────────────────────────────────────────
+
+    it('projection — on an array projects each item to alias fields', () => {
+        const data = {
+            items: [
+                { name: 'Ana', price: 10 },
+                { name: 'Bob', price: 20 },
+            ],
+        };
+        const result = DotNotationParser.get(data, 'items.{name,price}');
+        expect(result).toEqual([
+            { name: 'Ana', price: 10 },
+            { name: 'Bob', price: 20 },
+        ]);
+    });
+
+    it('projection — non-object items in array produce null alias values (line 146)', () => {
+        // Each item is a primitive — the reduce fallback fills alias → null
+        const data = { items: [1, 2, 3] };
+        const result = DotNotationParser.get(data, 'items.{name}') as unknown[];
+        expect(result).toEqual([{ name: null }, { name: null }, { name: null }]);
+    });
+
+    it('projection — chained: array projection then key access (lines 161-164)', () => {
+        // items.{name} projects to [{name:'Ana'},{name:'Bob'}], then .name resolves on each
+        const data = { items: [{ name: 'Ana' }, { name: 'Bob' }] };
+        const result = DotNotationParser.get(data, 'items.{name}.name');
+        expect(result).toEqual(['Ana', 'Bob']);
+    });
+
+    it('projection — chained: object projection then key access (line 171)', () => {
+        // product.{title} projects to {title:'Widget'}, then .title resolves on the projected object
+        const data = { product: { title: 'Widget' } };
+        const result = DotNotationParser.get(data, 'product.{title}.title');
+        expect(result).toBe('Widget');
+    });
 });
