@@ -12,6 +12,7 @@ namespace SafeAccessInline\Enums;
 enum AuditEventType: string
 {
     case FILE_READ = 'file.read';
+    case FILE_WRITE = 'file.write';
     case FILE_WATCH = 'file.watch';
     case URL_FETCH = 'url.fetch';
     case SECURITY_VIOLATION = 'security.violation';

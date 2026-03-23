@@ -10,11 +10,21 @@ interface AccessorInterface extends ReadableInterface, TransformableInterface, W
      * Static factory — creates an instance from raw data.
      * Each Accessor validates whether the input type is compatible.
      *
-     * @param mixed $data
+     * @param mixed $data     The raw data to parse (type varies per implementation).
+     * @param bool  $readonly When true, the returned accessor rejects all mutations.
      * @return static
-     * @throws \SafeAccessInline\Exceptions\InvalidFormatException
+     * @throws \SafeAccessInline\Exceptions\InvalidFormatException If data is incompatible.
      */
-    public static function from(mixed $data): static;
+    public static function from(mixed $data, bool $readonly = false): static;
+
+    /**
+     * Returns a copy of this accessor optionally seeded with different data.
+     * The returned instance shares the same type and options as the original.
+     *
+     * @param array<mixed> $data Replacement data; omit to clone with the current data.
+     * @return static A new instance of the same accessor class.
+     */
+    public function clone(array $data = []): static;
 
     /**
      * Checks whether a path exists in the data structure.
