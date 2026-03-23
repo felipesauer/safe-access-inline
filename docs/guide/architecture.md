@@ -41,6 +41,9 @@ outline: deep
         - [`toArray()` vs `all()`](#toarray-vs-all)
         - [Composition Pattern: Traits (PHP) vs Static Delegation (JS)](#composition-pattern-traits-php-vs-static-delegation-js)
         - [Streaming: Sync (PHP) vs Async (JS)](#streaming-sync-php-vs-async-js)
+        - [CompiledPath Internal Accessor Difference](#compiledpath-internal-accessor-difference)
+        - [JSON Patch `test` Op: Absent Path Alignment](#json-patch-test-op-absent-path-alignment)
+    - [Static State & Test Isolation (PHP)](#static-state--test-isolation-php)
 
 ## Overview
 
@@ -369,6 +372,8 @@ File watching in PHP therefore uses polling (`FileWatcher`) — checks mtime at 
 
 - **PathCache** — LRU in-memory cache layered between `AbstractAccessor` and `DotNotationParser`. Parsed path segment arrays are stored keyed by path string, eliminating redundant re-parsing on repeated hot-path accesses.
 
+> **Cache interface divergence:** PHP's `remember()` / `forget()` accept `\Psr\SimpleCache\CacheInterface` (PSR-16). The JS equivalents accept a compact custom `CacheInterface` (`get / set / delete`) that is intentionally simpler than the PSR-16 contract — no `has()`, no `clear()`, and `get()` returns `unknown` instead of `mixed`. Implement the JS interface directly or wrap an existing PSR-16-compatible library.
+
 Layered configuration (`layer()`, `layerFiles()`) deep-merges multiple sources with last-wins semantics.
 
 ## Schema Validation
@@ -443,6 +448,8 @@ any accessor-specific metadata when producing a new instance. Only `$data` is up
 **Consequence:** Metadata like `originalXml` survives mutations, which is the expected behavior. The
 round-trip `set() → toXml()` can still access the original XML via `getOriginalXml()`.
 
+> **Parameter divergence:** In PHP, `clone` is a language keyword — `clone $this` accepts no arguments. The accessor then directly mutates `$this->data` on the cloned instance. In JS, `clone(newData)` is a protected abstract method that each subclass implements, accepting the new data record as its sole argument. The PHP approach relies on post-clone mutation; the JS approach is purely constructor-based. The observable result is identical: a new instance with updated `data` and all other fields preserved.
+
 ### ADR-2: JS `toXml()` / `toYaml()` / `toToml()` via Real Libraries + Plugin Override
 
 **Context:** Initially, the JS package omitted `toXml()` and `toYaml()` because JavaScript has no native XML emitter and YAML serialization would require a runtime dependency.
@@ -479,18 +486,19 @@ The two implementations are semantically equivalent — the same dot-notation pa
 
 ### Feature Parity Matrix
 
-| Feature              | JavaScript / TypeScript                                           | PHP                                                                     |
-| -------------------- | ----------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| **Array operations** | Static class (`ArrayOperations`) delegated from the accessor      | Trait (`HasArrayOperations`) mixed into `AbstractAccessor`              |
-| **Type inference**   | `DeepPaths<T>` / `ValueAtPath<T, P>` generic parameters           | `@template TShape` + custom PHPStan extension                           |
-| **Immutability**     | `Object.freeze()` + `deepFreeze()` at runtime                     | Private `$data` field + `$readonly` flag + `assertNotReadonly()`        |
-| **Constructor**      | `constructor(raw: unknown, options?: { readonly?: boolean })`     | `__construct(mixed $raw, bool $readonly = false)`                       |
-| **`toArray()`**      | Concrete alias of `all()` (not on interface)                      | Concrete alias of `all()` (not on interface)                            |
-| **Async I/O**        | `fromFile()` async + `fromFileSync()` sync                        | Synchronous only                                                        |
-| **Streaming**        | `streamCsv()` / `streamNdjson()` — `AsyncGenerator` (`for await`) | `streamCsv()` / `streamNdjson()` — `Generator` (`foreach`, synchronous) |
-| **File watcher**     | Returns a single `stop()` function                                | Returns `{ poll, stop }` — polling must be driven explicitly            |
-| **XML parsing**      | Delegates to plugin; no native parser                             | `simplexml_load_string()` with XXE protection built-in                  |
-| **Schema adapters**  | Zod, Valibot, Yup, JSON Schema                                    | JSON Schema, Symfony Validator                                          |
+| Feature              | JavaScript / TypeScript                                                 | PHP                                                                                                                |
+| -------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| **Array operations** | Static class (`ArrayOperations`) delegated from the accessor            | Trait (`HasArrayOperations`) mixed into `AbstractAccessor`                                                         |
+| **Type inference**   | `DeepPaths<T>` / `ValueAtPath<T, P>` generic parameters                 | `@template TShape` + custom PHPStan extension                                                                      |
+| **Immutability**     | `Object.freeze()` + `deepFreeze()` at runtime                           | Private `$data` field + `$readonly` flag + `assertNotReadonly()`                                                   |
+| **Constructor**      | `constructor(raw: unknown, options?: { readonly?: boolean })`           | `__construct(mixed $raw, bool $readonly = false)`                                                                  |
+| **`toArray()`**      | Concrete alias of `all()` (not on interface)                            | Concrete alias of `all()` (not on interface)                                                                       |
+| **I/O model**        | `fromFile()` async (Promise) + `fromFileSync()` sync; `fromUrl()` async | Synchronous only — all I/O completes before returning                                                              |
+| **Async I/O**        | `fromFile()` async + `fromFileSync()` sync                              | Synchronous only                                                                                                   |
+| **Streaming**        | `streamCsv()` / `streamNdjson()` — `AsyncGenerator` (`for await`)       | `streamCsv()` / `streamNdjson()` — `Generator` (`foreach`, synchronous)                                            |
+| **File watcher**     | `fs.watch()` event-driven, non-blocking, debounced (100 ms)             | `filemtime()` polling (default 500 ms), **blocks the calling thread** — use Swoole/ReactPHP for non-blocking usage |
+| **XML parsing**      | Delegates to plugin; no native parser                                   | `simplexml_load_string()` with XXE protection built-in                                                             |
+| **Schema adapters**  | Zod, Valibot, Yup, JSON Schema                                          | JSON Schema, Symfony Validator                                                                                     |
 
 ### `toArray()` vs `all()`
 
@@ -547,3 +555,58 @@ Both packages expose `streamCsv()` and `streamNdjson()` for memory-efficient, ro
 **Why the difference?** PHP's runtime is inherently synchronous — lazy `Generator` semantics are the idiomatic PHP solution and require no event loop. In Node.js, the `AsyncGenerator` pattern integrates naturally with `async/await` and avoids blocking the event loop during large file reads.
 
 Both approaches deliver the same user-facing guarantee: rows are yielded one at a time without loading the entire file into memory. The choice of paradigm is a language-level constraint, not a feature difference.
+
+### CompiledPath Internal Accessor Difference
+
+`SafeAccess.compilePath(path)` pre-parses a dot-notation path and returns an opaque `CompiledPath` token that can be reused across multiple calls to avoid repeated parsing.
+
+| Aspect         | JavaScript / TypeScript                                               | PHP                                                      |
+| -------------- | --------------------------------------------------------------------- | -------------------------------------------------------- |
+| Public surface | `CompiledPath` class — intentionally opaque, no public accessor       | `CompiledPath` class — `segments(): array` public method |
+| Internal field | `_segments` (underscore-prefixed, signals "not part of the contract") | `$segments` (private, surfaced via `segments()`)         |
+
+**In JS,** `_segments` is prefixed with `_` to signal it is framework-internal. Consumers should never read it directly; the `CompiledPath` token is only meaningful as an argument to `get()`, `set()`, `has()`, etc. If you need to inspect parsed segments for debugging, use `accessor.trace(path)` instead.
+
+**In PHP,** `segments()` is public for compatibility with tooling that inspects path structure (e.g. custom validators). The design divergence is intentional and has no impact on normal usage.
+
+### JSON Patch `test` Op: Absent Path Alignment
+
+::: info Behaviour aligned in both runtimes
+The JSON Patch `test` operation checks that the value at `path` equals `value`.
+Both runtimes **throw** when the target path does not exist.
+
+| Platform | Absent path  | `test` on absent path                     |
+| -------- | ------------ | ----------------------------------------- |
+| **PHP**  | path missing | **THROWS** `JsonPatchTestFailedException` |
+| **JS**   | path missing | **THROWS** `JsonPatchTestFailedException` |
+
+Note that a path explicitly set to `null` is considered _present_, so
+`test` with `"value": null` on a `null`-valued path still _passes_.
+:::
+
+## Static State & Test Isolation (PHP)
+
+The PHP `SafeAccess` façade uses **static state** in `PluginRegistry`,
+`SchemaRegistry`, `PathCache`, and the global `SecurityPolicy`. This means
+state registered in one test can leak into the next if not cleaned up.
+
+### Resetting state between tests
+
+Call `SafeAccess::reset()` (or the equivalent `SafeAccess::resetAll()`) in a
+`beforeEach` or `afterEach` hook to guarantee a clean slate:
+
+```php
+beforeEach(fn () => SafeAccess::reset());
+```
+
+### Roadmap: `SafeAccessContext` (DI container)
+
+> **Status: Planned**
+
+A future `SafeAccessContext` class will mirror the JS `ServiceContainer`,
+allowing per-instance registries instead of process-wide static state.
+This enables parallel testing, multi-tenant applications, and proper
+dependency injection without global side-effects.
+
+Until `SafeAccessContext` ships, use `SafeAccess::reset()` as the
+authoritative cleanup API.

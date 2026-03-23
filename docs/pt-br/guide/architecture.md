@@ -41,6 +41,11 @@ outline: deep
         - [`toArray()` vs `all()`](#toarray-vs-all)
         - [Padrão de Composição: Traits (PHP) vs Delegação Estática (JS)](#padrão-de-composição-traits-php-vs-delegação-estática-js)
         - [Streaming: Síncrono (PHP) vs Assíncrono (JS)](#streaming-síncrono-php-vs-assíncrono-js)
+        - [Diferença Interna do Accessor em CompiledPath](#diferença-interna-do-accessor-em-compiledpath)
+        - [Op `test` do JSON Patch: Alinhamento de Caminhos Ausentes](#op-test-do-json-patch-alinhamento-de-caminhos-ausentes)
+    - [Estado Estático e Isolamento de Testes (PHP)](#estado-estático-e-isolamento-de-testes-php)
+        - [Resetando o estado entre testes](#resetando-o-estado-entre-testes)
+        - [Roadmap: `SafeAccessContext` (container de DI)](#roadmap-safeaccesscontext-container-de-di)
 
 ## Visão Geral
 
@@ -369,6 +374,8 @@ Por isso, o file watching em PHP usa polling (`FileWatcher`) — verifica `mtime
 
 - **PathCache** — Cache LRU em memória entre `AbstractAccessor` e `DotNotationParser`. Arrays de segmentos de caminhos parseados são armazenados indexados pela string do caminho, eliminando re-parsing redundante em acessos frequentes.
 
+> **Divergência de interface de cache:** `remember()` / `forget()` do PHP aceitam `\Psr\SimpleCache\CacheInterface` (PSR-16). Os equivalentes JS aceitam uma `CacheInterface` compacta e personalizada (`get / set / delete`) intencionalmente mais simples que o contrato PSR-16 — sem `has()`, sem `clear()`, e `get()` retorna `unknown` ao invés de `mixed`. Implemente a interface JS diretamente ou envolva uma biblioteca compatível com PSR-16 em um adapter.
+
 Configuração em camadas (`layer()`, `layerFiles()`) realiza deep-merge de múltiplas fontes com semântica last-wins.
 
 ## Validação de Schema
@@ -437,6 +444,8 @@ Suporta entrada via stdin (`-`), todos os formatos (JSON, YAML, TOML, XML, INI, 
 **Contexto:** O PLAN.md especifica `set()` retorna `static::from($newData)`. No entanto, alguns accessors carregam metadata além do array normalizado — por exemplo, `XmlAccessor` armazena a string `originalXml`.
 
 **Decisão:** Tanto PHP quanto JS usam `clone` (PHP: `clone $this`; JS: método `clone(newData)`) para preservar qualquer metadata específica do accessor ao produzir uma nova instância. Apenas `$data` é atualizado.
+
+> **Divergência de parâmetro:** Em PHP, `clone` é uma palavra-chave da linguagem — `clone $this` não aceita argumentos. O accessor então muta diretamente `$this->data` na instância clonada. Em JS, `clone(newData)` é um método abstrato protegido que cada subclasse implementa, aceitando o novo registro de dados como único argumento. A abordagem PHP depende de mutação pós-clone; a JS é puramente baseada em construtor. O resultado observável é idêntico: uma nova instância com `data` atualizado e todos os outros campos preservados.
 
 **Consequência:** Metadata como `originalXml` sobrevive a mutações, que é o comportamento esperado. O round-trip `set() → toXml()` ainda pode acessar o XML original via `getOriginalXml()`.
 
@@ -542,3 +551,58 @@ Ambos os pacotes expõem `streamCsv()` e `streamNdjson()` para processamento efi
 **Por que a diferença?** O runtime do PHP é inerentemente síncrono — a semântica lazy do `Generator` é a solução idiomática PHP e não requer event loop. No Node.js, o padrão `AsyncGenerator` se integra naturalmente com `async/await` e evita bloquear o event loop durante leituras de arquivos grandes.
 
 Ambas as abordagens entregam a mesma garantia ao usuário: linhas são produzidas uma de cada vez sem carregar o arquivo inteiro na memória. A escolha do paradigma é uma restrição do nível da linguagem, não uma diferença de funcionalidade.
+
+### Diferença Interna do Accessor em CompiledPath
+
+`SafeAccess.compilePath(path)` faz o pré-parse de um caminho dot-notation e retorna um token opaco `CompiledPath` que pode ser reutilizado em múltiplas chamadas para evitar re-parsing repetido.
+
+| Aspecto            | JavaScript / TypeScript                                                   | PHP                                                        |
+| ------------------ | ------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| Superfície pública | Classe `CompiledPath` — intencionalmente opaca, sem accessor público      | Classe `CompiledPath` — método público `segments(): array` |
+| Campo interno      | `_segments` (prefixo de sublinhado, sinaliza "não faz parte do contrato") | `$segments` (privado, exposto via `segments()`)            |
+
+**Em JS,** `_segments` recebe o prefixo `_` para sinalizar que é interno ao framework. Consumidores nunca devem lê-lo diretamente; o token `CompiledPath` só é significativo como argumento para `get()`, `set()`, `has()`, etc. Para inspecionar segmentos parseados para depuração, use `accessor.trace(path)`.
+
+**Em PHP,** `segments()` é público para compatibilidade com ferramentas que inspecionam a estrutura do caminho (ex: validadores personalizados). A divergência de design é intencional e não tem impacto no uso normal.
+
+### Op `test` do JSON Patch: Alinhamento de Caminhos Ausentes
+
+::: info Comportamento alinhado em ambos os runtimes
+A operação `test` do JSON Patch verifica que o valor em `path` é igual a `value`.
+Ambos os runtimes **lançam exceção** quando o caminho não existe.
+
+| Plataforma | Caminho ausente     | `test` em caminho ausente                |
+| ---------- | ------------------- | ---------------------------------------- |
+| **PHP**    | caminho inexistente | **LANÇA** `JsonPatchTestFailedException` |
+| **JS**     | caminho inexistente | **LANÇA** `JsonPatchTestFailedException` |
+
+Note que um caminho explicitamente definido como `null` é considerado _presente_, portanto
+`test` com `"value": null` em um caminho com valor `null` ainda _passa_.
+:::
+
+## Estado Estático e Isolamento de Testes (PHP)
+
+A fachada `SafeAccess` do PHP usa **estado estático** em `PluginRegistry`,
+`SchemaRegistry`, `PathCache` e a `SecurityPolicy` global. Isso significa que
+estado registrado em um teste pode vazar para o próximo se não for limpo.
+
+### Resetando o estado entre testes
+
+Chame `SafeAccess::reset()` (ou o equivalente `SafeAccess::resetAll()`) em um
+hook `beforeEach` ou `afterEach` para garantir um estado limpo:
+
+```php
+beforeEach(fn () => SafeAccess::reset());
+```
+
+### Roadmap: `SafeAccessContext` (container de DI)
+
+> **Status: Planejado**
+
+Uma futura classe `SafeAccessContext` espelhará o `ServiceContainer` do JS,
+permitindo registros por instância em vez de estado estático global.
+Isso habilita testes em paralelo, aplicações multi-tenant e injeção de
+dependência adequada sem efeitos colaterais globais.
+
+Até que `SafeAccessContext` seja lançado, use `SafeAccess::reset()` como
+a API canônica de limpeza.
