@@ -298,6 +298,8 @@ final class SafeAccess
      * @param array<string>              $allowedDirs  Directories the file must reside within (ignored when using DTO).
      * @param bool                       $allowAnyPath When true, allows any filesystem path (ignored when using DTO).
      * @return AbstractAccessor<array<mixed>> Accessor wrapping the file content.
+     *
+     * @throws SecurityException When allowedExtensions or maxSize constraints are violated.
      */
     public static function fromFile(
         string $filePath,
@@ -305,15 +307,37 @@ final class SafeAccess
         array $allowedDirs = [],
         bool $allowAnyPath = false,
     ): AbstractAccessor {
+        $maxSize = null;
+        $allowedExtensions = [];
+
         if ($formatOrOptions instanceof FileLoadOptions) {
             $format = $formatOrOptions->format;
             $allowedDirs = $formatOrOptions->allowedDirs;
             $allowAnyPath = $formatOrOptions->allowAnyPath;
+            $maxSize = $formatOrOptions->maxSize;
+            $allowedExtensions = $formatOrOptions->allowedExtensions;
         } else {
             $format = $formatOrOptions;
         }
 
+        if ($allowedExtensions !== []) {
+            $ext = strtolower(ltrim((string) pathinfo($filePath, PATHINFO_EXTENSION), '.'));
+            $normalized = array_map(static fn (string $e): string => strtolower(ltrim($e, '.')), $allowedExtensions);
+            if (!in_array($ext, $normalized, true)) {
+                throw new SecurityException(
+                    "File extension '.{$ext}' is not in the allowed list: [" . implode(', ', $normalized) . '].'
+                );
+            }
+        }
+
         $content = IoLoader::readFile($filePath, $allowedDirs, $allowAnyPath);
+
+        if ($maxSize !== null && strlen($content) > $maxSize) {
+            throw new SecurityException(
+                "File size " . strlen($content) . " bytes exceeds the limit of {$maxSize} bytes."
+            );
+        }
+
         $resolvedFormat = $format ?? IoLoader::resolveFormatFromExtension($filePath)?->value;
         if ($resolvedFormat === null) {
             return TypeDetector::resolve($content);
@@ -425,6 +449,53 @@ final class SafeAccess
             $accessor = self::fromFile($filePath, $options);
             $onChange($accessor);
         });
+    }
+
+    /**
+     * Blocking convenience wrapper around {@see watchFile()} that polls the file at a fixed
+     * interval until `$maxIterations` is reached (or indefinitely when `null`).
+     *
+     * **Warning:** This method blocks the calling process for its entire duration.
+     * Use `$maxIterations` in tests to avoid infinite loops.
+     *
+     * For production use, call {@see watchFile()} directly and drive the polling loop
+     * yourself to retain control over scheduling.
+     *
+     * @param string                          $filePath        Path to the file to watch.
+     * @param callable(AbstractAccessor<array<mixed>>): void $callback        Invoked with a fresh accessor on every detected change.
+     * @param FileLoadOptions|string|null      $formatOrOptions Format string, FileLoadOptions DTO, or null for auto-detect.
+     * @param int                             $pollIntervalMs  Milliseconds between poll ticks (default 500 ms).
+     * @param int|null                        $maxIterations   Stop after this many ticks. Null = run forever.
+     */
+    public static function watchFilePoll(
+        string $filePath,
+        callable $callback,
+        FileLoadOptions|string|null $formatOrOptions = null,
+        int $pollIntervalMs = 500,
+        ?int $maxIterations = null,
+    ): void {
+        if ($formatOrOptions instanceof FileLoadOptions) {
+            $options = $formatOrOptions;
+        } else {
+            $options = new FileLoadOptions(format: $formatOrOptions);
+        }
+
+        clearstatcache(true, $filePath);
+        $lastMtime = file_exists($filePath) ? (int) filemtime($filePath) : 0;
+        $iterations = 0;
+
+        while ($maxIterations === null || $iterations < $maxIterations) {
+            $check = FileWatcher::checkOnce($filePath, $lastMtime);
+
+            if ($check['changed']) {
+                $lastMtime = $check['mtime'];
+                $accessor = self::fromFile($filePath, $options);
+                $callback($accessor);
+            }
+
+            usleep($pollIntervalMs * 1000);
+            $iterations++;
+        }
     }
 
     // ── SecurityPolicy ──────────────────────────────────
@@ -691,6 +762,19 @@ final class SafeAccess
     }
 
     // ── Reset All ────────────────────────────────────
+
+    /**
+     * Resets all global/static state. Intended for test teardown.
+     *
+     * Alias for {@see resetAll()}. Mirrors the JS `SafeAccess.resetAll()` name for
+     * cross-language parity.
+     *
+     * @internal
+     */
+    public static function reset(): void
+    {
+        self::resetAll();
+    }
 
     /**
      * Resets all global/static state. Intended for test teardown.

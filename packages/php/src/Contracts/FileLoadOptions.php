@@ -13,14 +13,18 @@ namespace SafeAccessInline\Contracts;
 final readonly class FileLoadOptions
 {
     /**
-     * @param string|null   $format       Explicit format override (e.g. 'json', 'yaml'). Null = auto-detect.
-     * @param array<string> $allowedDirs  Directories the file must reside within (empty = no restriction when allowAnyPath is true).
-     * @param bool          $allowAnyPath When true, allows loading from any filesystem path.
+     * @param string|null   $format              Explicit format override (e.g. 'json', 'yaml'). Null = auto-detect.
+     * @param array<string> $allowedDirs         Directories the file must reside within (empty = no restriction when allowAnyPath is true).
+     * @param bool          $allowAnyPath        When true, allows loading from any filesystem path.
+     * @param int|null      $maxSize             Maximum permitted file size in bytes. Null = no limit.
+     * @param array<string> $allowedExtensions   Permitted file extensions (e.g. ['json', 'yaml']). Empty = all extensions allowed.
      */
     public function __construct(
         public ?string $format = null,
         public array $allowedDirs = [],
         public bool $allowAnyPath = false,
+        public ?int $maxSize = null,
+        public array $allowedExtensions = [],
     ) {
     }
 }
