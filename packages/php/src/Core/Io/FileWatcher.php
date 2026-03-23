@@ -9,6 +9,29 @@ namespace SafeAccessInline\Core\Io;
  *
  * Designed for development and lightweight production use; for high-throughput
  * environments prefer inotify or a dedicated file-watch daemon instead.
+ *
+ * @remarks
+ * **Cross-Language Divergence:** The JS counterpart (`watchFile`) uses the native
+ * `fs.watch()` API with a 100 ms debounce and returns a single `() => void` stop
+ * function. This PHP implementation uses `filemtime()` polling (default 1 000 ms)
+ * and returns `{poll: callable, stop: callable}` — appropriate for PHP-FPM and
+ * CLI environments.
+ *
+ * **Fora do escopo (this cycle):** Migração para `ext-inotify`.
+ * When `ext-inotify` is available (Linux only), replacing the `filemtime()` polling
+ * loop with a kernel-level inotify watch would provide near-zero latency and no CPU
+ * spin. Documented here as a possible future evolution. Example migration path:
+ *
+ * ```php
+ * if (extension_loaded('inotify')) {
+ *     $fd = inotify_init();
+ *     inotify_add_watch($fd, $filePath, IN_MODIFY | IN_CLOSE_WRITE);
+ *     // inotify_read() blocks until an event fires (no polling spin needed)
+ * }
+ * ```
+ *
+ * Until that migration is done, callers on high-frequency workloads should reduce
+ * `$intervalMs` or use a dedicated file-watch daemon (e.g. watchexec, entr).
  */
 final class FileWatcher
 {

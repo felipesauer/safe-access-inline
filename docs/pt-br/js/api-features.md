@@ -507,7 +507,7 @@ for await (const event of SafeAccess.streamNdjson("/app/data/events.ndjson", {
 }
 ```
 
-No PHP, o equivalente é um laço `foreach ($stream as $row)` síncrono sobre um `Generator`. Ambos os paradigmas entregam a mesma garantia: linhas são produzidas uma de cada vez sem carregar o arquivo inteiro na memória. Veja [Arquitetura — Streaming: Síncrono (PHP) vs Assíncrono (JS)](/guide/architecture#streaming-síncrono-php-vs-assíncrono-js).
+No PHP, o equivalente é um laço `foreach ($stream as $row)` síncrono sobre um `Generator`. Ambos os paradigmas entregam a mesma garantia: linhas são produzidas uma de cada vez sem carregar o arquivo inteiro na memória. Veja [Arquitetura — Streaming: Síncrono (PHP) vs Assíncrono (JS)](/pt-br/guide/architecture#streaming-síncrono-php-vs-assíncrono-js).
 
 ### Carregamento via URL
 
@@ -634,6 +634,52 @@ const accessor = await SafeAccess.fromUrl("https://example.com/config.json");
 ```
 
 > **Segurança:** A validação SSRF (bloqueio de IPs privados) é sempre aplicada, mesmo quando um `httpClient` customizado está configurado. A resolução DNS e verificação de intervalo de IP são executadas antes de qualquer chamada de rede.
+
+#### `configureIoLoader(overrides: Partial<IoLoaderConfig>): void`
+
+Substitui a configuração de I/O padrão. Chaves não especificadas mantêm seus valores padrão.
+
+#### `resetIoLoaderConfig(): void`
+
+Redefine a configuração de I/O para os padrões internos (`requestTimeoutMs: 10 000`, `connectTimeoutMs: 5 000`).
+
+#### `assertPathWithinAllowedDirs(filePath, allowedDirs?, options?): string`
+
+Valida que `filePath` está dentro de um dos `allowedDirs`. Retorna o caminho canônico resolvido (eliminando janelas TOCTOU). Lança `SecurityError` em caso de violação.
+
+```typescript
+import { assertPathWithinAllowedDirs } from "@safe-access-inline/safe-access-inline";
+
+// Validar antes de passar para código downstream
+const canonical = assertPathWithinAllowedDirs("./config.json", ["/app/config"]);
+```
+
+#### `resolveFormatFromExtension(filePath: string): Format | null`
+
+Deriva o valor do enum `Format` a partir de uma extensão de arquivo (ex: `config.yaml` → `Format.Yaml`). Retorna `null` para extensões não reconhecidas.
+
+```typescript
+import {
+    resolveFormatFromExtension,
+    Format,
+} from "@safe-access-inline/safe-access-inline";
+
+resolveFormatFromExtension("/app/config.yaml"); // Format.Yaml
+resolveFormatFromExtension("/app/data.ndjson"); // Format.Ndjson
+resolveFormatFromExtension("/app/file.txt"); // null
+```
+
+#### Proteção contra SSRF
+
+O fetch de URL (`fromUrl()`) passa por uma guarda SSRF de múltiplas camadas:
+
+1. **Aplicação de esquema** — apenas `https:` é permitido; `http:`, `file:`, `ftp:` são rejeitados.
+2. **Resolução DNS** — o hostname é resolvido antes de conectar; intervalos de IP privados (RFC 1918, link-local, loopback) e endpoints de metadados de cloud são bloqueados.
+3. **DNS pinning** — o IP resolvido é fixado na conexão HTTPS (`lookup` override) para prevenir ataques de DNS rebinding entre a verificação de segurança e a conexão real.
+4. **Bloqueio de redirecionamentos** — redirecionamentos HTTP 3xx são rejeitados para prevenir SSRF via cadeias de open-redirect.
+5. **Limite de tamanho do payload** — respostas maiores que `maxPayloadBytes` (padrão: 10 MB) são abortadas.
+
+Veja também: [Segurança — Proteção SSRF](/pt-br/js/security)
 
 ---
 
@@ -762,3 +808,90 @@ import config from "virtual:safe-access-config";
 ```
 
 HMR é suportado — alterar um arquivo de configuração observado dispara um reload completo.
+
+### Express
+
+**Import:** `import { safeAccessMiddleware } from '@safe-access-inline/safe-access-inline'`
+
+Middleware Express que carrega um arquivo de configuração **uma vez** no momento de criação do middleware e anexa o accessor resultante a `req[attachAs]` em cada requisição. O arquivo de configuração nunca é recarregado por requisição.
+
+```typescript
+import express from "express";
+import { safeAccessMiddleware } from "@safe-access-inline/safe-access-inline";
+
+const app = express();
+app.use(safeAccessMiddleware({ filePath: "./config/app.json" }));
+
+app.get("/", (req, res) => {
+    const port = (req as any).config.get("server.port", 3000);
+    res.json({ port });
+});
+```
+
+#### `safeAccessMiddleware(options: SafeAccessExpressOptions): RequestHandler`
+
+Retorna um `RequestHandler` Express padrão. Erros de carregamento são propagados via `next(err)` na primeira requisição.
+
+#### `SafeAccessExpressOptions`
+
+```typescript
+import type { SafeAccessExpressOptions } from "@safe-access-inline/safe-access-inline";
+
+interface SafeAccessExpressOptions {
+    /** Caminho para o arquivo de configuração. Formato é auto-detectado pela extensão. */
+    readonly filePath: string;
+    /** Override explícito de formato (ex: `'json'`, `'yaml'`). */
+    readonly format?: string;
+    /** Nome da propriedade para anexar o accessor em `req`. Padrão: `'config'`. */
+    readonly attachAs?: string;
+    /** Diretórios permitidos para acesso a arquivos (restrição de segurança). */
+    readonly allowedDirs?: string[];
+    /** Defina `true` para desabilitar restrições de caminho quando nenhum `allowedDirs` estiver configurado. */
+    readonly allowAnyPath?: boolean;
+}
+```
+
+### Next.js
+
+**Import:** `import { loadConfig as loadNextConfig } from '@safe-access-inline/safe-access-inline'`
+
+Carregador de configuração server-side para Next.js. Projetado para uso em `getServerSideProps`, `getStaticProps` e Server Components do App Router. Executa apenas no servidor — nunca em bundles client-side.
+
+```typescript
+// getServerSideProps / getStaticProps
+import { loadConfig as loadNextConfig } from "@safe-access-inline/safe-access-inline";
+
+export async function getServerSideProps() {
+    const config = await loadNextConfig({ filePath: "./config/app.json" });
+    return {
+        props: { port: config.get("server.port", 3000) },
+    };
+}
+
+// Server Component (App Router)
+export default async function Page() {
+    const config = await loadNextConfig({ filePath: "./config/app.json" });
+    return <div>{config.get("app.title")}</div>;
+}
+```
+
+#### `loadConfig(options: SafeAccessNextOptions): Promise<AbstractAccessor>`
+
+Carrega um arquivo de configuração e retorna um `AbstractAccessor` resolvido.
+
+#### `SafeAccessNextOptions`
+
+```typescript
+import type { SafeAccessNextOptions } from "@safe-access-inline/safe-access-inline";
+
+interface SafeAccessNextOptions {
+    /** Caminho para o arquivo de configuração. Formato é auto-detectado pela extensão. */
+    readonly filePath: string;
+    /** Override explícito de formato (ex: `'json'`, `'yaml'`). */
+    readonly format?: string;
+    /** Diretórios permitidos para acesso a arquivos (restrição de segurança). */
+    readonly allowedDirs?: string[];
+    /** Defina `true` para desabilitar restrições de caminho quando nenhum `allowedDirs` estiver configurado. */
+    readonly allowAnyPath?: boolean;
+}
+```

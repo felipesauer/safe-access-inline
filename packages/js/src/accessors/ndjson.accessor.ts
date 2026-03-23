@@ -20,11 +20,11 @@ export class NdjsonAccessor<
      * @returns A new {@link NdjsonAccessor} instance.
      * @throws {InvalidFormatError} If `data` is not a string or any line fails to parse.
      */
-    static from(data: unknown): NdjsonAccessor {
+    static from(data: unknown, options?: { readonly?: boolean }): NdjsonAccessor {
         if (typeof data !== 'string') {
             throw new InvalidFormatError('NdjsonAccessor expects an NDJSON string.');
         }
-        return new NdjsonAccessor(data);
+        return new NdjsonAccessor(data, options);
     }
 
     /**

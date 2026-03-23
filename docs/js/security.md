@@ -6,17 +6,10 @@ outline: deep
 
 ## Table of Contents
 
-- [Security \& Integrations — JavaScript / TypeScript](#security--integrations--javascript--typescript)
-    - [Table of Contents](#table-of-contents)
-    - [Security](#security)
-        - [SecurityPolicy](#securitypolicy)
-        - [Data masking](#data-masking)
-        - [Readonly \& Deep Freeze](#readonly--deep-freeze)
-    - [Schema Validation](#schema-validation)
-    - [Audit Logging](#audit-logging)
-    - [Framework Integrations](#framework-integrations)
-        - [NestJS](#nestjs)
-        - [Vite](#vite)
+- [Security](#security)
+- [Schema Validation](#schema-validation)
+- [Audit Logging](#audit-logging)
+- [Framework Integrations](#framework-integrations)
 
 ---
 
@@ -129,6 +122,12 @@ const name = accessor.validate(schema).get("name");
 ---
 
 ## Audit Logging
+
+::: tip PHP↔JS Alignment
+The audit module in JS exposes standalone functions (`onAudit`, `emitAudit`, `clearAuditListeners`),
+while the PHP package uses the `AuditLogger` class with equivalent methods. The behaviour is identical —
+the difference reflects idiomatic style for each ecosystem.
+:::
 
 ```typescript
 const unsub = SafeAccess.onAudit((event) => {

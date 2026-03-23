@@ -19,11 +19,11 @@ export class JsonAccessor<
      * @returns A new {@link JsonAccessor} instance.
      * @throws {InvalidFormatError} If `data` is not a string or fails to parse.
      */
-    static from(data: unknown): JsonAccessor {
+    static from(data: unknown, options?: { readonly?: boolean }): JsonAccessor {
         if (typeof data !== 'string') {
             throw new InvalidFormatError('JsonAccessor expects a JSON string.');
         }
-        return new JsonAccessor(data);
+        return new JsonAccessor(data, options);
     }
 
     /**

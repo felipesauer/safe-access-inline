@@ -812,3 +812,90 @@ import config from "virtual:safe-access-config";
 ```
 
 HMR is supported — changing a watched config file triggers a full reload.
+
+### Express
+
+**Import:** `import { safeAccessMiddleware } from '@safe-access-inline/safe-access-inline'`
+
+Express middleware that loads a config file **once** at middleware creation time and attaches the resulting accessor to `req[attachAs]` on every request. The config file is never reloaded per-request.
+
+```typescript
+import express from "express";
+import { safeAccessMiddleware } from "@safe-access-inline/safe-access-inline";
+
+const app = express();
+app.use(safeAccessMiddleware({ filePath: "./config/app.json" }));
+
+app.get("/", (req, res) => {
+    const port = (req as any).config.get("server.port", 3000);
+    res.json({ port });
+});
+```
+
+#### `safeAccessMiddleware(options: SafeAccessExpressOptions): RequestHandler`
+
+Returns a standard Express `RequestHandler`. Load errors are propagated via `next(err)` on the first request.
+
+#### `SafeAccessExpressOptions`
+
+```typescript
+import type { SafeAccessExpressOptions } from "@safe-access-inline/safe-access-inline";
+
+interface SafeAccessExpressOptions {
+    /** Path to the configuration file. Format is auto-detected from the extension. */
+    readonly filePath: string;
+    /** Explicit format override (e.g. `'json'`, `'yaml'`). */
+    readonly format?: string;
+    /** Property name to attach the accessor to on `req`. Defaults to `'config'`. */
+    readonly attachAs?: string;
+    /** Allowed directories for file access (security restriction). */
+    readonly allowedDirs?: string[];
+    /** Set to `true` to bypass path restrictions when no `allowedDirs` are configured. */
+    readonly allowAnyPath?: boolean;
+}
+```
+
+### Next.js
+
+**Import:** `import { loadConfig as loadNextConfig } from '@safe-access-inline/safe-access-inline'`
+
+Server-side config loader for Next.js. Designed for use in `getServerSideProps`, `getStaticProps`, and App Router server components. Only executes on the server — never in client-side bundles.
+
+```typescript
+// getServerSideProps / getStaticProps
+import { loadConfig as loadNextConfig } from "@safe-access-inline/safe-access-inline";
+
+export async function getServerSideProps() {
+    const config = await loadNextConfig({ filePath: "./config/app.json" });
+    return {
+        props: { port: config.get("server.port", 3000) },
+    };
+}
+
+// App Router server component
+export default async function Page() {
+    const config = await loadNextConfig({ filePath: "./config/app.json" });
+    return <div>{config.get("app.title")}</div>;
+}
+```
+
+#### `loadConfig(options: SafeAccessNextOptions): Promise<AbstractAccessor>`
+
+Loads a configuration file and returns a resolved `AbstractAccessor`.
+
+#### `SafeAccessNextOptions`
+
+```typescript
+import type { SafeAccessNextOptions } from "@safe-access-inline/safe-access-inline";
+
+interface SafeAccessNextOptions {
+    /** Path to the configuration file. Format is auto-detected from the extension. */
+    readonly filePath: string;
+    /** Explicit format override (e.g. `'json'`, `'yaml'`). */
+    readonly format?: string;
+    /** Allowed directories for file access (security restriction). */
+    readonly allowedDirs?: string[];
+    /** Set to `true` to bypass path restrictions when no `allowedDirs` are configured. */
+    readonly allowAnyPath?: boolean;
+}
+```

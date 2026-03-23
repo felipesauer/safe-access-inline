@@ -19,11 +19,11 @@ export class ArrayAccessor<
      * @returns A new {@link ArrayAccessor} instance.
      * @throws {InvalidFormatError} If `data` is not an array or object.
      */
-    static from(data: unknown): ArrayAccessor {
+    static from(data: unknown, options?: { readonly?: boolean }): ArrayAccessor {
         if (!Array.isArray(data) && (typeof data !== 'object' || data === null)) {
             throw new InvalidFormatError('ArrayAccessor expects an array or object.');
         }
-        return new ArrayAccessor(data);
+        return new ArrayAccessor(data, options);
     }
 
     /**

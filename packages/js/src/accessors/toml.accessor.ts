@@ -21,11 +21,11 @@ export class TomlAccessor<
      * @returns A new {@link TomlAccessor} instance.
      * @throws {InvalidFormatError} If `data` is not a string or fails to parse.
      */
-    static from(data: unknown): TomlAccessor {
+    static from(data: unknown, options?: { readonly?: boolean }): TomlAccessor {
         if (typeof data !== 'string') {
             throw new InvalidFormatError('TomlAccessor expects a TOML string.');
         }
-        return new TomlAccessor(data);
+        return new TomlAccessor(data, options);
     }
 
     /**

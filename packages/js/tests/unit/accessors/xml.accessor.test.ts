@@ -115,7 +115,9 @@ describe(XmlAccessor.name, () => {
     it('handles XML with attributes', () => {
         const xmlAttrs = `<root><item id="1" type="main">text</item></root>`;
         const accessor = XmlAccessor.from(xmlAttrs);
-        expect(accessor.get('item')).toBe('text');
+        expect(accessor.get('item.#text')).toBe('text');
+        expect(accessor.get('item.@attributes.id')).toBe('1');
+        expect(accessor.get('item.@attributes.type')).toBe('main');
     });
 
     it('handles XML declaration', () => {
@@ -199,8 +201,9 @@ describe(XmlAccessor.name, () => {
     it('parses element with numeric attribute value', () => {
         const xmlAttrs = '<root><item count="42">text</item></root>';
         const acc = XmlAccessor.from(xmlAttrs);
-        // Content should be the text, attributes checked via SecurityGuard
-        expect(acc.get('item')).toBe('text');
+        // Element with attribute produces { '@attributes': { count: '42' }, '#text': 'text' }
+        expect(acc.get('item.#text')).toBe('text');
+        expect(acc.get('item.@attributes.count')).toBe('42');
     });
 
     it('parses self-closing tag with multiple attributes', () => {

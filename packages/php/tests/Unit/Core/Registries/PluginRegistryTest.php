@@ -272,4 +272,67 @@ describe(PluginRegistry::class, function () {
         PluginRegistry::registerSerializer('format-0', $overwrite);
         expect(PluginRegistry::getSerializer('format-0')->serialize([]))->toBe('overwritten');
     });
+
+    // ── Isolated Instance (create()) ───────────────
+
+    it('create() returns an isolated registry independent of the global default', function () {
+        $parser = new class () implements ParserPluginInterface {
+            public function parse(string $raw): array
+            {
+                return ['source' => 'global'];
+            }
+        };
+
+        PluginRegistry::registerParser('yaml', $parser);
+
+        $isolated = PluginRegistry::create();
+
+        // Isolated instance must not see global registrations
+        expect($isolated->hasParser('yaml'))->toBeFalse();
+    });
+
+    it('registrations on an isolated instance do not affect the global default', function () {
+        $parser = new class () implements ParserPluginInterface {
+            public function parse(string $raw): array
+            {
+                return ['source' => 'isolated'];
+            }
+        };
+
+        $isolated = PluginRegistry::create();
+        $isolated->registerParser('toml', $parser);
+
+        // Global default must not be contaminated
+        expect(PluginRegistry::hasParser('toml'))->toBeFalse();
+    });
+
+    it('two isolated instances are fully independent of each other', function () {
+        $parser = new class () implements ParserPluginInterface {
+            public function parse(string $raw): array
+            {
+                return [];
+            }
+        };
+
+        $a = PluginRegistry::create();
+        $b = PluginRegistry::create();
+
+        $a->registerParser('csv', $parser);
+
+        expect($a->hasParser('csv'))->toBeTrue();
+        expect($b->hasParser('csv'))->toBeFalse();
+    });
+
+    it('getDefault() returns the same instance as the static facade', function () {
+        $parser = new class () implements ParserPluginInterface {
+            public function parse(string $raw): array
+            {
+                return [];
+            }
+        };
+
+        PluginRegistry::registerParser('ini', $parser);
+
+        expect(PluginRegistry::getDefault()->hasParser('ini'))->toBeTrue();
+    });
 });

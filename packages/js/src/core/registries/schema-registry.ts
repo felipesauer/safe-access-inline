@@ -1,42 +1,6 @@
+import { SchemaRegistryImpl } from './schema-registry-impl';
 import type { SchemaAdapterInterface } from '../../contracts/schema-adapter.interface';
 import type { ISchemaRegistry } from '../../contracts/schema-registry.contract';
-
-/**
- * Concrete, instantiable implementation of {@link ISchemaRegistry}.
- *
- * Used internally by the global {@link SchemaRegistry} static facade and by
- * isolated instances created via {@link SchemaRegistry.create} for DI / testing.
- *
- * @internal
- */
-class SchemaRegistryImpl implements ISchemaRegistry {
-    private defaultAdapter: SchemaAdapterInterface | null = null;
-
-    /**
-     * Sets the adapter that will be used by default when no adapter is passed to `validate()`.
-     *
-     * @param adapter - The schema adapter to register as the global default.
-     */
-    setDefaultAdapter(adapter: SchemaAdapterInterface): void {
-        this.defaultAdapter = adapter;
-    }
-
-    /**
-     * Returns the current default adapter.
-     *
-     * @returns The registered default {@link SchemaAdapterInterface}, or `null` if none is set.
-     */
-    getDefaultAdapter(): SchemaAdapterInterface | null {
-        return this.defaultAdapter;
-    }
-
-    /**
-     * Removes the default adapter so subsequent `validate()` calls require an explicit adapter.
-     */
-    clearDefaultAdapter(): void {
-        this.defaultAdapter = null;
-    }
-}
 
 /** Module-level default instance backing the static facade. */
 const _defaultSchemaRegistry: SchemaRegistryImpl = new SchemaRegistryImpl();
@@ -49,6 +13,15 @@ const _defaultSchemaRegistry: SchemaRegistryImpl = new SchemaRegistryImpl();
  * obtain a fresh {@link ISchemaRegistry} instance that is fully independent of the global state.
  *
  * Users can set a default adapter so they don't need to pass it every time.
+ *
+ * @remarks
+ * **Static module-level state:** The default registry instance (`_defaultSchemaRegistry`)
+ * is module-level and therefore shared across the entire process. In long-running
+ * runtimes (Bun, Node.js cluster workers, Nitro, Fastify) the default adapter set in
+ * one request persists into subsequent requests. Call {@link SchemaRegistry.clearDefaultAdapter}
+ * in your worker boot/reset hook to prevent stale adapter references from leaking
+ * between requests.
+ * PHP alignment: mirrors `SchemaRegistry.php` static-state warning.
  */
 export class SchemaRegistry {
     /**

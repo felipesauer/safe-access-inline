@@ -58,9 +58,13 @@ class TomlAccessor extends AbstractAccessor
                 );
             }
             $decoded = Toml::decode($raw);
-            $json = json_encode($decoded);
 
-            return (array) json_decode($json !== false ? $json : '{}', true);
+            // devium/toml returns stdClass; convert the full structure to an
+            // associative array using a JSON pass-through to handle nesting.
+            $json = json_encode($decoded);
+            $result = json_decode($json !== false ? $json : '{}', true);
+
+            return is_array($result) ? $result : [];
         } catch (\Throwable $e) {
             throw new InvalidFormatException(
                 'TomlAccessor failed to parse TOML string: ' . $e->getMessage(),

@@ -8,6 +8,7 @@ use SafeAccessInline\Contracts\SchemaValidationResult;
 use SafeAccessInline\Core\Registries\SchemaRegistry;
 use SafeAccessInline\Exceptions\SchemaValidationException;
 use SafeAccessInline\SafeAccess;
+use SafeAccessInline\Security\Audit\AuditLogger;
 
 // Simple test adapter: schema is an assoc array of field => expected type
 class SimpleSchemaAdapter implements SchemaAdapterInterface
@@ -31,6 +32,7 @@ describe('Schema Validation', function () {
 
     beforeEach(function () {
         SchemaRegistry::clearDefaultAdapter();
+        AuditLogger::clearListeners();
     });
 
     it('validate passes when data matches schema', function () {
@@ -92,5 +94,61 @@ describe('Schema Validation', function () {
         expect($ex->getMessage())->toContain('name: required');
         expect($ex->getMessage())->toContain('age: must be integer');
         expect($ex->getIssues())->toBe($issues);
+    });
+
+    // ── Isolated Instance (create()) ───────────────
+
+    it('SchemaRegistry::create() returns an isolated registry independent of the global default', function () {
+        $adapter = new SimpleSchemaAdapter();
+        SchemaRegistry::setDefaultAdapter($adapter);
+
+        $isolated = SchemaRegistry::create();
+
+        // Isolated instance must not see the global adapter
+        expect($isolated->getDefaultAdapter())->toBeNull();
+    });
+
+    it('setting adapter on an isolated instance does not affect the global default', function () {
+        $adapter = new SimpleSchemaAdapter();
+
+        $isolated = SchemaRegistry::create();
+        $isolated->setDefaultAdapter($adapter);
+
+        // Global default must remain unset
+        expect(SchemaRegistry::getDefaultAdapter())->toBeNull();
+    });
+
+    it('SchemaRegistry::getDefault() reflects changes made via static facade', function () {
+        $adapter = new SimpleSchemaAdapter();
+        SchemaRegistry::setDefaultAdapter($adapter);
+
+        expect(SchemaRegistry::getDefault()->getDefaultAdapter())->toBe($adapter);
+    });
+
+    it('emits plugin.overwrite audit event when overwriting a default adapter', function () {
+        $adapter = new SimpleSchemaAdapter();
+        $events = [];
+        AuditLogger::onAudit(function (array $event) use (&$events): void {
+            $events[] = $event;
+        });
+
+        SchemaRegistry::setDefaultAdapter($adapter);
+        expect($events)->toHaveCount(0); // first set — no overwrite
+
+        SchemaRegistry::setDefaultAdapter(new SimpleSchemaAdapter());
+        expect($events)->toHaveCount(1);
+        expect($events[0]['type'])->toBe('plugin.overwrite');
+        expect($events[0]['detail']['kind'])->toBe('schema-adapter');
+    });
+
+    it('does NOT emit audit event when setting adapter for the first time', function () {
+        $adapter = new SimpleSchemaAdapter();
+        $events = [];
+        AuditLogger::onAudit(function (array $event) use (&$events): void {
+            $events[] = $event;
+        });
+
+        SchemaRegistry::setDefaultAdapter($adapter);
+        expect($events)->toHaveCount(0);
     });
 });

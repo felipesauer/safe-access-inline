@@ -429,14 +429,48 @@ readonly class SchemaValidationIssue
 
 The package exports ready-to-use adapters for the schema systems it supports:
 
-| Adapter                   | Dependency          | Notes                                                                                                                                          |
-| ------------------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `JsonSchemaAdapter`       | None                | Built-in validator supporting `type`, `required`, `properties`, `items`, `minimum`, `maximum`, `minLength`, `maxLength`, `enum`, and `pattern` |
-| `SymfonyValidatorAdapter` | `symfony/validator` | Accepts an optional validator instance, or auto-creates one when the package is installed                                                      |
+| Adapter                    | Dependency           | Notes                                                                                                                                          |
+| -------------------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `JsonSchemaAdapter`        | None                 | Built-in validator supporting `type`, `required`, `properties`, `items`, `minimum`, `maximum`, `minLength`, `maxLength`, `enum`, and `pattern` |
+| `SymfonyValidatorAdapter`  | `symfony/validator`  | Accepts an optional validator instance, or auto-creates one when the package is installed                                                      |
+| `RespectValidationAdapter` | `respect/validation` | Accepts any `Validatable` instance as schema; maps `NestedValidationException` messages to structured `SchemaValidationIssue[]`                |
+
+### RespectValidationAdapter
+
+**Namespace:** `SafeAccessInline\SchemaAdapters\RespectValidationAdapter`
+
+Requires `respect/validation ^2.3`:
+
+```bash
+composer require respect/validation
+```
+
+The schema passed to `validate()` must be a `Respect\Validation\Validatable` instance (e.g. built with `Validator::key(...)`). Validation errors from `NestedValidationException::getMessages()` are automatically mapped to `SchemaValidationIssue[]` with dot-notation paths.
+
+```php
+use Respect\Validation\Validator as v;
+use SafeAccessInline\SchemaAdapters\RespectValidationAdapter;
+
+$schema = v::key('name', v::stringType()->notEmpty())
+           ->key('age', v::intType()->min(0));
+
+$accessor = SafeAccess::fromJson('{"name":"Ana","age":30}');
+$result = $accessor->validate($schema, new RespectValidationAdapter());
+// $result->valid === true
+
+// Failure example
+$schema = v::key('name', v::stringType()->notEmpty());
+$accessor = SafeAccess::fromJson('{"name":""}');
+$result = $accessor->validate($schema, new RespectValidationAdapter());
+// $result->valid === false
+// $result->errors[0]->path    === '$.name'
+// $result->errors[0]->message === '"name" must not be empty'
+```
 
 > **Note on Cross-Language Parity:**
 > The JS package offers adapters for Zod, Valibot, Yup, and JSON Schema.
-> In PHP, typical validation frameworks like `symfony/validator` and `JsonSchema` are supported natively. If you need support for Respect/Validation or another PHP validation library, you can implement the `SchemaAdapterInterface`.
+> PHP now ships `JsonSchemaAdapter`, `SymfonyValidatorAdapter`, and `RespectValidationAdapter`.
+> Additional adapters can be added by implementing `SchemaAdapterInterface`.
 
 ---
 

@@ -1,6 +1,8 @@
 import { AbstractAccessor } from '../core/abstract-accessor';
 import { InvalidFormatError } from '../exceptions/invalid-format.error';
 import { AuditEventType, emitAudit } from '../security/audit/audit-emitter';
+import { sanitizeCsvHeaders } from '../security/sanitizers/csv-sanitizer';
+import { getGlobalPolicy } from '../security/guards/security-policy';
 
 /**
  * Accessor for CSV strings.
@@ -17,11 +19,11 @@ export class CsvAccessor<
      * @returns A new {@link CsvAccessor} instance.
      * @throws {InvalidFormatError} If `data` is not a string.
      */
-    static from(data: unknown): CsvAccessor {
+    static from(data: unknown, options?: { readonly?: boolean }): CsvAccessor {
         if (typeof data !== 'string') {
             throw new InvalidFormatError('CsvAccessor expects a CSV string.');
         }
-        return new CsvAccessor(data);
+        return new CsvAccessor(data, options);
     }
 
     /**
@@ -39,7 +41,9 @@ export class CsvAccessor<
 
         if (lines.length < 1) return {};
 
-        const headers = CsvAccessor.parseCsvLine(lines[0]);
+        const rawHeaders = CsvAccessor.parseCsvLine(lines[0]);
+        const csvMode = getGlobalPolicy()?.csvMode ?? 'none';
+        const headers = sanitizeCsvHeaders(rawHeaders, csvMode);
         const result: Record<string, unknown> = {};
 
         for (let i = 1; i < lines.length; i++) {

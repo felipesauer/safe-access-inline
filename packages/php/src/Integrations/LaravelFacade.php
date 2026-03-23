@@ -83,7 +83,7 @@ class LaravelFacade
             return app();
         }
 
-        // @codeCoverageIgnoreStart
+        // @codeCoverageIgnoreStart — Container::getInstance() is only reachable without the app() helper; requires a full Laravel container boot (integration test only)
         /** @phpstan-ignore class.notFound */
         return \Illuminate\Container\Container::getInstance();
         // @codeCoverageIgnoreEnd

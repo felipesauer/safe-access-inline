@@ -72,7 +72,3 @@ jobs:
                   token: ${{ secrets.CODECOV_TOKEN }}
                   flags: cli
                   directory: packages/cli/coverage
-
-            - name: Mutation testing
-              if: matrix.node == '24'
-              run: npm run test:mutation

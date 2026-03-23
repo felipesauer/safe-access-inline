@@ -16,11 +16,11 @@ export class IniAccessor<
      * @returns A new {@link IniAccessor} instance.
      * @throws {InvalidFormatError} If `data` is not a string.
      */
-    static from(data: unknown): IniAccessor {
+    static from(data: unknown, options?: { readonly?: boolean }): IniAccessor {
         if (typeof data !== 'string') {
             throw new InvalidFormatError('IniAccessor expects an INI string.');
         }
-        return new IniAccessor(data);
+        return new IniAccessor(data, options);
     }
 
     /**
