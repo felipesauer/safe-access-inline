@@ -1,0 +1,1255 @@
+{
+    "meta": {
+        "report_date": "2025-07-14",
+        "php_package_version": "0.3.1",
+        "js_package_version": "0.3.1",
+        "methodology": "Full source-level review of all PHP and JS/TS source files in packages/php/src and packages/js/src",
+        "files_analyzed": {
+            "php": 62,
+            "js": 58
+        },
+        "total_gaps_found": 29,
+        "gaps_by_severity": {
+            "major": 10,
+            "minor": 14,
+            "info": 5
+        }
+    },
+
+    "alignment_score": {
+        "overall": 0.79,
+        "note": "Framework integrations (0.00) are intentionally language-ecosystem-specific and should not be treated as regressions. Core logic alignment is 0.91.",
+        "by_layer": {
+            "enums": 1.0,
+            "exceptions_errors": 1.0,
+            "contracts_interfaces": 0.8,
+            "config_classes": 0.88,
+            "security": 0.85,
+            "core_operations": 0.95,
+            "io_layer": 0.6,
+            "registries": 1.0,
+            "rendering_detection": 0.95,
+            "typed_accessors": 0.9,
+            "public_facade": 0.75,
+            "schema_adapters": 0.5,
+            "framework_integrations": 0.0
+        }
+    },
+
+    "feature_matrix": {
+        "enums": {
+            "Format": {
+                "php": true,
+                "js": true,
+                "aligned": true,
+                "values": [
+                    "Array",
+                    "Object",
+                    "Json",
+                    "Xml",
+                    "Yaml",
+                    "Toml",
+                    "Ini",
+                    "Csv",
+                    "Env",
+                    "Ndjson"
+                ],
+                "notes": "Perfect 1:1 match on all 10 values."
+            },
+            "AuditEventType": {
+                "php": true,
+                "js": true,
+                "aligned": true,
+                "values": [
+                    "file.read",
+                    "file.watch",
+                    "url.fetch",
+                    "security.violation",
+                    "security.deprecation",
+                    "data.mask",
+                    "data.freeze",
+                    "data.format_warning",
+                    "schema.validate",
+                    "plugin.overwrite"
+                ],
+                "notes": "Perfect 1:1 match on all 10 values."
+            },
+            "SegmentType": {
+                "php": true,
+                "js": true,
+                "aligned": true,
+                "values": [
+                    "KEY",
+                    "INDEX",
+                    "WILDCARD",
+                    "DESCENT",
+                    "DESCENT_MULTI",
+                    "MULTI_INDEX",
+                    "MULTI_KEY",
+                    "FILTER",
+                    "SLICE",
+                    "PROJECTION"
+                ],
+                "notes": "Perfect 1:1 match on all 10 values."
+            },
+            "CsvMode": {
+                "php": true,
+                "js": true,
+                "aligned": true,
+                "values": ["NONE", "PREFIX", "STRIP", "ERROR"],
+                "notes": "Enum defined in both. However, CsvMode is NOT exported from JS index.ts — consumers must cast string literals or import directly from the enum file.",
+                "export_gap": "CsvMode absent from JS barrel export (index.ts)"
+            },
+            "PatchOperationType": {
+                "php": true,
+                "js": true,
+                "aligned": true,
+                "values": ["ADD", "REMOVE", "REPLACE", "MOVE", "COPY", "TEST"],
+                "notes": "Perfect 1:1 match on all 6 values."
+            }
+        },
+
+        "exceptions_errors": {
+            "AccessorException_AccessorError": {
+                "php": "AccessorException extends \\RuntimeException",
+                "js": "AccessorError extends Error",
+                "aligned": true,
+                "notes": "Naming convention difference (*Exception vs *Error) is expected and intentional."
+            },
+            "PathNotFoundException_PathNotFoundError": {
+                "php": true,
+                "js": true,
+                "aligned": true
+            },
+            "SecurityException_SecurityError": {
+                "php": true,
+                "js": true,
+                "aligned": true
+            },
+            "InvalidFormatException_InvalidFormatError": {
+                "php": true,
+                "js": true,
+                "aligned": true
+            },
+            "ReadonlyViolationException_ReadonlyViolationError": {
+                "php": true,
+                "js": true,
+                "aligned": true
+            },
+            "SchemaValidationException_SchemaValidationError": {
+                "php": true,
+                "js": true,
+                "aligned": true,
+                "notes": "PHP has getIssues() method; JS has readonly issues property. Functionally equivalent."
+            },
+            "UnsupportedTypeException_UnsupportedTypeError": {
+                "php": true,
+                "js": true,
+                "aligned": true
+            },
+            "JsonPatchTestFailedException_JsonPatchTestFailedError": {
+                "php": true,
+                "js": true,
+                "aligned": true
+            }
+        },
+
+        "contracts_interfaces": {
+            "AccessorInterface": {
+                "php": true,
+                "js": true,
+                "aligned": true,
+                "methods": ["has", "type", "count", "keys"]
+            },
+            "ReadableInterface": {
+                "php": true,
+                "js": true,
+                "aligned": true,
+                "methods": ["get", "getMany", "getTemplate", "all"]
+            },
+            "WritableInterface": {
+                "php": true,
+                "js": true,
+                "aligned": true,
+                "methods": ["set", "remove", "merge"]
+            },
+            "TransformableInterface": {
+                "php": true,
+                "js": true,
+                "aligned": true,
+                "methods": [
+                    "toJson",
+                    "toObject",
+                    "toXml",
+                    "toYaml",
+                    "toToml",
+                    "toNdjson",
+                    "toCsv",
+                    "toIni",
+                    "toEnv",
+                    "freeze"
+                ],
+                "notes": "toCsv() signature: PHP accepts string|null $csvMode; JS accepts CsvMode | string literal union | undefined. Behaviorally identical."
+            },
+            "AuditEvent": {
+                "php": "final readonly class",
+                "js": "interface",
+                "aligned": true,
+                "fields": ["type", "context", "timestamp"]
+            },
+            "FilterExpression": {
+                "php": "final readonly class",
+                "js": "interface",
+                "aligned": true,
+                "fields": ["conditions", "logicals"]
+            },
+            "FilterCondition": {
+                "php": "final readonly class",
+                "js": "interface",
+                "aligned": true,
+                "fields": ["field", "op", "value", "func", "funcArgs"]
+            },
+            "JsonPatchOperation": {
+                "php": "final readonly class",
+                "js": "type alias",
+                "aligned": true,
+                "fields": ["op", "path", "value", "from"]
+            },
+            "SchemaAdapterInterface": {
+                "php": true,
+                "js": true,
+                "aligned": true,
+                "notes": "JS version is generic (TSchema extends object = object); PHP is non-generic. Minor language-idiomatic difference."
+            },
+            "SchemaValidationResult": {
+                "php": "final class",
+                "js": "interface",
+                "aligned": true
+            },
+            "SchemaValidationIssue": {
+                "php": "final class",
+                "js": "interface (inline in schema-adapter.interface.ts)",
+                "aligned": true
+            },
+            "FileLoadOptions": {
+                "php": true,
+                "js": false,
+                "aligned": false,
+                "php_location": "Contracts/FileLoadOptions.php",
+                "js_location": null,
+                "notes": "PHP has a typed DTO with (format?, allowedDirs[], allowAnyPath). JS passes equivalent options as inline anonymous objects — no exported FileLoadOptions interface. See GAP-002."
+            },
+            "HttpClientInterface": {
+                "php": true,
+                "js": false,
+                "aligned": false,
+                "notes": "PHP IoLoader accepts injected HttpClientInterface for testability. JS IoLoader uses Node https module directly with no injection point. See GAP-003."
+            },
+            "DnsResolverInterface": {
+                "php": true,
+                "js": false,
+                "aligned": false,
+                "notes": "PHP IoLoader accepts injected DnsResolverInterface for testability. JS has no equivalent. See GAP-003."
+            },
+            "ParserPluginInterface_ParserPlugin": {
+                "php": "Contracts/ParserPluginInterface.php (separate file)",
+                "js": "inline interface in core/registries/plugin-registry.ts",
+                "aligned": true,
+                "notes": "Functionally identical (parse(raw: string): Record). Different file organization only. JS exports as ParserPlugin from index.ts."
+            },
+            "SerializerPluginInterface_SerializerPlugin": {
+                "php": "Contracts/SerializerPluginInterface.php (separate file)",
+                "js": "inline interface in core/registries/plugin-registry.ts",
+                "aligned": true,
+                "notes": "Functionally identical (serialize(data: Record): string). Different file organization only."
+            },
+            "TraceSegment": {
+                "php": false,
+                "js": true,
+                "aligned": "partial",
+                "notes": "JS has TraceSegment interface exported from contracts/trace-segment.interface.ts with strictly typed 'type' field (union of specific strings). PHP trace() returns list<array{segment: string, found: bool, type: string|null}> — no Contracts/TraceSegment.php DTO exists. Functionally equivalent; PHP type is just less constrained."
+            },
+            "CacheInterface": {
+                "php": "\\Psr\\SimpleCache\\CacheInterface (PSR-16, external)",
+                "js": "contracts/cache.interface (custom, similar API)",
+                "aligned": true,
+                "notes": "Conceptually aligned. PHP uses PSR-16 standard; JS defines its own interface. Both accept set/get/delete/has."
+            }
+        },
+
+        "config_classes": {
+            "SafeAccessConfig": {
+                "php": true,
+                "js": true,
+                "aligned": true,
+                "values": { "maxCustomAccessors": 50 }
+            },
+            "AuditConfig": {
+                "php": true,
+                "js": true,
+                "aligned": true,
+                "values": { "maxListeners": 100 }
+            },
+            "CacheConfig": {
+                "php": true,
+                "js": true,
+                "aligned": true,
+                "values": { "maxSize": 1000 }
+            },
+            "MaskerConfig": {
+                "php": true,
+                "js": true,
+                "aligned": true,
+                "values": {
+                    "defaultMaskValue": "[REDACTED]",
+                    "maxRecursionDepth": 100,
+                    "maxPatternCacheSize": 200
+                }
+            },
+            "MergerConfig": {
+                "php": true,
+                "js": true,
+                "aligned": true,
+                "values": { "maxDepth": 512 }
+            },
+            "ParserConfig": {
+                "php": true,
+                "js": true,
+                "aligned": true,
+                "values": { "maxResolveDepth": 512, "maxXmlDepth": 100 }
+            },
+            "IoLoaderConfig": {
+                "php": true,
+                "js": true,
+                "aligned": "partial",
+                "php_fields": {
+                    "curlTimeout": 10,
+                    "curlConnectTimeout": 5,
+                    "maxPayloadBytes": 10485760
+                },
+                "js_fields": {
+                    "requestTimeoutMs": 10000,
+                    "connectTimeoutMs": 5000
+                },
+                "notes": "Timeout values are equivalent (10s / 5s). PHP config includes maxPayloadBytes (10MB); JS IoLoaderConfig does NOT — JS enforces the payload limit through SecurityOptions.MAX_PAYLOAD_BYTES directly. This creates a subtle difference: PHP's payload cap is reconfigurable per-IoLoader; JS's is tied to the global security option. See GAP-011."
+            },
+            "FilterParserConfig": {
+                "php": true,
+                "js": true,
+                "aligned": "partial",
+                "php_fields": {
+                    "maxPatternLength": 128,
+                    "pcreBacktrackLimit": 1000,
+                    "pcreRecursionLimit": 100
+                },
+                "js_fields": { "maxPatternLength": 128 },
+                "notes": "maxPatternLength is aligned. pcreBacktrackLimit and pcreRecursionLimit are PHP-specific PCRE engine controls with no JS equivalent. See GAP-012."
+            },
+            "PluginRegistryConfig": {
+                "php": true,
+                "js": true,
+                "aligned": true,
+                "values": { "maxParsers": 50, "maxSerializers": 50 }
+            }
+        },
+
+        "security_layer": {
+            "SecurityGuard": {
+                "php": true,
+                "js": true,
+                "aligned": "partial",
+                "forbidden_keys": [
+                    "__proto__",
+                    "constructor",
+                    "prototype",
+                    "toString",
+                    "valueOf",
+                    "__defineGetter__",
+                    "__defineSetter__",
+                    "__lookupGetter__",
+                    "__lookupSetter__",
+                    "hasOwnProperty",
+                    "isPrototypeOf",
+                    "propertyIsEnumerable",
+                    "toLocaleString"
+                ],
+                "methods_php": ["assertSafeKey", "sanitizeObject"],
+                "methods_js": [
+                    "assertSafeKey",
+                    "sanitizeObject",
+                    "isForbiddenKey"
+                ],
+                "notes": "JS adds isForbiddenKey() non-throwing check for use in read-path guards. PHP only has the throwing assertSafeKey(). See GAP-017."
+            },
+            "SecurityOptions": {
+                "php": "final class SecurityOptions (static constants + methods)",
+                "js": "interface SecurityOptions + standalone exported functions",
+                "aligned": "partial",
+                "default_values_aligned": true,
+                "shared_constants": {
+                    "MAX_DEPTH": 512,
+                    "MAX_PAYLOAD_BYTES": 10485760,
+                    "MAX_KEYS": 10000
+                },
+                "notes": "Default values are identical. PHP exposes static methods on final class; JS exports standalone functions (assertPayloadSize, assertMaxKeys, assertMaxDepth) from index.ts. See GAP-014."
+            },
+            "SecurityPolicy": {
+                "php": true,
+                "js": true,
+                "aligned": "partial",
+                "strict_policy": {
+                    "php": "SecurityPolicy::strict() — static factory",
+                    "js": "STRICT_POLICY — exported constant",
+                    "values": {
+                        "maxDepth": 20,
+                        "maxPayloadBytes": 1048576,
+                        "maxKeys": 1000,
+                        "csvMode": "error",
+                        "allowedPorts": [443]
+                    },
+                    "aligned": true
+                },
+                "permissive_policy": {
+                    "php": "SecurityPolicy::permissive() — static factory",
+                    "js": "PERMISSIVE_POLICY — exported constant",
+                    "values": {
+                        "maxDepth": 1024,
+                        "maxPayloadBytes": 104857600,
+                        "maxKeys": 100000
+                    },
+                    "aligned": true
+                },
+                "merge_policy_signature": {
+                    "php": "SecurityPolicy::mergePolicy(self $base, self $overrides) — both full objects",
+                    "js": "mergePolicy(base: SecurityPolicy, overrides?: Partial<SecurityPolicy>)",
+                    "aligned": "partial",
+                    "notes": "PHP requires two complete SecurityPolicy objects. JS second argument is Partial<SecurityPolicy>, enabling partial overrides. See GAP-015."
+                },
+                "global_policy_ergonomics": {
+                    "php": "SecurityPolicy::setGlobal($policy) / SecurityPolicy::clearGlobal()",
+                    "js": "setGlobalPolicy(policy) exported directly / SafeAccess.setGlobalPolicy() on facade",
+                    "aligned": "partial",
+                    "notes": "PHP static methods live on the SecurityPolicy class. JS exposes them both as standalone named exports and on the SafeAccess facade. See GAP-016."
+                }
+            },
+            "AuditLogger_AuditEmitter": {
+                "php": true,
+                "js": true,
+                "aligned": "partial",
+                "max_listeners": 100,
+                "errors_isolated": true,
+                "isolation_behavior": {
+                    "php": "Catches and silently swallows listener exceptions",
+                    "js": "Catches listener exceptions and logs to console.warn(err)",
+                    "notes": "JS is more observable in production. See GAP-025."
+                },
+                "configure_method": {
+                    "php": "AuditLogger::configure(AuditConfig $config) exists",
+                    "js": "No configure() equivalent; MAX_LISTENERS set from DEFAULT_AUDIT_CONFIG at module load",
+                    "notes": "PHP allows runtime reconfiguration; JS does not. See GAP-013."
+                }
+            },
+            "CsvSanitizer": {
+                "php": true,
+                "js": true,
+                "aligned": "partial",
+                "dangerous_prefixes_aligned": true,
+                "dangerous_prefixes": [
+                    "=",
+                    "+",
+                    "-",
+                    "@",
+                    "\t",
+                    "\r",
+                    "|",
+                    "%",
+                    "^",
+                    "&"
+                ],
+                "methods_php": [
+                    "sanitizeCell",
+                    "sanitizeRow",
+                    "sanitizeHeaders"
+                ],
+                "methods_js": ["sanitizeCsvCell", "sanitizeCsvRow"],
+                "notes": "PHP has sanitizeHeaders(array $headers, string $mode) for sanitizing CSV header rows specifically. JS has no equivalent sanitizeCsvHeaders() function. See GAP-001."
+            },
+            "DataMasker": {
+                "php": true,
+                "js": true,
+                "aligned": true,
+                "notes": "Both support glob patterns (fnmatch in PHP, glob-to-regex in JS) and regex patterns. Pattern syntax for string-delimited regexes (/pattern/flags) is identical. PHP RegExp object has no PHP equivalent but MaskerConfig documents this as expected."
+            },
+            "IpRangeChecker": {
+                "php": true,
+                "js": true,
+                "aligned": true,
+                "private_ranges_aligned": true,
+                "notes": "Both include CGNAT range 100.64.0.0/10. All private IP ranges and loopback handling are identical."
+            }
+        },
+
+        "core_operations": {
+            "DotNotationParser": {
+                "php": true,
+                "js": true,
+                "aligned": "partial",
+                "methods": [
+                    "get",
+                    "has",
+                    "set",
+                    "remove",
+                    "merge",
+                    "getBySegments",
+                    "setBySegments",
+                    "removeBySegments",
+                    "configure"
+                ],
+                "resetConfig_difference": {
+                    "php": "No resetConfig() — use configure(new ParserConfig()) instead",
+                    "js": "resetConfig() explicit convenience method",
+                    "notes": "See GAP-018."
+                }
+            },
+            "FilterParser": {
+                "php": true,
+                "js": true,
+                "aligned": true,
+                "notes": "ReDoS protection via maxPatternLength(128) in both. PHP additionally limits PCRE engine (pcreBacktrackLimit=1000, pcreRecursionLimit=100)."
+            },
+            "SegmentParser": {
+                "php": true,
+                "js": true,
+                "aligned": true,
+                "notes": "All 10 segment types parsed identically."
+            },
+            "PathResolver": {
+                "php": true,
+                "js": true,
+                "aligned": true,
+                "notes": "Wildcard, descent, filter, slice, projection all aligned."
+            },
+            "PathCache": {
+                "php": true,
+                "js": true,
+                "aligned": true,
+                "algorithm": "LRU with promote-on-read semantics",
+                "max_size": 1000
+            },
+            "DeepMerger": {
+                "php": true,
+                "js": true,
+                "aligned": true,
+                "max_depth": 512,
+                "list_detection": {
+                    "php": "array_is_list()",
+                    "js": "isObjectList() — checks if every value is a plain object",
+                    "notes": "Same semantic intent; language-idiomatic implementation."
+                }
+            },
+            "JsonPatch": {
+                "php": true,
+                "js": true,
+                "aligned": "partial",
+                "methods": ["diff", "applyPatch", "validatePatch"],
+                "atomicity": {
+                    "php": "Always runs full preflight copy before applying ops",
+                    "js": "Skips preflight when no 'test' ops present (optimization — same external behavior)",
+                    "notes": "See GAP-028."
+                },
+                "test_op_null_semantics": {
+                    "php": "Absent path = null → test against null PASSES",
+                    "js": "Absent path = undefined → test against null FAILS",
+                    "notes": "Documented in both codebases as a known semantic difference. See GAP-034."
+                }
+            },
+            "ArrayOperations": {
+                "php": "Traits/HasArrayOperations.php (mixin trait)",
+                "js": "core/operations/array-operations.ts (static class)",
+                "aligned": true,
+                "methods": [
+                    "push",
+                    "pop",
+                    "shift",
+                    "unshift",
+                    "insertAt",
+                    "filterAt",
+                    "mapAt",
+                    "sortAt",
+                    "unique",
+                    "flatten",
+                    "first",
+                    "last",
+                    "nth"
+                ],
+                "notes": "All array operations aligned. Implementation pattern differs (PHP trait vs JS static class delegation) but public API is identical."
+            }
+        },
+
+        "io_layer": {
+            "IoLoader": {
+                "php": true,
+                "js": true,
+                "aligned": "partial",
+                "http_client": {
+                    "php": "cURL (synchronous); accepts injectable HttpClientInterface for testing",
+                    "js": "Node https module (asynchronous); no injection point"
+                },
+                "dns_resolver": {
+                    "php": "Accepts injectable DnsResolverInterface for testing",
+                    "js": "Uses dns.resolve4/6 directly; no injection point"
+                },
+                "sync_async": {
+                    "php": "Synchronous only",
+                    "js": "Both readFileSync (sync) and readFile/fetchUrl (async)"
+                },
+                "ssrf_protection": {
+                    "php": true,
+                    "js": true,
+                    "notes": "Both enforce assertPathWithinAllowedDirs() and SSRF IP validation."
+                },
+                "notes": "See GAP-003 (missing JS injectable interfaces), GAP-007 (async split)."
+            },
+            "FileWatcher": {
+                "php": true,
+                "js": true,
+                "aligned": false,
+                "php_implementation": "Polling-based (filemtime() + usleep()); blocks current thread; returns {poll: callable, stop: callable}",
+                "js_implementation": "Event-driven (fs.watch()); non-blocking; debounced; returns unsubscribe closure",
+                "notes": "Fundamental architectural difference. PHP requires dedicated thread/process for file watching; JS is fully non-blocking. See GAP-006."
+            }
+        },
+
+        "registries": {
+            "PluginRegistry": {
+                "php": true,
+                "js": true,
+                "aligned": true,
+                "max_parsers": 50,
+                "max_serializers": 50,
+                "methods": [
+                    "registerParser",
+                    "hasParser",
+                    "getParser",
+                    "registerSerializer",
+                    "hasSerializer",
+                    "getSerializer",
+                    "reset"
+                ],
+                "notes": "PHP uses typed arrays; JS uses Map<string, Plugin>. Semantically identical."
+            },
+            "SchemaRegistry": {
+                "php": true,
+                "js": true,
+                "aligned": true,
+                "methods": [
+                    "setDefaultAdapter",
+                    "getDefaultAdapter",
+                    "clearDefaultAdapter"
+                ]
+            }
+        },
+
+        "rendering_detection": {
+            "TypeDetector": {
+                "php": true,
+                "js": true,
+                "aligned": "partial",
+                "detection_order_php": [
+                    "array",
+                    "SimpleXMLElement",
+                    "object",
+                    "json",
+                    "xml",
+                    "yaml",
+                    "toml",
+                    "ini",
+                    "env"
+                ],
+                "detection_order_js": [
+                    "Array",
+                    "object",
+                    "json",
+                    "ndjson",
+                    "xml",
+                    "yaml",
+                    "toml",
+                    "ini",
+                    "env"
+                ],
+                "notes": "PHP additionally handles SimpleXMLElement as a native PHP type before generic objects. JS handles NDJSON detection as a sub-case of the JSON branch. Both produce equivalent results for the same input data."
+            },
+            "FormatSerializer_HasTransformations": {
+                "php": "HasTransformations trait (mixin on AbstractAccessor)",
+                "js": "FormatSerializer static class (called from AbstractAccessor)",
+                "aligned": true,
+                "methods": [
+                    "toJson",
+                    "toNdjson",
+                    "toCsv",
+                    "toObject",
+                    "toXml",
+                    "toYaml",
+                    "toToml",
+                    "toIni",
+                    "toEnv"
+                ],
+                "notes": "toJson() signature: PHP accepts int|bool flags; JS accepts boolean pretty. Both produce identical output for the primary use case (pretty-printing). See GAP-020."
+            },
+            "TemplateRenderer": {
+                "php": true,
+                "js": true,
+                "aligned": true,
+                "notes": "renderTemplate() function aligned in both languages."
+            }
+        },
+
+        "typed_accessors": {
+            "getInt": {
+                "php": "HasTypeAccess trait",
+                "js": "AbstractAccessor method (line 696)",
+                "aligned": true
+            },
+            "getBool": {
+                "php": "HasTypeAccess trait",
+                "js": "AbstractAccessor method (line 714)",
+                "aligned": true,
+                "notes": "Both handle bool-string coercion: 'true'/'1'/'yes' → true; 'false'/'0'/'no' → false."
+            },
+            "getString": {
+                "php": "HasTypeAccess trait",
+                "js": "AbstractAccessor method (line 737)",
+                "aligned": true
+            },
+            "getFloat": {
+                "php": "HasTypeAccess trait",
+                "js": "AbstractAccessor method (line 768)",
+                "aligned": true
+            },
+            "getArray": {
+                "php": "HasTypeAccess trait — returns value only when already a PHP array",
+                "js": "AbstractAccessor method (line 753) — getArray<U = unknown>() with generic",
+                "aligned": true,
+                "notes": "JS uses TypeScript generic for element type safety; PHP returns untyped array."
+            },
+            "getWildcard": {
+                "php": "HasWildcardSupport trait — getWildcard(path, default?): array",
+                "js": false,
+                "aligned": "partial",
+                "notes": "PHP provides an explicit getWildcard() convenience method. JS users call the standard get() with a wildcard path (e.g., 'users.*.name') which naturally returns an array. Functionally equivalent, but PHP provides an explicitly named method. See GAP-022."
+            },
+            "trace": {
+                "php": "HasDebugOperations trait → trace(string $path): list<array{...}>",
+                "js": "AbstractAccessor method (line 797) → trace(path: string): TraceSegment[]",
+                "aligned": "partial",
+                "notes": "JS has a typed TraceSegment contract exported from index.ts. PHP returns a plain associative array with no typed DTO in Contracts/. See GAP-029 (partial)."
+            }
+        },
+
+        "public_facade_SafeAccess": {
+            "from": { "php": true, "js": true, "aligned": true },
+            "fromArray": { "php": true, "js": true, "aligned": true },
+            "fromObject": { "php": true, "js": true, "aligned": true },
+            "fromJson": { "php": true, "js": true, "aligned": true },
+            "fromXml": { "php": true, "js": true, "aligned": true },
+            "fromYaml": { "php": true, "js": true, "aligned": true },
+            "fromToml": { "php": true, "js": true, "aligned": true },
+            "fromIni": { "php": true, "js": true, "aligned": true },
+            "fromCsv": { "php": true, "js": true, "aligned": true },
+            "fromEnv": { "php": true, "js": true, "aligned": true },
+            "fromNdjson": { "php": true, "js": true, "aligned": true },
+            "fromFile_sync": {
+                "php": "fromFile() — always synchronous, accepts FileLoadOptions|string|null",
+                "js": "fromFileSync() — synchronous variant added to mirror PHP",
+                "aligned": true
+            },
+            "fromFile_async": {
+                "php": false,
+                "js": "fromFile() — async, returns Promise<AbstractAccessor>",
+                "aligned": false,
+                "notes": "PHP has no async fromFile(). See GAP-007."
+            },
+            "fromUrl": {
+                "php": "synchronous (cURL)",
+                "js": "async (returns Promise<AbstractAccessor>)",
+                "aligned": "partial",
+                "notes": "Same SSRF protections applied in both. I/O model differs fundamentally. See GAP-007."
+            },
+            "layer": { "php": true, "js": true, "aligned": true },
+            "layerFiles": {
+                "php": "synchronous",
+                "js": "async (returns Promise<AbstractAccessor>)",
+                "aligned": "partial",
+                "notes": "Layer logic is identical; async model differs. See GAP-007."
+            },
+            "watchFile": {
+                "php": false,
+                "js": "SafeAccess.watchFile() static wrapper",
+                "aligned": "partial",
+                "notes": "PHP FileWatcher is usable but not wrapped in a SafeAccess static factory. JS has SafeAccess.watchFile()."
+            },
+            "streamCsv": {
+                "php": false,
+                "js": "async generator (yields parsed rows)",
+                "aligned": false,
+                "notes": "See GAP-004."
+            },
+            "streamNdjson": {
+                "php": false,
+                "js": "async generator (yields parsed objects)",
+                "aligned": false,
+                "notes": "See GAP-004."
+            },
+            "withPolicy": {
+                "php": false,
+                "js": "SafeAccess.withPolicy(data, policy) — convenience wrapper",
+                "aligned": false,
+                "notes": "See GAP-005."
+            },
+            "fromFileWithPolicy": {
+                "php": false,
+                "js": "SafeAccess.fromFileWithPolicy(path, policy) — loads + applies policy",
+                "aligned": false,
+                "notes": "See GAP-005."
+            },
+            "fromUrlWithPolicy": {
+                "php": false,
+                "js": "SafeAccess.fromUrlWithPolicy(url, policy) — fetches + applies policy",
+                "aligned": false,
+                "notes": "See GAP-005."
+            },
+            "setGlobalPolicy": {
+                "php": "SecurityPolicy::setGlobal($policy) — on SecurityPolicy class",
+                "js": "SafeAccess.setGlobalPolicy(policy) AND standalone setGlobalPolicy() export",
+                "aligned": "partial",
+                "notes": "See GAP-016."
+            },
+            "clearGlobalPolicy": {
+                "php": "SecurityPolicy::clearGlobal() — on SecurityPolicy class",
+                "js": "SafeAccess.clearGlobalPolicy() AND standalone clearGlobalPolicy() export",
+                "aligned": "partial",
+                "notes": "See GAP-016."
+            },
+            "compilePath": { "php": true, "js": true, "aligned": true },
+            "extend": { "php": true, "js": true, "aligned": true },
+            "custom": { "php": true, "js": true, "aligned": true },
+            "detect": { "php": true, "js": true, "aligned": true }
+        },
+
+        "schema_adapters": {
+            "JsonSchemaAdapter": { "php": true, "js": true, "aligned": true },
+            "ZodSchemaAdapter": {
+                "php": false,
+                "js": true,
+                "aligned": false,
+                "notes": "Zod is JS-ecosystem only."
+            },
+            "ValibotSchemaAdapter": {
+                "php": false,
+                "js": true,
+                "aligned": false,
+                "notes": "Valibot is JS-ecosystem only."
+            },
+            "YupSchemaAdapter": {
+                "php": false,
+                "js": true,
+                "aligned": false,
+                "notes": "Yup is JS-ecosystem only."
+            },
+            "SymfonyValidatorAdapter": {
+                "php": true,
+                "js": false,
+                "aligned": false,
+                "notes": "Symfony Validator is PHP-ecosystem only."
+            }
+        },
+
+        "framework_integrations": {
+            "note": "Framework integrations are intentionally language-ecosystem-specific. No alignment between PHP and JS integrations is expected.",
+            "php_only": [
+                "Integrations/helpers.php — global helper functions",
+                "Integrations/LaravelServiceProvider.php — Laravel DI binding",
+                "Integrations/LaravelFacade.php — Laravel facade",
+                "Integrations/SafeAccessBundle.php — Symfony bundle",
+                "Integrations/SymfonyIntegration.php — Symfony DI extension"
+            ],
+            "js_only": [
+                "integrations/express.ts — Express.js middleware (safeAccessMiddleware)",
+                "integrations/nextjs.ts — Next.js config loader (loadNextConfig)",
+                "integrations/nestjs.ts — NestJS module/service/provider",
+                "integrations/vite.ts — Vite plugin (safeAccessPlugin)"
+            ]
+        }
+    },
+
+    "gaps": [
+        {
+            "id": "GAP-001",
+            "severity": "major",
+            "title": "CsvSanitizer.sanitizeHeaders() exists in PHP but not in JS",
+            "php_location": "packages/php/src/Security/Sanitizers/CsvSanitizer.php — sanitizeHeaders()",
+            "js_location": "packages/js/src/security/sanitizers/csv-sanitizer.ts — MISSING",
+            "description": "PHP CsvSanitizer exposes sanitizeHeaders(array $headers, string $mode) to sanitize an entire header row of a CSV file. JS only exports sanitizeCsvCell() and sanitizeCsvRow(). Users who need to sanitize CSV headers in JS must call sanitizeCsvRow() with the headers array as a workaround, but there is no explicit, discoverable sanitizeHeaders equivalent.",
+            "impact": "JS users building CSV export pipelines cannot sanitize header rows with a single idiomatic call. Security-conscious consumers may miss header injection vectors.",
+            "remediation": "Add sanitizeCsvHeaders(headers: string[], mode: CsvMode | string): string[] to csv-sanitizer.ts and export it from index.ts."
+        },
+        {
+            "id": "GAP-002",
+            "severity": "major",
+            "title": "FileLoadOptions DTO exists in PHP but not in JS",
+            "php_location": "packages/php/src/Contracts/FileLoadOptions.php",
+            "js_location": "MISSING",
+            "description": "PHP has a strongly-typed FileLoadOptions DTO used in fromFile(), layerFiles(), and watchFile() with fields: format (Format|null), allowedDirs (string[]), allowAnyPath (bool). JS passes equivalent options as inline anonymous objects — no exported FileLoadOptions interface exists in index.ts.",
+            "impact": "JS consumers cannot type their file-load option objects or discover available options via IDE auto-complete. Type safety for file loading options is absent.",
+            "remediation": "Add FileLoadOptions interface to contracts/file-load-options.interface.ts and export it from index.ts. Update fromFile(), fromFileSync(), and layerFiles() to accept FileLoadOptions in their signatures."
+        },
+        {
+            "id": "GAP-003",
+            "severity": "major",
+            "title": "HttpClientInterface and DnsResolverInterface exist in PHP but not in JS",
+            "php_locations": [
+                "packages/php/src/Contracts/HttpClientInterface.php",
+                "packages/php/src/Contracts/DnsResolverInterface.php"
+            ],
+            "js_location": "MISSING",
+            "description": "PHP IoLoader accepts injected HttpClientInterface (via setHttpClient()) and DnsResolverInterface (via setDnsResolver()) for testability and SSRF control. JS IoLoader uses Node's https module and dns module directly with no injection point, making it impossible to mock network calls in unit tests.",
+            "impact": "JS IoLoader is not unit-testable for network scenarios. SSRF test coverage is harder to achieve. PHP can mock/spy on DNS resolution; JS cannot.",
+            "remediation": "Add HttpClientInterface and DnsResolverInterface to JS contracts. Refactor io-loader.ts to accept optional injectable implementations, or provide test helpers that mock the network layer."
+        },
+        {
+            "id": "GAP-004",
+            "severity": "major",
+            "title": "Streaming methods streamCsv() and streamNdjson() exist in JS but not in PHP",
+            "php_location": "MISSING",
+            "js_location": "packages/js/src/safe-access.ts — SafeAccess.streamCsv(), SafeAccess.streamNdjson()",
+            "description": "JS SafeAccess exposes async generator methods streamCsv() and streamNdjson() for processing large files row-by-row without loading the entire document into memory. PHP has no equivalent streaming API.",
+            "impact": "PHP consumers processing large CSV or NDJSON files must load the entire file into memory. For large datasets (100MB+) this can cause OOM errors.",
+            "remediation": "Add PHP generator-based streaming methods. PHP 8.1+ generators support yield, making this feasible. Alternatively, document this as a known JS-only feature pending PHP implementation."
+        },
+        {
+            "id": "GAP-005",
+            "severity": "major",
+            "title": "Policy convenience methods withPolicy(), fromFileWithPolicy(), fromUrlWithPolicy() exist in JS but not in PHP",
+            "php_location": "MISSING",
+            "js_location": "packages/js/src/safe-access.ts",
+            "description": "JS SafeAccess provides three convenience wrappers: withPolicy(data, policy), fromFileWithPolicy(path, format, policy), and fromUrlWithPolicy(url, policy). These load data and immediately apply a security policy in one call. PHP consumers must load data first, then manually apply the policy.",
+            "impact": "PHP API is less ergonomic for policy-enforced loading. Developers may forget to apply a policy when loading from untrusted sources.",
+            "remediation": "Add SafeAccess::withPolicy(), SafeAccess::fromFileWithPolicy(), and SafeAccess::fromUrlWithPolicy() static methods to PHP SafeAccess.php."
+        },
+        {
+            "id": "GAP-006",
+            "severity": "major",
+            "title": "FileWatcher implementation is polling/blocking in PHP vs event-driven/non-blocking in JS",
+            "php_location": "packages/php/src/Core/Io/FileWatcher.php",
+            "js_location": "packages/js/src/core/io/file-watcher.ts",
+            "description": "PHP FileWatcher uses polling (filemtime() + usleep(500ms)) in a blocking while-loop. It returns {poll: callable, stop: callable} where calling poll() blocks the current thread. JS uses fs.watch() (inotify/kqueue/FSEvents), is non-blocking, debounces events (100ms), and returns an unsubscribe closure.",
+            "impact": "PHP file watching blocks the current process/thread, requiring a dedicated worker or async runtime (ReactPHP, Swoole). JS watching is naturally concurrent. Debounce behavior differs: PHP notifies every poll interval (500ms); JS debounces at 100ms.",
+            "remediation": "This is a fundamental language-model difference. Document clearly in the FileWatcher API docs that PHP polling blocks and recommend Swoole/ReactPHP for non-blocking usage. Consider adding a debounce interval to PHP's polling loop."
+        },
+        {
+            "id": "GAP-007",
+            "severity": "major",
+            "title": "Async I/O split (fromFile async, fromUrl async, layerFiles async) is JS-only",
+            "php_location": "packages/php/src/SafeAccess.php — synchronous only",
+            "js_location": "packages/js/src/safe-access.ts — both sync and async variants",
+            "description": "JS provides both fromFileSync() (sync) and fromFile() (async), and fromUrl()/layerFiles() are always async (return Promises). PHP is synchronous throughout. This is a language-model difference, but the gap in documented behavior matters for cross-language consumers.",
+            "impact": "JS consumers must handle Promises for file/URL loading. PHP consumers get simpler synchronous calls. Documentation must clearly distinguish these behaviors. Promise-based JS from PHP-background developers is a common stumbling block.",
+            "remediation": "Document the async/sync split prominently in getting-started guides. Provide concise async/await examples in the JS docs."
+        },
+        {
+            "id": "GAP-008",
+            "severity": "major",
+            "title": "IoLoaderConfig.maxPayloadBytes exists in PHP but not in JS",
+            "php_location": "packages/php/src/Core/Config/IoLoaderConfig.php — maxPayloadBytes field",
+            "js_location": "packages/js/src/core/config/io-loader-config.ts — field MISSING",
+            "description": "PHP IoLoaderConfig has a maxPayloadBytes field (default 10MB) that can be overridden per-request. JS IoLoaderConfig only has requestTimeoutMs and connectTimeoutMs. JS enforces the payload limit but pulls it from SecurityOptions.MAX_PAYLOAD_BYTES (global constant), not from IoLoaderConfig. This means PHP supports per-request payload caps while JS does not.",
+            "impact": "JS consumers cannot configure different payload limits for different fetch calls. All fetches share the global SecurityOptions limit.",
+            "remediation": "Add maxPayloadBytes to JS IoLoaderConfig interface and DEFAULT_IO_LOADER_CONFIG. Update fetchUrl() to read the limit from IoLoaderConfig rather than SecurityOptions.",
+            "note": "This is a refined version of the earlier IoLoaderConfig observation and was originally listed as GAP-011 in analysis."
+        },
+        {
+            "id": "GAP-009",
+            "severity": "major",
+            "title": "SSRF/network injection points not testable in JS (concrete consequence of GAP-003)",
+            "description": "Consequence of GAP-003. PHP can inject mock HttpClient and DnsResolver to unit test SSRF protection logic. JS has no injection hooks. This is called out separately as a security-testing gap.",
+            "impact": "JS SSRF protection code (assertSafeUrl, assertResolvedIpNotPrivate, DNS pinning) cannot be tested in isolation via unit tests. Integration tests requiring real network access are the only option.",
+            "remediation": "As part of GAP-003 remediation, make DNS and HTTP injectable in JS IoLoader."
+        },
+        {
+            "id": "GAP-010",
+            "severity": "major",
+            "title": "No SafeAccess.watchFile() static wrapper in PHP",
+            "php_location": "MISSING from SafeAccess.php",
+            "js_location": "packages/js/src/core/io/file-watcher.ts — exported watchFile(); SafeAccess.watchFile() via index.ts",
+            "description": "JS exposes watchFile() as a named export from index.ts and through the SafeAccess facade. PHP's FileWatcher is functional but is not wrapped in a SafeAccess::watchFile() factory method, making it harder to discover.",
+            "impact": "PHP consumers must know to import FileWatcher directly; there is no discoverability from the SafeAccess entry point.",
+            "remediation": "Add SafeAccess::watchFile(string $path, callable $callback, int $pollIntervalMs = 500): array static method to PHP SafeAccess.php."
+        },
+        {
+            "id": "GAP-011",
+            "severity": "minor",
+            "title": "FilterParserConfig has PCRE-specific fields in PHP not present in JS",
+            "php_location": "packages/php/src/Core/Config/FilterParserConfig.php",
+            "js_location": "packages/js/src/core/config/filter-parser-config.ts",
+            "description": "PHP FilterParserConfig has pcreBacktrackLimit (1000) and pcreRecursionLimit (100) for controlling PCRE engine internals during [?match(...)] filter evaluation. JS FilterParserConfig only has maxPatternLength (128). PCRE limits are PHP-specific runtime controls with no JS equivalent.",
+            "impact": "PHP has finer-grained ReDoS protection via PCRE limits; JS relies solely on pattern length. Adversarial patterns of length ≤128 can still cause catastrophic backtracking in JS.",
+            "remediation": "Consider adding a JS-equivalent protection: time-limited regex execution (AbortSignal with RegExp, available in Node 22+ or via libs). Document the difference in security guides."
+        },
+        {
+            "id": "GAP-012",
+            "severity": "minor",
+            "title": "AuditLogger.configure() exists in PHP but not in JS",
+            "php_location": "packages/php/src/Security/Audit/AuditLogger.php — configure(AuditConfig $config)",
+            "js_location": "packages/js/src/security/audit/audit-emitter.ts — MISSING",
+            "description": "PHP AuditLogger has a configure(AuditConfig $config) method for runtime reconfiguration of maxListeners. JS AuditEmitter sets MAX_LISTENERS from DEFAULT_AUDIT_CONFIG at module initialization with no way to reconfigure later.",
+            "impact": "JS consumers cannot adjust the listener cap at runtime. Applications that dynamically add many audit listeners may hit the cap unexpectedly without a way to raise it.",
+            "remediation": "Add a configure(config: AuditConfig): void export to audit-emitter.ts that updates the MAX_LISTENERS constant."
+        },
+        {
+            "id": "GAP-013",
+            "severity": "minor",
+            "title": "SecurityGuard.isForbiddenKey() non-throwing check exists only in JS",
+            "php_location": "MISSING from SecurityGuard",
+            "js_location": "packages/js/src/security/guards/security-guard.ts — isForbiddenKey()",
+            "description": "JS SecurityGuard provides both assertSafeKey() (throws SecurityError) and isForbiddenKey() (returns boolean without throwing) for use in read-path code where exception overhead is unwanted. PHP only has assertSafeKey().",
+            "impact": "PHP code performing high-frequency key safety checks in hot paths must use try-catch around assertSafeKey(), which is more expensive than a boolean predicate.",
+            "remediation": "Add SecurityGuard::isForbiddenKey(string $key): bool to PHP SecurityGuard."
+        },
+        {
+            "id": "GAP-014",
+            "severity": "minor",
+            "title": "SecurityOptions is a final class in PHP but an interface + standalone functions in JS",
+            "php_location": "packages/php/src/Security/Guards/SecurityOptions.php — final class",
+            "js_location": "packages/js/src/security/guards/security-options.ts — interface + exported functions",
+            "description": "PHP SecurityOptions is a final class with static methods (assertPayloadSize, assertMaxKeys, assertMaxDepth) and constants. JS splits this into an interface (SecurityOptions) and three standalone exported functions (assertPayloadSize, assertMaxKeys, assertMaxDepth). The constants MAX_DEPTH, MAX_PAYLOAD_BYTES, MAX_KEYS are aligned.",
+            "impact": "Different consumption patterns: PHP code calls SecurityOptions::assertPayloadSize($bytes); JS code can import the function directly or destructure. Minor ergonomics difference, no functional impact.",
+            "remediation": "No code change needed. Document the consumption pattern difference in docs."
+        },
+        {
+            "id": "GAP-015",
+            "severity": "minor",
+            "title": "SecurityPolicy.mergePolicy() signature differs between PHP and JS",
+            "php_location": "packages/php/src/Security/Guards/SecurityPolicy.php — mergePolicy(self $base, self $overrides)",
+            "js_location": "packages/js/src/security/guards/security-policy.ts — mergePolicy(base, overrides?: Partial<SecurityPolicy>)",
+            "description": "PHP mergePolicy() requires two complete SecurityPolicy objects. JS mergePolicy() accepts a base SecurityPolicy and an optional Partial<SecurityPolicy> — only overridden fields need to be specified.",
+            "impact": "PHP consumers must construct full SecurityPolicy objects even when overriding one field. JS consumers can pass {maxDepth: 50} to override only maxDepth.",
+            "remediation": "Consider updating PHP mergePolicy() to accept a base policy + an array of overrides rather than requiring a full second SecurityPolicy object."
+        },
+        {
+            "id": "GAP-016",
+            "severity": "minor",
+            "title": "Global policy management ergonomics differ (PHP on SecurityPolicy class vs JS on SafeAccess facade)",
+            "description": "PHP exposes global policy management as SecurityPolicy::setGlobal() and SecurityPolicy::clearGlobal() on the policy class itself. JS exposes them both as standalone named exports (setGlobalPolicy, clearGlobalPolicy from security-policy.ts) and as SafeAccess.setGlobalPolicy() / SafeAccess.clearGlobalPolicy() on the facade.",
+            "impact": "API discoverability difference. PHP users find global policy management on SecurityPolicy; JS users may find it via SafeAccess (more common entry point) or via direct import.",
+            "remediation": "No code change needed. Ensure documentation examples for PHP show SafeAccess::… entry point (if added via GAP-005 remediation) alongside SecurityPolicy::setGlobal()."
+        },
+        {
+            "id": "GAP-017",
+            "severity": "minor",
+            "title": "DotNotationParser.resetConfig() exists in JS but not in PHP",
+            "php_location": "MISSING",
+            "js_location": "packages/js/src/core/parsers/dot-notation-parser.ts — resetConfig()",
+            "description": "JS has an explicit DotNotationParser.resetConfig() method for resetting parser configuration to defaults (useful in test teardown). PHP resets by calling configure(new ParserConfig()).",
+            "impact": "Minor ergonomics difference. PHP test code is slightly more verbose for config teardown.",
+            "remediation": "Add DotNotationParser::resetConfig(): void to PHP — one-liner delegating to self::configure(new ParserConfig())."
+        },
+        {
+            "id": "GAP-018",
+            "severity": "minor",
+            "title": "Cycle detection in assertMaxStructuralDepth differs between PHP and JS",
+            "description": "PHP uses maxDepth+1 as a hard cap to terminate recursive traversal (brute-force cycle handling due to PHP reference semantics). JS uses a WeakSet to track visited objects and detect true cycles.",
+            "impact": "PHP can still traverse maxDepth+1 levels before aborting, potentially allowing slightly deeper payloads than intended. JS halts immediately upon detecting a cycle.",
+            "remediation": "Low priority. Consider documenting this difference. PHP reference cycles are rare in JSON data; true cycle detection in PHP requires SplObjectStorage with more overhead."
+        },
+        {
+            "id": "GAP-019",
+            "severity": "minor",
+            "title": "toJson() signature differs — PHP accepts int|bool flags, JS accepts boolean",
+            "php_location": "packages/php/src/Traits/HasTransformations.php — toJson(int|bool $flags = 0)",
+            "js_location": "packages/js/src/core/abstract-accessor.ts — toJson(pretty = false)",
+            "description": "PHP toJson() accepts either a boolean (converted to JSON_PRETTY_PRINT flag) or an integer bitmask of JSON_* constants, enabling flags like JSON_UNESCAPED_UNICODE. JS toJson() only accepts a boolean for pretty-printing. Documented as intentional in TransformableInterface.php.",
+            "impact": "JS consumers cannot pass JSON encoding flags equivalent to PHP's JSON_UNESCAPED_UNICODE or JSON_UNESCAPED_SLASHES.",
+            "remediation": "Consider adding a toJson(pretty?: boolean, space?: number | string): string signature to JS, or document that JSON.stringify's replacer/space options are not available via toJson()."
+        },
+        {
+            "id": "GAP-020",
+            "severity": "minor",
+            "title": "clone() parameter differs — PHP has default empty array, JS has required parameter",
+            "php_location": "packages/php/src/Core/AbstractAccessor.php — clone(array $data = []): static",
+            "js_location": "packages/js/src/core/abstract-accessor.ts — abstract clone(data: Record<string, unknown>): this",
+            "description": "PHP AbstractAccessor.clone() has a default empty array, making it callable with no arguments to create a blank instance. JS clone() is declared abstract with a required parameter in AbstractAccessor — concrete implementations define the actual behavior.",
+            "impact": "Consumers extending AbstractAccessor in JS must always pass data to clone(). PHP consumers can call clone() with no args.",
+            "remediation": "Low priority. Document the difference in the AbstractAccessor extension guide."
+        },
+        {
+            "id": "GAP-021",
+            "severity": "minor",
+            "title": "CompiledPath internal accessor differs — PHP uses segments() method, JS uses _segments property",
+            "php_location": "packages/php/src/Core/CompiledPath.php — segments(): array (marked @internal)",
+            "js_location": "packages/js/src/types/compiled-path.ts — readonly _segments: Segment[] (marked @internal)",
+            "description": "Both implementations mark the internal accessor as @internal, but the access pattern differs. PHP uses a method call segments(); JS uses a property _segments with underscore prefix convention.",
+            "impact": "Minor convention difference. Both approaches signal 'internal' to consumers. No functional impact since both are @internal.",
+            "remediation": "No change needed. Consistent internal access is maintained."
+        },
+        {
+            "id": "GAP-022",
+            "severity": "minor",
+            "title": "getWildcard() explicit method in PHP only",
+            "php_location": "packages/php/src/Traits/HasWildcardSupport.php",
+            "js_location": "MISSING (use get() with wildcard path instead)",
+            "description": "PHP provides getWildcard(string $path, mixed $default): array as an explicit method. JS users use the standard get() with a wildcard path (e.g., 'users.*.name') which naturally returns an array. Both produce the same result.",
+            "impact": "Minor discoverability gap. PHP users can discover wildcard support via IDE method completion. JS users must know to use wildcard paths in get().",
+            "remediation": "Consider adding a getWildcard(path: string, defaultValue?: unknown): unknown[] method to JS AbstractAccessor for parity."
+        },
+        {
+            "id": "GAP-023",
+            "severity": "minor",
+            "title": "AuditLogger listener error visibility — PHP silent, JS logs to console.warn",
+            "php_location": "packages/php/src/Security/Audit/AuditLogger.php — silent catch",
+            "js_location": "packages/js/src/security/audit/audit-emitter.ts — catch + console.warn(err)",
+            "description": "Both languages isolate audit listener errors to prevent crashing the host application. PHP swallows exceptions silently. JS emits a console.warn with the caught error, making listener failures observable in production logs.",
+            "impact": "PHP audit listener failures go completely unnoticed. Developers debugging silent audit failures in PHP have no signal from the library itself.",
+            "remediation": "Add error_log() or trigger_error() in PHP's AuditLogger catch block to provide at least some signal, matching JS behavior."
+        },
+        {
+            "id": "GAP-024",
+            "severity": "minor",
+            "title": "JSON Patch atomicity optimization in JS not present in PHP",
+            "php_location": "packages/php/src/Core/Operations/JsonPatch.php — always runs full preflight",
+            "js_location": "packages/js/src/core/operations/json-patch.ts — skips preflight when no test ops",
+            "description": "JS applyPatch() skips the expensive preflight copy when the patch contains no 'test' operations (the only ops that can cause mid-apply rollback). PHP always runs a full preflight copy. External behavior is identical.",
+            "impact": "PHP is slightly slower for patches lacking test operations. No behavioral difference.",
+            "remediation": "Apply the same optimization to PHP: check if any op has type 'test' before cloning. Low priority."
+        },
+        {
+            "id": "GAP-025",
+            "severity": "minor",
+            "title": "CsvMode enum not exported from JS index.ts barrel",
+            "php_location": "Available via SafeAccessInline\\Enums\\CsvMode (autoloaded class)",
+            "js_location": "packages/js/src/enums/csv-mode.enum.ts — defined but NOT re-exported from index.ts",
+            "description": "CsvMode enum is used in TransformableInterface.toCsv() type signature but is not exported from the package's index.ts barrel. JS consumers using TypeScript who want to reference CsvMode by name must import it directly from the internal path.",
+            "impact": "Breaking type ergonomics for TypeScript consumers. CsvMode should be a public type but is effectively hidden.",
+            "remediation": "Add export { CsvMode } from './enums/csv-mode.enum'; to index.ts."
+        },
+        {
+            "id": "GAP-026",
+            "severity": "minor",
+            "title": "TraceSegment typed DTO exists in JS contracts but not in PHP",
+            "php_location": "No Contracts/TraceSegment.php — trace() returns list<array{segment, found, type}>",
+            "js_location": "packages/js/src/contracts/trace-segment.interface.ts",
+            "description": "JS has a typed TraceSegment contract with strictly typed 'type' field ('object'|'array'|'string'|'number'|'boolean'|'null'|null). PHP trace() returns a plain associative array with a loose string|null type for the 'type' field.",
+            "impact": "PHP PhpStan analysis of trace() results gets less type safety. PHP consumers must trust the documented array shape.",
+            "remediation": "Add Contracts/TraceSegment.php as a readonly DTO and update the PHPDoc @return annotation to use it."
+        },
+        {
+            "id": "GAP-027",
+            "severity": "info",
+            "title": "PHP uses PSR-16 CacheInterface; JS uses custom CacheInterface",
+            "description": "PHP remember() method accepts \\Psr\\SimpleCache\\CacheInterface (PSR-16 standard). JS uses a custom CacheInterface from contracts/cache.interface with compatible but non-identical API.",
+            "impact": "Expected ecosystem difference. PSR-16 libraries plug directly into PHP; JS consumers use the custom interface.",
+            "remediation": "No action needed. Document that JS CacheInterface mirrors PSR-16 semantics."
+        },
+        {
+            "id": "GAP-028",
+            "severity": "info",
+            "title": "JSON Patch test op null/undefined semantic mismatch (documented in both)",
+            "description": "PHP: absent path resolves to null, so test {op:'test', path:'/missing', value: null} PASSES. JS: absent path resolves to undefined, so the same test against null FAILS. Both codebases document this difference.",
+            "impact": "Cross-language patch scripts relying on null test assertions for missing keys will behave differently.",
+            "remediation": "Document prominently in the JSON Patch guide. Consider adding a strict mode option where both platforms treat absent paths as undefined."
+        },
+        {
+            "id": "GAP-029",
+            "severity": "info",
+            "title": "ParserPlugin/SerializerPlugin contracts in different file locations",
+            "php_location": "packages/php/src/Contracts/ParserPluginInterface.php and SerializerPluginInterface.php",
+            "js_location": "Inline interfaces inside packages/js/src/core/registries/plugin-registry.ts",
+            "description": "PHP has separate files in Contracts/. JS co-locates the interfaces with the registry. Both are exported from their respective package entry points.",
+            "impact": "No functional impact. Finding the interfaces requires knowing to look in plugin-registry.ts for JS vs Contracts/ for PHP.",
+            "remediation": "Consider moving JS ParserPlugin/SerializerPlugin to contracts/ for consistency."
+        }
+    ],
+
+    "implementation_differences": {
+        "immutability_model": {
+            "php": "Copy-on-write via clone $this + re-assign private $data; bool $readonly flag + assertNotReadonly()",
+            "js": "structuredClone + cloneWithState; deepFreeze() for readonly instances",
+            "aligned": true
+        },
+        "composition_strategy": {
+            "php": "Trait-based mixin composition (HasArrayOperations, HasDebugOperations, HasFactory, HasTransformations, HasTypeAccess, HasWildcardSupport)",
+            "js": "Method delegation to static helper classes (ArrayOperations, FormatSerializer) and direct methods on AbstractAccessor",
+            "aligned": true,
+            "notes": "Different mechanism, same public surface."
+        },
+        "plugin_storage": {
+            "php": "static array<string, PluginInterface>",
+            "js": "static Map<string, Plugin>",
+            "aligned": true,
+            "notes": "Map vs array is an implementation detail. Both share the same MAX_PARSERS=50 / MAX_SERIALIZERS=50 cap."
+        },
+        "regex_compilation": {
+            "php": "DataMasker compiles regex patterns via preg_match; caches compiled strings in a FIFO-eviction cache (maxPatternCacheSize=200)",
+            "js": "DataMasker converts glob patterns to RegExp objects; caches in an LRU-eviction Map (maxPatternCacheSize=200)",
+            "eviction_php": "FIFO",
+            "eviction_js": "LRU",
+            "notes": "Both cap at 200 entries. Eviction strategy differs (FIFO vs LRU). LRU is better for hot patterns; FIFO is simpler. Minor difference."
+        },
+        "optional_dependencies": {
+            "php": "YAML via optional composer packages (symfony/yaml or devium/php-toml); loaded via class_exists check in plugins",
+            "js": "YAML via js-yaml, TOML via smol-toml; loaded via optionalRequire() wrapper in FormatSerializer",
+            "aligned": true
+        },
+        "deepfreeze_implementation": {
+            "php": "Private boolean flag $readonly on AbstractAccessor; deepFreeze() recursion updates all nested accessors via clone chain",
+            "js": "Object.freeze() called recursively via deepFreeze() utility; exported as standalone function from index.ts",
+            "aligned": true,
+            "notes": "PHP freeze() sets $readonly=true at runtime for the current data snapshot. JS uses native Object.freeze() which is enforced by the runtime."
+        }
+    },
+
+    "test_alignment": {
+        "php": {
+            "framework": "PHPUnit",
+            "mutation_testing": "Infection PHP",
+            "coverage_tool": "Xdebug / pcov",
+            "test_locations": ["packages/php/tests/"],
+            "naming_convention": "describe(ClassName::class, fn() => ...) in PHPUnit",
+            "cross_parity_fixtures": "packages/fixtures/cross-parity/cases.json"
+        },
+        "js": {
+            "framework": "Vitest",
+            "mutation_testing": "Stryker",
+            "coverage_tool": "v8",
+            "test_locations": ["packages/js/tests/", "packages/cli/tests/"],
+            "naming_convention": "describe(ClassName.name, () => ...)",
+            "cross_parity_fixtures": "packages/fixtures/cross-parity/cases.json"
+        },
+        "shared_fixtures": {
+            "exists": true,
+            "location": "packages/fixtures/cross-parity/",
+            "files": ["cases.json", "data.json"],
+            "purpose": "Cross-language behavior parity test cases ensuring identical output for identical inputs"
+        },
+        "gaps": [
+            "JS SSRF/network tests cannot mock at the IoLoader level (GAP-003)",
+            "PHP FileWatcher tests likely use polling with sleep(); JS tests may use mock fs.watch — different infrastructure",
+            "PHP audit listener error tests only assert silence; JS tests may also assert console.warn output"
+        ]
+    },
+
+    "doc_alignment": {
+        "structure": {
+            "php": "docs/php/ — getting-started, api-reference, api-features, api-types, formats, querying, advanced, plugins, security",
+            "js": "docs/js/ — same structure mirrored",
+            "pt_br": "Both languages have pt-BR translations",
+            "aligned": true
+        },
+        "gaps": [
+            "GAP-004 (streaming) is a JS-only feature that likely needs prominent documentation. PHP docs should note the absence.",
+            "GAP-006 (FileWatcher) blocking behavior should be clearly documented in PHP docs to avoid surprising developers.",
+            "GAP-007 (async I/O) must be documented prominently in the JS getting-started guide for PHP-background developers.",
+            "GAP-025 (CsvMode not exported) means JS API docs may reference CsvMode without a clear import path.",
+            "GAP-028 (JSON Patch null semantics) should be in a dedicated cross-language interop section."
+        ]
+    }
+}

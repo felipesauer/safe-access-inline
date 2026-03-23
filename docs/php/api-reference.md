@@ -173,6 +173,20 @@ afterEach(function (): void {
 });
 ```
 
+#### `SafeAccess::resetAll(): void`
+
+Resets **all** global state at once: global security policy, audit listeners, plugin registry, and schema registry. Intended for test suite teardown when multiple subsystems have been configured.
+
+```php
+afterEach(function (): void {
+    SafeAccess::resetAll();
+});
+```
+
+::: tip vs. clearCustomAccessors()
+`resetAll()` is a superset of `clearCustomAccessors()` — it also clears the plugin registry, schema registry, global policy, and audit listeners. Use it when you need a completely clean slate between tests.
+:::
+
 #### `SafeAccess::fromFile(string $filePath, ?string $format = null, array $allowedDirs = [], bool $allowAnyPath = false): AbstractAccessor`
 
 Reads a file from disk and creates the appropriate accessor. Auto-detects format from file extension if `$format` is `null`. The `$allowedDirs` parameter restricts which directories can be read (path-traversal protection). Set `$allowAnyPath = true` to bypass directory restrictions (use with caution).
@@ -237,6 +251,43 @@ $policy = new SecurityPolicy(url: [
 $accessor = SafeAccess::fromUrlWithPolicy('https://api.example.com/config.json', $policy);
 ```
 
+#### `SafeAccess::getTemplate(string $template, array $bindings): string`
+
+Renders a template string by replacing `{key}` placeholders with corresponding values from the bindings array. **Note**: This is a static string manipulation utility. To read a template path from an accessor directly, use `$accessor->getTemplate()`.
+
+```php
+$rendered = SafeAccess::getTemplate('Hello {user.name}', ['user' => ['name' => 'John']]);
+// "Hello John"
+```
+
+#### `SafeAccess::compilePath(string $path): CompiledPath`
+
+Parses a dot-notation path once and returns an opaque `CompiledPath` object. Pass it to `getCompiled()` to resolve values without re-tokenizing the path on each call. Best suited for tight loops or hot paths where the same field is read across many accessors.
+
+**Parameters:**
+
+- `$path` — dot-notation path to compile (e.g., `'user.address.city'`).
+
+**Returns:** A `CompiledPath` instance (opaque handle).
+
+```php
+use SafeAccessInline\SafeAccess;
+
+// Compile once
+$compiledPath = SafeAccess::compilePath('user.address.city');
+
+// Reuse across many accessors — no re-parsing
+$a = SafeAccess::fromArray(['user' => ['address' => ['city' => 'São Paulo']]]);
+$b = SafeAccess::fromArray(['user' => ['address' => ['city' => 'Lisbon']]]);
+
+$a->getCompiled($compiledPath); // "São Paulo"
+$b->getCompiled($compiledPath); // "Lisbon"
+```
+
+::: tip Performance tip
+`compilePath()` combined with `getCompiled()` performs better than `get()` in tight loops where the same path is used many times. For one-off access, prefer the simpler `get()` API.
+:::
+
 ---
 
 ## Accessor Instance Methods
@@ -277,6 +328,16 @@ Resolves a template string by substituting binding keys with their values, then 
 // Template uses {key} placeholders resolved against $bindings
 $accessor->getTemplate('users.{id}.name', ['id' => '0']); // 'Ana'
 $accessor->getTemplate('settings.{section}.{key}', ['section' => 'db', 'key' => 'host'], 'localhost');
+```
+
+#### `getCompiled(CompiledPath $compiled, mixed $default = null): mixed`
+
+Resolves a pre-compiled path (see [`SafeAccess::compilePath()`](#safeaccess-compilepath-string-path-compiledpath)) against this accessor's data. Prefer this over `get()` when the same path is read repeatedly in a loop.
+
+```php
+$compiled = SafeAccess::compilePath('user.name');
+$accessor->getCompiled($compiled);           // 'Ana'
+$accessor->getCompiled($compiled, 'N/A');    // 'Ana' if exists, 'N/A' if missing
 ```
 
 #### `has(string $path): bool`
@@ -327,6 +388,45 @@ Returns all data as an associative array. Semantic intent: "give me everything a
 $accessor->all(); // ['name' => 'Ana', 'age' => 30, ...]
 ```
 
+### Typed Reading
+
+Convenience methods that cast the result to a specific PHP scalar type. Each returns `$default` if the path does not exist, and the cast value otherwise.
+
+#### `getInt(string $path, int $default = 0): int`
+
+```php
+$accessor->getInt('user.age');        // (int) value or 0
+$accessor->getInt('score', -1);       // -1 if path missing
+```
+
+#### `getBool(string $path, bool $default = false): bool`
+
+```php
+$accessor->getBool('feature.enabled');    // (bool) value or false
+$accessor->getBool('debug', true);        // true if path missing
+```
+
+#### `getString(string $path, string $default = ''): string`
+
+```php
+$accessor->getString('user.name');        // (string) value or ''
+$accessor->getString('env', 'production'); // 'production' if path missing
+```
+
+#### `getArray(string $path, array $default = []): array`
+
+```php
+$accessor->getArray('items');             // (array) value or []
+$accessor->getArray('tags', ['default']); // ['default'] if path missing
+```
+
+#### `getFloat(string $path, float $default = 0.0): float`
+
+```php
+$accessor->getFloat('price');       // (float) value or 0.0
+$accessor->getFloat('rate', 1.5);   // 1.5 if path missing
+```
+
 ### Writing (Immutable)
 
 #### `set(string $path, mixed $value): static`
@@ -367,9 +467,9 @@ $new = $accessor->remove('user.age');
 
 Convert data to a PHP array. Semantic intent: "convert to array format". Currently identical to `all()`, but semantically distinct for future extensibility.
 
-#### `toJson(int $flags = 0): string`
+#### `toJson(int|bool $flags = 0): string`
 
-Convert data to a JSON string.
+Convert data to a JSON string. Passing `true` as a boolean is a shorthand for `JSON_PRETTY_PRINT`.
 
 ```php
 $accessor->toJson();                    // compact
@@ -469,7 +569,16 @@ $accessor->validate($schema, new MySchemaAdapter());
 
 ### Readonly
 
-The `AbstractAccessor` constructor accepts `bool $readonly = false`. When `true`, all write methods (`set`, `remove`, `merge`, `push`, `pop`, etc.) throw `ReadonlyViolationException`.
+The `AbstractAccessor` constructor accepts `bool $readonly = false`. When `true`, all write methods (`set`, `remove`, `merge`, `push`, `pop`, etc.) throw `ReadonlyViolationException`. You can also freeze an existing accessor at runtime.
+
+#### `freeze(): static`
+
+Returns a frozen copy of this accessor. All subsequent write operations will throw a `ReadonlyViolationException`.
+
+```php
+$frozen = $accessor->freeze();
+$frozen->set('a', 1); // throws ReadonlyViolationException
+```
 
 ```php
 $accessor = SafeAccess::fromArray(['key' => 'value']);
@@ -593,7 +702,7 @@ $accessor->nth('items', 99, 'fallback'); // 'fallback'
 
 ### JSON Patch & Diff
 
-#### `diff(AbstractAccessor $other): array`
+#### `diff(AbstractAccessor|array $other): array`
 
 Generates RFC 6902 JSON Patch operations representing the differences between two accessors.
 
@@ -635,5 +744,34 @@ $accessor->getAt(['users', '0', 'name']); // literal traversal
 #### `setAt(array $segments, mixed $value): static`
 
 #### `removeAt(array $segments): static`
+
+---
+
+### Debugging
+
+#### `trace(string $path): array`
+
+Returns an ordered array of resolution steps used to traverse the path. Useful for diagnosing unexpected `null` returns or understanding how wildcards and filters are resolved.
+
+```php
+$accessor = SafeAccess::fromArray(['users' => [['name' => 'Ana']]]);
+$steps = $accessor->trace('users.0.name');
+// [
+//   ['step' => 'users',  'value' => [['name' => 'Ana']]],
+//   ['step' => '0',      'value' => ['name' => 'Ana']],
+//   ['step' => 'name',   'value' => 'Ana'],
+// ]
+```
+
+### Wildcard Convenience
+
+#### `getWildcard(string $path, mixed $default = null): array`
+
+Convenience wrapper for wildcard paths — always returns an `array`. Equivalent to calling `get($path)` where `$path` contains a `*` or `.**` expression, but explicitly typed for static analysis.
+
+```php
+$names = $accessor->getWildcard('users.*.name');   // ['Ana', 'Bob']
+$all   = $accessor->getWildcard('missing.*', []);   // [] (default)
+```
 
 ---

@@ -9,6 +9,7 @@
     "files": [
         "dist",
         "README.md",
+        "LICENSE",
         "CHANGELOG.md"
     ],
     "scripts": {
@@ -51,7 +52,7 @@
         "node": ">=22"
     },
     "dependencies": {
-        "@safe-access-inline/safe-access-inline": "*",
+        "@safe-access-inline/safe-access-inline": "^0.3.0",
         "js-yaml": "^4.0.0",
         "smol-toml": "^1.0.0"
     },

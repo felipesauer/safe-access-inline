@@ -1047,6 +1047,19 @@ describe(`${run.name} — validate`, () => {
             "Schema file could not be read: raw-schema-error",
         );
     });
+
+    // covers validate.handler.ts branch: e instanceof Error with no .code → falls back to e.message
+    it("reports error message when schema read throws Error without error code", () => {
+        const io = createIO();
+        io.readFileSync = (() => {
+            throw new Error("plain read failure");
+        }) as unknown as typeof readFileSync;
+        const code = run(["validate", configJson, "--schema", "/any.json"], io);
+        expect(code).toBe(1);
+        expect(io.stderrData).toContain(
+            "Schema file could not be read: plain read failure",
+        );
+    });
 });
 
 // ── run() — error handling ──

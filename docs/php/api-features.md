@@ -7,6 +7,7 @@ outline: deep
 ## Table of Contents
 
 - [I/O & File Loading](#io--file-loading)
+- [Streaming Large Files](#streaming-large-files)
 - [Layered Configuration](#layered-configuration)
 - [File Watching](#file-watching)
 - [Audit Logging](#audit-logging)
@@ -19,6 +20,10 @@ outline: deep
 **Namespace:** `SafeAccessInline\Core\IoLoader`
 
 PHP I/O is synchronous by design. Unlike the JS package, PHP does not expose async `fromFile()` / `fromUrl()` variants; all file and URL reads complete before returning the accessor.
+
+::: tip PHP has synchronous streaming too
+The PHP package provides `streamCsv()` and `streamNdjson()` as PHP `Generator`-based methods — functionally equivalent to JS's `AsyncGenerator` variants. Use a `foreach` loop to process rows one at a time without loading the entire file into memory.
+:::
 
 #### `IoLoader::readFile(string $filePath, array $allowedDirs = []): string`
 
@@ -51,6 +56,44 @@ $format = IoLoader::resolveFormatFromExtension('/app/config.yaml'); // Format::Y
 $format = IoLoader::resolveFormatFromExtension('/app/data.ndjson');  // Format::Ndjson
 $format = IoLoader::resolveFormatFromExtension('/app/file.txt');     // null
 ```
+
+---
+
+## Streaming Large Files
+
+For memory-efficient processing of large CSV or NDJSON files, PHP provides synchronous `Generator`-based streaming — equivalent in functionality to the JS `AsyncGenerator` variants.
+
+#### `SafeAccess::streamCsv(string $filePath, array $allowedDirs = [], bool $allowAnyPath = false): Generator`
+
+Reads a CSV file row by row, yielding each row as an associative array (header keys → cell values). The file is never fully loaded into memory.
+
+```php
+use SafeAccessInline\SafeAccess;
+
+foreach (SafeAccess::streamCsv('/app/data/users.csv', ['/app/data']) as $row) {
+    // $row = ['name' => 'Ana', 'age' => '30', 'city' => 'Porto Alegre']
+    echo $row['name'] . "\n";
+}
+```
+
+::: tip JS comparison
+In JS, the equivalent is `for await (const row of SafeAccess.streamCsv(path))`. PHP's synchronous `foreach` delivers the same row-at-a-time semantics.
+:::
+
+#### `SafeAccess::streamNdjson(string $filePath, array $allowedDirs = [], bool $allowAnyPath = false): Generator`
+
+Reads an NDJSON file line by line, yielding each line as a decoded associative array.
+
+```php
+foreach (SafeAccess::streamNdjson('/app/data/events.ndjson', ['/app/data']) as $event) {
+    // $event = ['type' => 'click', 'ts' => 1711234567]
+    processEvent($event);
+}
+```
+
+::: warning Path security
+Both streaming methods enforce the same `$allowedDirs` path-traversal protection as `fromFile()`. Pass an allowlist or set `$allowAnyPath = true` explicitly when directory restrictions are not needed.
+:::
 
 ---
 
@@ -289,6 +332,10 @@ The package exports ready-to-use adapters for the schema systems it supports:
 | ------------------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | `JsonSchemaAdapter`       | None                | Built-in validator supporting `type`, `required`, `properties`, `items`, `minimum`, `maximum`, `minLength`, `maxLength`, `enum`, and `pattern` |
 | `SymfonyValidatorAdapter` | `symfony/validator` | Accepts an optional validator instance, or auto-creates one when the package is installed                                                      |
+
+> **Note on Cross-Language Parity:**
+> The JS package offers adapters for Zod, Valibot, Yup, and JSON Schema.
+> In PHP, typical validation frameworks like `symfony/validator` and `JsonSchema` are supported natively. If you need support for Respect/Validation or another PHP validation library, you can implement the `SchemaAdapterInterface`.
 
 ---
 

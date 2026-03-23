@@ -38,7 +38,7 @@ export function handleMask(rest: string[], io: CliIO): number {
         undefined,
         io.readFileSync,
     );
-    const patterns = parseMaskPatterns(strOpt(values.patterns) ?? "");
+    const patterns = parseMaskPatterns(strOpt(values.patterns)!);
     const data = accessor.toObject();
     const masked = mask(data, patterns);
     const maskedAccessor = SafeAccess.from(masked, "object");

@@ -8,8 +8,11 @@ outline: deep
 
 - [Facade SafeAccess](#facade-safeaccess)
 - [Métodos de Instância do Accessor](#metodos-de-instancia-do-accessor)
-
-**Ver também:**
+- [Performance: Caminhos Compilados](#performance-caminhos-compilados)
+- [Operações de Array (Imutável)](#operacoes-de-array-imutavel)
+- [Segurança & Validação](#seguranca-validacao)
+- [Injeção de Dependência](#injecao-de-dependencia)
+  **Ver também:**
 
 - [API — Operações & I/O](/pt-br/js/api-features)
 - [API — Tipos & Internos](/pt-br/js/api-types)
@@ -166,6 +169,56 @@ const accessor = SafeAccess.custom("custom", data);
 
 ---
 
+## Performance: Caminhos Compilados
+
+Pré-compile caminhos em notação de ponto que são acessados repetidamente para evitar re-análise a cada chamada.
+
+#### `SafeAccess.compilePath(path: string): CompiledPath`
+
+Analisa um caminho em notação de ponto uma única vez e retorna um objeto `CompiledPath` opaco. Passe-o para `getCompiled()` para resolver valores sem re-tokenizar o caminho a cada chamada. Indicado para laços com muitas iterações ou caminhos críticos de performance.
+
+**Parâmetros:**
+
+- `path` — caminho em notação de ponto a compilar (ex.: `"user.address.city"`).
+
+**Retorno:** Uma instância de `CompiledPath` (handle opaco — não acesse campos internos diretamente).
+
+```typescript
+import { SafeAccess } from "@safe-access-inline/safe-access-inline";
+
+// Compilar uma vez
+const caminhosCompilado = SafeAccess.compilePath("user.address.city");
+
+// Reutilizar em vários accessors — sem re-análise
+const a = SafeAccess.fromObject({ user: { address: { city: "São Paulo" } } });
+const b = SafeAccess.fromObject({ user: { address: { city: "Lisboa" } } });
+
+a.getCompiled(caminhosCompilado); // "São Paulo"
+b.getCompiled(caminhosCompilado); // "Lisboa"
+```
+
+#### `getCompiled(compiled: CompiledPath, defaultValue?: unknown): unknown`
+
+Resolve o caminho pré-compilado (veja [`SafeAccess.compilePath()`](#safeaccess-compilepath-path-string-compiledpath)) nos dados deste accessor. Prefira este método em vez de `get()` em laços onde o mesmo caminho é lido repetidamente.
+
+```typescript
+const compilado = SafeAccess.compilePath("app.timeout");
+const accessor = SafeAccess.fromObject({ app: { timeout: 30 } });
+
+accessor.getCompiled(compilado); // 30
+accessor.getCompiled(compilado, 60); // 30 (caminho existe)
+
+const vazio = SafeAccess.fromObject({});
+vazio.getCompiled(compilado); // null
+vazio.getCompiled(compilado, 60); // 60
+```
+
+::: tip Dica de performance
+`compilePath()` combinado com `getCompiled()` tem desempenho superior ao `get()` em laços onde o mesmo caminho é usado centenas ou milhares de vezes. Para acesso pontual, prefira a API mais simples com `get()`.
+:::
+
+---
+
 ## Métodos de Instância do Accessor
 
 Todos os accessors estendem `AbstractAccessor` e implementam o `AccessorInterface`.
@@ -224,6 +277,16 @@ Acessa um valor via array de segmentos de caminho (alternativa programática a s
 
 ```typescript
 accessor.getAt(["users", "0", "name"]); // 'Ana'
+```
+
+#### `getCompiled(compiled: CompiledPath, defaultValue?: unknown): unknown`
+
+Resolve um caminho pré-compilado (veja [`SafeAccess.compilePath()`](#safeaccess-compilepath-path-string-compiledpath)) nos dados deste accessor. Prefira este método em laços onde o mesmo caminho é lido repetidamente.
+
+```typescript
+const compilado = SafeAccess.compilePath("user.name");
+accessor.getCompiled(compilado); // 'Ana'
+accessor.getCompiled(compilado, "N/A"); // 'Ana' se existir, 'N/A' se ausente
 ```
 
 #### `hasAt(segments: string[]): boolean`
@@ -393,6 +456,121 @@ accessor.transform("yaml"); // usa serializer 'yaml' registrado
 accessor.transform("csv"); // usa serializer 'csv' registrado
 ```
 
+### Operações de Array (Imutável)
+
+Todas as operações de array retornam **novas instâncias** — o original nunca é mutado.
+
+#### `push(path: string, ...items: unknown[]): AbstractAccessor`
+
+Acrescenta itens ao final do array em `path`.
+
+```typescript
+const updated = accessor.push("tags", "typescript", "safe");
+```
+
+#### `pop(path: string): AbstractAccessor`
+
+Remove o último item do array em `path`.
+
+```typescript
+const updated = accessor.pop("tags");
+```
+
+#### `shift(path: string): AbstractAccessor`
+
+Remove o primeiro item do array em `path`.
+
+```typescript
+const updated = accessor.shift("queue");
+```
+
+#### `unshift(path: string, ...items: unknown[]): AbstractAccessor`
+
+Insere itens no início do array em `path`.
+
+```typescript
+const updated = accessor.unshift("queue", "first");
+```
+
+#### `insert(path: string, index: number, ...items: unknown[]): AbstractAccessor`
+
+Insere itens em um índice específico do array em `path`. Suporta índices negativos.
+
+```typescript
+const updated = accessor.insert("items", 1, "inserted");
+const updated2 = accessor.insert("items", -1, "before-last");
+```
+
+#### `filterAt(path: string, predicate: (item: unknown, index: number) => boolean): AbstractAccessor`
+
+Filtra itens do array em `path` usando um predicado.
+
+```typescript
+const updated = accessor.filterAt("users", (u) => (u as any).active === true);
+```
+
+#### `mapAt(path: string, transform: (item: unknown, index: number) => unknown): AbstractAccessor`
+
+Transforma cada item do array em `path` usando `transform`.
+
+```typescript
+const updated = accessor.mapAt("prices", (p) => (p as number) * 1.1);
+```
+
+#### `sortAt(path: string, key?: string, direction?: 'asc' | 'desc'): AbstractAccessor`
+
+Ordena o array em `path`. Opcionalmente por uma sub-chave. Direção: `'asc'` (padrão) ou `'desc'`.
+
+```typescript
+const sorted = accessor.sortAt("users", "name");
+const desc = accessor.sortAt("scores", undefined, "desc");
+```
+
+#### `unique(path: string, key?: string): AbstractAccessor`
+
+Remove valores duplicados do array em `path`. Opcionalmente deduplica por uma sub-chave.
+
+```typescript
+const updated = accessor.unique("tags");
+const updated2 = accessor.unique("users", "email");
+```
+
+#### `flatten(path: string, depth?: number): AbstractAccessor`
+
+Nivela arrays aninhados em `path` por `depth` níveis (padrão `1`).
+
+```typescript
+const updated = accessor.flatten("matrix"); // 1 nível
+const updated2 = accessor.flatten("deep", Infinity); // totalmente nivelado
+```
+
+#### `first(path: string, defaultValue?: unknown): unknown`
+
+Retorna o primeiro elemento do array em `path`.
+
+```typescript
+accessor.first("items"); // primeiro item ou null
+accessor.first("items", "none"); // primeiro item ou "none"
+```
+
+#### `last(path: string, defaultValue?: unknown): unknown`
+
+Retorna o último elemento do array em `path`.
+
+```typescript
+accessor.last("items"); // último item ou null
+```
+
+#### `nth(path: string, index: number, defaultValue?: unknown): unknown`
+
+Retorna o elemento no índice `index`. Suporta índices negativos (`-1` = último).
+
+```typescript
+accessor.nth("items", 0); // primeiro
+accessor.nth("items", -1); // último
+accessor.nth("items", 99, "fallback"); // "fallback"
+```
+
 ### Segurança & Validação
 
 #### `masked(patterns?: MaskPattern[]): AbstractAccessor`
@@ -419,3 +597,108 @@ accessor.validate(mySchema);
 ```
 
 ---
+
+## Injeção de Dependência
+
+**Import:** `import { ServiceContainer, defaultContainer } from '@safe-access-inline/safe-access-inline'`
+
+A biblioteca disponibiliza um container de serviços leve que agrupa os dois registries centrais (`PluginRegistry` e `SchemaRegistry`). A injeção de dependência foi introduzida para que os testes operem em instâncias completamente isoladas — sem precisar chamar `resetAll()` global e sem interferir em outros testes executados em paralelo.
+
+### `ServiceContainer`
+
+Container leve que mantém um `pluginRegistry` e um `schemaRegistry`.
+
+#### Campos
+
+| Campo            | Tipo              | Descrição                                         |
+| ---------------- | ----------------- | ------------------------------------------------- |
+| `pluginRegistry` | `IPluginRegistry` | Instância do registry de plugins deste container. |
+| `schemaRegistry` | `ISchemaRegistry` | Instância do registry de schemas deste container. |
+
+#### `ServiceContainer.create(): ServiceContainer`
+
+Cria um novo container com instâncias de registry **novas e isoladas**. Nenhum estado é compartilhado com os padrões globais ou com outros containers criados por este método.
+
+```typescript
+import { ServiceContainer } from "@safe-access-inline/safe-access-inline";
+
+const container = ServiceContainer.create();
+// container.pluginRegistry e container.schemaRegistry são instâncias novas
+// — completamente independentes dos padrões globais
+```
+
+#### Construtor
+
+```typescript
+new ServiceContainer(opts?: {
+    pluginRegistry?: IPluginRegistry;
+    schemaRegistry?: ISchemaRegistry;
+})
+```
+
+Quando `opts` é omitido, os singletons globais padrão são utilizados. Para instâncias isoladas, prefira `ServiceContainer.create()`.
+
+### `defaultContainer`
+
+O container padrão de todo o processo. Encapsula `PluginRegistry.getDefault()` e `SchemaRegistry.getDefault()` — os mesmos singletons usados implicitamente por todos os métodos estáticos da biblioteca.
+
+```typescript
+import { defaultContainer } from "@safe-access-inline/safe-access-inline";
+
+// Verificar se um plugin YAML está registrado globalmente
+defaultContainer.pluginRegistry.has("yaml", "parser"); // true se um parser YAML estiver registrado
+```
+
+### Quando usar cada um
+
+| Cenário                                 | Recomendado                                        |
+| --------------------------------------- | -------------------------------------------------- |
+| Código de aplicação em produção         | `defaultContainer` (implícito via API estática)    |
+| Isolamento em testes (sem `resetAll()`) | `ServiceContainer.create()`                        |
+| Escopo de plugins para uma feature      | `ServiceContainer.create()` com registro explícito |
+
+### Exemplos
+
+**Container isolado para testes:**
+
+```typescript
+import { ServiceContainer } from "@safe-access-inline/safe-access-inline";
+import type {
+    IPluginRegistry,
+    ISchemaRegistry,
+} from "@safe-access-inline/safe-access-inline";
+
+describe("MinhaFeature", () => {
+    let container: ServiceContainer;
+
+    beforeEach(() => {
+        // Registries novos por teste — sem estado global compartilhado
+        container = ServiceContainer.create();
+    });
+
+    it("registra um parser customizado sem afetar outros testes", () => {
+        container.pluginRegistry.registerParser("toml", meuTomlParser);
+        expect(container.pluginRegistry.has("toml", "parser")).toBe(true);
+        // O PluginRegistry global NÃO é afetado
+    });
+});
+```
+
+**Injetando registries customizados:**
+
+```typescript
+import {
+    ServiceContainer,
+    PluginRegistry,
+    SchemaRegistry,
+} from "@safe-access-inline/safe-access-inline";
+
+// Cria um registry personalizado
+const meuRegistry = PluginRegistry.create();
+meuRegistry.registerParser("csv", meuCsvParser);
+
+// Injeta no container — schemaRegistry usa o padrão global
+const container = new ServiceContainer({ pluginRegistry: meuRegistry });
+```
+
+Veja também: [Arquitetura — Sistema de Plugins](/pt-br/guide/architecture#plugin-system)

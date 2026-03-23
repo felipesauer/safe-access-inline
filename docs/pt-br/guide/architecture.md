@@ -7,29 +7,39 @@ outline: deep
 ## Índice
 
 - [Arquitetura](#arquitetura)
-    - [Índice](#indice)
-    - [Visão Geral](#visao-geral)
-    - [Princípios de Design](#principios-de-design)
+    - [Índice](#índice)
+    - [Visão Geral](#visão-geral)
+    - [Princípios de Design](#princípios-de-design)
     - [Diagrama de Componentes](#diagrama-de-componentes)
     - [Sistema de Plugins](#sistema-de-plugins)
         - [Contratos](#contratos)
         - [PluginRegistry](#pluginregistry)
         - [Comportamento PHP vs JS](#comportamento-php-vs-js)
+        - [Mapeamento de Camadas de Plugin](#mapeamento-de-camadas-de-plugin)
+            - [JavaScript / TypeScript](#javascript--typescript)
+            - [PHP](#php)
+            - [Diagrama de Camadas de Extensão](#diagrama-de-camadas-de-extensão)
+            - [Ciclo de Vida do Plugin](#ciclo-de-vida-do-plugin)
+            - [Adicionando um Plugin Customizado](#adicionando-um-plugin-customizado)
     - [Fluxo de Dados](#fluxo-de-dados)
     - [Motor DotNotationParser](#motor-dotnotationparser)
-    - [Padrão de Imutabilidade](#padrao-de-imutabilidade)
+    - [Padrão de Imutabilidade](#padrão-de-imutabilidade)
     - [TypeDetector](#typedetector)
     - [Estrutura do Monorepo](#estrutura-do-monorepo)
-    - [Arquitetura de Segurança](#arquitetura-de-seguranca)
-    - [I/O & Carregamento de Arquivos](#i-o-carregamento-de-arquivos)
-    - [Validação de Schema](#validacao-de-schema)
+    - [Arquitetura de Segurança](#arquitetura-de-segurança)
+    - [I/O \& Carregamento de Arquivos](#io--carregamento-de-arquivos)
+    - [Validação de Schema](#validação-de-schema)
     - [Sistema de Auditoria](#sistema-de-auditoria)
     - [Pacote CLI](#pacote-cli)
-    - [Integrações com Frameworks](#integracoes-com-frameworks)
-    - [Registros de Decisão de Arquitetura](#registros-de-decisao-de-arquitetura)
-        - [ADR-1: `set()` / `remove()` usam `clone` em vez de `static::from()`](#adr-1-set-remove-usam-clone-em-vez-de-static-from)
-        - [ADR-2: JS `toXml()` / `toYaml()` / `toToml()` via Bibliotecas Reais + Plugin Override](#adr-2-js-toxml-toyaml-totoml-via-bibliotecas-reais-plugin-override)
-        - [ADR-3: Dependências Reais para YAML/TOML + PluginRegistry para Override](#adr-3-dependencias-reais-para-yaml-toml-pluginregistry-para-override)
+    - [Integrações com Frameworks](#integrações-com-frameworks)
+    - [Registros de Decisão de Arquitetura](#registros-de-decisão-de-arquitetura)
+        - [ADR-1: `set()` / `remove()` usam `clone` em vez de `static::from()`](#adr-1-set--remove-usam-clone-em-vez-de-staticfrom)
+        - [ADR-2: JS `toXml()` / `toYaml()` / `toToml()` via Bibliotecas Reais + Plugin Override](#adr-2-js-toxml--toyaml--totoml-via-bibliotecas-reais--plugin-override)
+        - [ADR-3: Dependências Reais para YAML/TOML + PluginRegistry para Override](#adr-3-dependências-reais-para-yamltoml--pluginregistry-para-override)
+    - [Diferenças de Implementação PHP ↔ JS](#diferenças-de-implementação-php--js)
+        - [Matriz de Paridade de Funcionalidades](#matriz-de-paridade-de-funcionalidades)
+        - [`toArray()` vs `all()`](#toarray-vs-all)
+        - [Padrão de Composição: Traits (PHP) vs Delegação Estática (JS)](#padrão-de-composição-traits-php-vs-delegação-estática-js)
 
 ## Visão Geral
 
@@ -105,6 +115,79 @@ PluginRegistry::registerSerializer('yaml', new SymfonyYamlSerializer());
 | Parsing YAML/TOML                                       | Biblioteca real por padrão (`ext-yaml` ou `symfony/yaml` para YAML, `devium/toml` para TOML); plugin **opcional** (overrides)        | Biblioteca real por padrão (`js-yaml`, `smol-toml`); plugin **opcional** (overrides) |
 | Serialização (`toYaml`, `toToml`, `toXml`, `transform`) | Plugin override → fallback para `ext-yaml`/biblioteca real (com fallback `SimpleXMLElement` para XML)                                | Biblioteca real por padrão para YAML/TOML; plugin necessário para XML                |
 | Plugins incluídos                                       | 6 plugins (SymfonyYamlParser, SymfonyYamlSerializer, NativeYamlParser, NativeYamlSerializer, DeviumTomlParser, DeviumTomlSerializer) | 4 plugins (JsYamlParser, JsYamlSerializer, SmolTomlParser, SmolTomlSerializer)       |
+
+### Mapeamento de Camadas de Plugin
+
+Cada plugin ocupa uma **camada** específica no pipeline de processamento. A tabela abaixo mapeia cada plugin incluído à sua camada, tipo e chave de registro.
+
+#### JavaScript / TypeScript
+
+| Plugin               | Chave de Formato | Tipo       | Camada        | Notas                                                        |
+| -------------------- | ---------------- | ---------- | ------------- | ------------------------------------------------------------ |
+| `JsYamlParser`       | `yaml`           | parser     | parsing       | Envolve `js-yaml`; **padrão** — registrado automaticamente   |
+| `JsYamlSerializer`   | `yaml`           | serializer | serialization | Envolve `js-yaml`; **padrão** — registrado automaticamente   |
+| `SmolTomlParser`     | `toml`           | parser     | parsing       | Envolve `smol-toml`; **padrão** — registrado automaticamente |
+| `SmolTomlSerializer` | `toml`           | serializer | serialization | Envolve `smol-toml`; **padrão** — registrado automaticamente |
+
+#### PHP
+
+| Plugin                  | Chave de Formato | Tipo       | Camada        | Notas                                               |
+| ----------------------- | ---------------- | ---------- | ------------- | --------------------------------------------------- |
+| `SymfonyYamlParser`     | `yaml`           | parser     | parsing       | Envolve `symfony/yaml`; override opcional           |
+| `SymfonyYamlSerializer` | `yaml`           | serializer | serialization | Envolve `symfony/yaml`; override opcional           |
+| `NativeYamlParser`      | `yaml`           | parser     | parsing       | Envolve `ext-yaml`; override opcional               |
+| `NativeYamlSerializer`  | `yaml`           | serializer | serialization | Envolve `ext-yaml`; override opcional               |
+| `DeviumTomlParser`      | `toml`           | parser     | parsing       | Envolve `devium/toml`; **padrão** — auto-detectado  |
+| `DeviumTomlSerializer`  | `toml`           | serializer | serialization | Envolve `devium/toml`; **padrão** — auto-detectado  |
+| `SimpleXmlSerializer`   | `xml`            | serializer | serialization | Envolve `SimpleXMLElement`; fallback para `toXml()` |
+
+#### Diagrama de Camadas de Extensão
+
+```mermaid
+flowchart LR
+    Input["String bruta / dados"] --> IoLoader["IoLoader\n(arquivo & URL)"]
+    IoLoader --> Parser["Parser de Formato\n(embutido ou Plugin)"]
+    Parser --> Accessor["AbstractAccessor\n(dados normalizados)"]
+    Accessor --> Serializer["Serializer de Formato\n(embutido ou Plugin)"]
+    Serializer --> Output["String de saída"]
+
+    subgraph PluginLayer["Camada de Plugin"]
+        P1["ParserPlugin\n.parse(raw) → array"]
+        P2["SerializerPlugin\n.serialize(array) → string"]
+    end
+
+    Parser -.->|"PluginRegistry.getParser(format)"| P1
+    Serializer -.->|"PluginRegistry.getSerializer(format)"| P2
+```
+
+#### Ciclo de Vida do Plugin
+
+1. **Registro** — `PluginRegistry.registerParser(format, plugin)` / `PluginRegistry.registerSerializer(format, plugin)`. Deve ocorrer antes que o primeiro accessor daquele formato seja criado.
+
+2. **Descoberta** — Quando um accessor chama `parse()` ou `toYaml()`, o registro é consultado com a chave de formato. Se um plugin estiver registrado, ele tem prioridade sobre o padrão embutido; caso contrário, a biblioteca embutida é usada.
+
+3. **Invocação** — O método `parse()` ou `serialize()` do plugin é chamado sincronamente. Plugins devem lançar `InvalidFormatException` em input malformado.
+
+4. **Precedência de override** — `plugin registrado > padrão da biblioteca real > parser leve embutido` (JS) / `plugin registrado > ext-yaml / symfony/yaml` (PHP).
+
+#### Adicionando um Plugin Customizado
+
+```typescript
+// Implementar uma interface
+import type { ParserPluginInterface } from "@safe-access-inline/safe-access-inline";
+
+class MyYamlParser implements ParserPluginInterface {
+    parse(raw: string): Record<string, unknown> {
+        return myCustomYamlLib.parse(raw);
+    }
+}
+
+// Registrar uma vez na inicialização — substitui o JsYamlParser padrão
+import { PluginRegistry } from "@safe-access-inline/safe-access-inline";
+PluginRegistry.registerParser("yaml", new MyYamlParser());
+```
+
+Veja também: [Guia de Plugins](/pt-br/js/plugins)
 
 ## Fluxo de Dados
 
@@ -383,3 +466,62 @@ Suporta entrada via stdin (`-`), todos os formatos (JSON, YAML, TOML, XML, INI, 
 - **Testes**: Testes unitários usam plugins mock (classes/objetos anônimos) para isolamento. Testes de integração usam bibliotecas reais.
 
 **Consequência:** Zero configuração para YAML/TOML em ambas plataformas. Comportamento consistente entre PHP e JS. Usuários que precisam de parsers/serializers alternativos os registram via PluginRegistry.
+
+## Diferenças de Implementação PHP ↔ JS
+
+As duas implementações são semanticamente equivalentes — os mesmos caminhos dot-notation, as mesmas operações, as mesmas garantias de segurança — mas diferenças idiomáticas existem no nível da linguagem. Esta seção as documenta explicitamente.
+
+### Matriz de Paridade de Funcionalidades
+
+| Funcionalidade          | JavaScript / TypeScript                                       | PHP                                                                 |
+| ----------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------- |
+| **Operações de array**  | Classe estática (`ArrayOperations`) delegada pelo accessor    | Trait (`HasArrayOperations`) mixado em `AbstractAccessor`           |
+| **Inferência de tipos** | Parâmetros genéricos `DeepPaths<T>` / `ValueAtPath<T, P>`     | `@template TShape` + extensão PHPStan customizada                   |
+| **Imutabilidade**       | `Object.freeze()` + `deepFreeze()` em runtime                 | Campo privado `$data` + flag `$readonly` + `assertNotReadonly()`    |
+| **Constructor**         | `constructor(raw: unknown, options?: { readonly?: boolean })` | `__construct(mixed $raw, bool $readonly = false)`                   |
+| **`toArray()`**         | Alias concreto de `all()` (não na interface)                  | Alias concreto de `all()` (não na interface)                        |
+| **I/O Assíncrono**      | `fromFile()` async + `fromFileSync()` sync                    | Apenas síncrono                                                     |
+| **File watcher**        | Retorna uma única função `stop()`                             | Retorna `{ poll, stop }` — polling deve ser dirigido explicitamente |
+| **Parsing XML**         | Delega para plugin; sem parser nativo                         | `simplexml_load_string()` com proteção XXE embutida                 |
+| **Adapters de schema**  | Zod, Valibot, Yup, JSON Schema                                | JSON Schema, Symfony Validator                                      |
+
+### `toArray()` vs `all()`
+
+Ambas implementações expõem `all()` como método primário retornando uma cópia rasa dos dados internos. `toArray()` é um alias de classe concreta que segue idiomas PHP (convenções `ArrayAccess`, `Arrayable`). Não faz parte dos contratos publicados `ReadableInterface` / `AccessorInterface` em nenhuma linguagem:
+
+```typescript
+// JS — ambos são equivalentes
+accessor.all(); // Record<string, unknown>
+accessor.toArray(); // Record<string, unknown>
+```
+
+```php
+// PHP — ambos são equivalentes
+$accessor->all();     // array<mixed>
+$accessor->toArray(); // array<mixed>
+```
+
+### Padrão de Composição: Traits (PHP) vs Delegação Estática (JS)
+
+PHP usa composição de traits para anexar operações de array e transformações à base abstrata:
+
+```php
+abstract class AbstractAccessor implements AccessorInterface, WritableInterface
+{
+    use HasArrayOperations;
+    use HasTransformations;
+    use HasTypeAccess;
+    // ...
+}
+```
+
+JS alcança o mesmo resultado através de delegação para classe estática:
+
+```typescript
+// Em AbstractAccessor
+push(path: string, ...items: unknown[]): AbstractAccessor<T> {
+    return this.mutate(ArrayOperations.push(this.data, path, ...items));
+}
+```
+
+Ambas abordagens produzem APIs idênticas para o consumidor. A diferença é um detalhe de implementação sem impacto comportamental.

@@ -7,6 +7,7 @@ outline: deep
 ## Índice
 
 - [I/O & Carregamento de Arquivos](#io--carregamento-de-arquivos)
+- [Streaming de Arquivos Grandes](#streaming-de-arquivos-grandes)
 - [Configuração em Camadas](#configuração-em-camadas)
 - [Observação de Arquivos](#observação-de-arquivos)
 - [Log de Auditoria](#log-de-auditoria)
@@ -19,6 +20,10 @@ outline: deep
 **Namespace:** `SafeAccessInline\Core\IoLoader`
 
 O I/O em PHP é síncrono por definição. Diferentemente do pacote JS, o pacote PHP não expõe variantes assíncronas de `fromFile()` / `fromUrl()`; toda leitura de arquivo ou URL é concluída antes do retorno do accessor.
+
+::: tip O PHP também tem streaming síncrono
+O pacote PHP fornece `streamCsv()` e `streamNdjson()` como métodos baseados em `Generator` do PHP — funcionalmente equivalentes às variantes `AsyncGenerator` do JS. Use um laço `foreach` para processar linhas uma por vez sem carregar o arquivo inteiro na memória.
+:::
 
 #### `IoLoader::readFile(string $filePath, array $allowedDirs = []): string`
 
@@ -51,6 +56,44 @@ $format = IoLoader::resolveFormatFromExtension('/app/config.yaml'); // Format::Y
 $format = IoLoader::resolveFormatFromExtension('/app/data.ndjson');  // Format::Ndjson
 $format = IoLoader::resolveFormatFromExtension('/app/file.txt');     // null
 ```
+
+---
+
+## Streaming de Arquivos Grandes
+
+Para processamento eficiente de memória de arquivos CSV ou NDJSON grandes, o PHP fornece streaming baseado em `Generator` — funcionalmente equivalente às variantes `AsyncGenerator` do JS.
+
+#### `SafeAccess::streamCsv(string $filePath, array $allowedDirs = [], bool $allowAnyPath = false): Generator`
+
+Lê um arquivo CSV linha por linha, produzindo cada linha como array associativo (chaves do cabeçalho → valores das células). O arquivo nunca é totalmente carregado na memória.
+
+```php
+use SafeAccessInline\SafeAccess;
+
+foreach (SafeAccess::streamCsv('/app/data/users.csv', ['/app/data']) as $row) {
+    // $row = ['name' => 'Ana', 'age' => '30', 'city' => 'Porto Alegre']
+    echo $row['name'] . "\n";
+}
+```
+
+::: tip Comparação com JS
+No JS, o equivalente é `for await (const row of SafeAccess.streamCsv(path))`. O `foreach` síncrono do PHP entrega a mesma semântica de linha por vez.
+:::
+
+#### `SafeAccess::streamNdjson(string $filePath, array $allowedDirs = [], bool $allowAnyPath = false): Generator`
+
+Lê um arquivo NDJSON linha por linha, produzindo cada linha como array associativo decodificado.
+
+```php
+foreach (SafeAccess::streamNdjson('/app/data/events.ndjson', ['/app/data']) as $event) {
+    // $event = ['type' => 'click', 'ts' => 1711234567]
+    processEvent($event);
+}
+```
+
+::: warning Segurança de caminho
+Ambos os métodos de streaming aplicam a mesma proteção `$allowedDirs` contra path-traversal que `fromFile()`. Passe uma allowlist ou defina `$allowAnyPath = true` explicitamente quando restrições de diretório não forem necessárias.
+:::
 
 ---
 

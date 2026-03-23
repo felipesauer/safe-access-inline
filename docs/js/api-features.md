@@ -6,6 +6,7 @@ outline: deep
 
 ## Table of Contents
 
+- [Type-Safe Path Inference](#type-safe-path-inference)
 - [Array Operations](#array-operations)
 - [JSON Patch](#json-patch)
 - [Schema Validation](#schema-validation)
@@ -13,6 +14,74 @@ outline: deep
 - [I/O & File Loading](#io--file-loading)
 - [Audit Logging](#audit-logging)
 - [Framework Integrations](#framework-integrations)
+
+---
+
+## Type-Safe Path Inference
+
+When you provide a concrete shape type via the generic parameter, the library automatically infers the value type returned by `get()` — no casting, no `unknown`.
+
+```typescript
+import { SafeAccess } from "@safe-access-inline/safe-access-inline";
+
+interface Config {
+    server: { host: string; port: number };
+    debug: boolean;
+    tags: string[];
+}
+
+const accessor = SafeAccess.fromObject<Config>({
+    server: { host: "localhost", port: 3000 },
+    debug: true,
+    tags: ["web", "api"],
+});
+
+const host = accessor.get("server.host"); // inferred: string | undefined
+const port = accessor.get("server.port"); // inferred: number | undefined
+const debug = accessor.get("debug", false); // inferred: boolean
+const tags = accessor.get("tags"); // inferred: string[] | undefined
+```
+
+### `DeepPaths<T>` — Autocomplete for Nested Paths
+
+The `DeepPaths<T>` utility type enumerates all valid dot-notation paths for a given shape. This powers IDE autocompletion and compile-time path validation:
+
+```typescript
+import type { DeepPaths } from "@safe-access-inline/safe-access-inline";
+
+type ConfigPaths = DeepPaths<Config>;
+// "server" | "server.host" | "server.port" | "debug" | "tags"
+
+// ✅ Valid — autocompleted and type-checked
+accessor.get("server.host");
+
+// ❌ TypeScript error: '"server.hostname"' is not assignable to 'DeepPaths<Config>'
+accessor.get("server.hostname");
+```
+
+### `ValueAtPath<T, P>` — Return Type Narrowing
+
+`ValueAtPath<T, P>` resolves the type at a given path:
+
+```typescript
+import type {
+    ValueAtPath,
+    DeepPaths,
+} from "@safe-access-inline/safe-access-inline";
+
+type HostType = ValueAtPath<Config, "server.host">; // string
+type PortType = ValueAtPath<Config, "server.port">; // number
+```
+
+### Untyped Access
+
+If no generic is provided (or you use `Record<string, unknown>`), `get()` falls back to returning `unknown` — full backward compatibility is preserved:
+
+```typescript
+// Untyped — returns unknown
+const accessor = SafeAccess.from(rawInput);
+const value = accessor.get("some.path"); // unknown
+```
 
 ---
 
@@ -361,6 +430,80 @@ stop();
 In the JS package, `watchFile()` returns a single unsubscribe function and uses the platform watcher (`fs.watch`) under the hood.
 
 This differs intentionally from PHP, where `watchFile()` returns `{ poll, stop }` because the polling loop must be driven explicitly in a synchronous runtime.
+
+### IoLoader
+
+**Import:** `import { configureIoLoader, resetIoLoaderConfig, assertPathWithinAllowedDirs, resolveFormatFromExtension } from '@safe-access-inline/safe-access-inline'`
+
+`IoLoader` is the internal I/O subsystem invoked by `fromFile()`, `fromFileSync()`, and `fromUrl()`. It enforces SSRF protection, path-traversal guards, and configurable request timeouts.
+
+#### Configuration
+
+```typescript
+import { configureIoLoader } from "@safe-access-inline/safe-access-inline";
+
+configureIoLoader({
+    requestTimeoutMs: 15_000, // total HTTP request timeout (default: 10 000 ms)
+    connectTimeoutMs: 8_000, // TCP connection-phase timeout (default: 5 000 ms)
+});
+```
+
+#### `IoLoaderConfig`
+
+```typescript
+interface IoLoaderConfig {
+    /** Total HTTP request timeout in milliseconds. */
+    readonly requestTimeoutMs: number;
+    /** Maximum milliseconds to wait while establishing the TCP connection. */
+    readonly connectTimeoutMs: number;
+}
+```
+
+#### `configureIoLoader(overrides: Partial<IoLoaderConfig>): void`
+
+Overrides the default I/O configuration. Unspecified keys retain their defaults.
+
+#### `resetIoLoaderConfig(): void`
+
+Resets the I/O configuration to the built-in defaults (`requestTimeoutMs: 10 000`, `connectTimeoutMs: 5 000`).
+
+#### `assertPathWithinAllowedDirs(filePath, allowedDirs?, options?): string`
+
+Validates that `filePath` is inside one of the `allowedDirs`. Returns the canonical resolved path (eliminating TOCTOU windows). Throws `SecurityError` on violation.
+
+```typescript
+import { assertPathWithinAllowedDirs } from "@safe-access-inline/safe-access-inline";
+
+// Validate before passing to downstream code
+const canonical = assertPathWithinAllowedDirs("./config.json", ["/app/config"]);
+```
+
+#### `resolveFormatFromExtension(filePath: string): Format | null`
+
+Derives the `Format` enum value from a file extension (e.g. `config.yaml` → `Format.Yaml`). Returns `null` for unrecognised extensions.
+
+```typescript
+import {
+    resolveFormatFromExtension,
+    Format,
+} from "@safe-access-inline/safe-access-inline";
+
+resolveFormatFromExtension("/app/config.yaml"); // Format.Yaml
+resolveFormatFromExtension("/app/data.ndjson"); // Format.Ndjson
+resolveFormatFromExtension("/app/file.txt"); // null
+```
+
+#### SSRF Protection
+
+URL fetching (`fromUrl()`) goes through a multi-layer SSRF guard:
+
+1. **Scheme enforcement** — only `https:` is allowed; `http:`, `file:`, `ftp:` are rejected.
+2. **DNS resolution** — the hostname is resolved before connecting; private IP ranges (RFC 1918, link-local, loopback) and cloud metadata endpoints are blocked.
+3. **DNS pinning** — the resolved IP is pinned to the HTTPS connection (`lookup` override) to prevent DNS rebinding attacks between the security check and the actual connection.
+4. **Redirect blocking** — HTTP 3xx redirects are rejected to prevent SSRF via open-redirect chains.
+5. **Payload size cap** — responses larger than `maxPayloadBytes` (default: 10 MB) are aborted.
+
+See also: [Security — SSRF Protection](/js/security)
 
 ---
 

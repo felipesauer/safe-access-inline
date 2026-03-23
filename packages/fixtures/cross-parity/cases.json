@@ -173,5 +173,390 @@
         "path": "nonexistent",
         "defaultValue": "default-value",
         "expected": "default-value"
+    },
+    {
+        "id": "assoc-wildcard-scalar",
+        "description": "C1: Wildcard on an associative-array-as-collection collects scalar fields (mirrors JS Object.values behaviour)",
+        "path": "departments.*.head",
+        "defaultValue": null,
+        "expected": ["Alice", "Bob", "Carol"]
+    },
+    {
+        "id": "assoc-wildcard-numeric",
+        "description": "C1: Wildcard on associative collection — numeric field collected from every entry",
+        "path": "departments.*.size",
+        "defaultValue": null,
+        "expected": [10, 5, 8]
+    },
+    {
+        "id": "assoc-filter-gt",
+        "description": "C1: Filter on associative-array-as-collection with greater-than operator",
+        "path": "departments.[?size>6].head",
+        "defaultValue": null,
+        "expected": ["Alice", "Carol"]
+    },
+    {
+        "id": "assoc-filter-eq-null",
+        "description": "C1+C2: Filter == null on absent field inside associative collection — must match in both PHP and JS",
+        "path": "departments.[?budget==null].head",
+        "defaultValue": null,
+        "expected": ["Alice", "Bob", "Carol"]
+    },
+    {
+        "id": "deep-4-levels",
+        "description": "Access a value 4 levels deep via dot notation",
+        "path": "user.address.country.code",
+        "defaultValue": null,
+        "expected": "BR"
+    },
+    {
+        "id": "deep-5-levels",
+        "description": "Access a value 5 levels deep: config.database.pool.min",
+        "path": "config.database.pool.min",
+        "defaultValue": null,
+        "expected": 2
+    },
+    {
+        "id": "deep-5-levels-max",
+        "description": "Access config.database.pool.max — sibling of min at depth 5",
+        "path": "config.database.pool.max",
+        "defaultValue": null,
+        "expected": 10
+    },
+    {
+        "id": "deep-array-index-nested",
+        "description": "Access a value inside a nested array by index: config.cache.clusters.0.port",
+        "path": "config.cache.clusters.0.port",
+        "defaultValue": null,
+        "expected": 6379
+    },
+    {
+        "id": "deep-array-index-nested-1",
+        "description": "Second element of nested clusters array: config.cache.clusters.1.host",
+        "path": "config.cache.clusters.1.host",
+        "defaultValue": null,
+        "expected": "cache2.internal"
+    },
+    {
+        "id": "numeric-integer",
+        "description": "Integer value access preserves int type",
+        "path": "numerics.integer",
+        "defaultValue": null,
+        "expected": 42
+    },
+    {
+        "id": "numeric-float",
+        "description": "Float value access preserves float type",
+        "path": "numerics.float",
+        "defaultValue": null,
+        "expected": 3.14
+    },
+    {
+        "id": "numeric-negative",
+        "description": "Negative integer is returned as-is, not confused with missing",
+        "path": "numerics.negative",
+        "defaultValue": null,
+        "expected": -7
+    },
+    {
+        "id": "numeric-large",
+        "description": "Large integer is returned without truncation",
+        "path": "numerics.large",
+        "defaultValue": null,
+        "expected": 9999999
+    },
+    {
+        "id": "boolean-deeply-nested",
+        "description": "Boolean true deep inside an object — must not be replaced by default",
+        "path": "config.database.ssl",
+        "defaultValue": "WRONG",
+        "expected": true
+    },
+    {
+        "id": "filter-string-eq",
+        "description": "Filter == string selects matching elements from products list",
+        "path": "products[?category=='A'].label",
+        "defaultValue": null,
+        "expected": ["Alpha", "Gamma"]
+    },
+    {
+        "id": "filter-lte",
+        "description": "Filter <= numeric: price <= 150 selects Alpha(100), Gamma(150), Delta(75)",
+        "path": "products[?price<=150].label",
+        "defaultValue": null,
+        "expected": ["Alpha", "Gamma", "Delta"]
+    },
+    {
+        "id": "filter-gte-float",
+        "description": "Filter >= float field: rating >= 4.0",
+        "path": "products[?rating>=4.0].label",
+        "defaultValue": null,
+        "expected": ["Alpha", "Gamma", "Eta"]
+    },
+    {
+        "id": "filter-ne",
+        "description": "Filter != boolean: active != true returns inactive products",
+        "path": "products[?active!=true].label",
+        "defaultValue": null,
+        "expected": ["Beta", "Eta"]
+    },
+    {
+        "id": "filter-eq-false",
+        "description": "Filter == false on boolean field — explicit false comparison",
+        "path": "products[?active==false].id",
+        "defaultValue": null,
+        "expected": [20, 50]
+    },
+    {
+        "id": "filter-eq-null-no-match",
+        "description": "Filter == null on a field that is never null — must return empty array",
+        "path": "products[?category==null].id",
+        "defaultValue": null,
+        "expected": []
+    },
+    {
+        "id": "filter-no-match",
+        "description": "Filter that matches nothing returns empty array, never null",
+        "path": "products[?price>9999].id",
+        "defaultValue": null,
+        "expected": []
+    },
+    {
+        "id": "filter-and",
+        "description": "Filter with && — both conditions must hold: active and category A",
+        "path": "products[?active==true && category=='A'].label",
+        "defaultValue": null,
+        "expected": ["Alpha", "Gamma"]
+    },
+    {
+        "id": "filter-or",
+        "description": "Filter with || — either condition: category A or C",
+        "path": "products[?category=='A' || category=='C'].label",
+        "defaultValue": null,
+        "expected": ["Alpha", "Gamma", "Delta"]
+    },
+    {
+        "id": "filter-length-gt",
+        "description": "length(@.field) > N: labels with more than 4 characters",
+        "path": "products[?length(@.label)>4].label",
+        "defaultValue": null,
+        "expected": ["Alpha", "Gamma", "Delta"]
+    },
+    {
+        "id": "filter-match-function",
+        "description": "match(@.field, pattern): labels matching /^G.*/",
+        "path": "products[?match(@.label,'G.*')].id",
+        "defaultValue": null,
+        "expected": [30]
+    },
+    {
+        "id": "filter-match-no-results",
+        "description": "match() with pattern that matches nothing returns empty array",
+        "path": "products[?match(@.label,'Z.*')].id",
+        "defaultValue": null,
+        "expected": []
+    },
+    {
+        "id": "filter-keys-count",
+        "description": "keys(@) == N: items that have exactly 5 keys",
+        "path": "items[?keys(@)==5].id",
+        "defaultValue": null,
+        "expected": [1, 2, 3]
+    },
+    {
+        "id": "wildcard-member-roles",
+        "description": "Wildcard on list of team members — collect scalar field",
+        "path": "team.members.*.role",
+        "defaultValue": null,
+        "expected": ["SWE", "SRE", "SWE"]
+    },
+    {
+        "id": "wildcard-member-levels",
+        "description": "Wildcard on list of team members — collect numeric field",
+        "path": "team.members.*.level",
+        "defaultValue": null,
+        "expected": [3, 2, 4]
+    },
+    {
+        "id": "wildcard-flags",
+        "description": "Wildcard on associative flags object — returns all values in insertion order",
+        "path": "flags.*",
+        "defaultValue": null,
+        "expected": [true, false, null, false]
+    },
+    {
+        "id": "wildcard-assoc-catalog",
+        "description": "Wildcard over nested associative object: laptops prices",
+        "path": "catalog.electronics.laptops.*.price",
+        "defaultValue": null,
+        "expected": [999.99, 1299.99]
+    },
+    {
+        "id": "wildcard-assoc-sku",
+        "description": "Wildcard over nested associative object: laptop SKUs",
+        "path": "catalog.electronics.laptops.*.sku",
+        "defaultValue": null,
+        "expected": ["LAP-001", "LAP-002"]
+    },
+    {
+        "id": "wildcard-zone-used",
+        "description": "Wildcard on inventory.warehouse associative object — collect used values",
+        "path": "inventory.warehouse.*.used",
+        "defaultValue": null,
+        "expected": [750, 100]
+    },
+    {
+        "id": "wildcard-zone-capacity",
+        "description": "Wildcard on inventory.warehouse — collect capacity values",
+        "path": "inventory.warehouse.*.capacity",
+        "defaultValue": null,
+        "expected": [1000, 500]
+    },
+    {
+        "id": "recursive-descent-subpath-level",
+        "description": "Recursive descent on a sub-path: team..level collects all level values depth-first",
+        "path": "team..level",
+        "defaultValue": null,
+        "expected": [5, 3, 2, 4]
+    },
+    {
+        "id": "recursive-descent-sku",
+        "description": "Recursive descent for sku under catalog — depth-first order",
+        "path": "catalog..sku",
+        "defaultValue": null,
+        "expected": ["LAP-001", "LAP-002", "PHN-001"]
+    },
+    {
+        "id": "recursive-descent-port",
+        "description": "Recursive descent for port under config: database.port then cache.clusters ports",
+        "path": "config..port",
+        "defaultValue": null,
+        "expected": [5432, 6379, 6380]
+    },
+    {
+        "id": "matrix-index-0-1",
+        "description": "2D array access: first row, second column",
+        "path": "matrix.0.1",
+        "defaultValue": null,
+        "expected": 2
+    },
+    {
+        "id": "matrix-index-2-2",
+        "description": "2D array access: third row, third column",
+        "path": "matrix.2.2",
+        "defaultValue": null,
+        "expected": 9
+    },
+    {
+        "id": "product-by-index",
+        "description": "Access product at index 2 by numeric dot-notation",
+        "path": "products.2.rating",
+        "defaultValue": null,
+        "expected": 4.8
+    },
+    {
+        "id": "team-member-by-index",
+        "description": "Access team member at index 0 by dot-notation index",
+        "path": "team.members.0.title",
+        "defaultValue": null,
+        "expected": "Diane"
+    },
+    {
+        "id": "null-flag",
+        "description": "Explicit null stored in flags — must return null, not default",
+        "path": "flags.featureC",
+        "defaultValue": "WRONG",
+        "expected": null
+    },
+    {
+        "id": "false-flag",
+        "description": "Explicit false stored in flags — must return false, not default",
+        "path": "flags.featureB",
+        "defaultValue": "WRONG",
+        "expected": false
+    },
+    {
+        "id": "missing-intermediate-default",
+        "description": "Missing intermediate segment returns default without error",
+        "path": "config.nonexistent.deeper.key",
+        "defaultValue": "gone",
+        "expected": "gone"
+    },
+    {
+        "id": "missing-default-zero",
+        "description": "Falsy default (0) is returned for a missing path — zero must not be silenced",
+        "path": "definitely.missing.path",
+        "defaultValue": 0,
+        "expected": 0
+    },
+    {
+        "id": "nested-empty-string",
+        "description": "Empty string deep in strings object must not be replaced by default",
+        "path": "strings.empty",
+        "defaultValue": "fallback",
+        "expected": ""
+    },
+    {
+        "id": "nested-string-with-spaces",
+        "description": "String with spaces is returned verbatim",
+        "path": "strings.with_spaces",
+        "defaultValue": null,
+        "expected": "foo bar baz"
+    },
+    {
+        "id": "config-database-port",
+        "description": "Numeric port value at config.database.port",
+        "path": "config.database.port",
+        "defaultValue": null,
+        "expected": 5432
+    },
+    {
+        "id": "config-cache-driver",
+        "description": "String value at config.cache.driver",
+        "path": "config.cache.driver",
+        "defaultValue": null,
+        "expected": "redis"
+    },
+    {
+        "id": "config-cache-ttl",
+        "description": "Integer TTL at config.cache.ttl",
+        "path": "config.cache.ttl",
+        "defaultValue": null,
+        "expected": 300
+    },
+    {
+        "id": "products-wildcard-labels",
+        "description": "Collect all product labels via wildcard",
+        "path": "products.*.label",
+        "defaultValue": null,
+        "expected": ["Alpha", "Beta", "Gamma", "Delta", "Eta"]
+    },
+    {
+        "id": "products-wildcard-ratings",
+        "description": "Collect all product ratings — confirms float values are preserved",
+        "path": "products.*.rating",
+        "defaultValue": null,
+        "expected": [4.5, 3.0, 4.8, 2.1, 5.0]
+    },
+    {
+        "id": "filter-and-active-high-rating",
+        "description": "Compound filter: active products with rating > 4.0",
+        "path": "products[?active==true && rating>4.0].id",
+        "defaultValue": null,
+        "expected": [10, 30]
+    },
+    {
+        "id": "inventory-zone-used",
+        "description": "Deep access to warehouse zone used value",
+        "path": "inventory.warehouse.zone_a.used",
+        "defaultValue": null,
+        "expected": 750
+    },
+    {
+        "id": "filter-price-gte-200",
+        "description": "Filter: products with price >= 200 — includes Beta and Eta",
+        "path": "products[?price>=200].label",
+        "defaultValue": null,
+        "expected": ["Beta", "Eta"]
     }
 ]

@@ -1,0 +1,14 @@
+# Distribution archive ignore — files excluded from git archive / split repo
+# Note: npm publish uses the `files` field in package.json for filtering.
+# These export-ignore rules apply to git archive and the split repo.
+
+/tests/ export-ignore
+/coverage/ export-ignore
+/reports/ export-ignore
+/vitest.config.ts export-ignore
+/eslint.config.js export-ignore
+/tsconfig.json export-ignore
+/tsup.config.ts export-ignore
+/stryker.config.json export-ignore
+/.gitattributes export-ignore
+/.gitignore export-ignore

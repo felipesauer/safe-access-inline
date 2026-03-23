@@ -16,8 +16,13 @@ permissions:
 
 jobs:
     analyze:
-        name: Analyze JavaScript
+        name: Analyze (${{ matrix.language }})
         runs-on: ubuntu-latest
+
+        strategy:
+            fail-fast: false
+            matrix:
+                language: [javascript-typescript, php]
 
         steps:
             - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -25,7 +30,7 @@ jobs:
             - name: Initialize CodeQL
               uses: github/codeql-action/init@f3bf8cc176dca415fb047f4cf6d909543c552d99 # v3
               with:
-                  languages: javascript-typescript
+                  languages: ${{ matrix.language }}
 
             - name: Autobuild
               uses: github/codeql-action/autobuild@f3bf8cc176dca415fb047f4cf6d909543c552d99 # v3

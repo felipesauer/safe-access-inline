@@ -11,6 +11,7 @@ outline: deep
 - [I/O & File Loading](#io--file-loading)
 - [Layered Configuration](#layered-configuration)
 - [Configuration reference](#configuration-reference)
+- [PHPStan Integration](#phpstan-integration)
 
 ## Array Operations
 
@@ -309,3 +310,50 @@ $config = new IoLoaderConfig(
 ```
 
 Controls total cURL timeout and connection timeout, in seconds, for `IoLoader::fetchUrl()`.
+
+---
+
+## PHPStan Integration
+
+The package ships a custom PHPStan extension that narrows the return type of `get()` at static-analysis time when the accessor is annotated with a concrete shape. Without the extension, `get()` returns `mixed`.
+
+### Enabling the Extension
+
+Add the extension to your project's PHPStan configuration:
+
+```neon
+# phpstan.neon
+includes:
+    - vendor/safe-access-inline/safe-access-inline/phpstan-extension.neon
+```
+
+### How it Works
+
+Annotate any accessor variable with `@var AccessorClass<array{...}>` using an inline shape. The extension resolves the return type of `get()` based on the shape at the called path:
+
+```php
+use SafeAccessInline\SafeAccess;
+use SafeAccessInline\Accessors\JsonAccessor;
+
+/** @var JsonAccessor<array{user: array{name: string, age: int}, active: bool}> $acc */
+$acc = SafeAccess::fromJson($json);
+
+$name   = $acc->get('user.name');   // PHPStan: string|null
+$age    = $acc->get('user.age', 0); // PHPStan: int
+$active = $acc->get('active');      // PHPStan: bool|null
+$city   = $acc->get('user.city');   // PHPStan: mixed  (not in shape → fallback)
+```
+
+Without the annotation, `get()` returns `mixed` — full backward compatibility is preserved.
+
+### Supported Accessor Classes
+
+The extension applies to all concrete accessor classes:
+
+- `ArrayAccessor`, `ObjectAccessor`, `JsonAccessor`
+- `XmlAccessor`, `YamlAccessor`, `TomlAccessor`
+- `IniAccessor`, `CsvAccessor`, `EnvAccessor`, `NdjsonAccessor`
+
+::: tip Generic shape requirement
+The shape type must be provided as the first template parameter: `AccessorClass<array{...}>`. Using `AbstractAccessor` directly as the annotated type is not supported by the extension — use the concrete subclass.
+:::

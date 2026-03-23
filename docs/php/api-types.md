@@ -306,3 +306,48 @@ String-backed enum mirroring the RFC 6902 JSON Patch operation names.
 | `PatchOperationType::MOVE`    | `'move'`    |
 | `PatchOperationType::COPY`    | `'copy'`    |
 | `PatchOperationType::TEST`    | `'test'`    |
+
+### `CsvMode`
+
+**Namespace:** `SafeAccessInline\Enums\CsvMode`
+
+Controls CSV injection sanitization applied during `toCsv()` serialization and when reading through a `SecurityPolicy`. Targets cells whose first character is `=`, `+`, `-`, or `@`.
+
+| Case              | Value      | Behavior                                    |
+| ----------------- | ---------- | ------------------------------------------- |
+| `CsvMode::NONE`   | `'none'`   | No sanitization (default)                   |
+| `CsvMode::PREFIX` | `'prefix'` | Prepends a tab character to dangerous cells |
+| `CsvMode::STRIP`  | `'strip'`  | Removes the dangerous leading character     |
+| `CsvMode::ERROR`  | `'error'`  | Throws `SecurityException` on detection     |
+
+```php
+use SafeAccessInline\Enums\CsvMode;
+use SafeAccessInline\Security\Guards\SecurityPolicy;
+
+// Via toCsv() directly
+$accessor->toCsv(CsvMode::STRIP->value); // or plain string 'strip'
+
+// Via SecurityPolicy
+$policy = new SecurityPolicy(csvMode: CsvMode::STRIP->value);
+$accessor = SafeAccess::withPolicy($csvString, $policy);
+```
+
+### `FileLoadOptions`
+
+**Namespace:** `SafeAccessInline\Contracts\FileLoadOptions`
+
+A readonly DTO that encapsulates file-loading options. Accepted by `fromFile()`, `layerFiles()`, and `watchFile()` as an alternative to positional arguments.
+
+| Property        | Type      | Default | Description                                       |
+| --------------- | --------- | ------- | ------------------------------------------------- |
+| `$format`       | `?string` | `null`  | Force a specific format; overrides auto-detection |
+| `$allowedDirs`  | `array`   | `[]`    | Directory allowlist for path-traversal protection |
+| `$allowAnyPath` | `bool`    | `false` | Bypass directory restrictions (use with caution)  |
+
+```php
+use SafeAccessInline\Contracts\FileLoadOptions;
+use SafeAccessInline\SafeAccess;
+
+$opts = new FileLoadOptions(format: 'json', allowedDirs: ['/app/config']);
+$accessor = SafeAccess::fromFile('/app/config/app.json', $opts);
+```

@@ -11,6 +11,7 @@ outline: deep
 - [I/O & Carregamento de Arquivos](#io--carregamento-de-arquivos)
 - [Configuração em Camadas](#configuração-em-camadas)
 - [Referência de configuração](#referência-de-configuração)
+- [Integração com PHPStan](#integração-com-phpstan)
 
 ## Operações de Array
 
@@ -309,3 +310,50 @@ $config = new IoLoaderConfig(
 ```
 
 Controla o timeout total e o timeout de conexão do cURL, em segundos, para `IoLoader::fetchUrl()`.
+
+---
+
+## Integração com PHPStan
+
+O pacote inclui uma extensão PHPStan customizada que estreita o tipo de retorno de `get()` em tempo de análise estática quando o accessor é anotado com um shape concreto. Sem a extensão, `get()` retorna `mixed`.
+
+### Habilitando a Extensão
+
+Adicione a extensão à configuração PHPStan do seu projeto:
+
+```neon
+# phpstan.neon
+includes:
+    - vendor/safe-access-inline/safe-access-inline/phpstan-extension.neon
+```
+
+### Como Funciona
+
+Anote qualquer variável accessor com `@var AccessorClass<array{...}>` usando um shape inline. A extensão resolve o tipo de retorno de `get()` com base no shape no caminho chamado:
+
+```php
+use SafeAccessInline\SafeAccess;
+use SafeAccessInline\Accessors\JsonAccessor;
+
+/** @var JsonAccessor<array{user: array{name: string, age: int}, active: bool}> $acc */
+$acc = SafeAccess::fromJson($json);
+
+$name   = $acc->get('user.name');   // PHPStan: string|null
+$age    = $acc->get('user.age', 0); // PHPStan: int
+$active = $acc->get('active');      // PHPStan: bool|null
+$city   = $acc->get('user.city');   // PHPStan: mixed  (não está no shape → fallback)
+```
+
+Sem a anotação, `get()` retorna `mixed` — compatibilidade retroativa total é preservada.
+
+### Classes de Accessor Suportadas
+
+A extensão se aplica a todas as classes de accessor concretas:
+
+- `ArrayAccessor`, `ObjectAccessor`, `JsonAccessor`
+- `XmlAccessor`, `YamlAccessor`, `TomlAccessor`
+- `IniAccessor`, `CsvAccessor`, `EnvAccessor`, `NdjsonAccessor`
+
+::: tip Requisito de shape genérico
+O tipo de shape deve ser fornecido como o primeiro parâmetro de template: `AccessorClass<array{...}>`. Usar `AbstractAccessor` diretamente como tipo anotado não é suportado pela extensão — use a subclasse concreta.
+:::

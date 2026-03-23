@@ -6,6 +6,7 @@ outline: deep
 
 ## Índice
 
+- [Inferência de Tipo Segura](#inferência-de-tipo-segura)
 - [Operações de Array](#operações-de-array)
 - [JSON Patch](#json-patch)
 - [Validação de Schema](#validação-de-schema)
@@ -13,6 +14,76 @@ outline: deep
 - [I/O & Carregamento de Arquivos](#io--carregamento-de-arquivos)
 - [Log de Auditoria](#log-de-auditoria)
 - [Integrações de Framework](#integrações-de-framework)
+
+---
+
+## Inferência de Tipo Segura
+
+Quando você fornece um tipo de shape concreto via parâmetro genérico, a biblioteca infere automaticamente o tipo do valor retornado por `get()` — sem casting, sem `unknown`.
+
+```typescript
+import { SafeAccess } from "@safe-access-inline/safe-access-inline";
+
+interface Config {
+    server: { host: string; port: number };
+    debug: boolean;
+    tags: string[];
+}
+
+const accessor = SafeAccess.fromObject<Config>({
+    server: { host: "localhost", port: 3000 },
+    debug: true,
+    tags: ["web", "api"],
+});
+
+const host = accessor.get("server.host"); // inferido: string | undefined
+const port = accessor.get("server.port"); // inferido: number | undefined
+const debug = accessor.get("debug", false); // inferido: boolean
+const tags = accessor.get("tags"); // inferido: string[] | undefined
+```
+
+### `DeepPaths<T>` — Autocompletar para Caminhos Aninhados
+
+O tipo utilitário `DeepPaths<T>` enumera todos os caminhos dot-notation válidos para um shape. Isso alimenta o autocompletar no IDE e a validação de caminhos em tempo de compilação:
+
+```typescript
+import type { DeepPaths } from "@safe-access-inline/safe-access-inline";
+
+type ConfigPaths = DeepPaths<Config>;
+// "server" | "server.host" | "server.port" | "debug" | "tags"
+
+// ✅ Válido — autocompletado e verificado em tempo de tipo
+accessor.get("server.host");
+
+// ❌ Erro TypeScript: '"server.hostname"' não é atribuível a 'DeepPaths<Config>'
+accessor.get("server.hostname");
+```
+
+### `ValueAtPath<T, P>` — Estreitamento do Tipo de Retorno
+
+`ValueAtPath<T, P>` resolve o tipo em um dado caminho:
+
+```typescript
+import type {
+    ValueAtPath,
+    DeepPaths,
+} from "@safe-access-inline/safe-access-inline";
+
+type HostType = ValueAtPath<Config, "server.host">; // string
+type PortType = ValueAtPath<Config, "server.port">; // number
+```
+
+### Acesso sem Tipo (Untyped)
+
+Sem um genérico (ou usando `Record<string, unknown>`), `get()` retorna `unknown` — total retrocompatibilidade:
+
+```typescript
+// Sem tipo — retorna unknown
+const accessor = SafeAccess.from(rawInput);
+const value = accessor.get("some.path"); // unknown
+```
+
+---
 
 ## Operações de Array
 

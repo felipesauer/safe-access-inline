@@ -15,6 +15,12 @@ outline: deep
         - [Contracts](#contracts)
         - [PluginRegistry](#pluginregistry)
         - [PHP vs JS Behavior](#php-vs-js-behavior)
+        - [Plugin Layer Mapping](#plugin-layer-mapping)
+            - [JavaScript / TypeScript](#javascript--typescript)
+            - [PHP](#php)
+            - [Extension Layer Diagram](#extension-layer-diagram)
+            - [Plugin Lifecycle](#plugin-lifecycle)
+            - [Adding a Custom Plugin](#adding-a-custom-plugin)
     - [Data Flow](#data-flow)
     - [DotNotationParser Engine](#dotnotationparser-engine)
     - [Immutability Pattern](#immutability-pattern)
@@ -30,6 +36,10 @@ outline: deep
         - [ADR-1: `set()` / `remove()` use `clone` instead of `static::from()`](#adr-1-set--remove-use-clone-instead-of-staticfrom)
         - [ADR-2: JS `toXml()` / `toYaml()` / `toToml()` via Real Libraries + Plugin Override](#adr-2-js-toxml--toyaml--totoml-via-real-libraries--plugin-override)
         - [ADR-3: Real Dependencies for YAML/TOML + PluginRegistry for Override](#adr-3-real-dependencies-for-yamltoml--pluginregistry-for-override)
+    - [PHP ↔ JS Implementation Differences](#php--js-implementation-differences)
+        - [Feature Parity Matrix](#feature-parity-matrix)
+        - [`toArray()` vs `all()`](#toarray-vs-all)
+        - [Composition Pattern: Traits (PHP) vs Static Delegation (JS)](#composition-pattern-traits-php-vs-static-delegation-js)
 
 ## Overview
 
@@ -105,6 +115,79 @@ PluginRegistry::registerSerializer('yaml', new SymfonyYamlSerializer());
 | YAML/TOML parsing                                        | Real library by default (`ext-yaml` or `symfony/yaml` for YAML, `devium/toml` for TOML); plugin **optional** (overrides)             | Real library by default (`js-yaml`, `smol-toml`); plugin **optional** (overrides) |
 | Serialization (`toYaml`, `toToml`, `toXml`, `transform`) | Plugin override → `ext-yaml`/real library fallback (with `SimpleXMLElement` fallback for XML)                                        | Real library by default for YAML/TOML; plugin required for XML                    |
 | Shipped plugins                                          | 6 plugins (SymfonyYamlParser, SymfonyYamlSerializer, NativeYamlParser, NativeYamlSerializer, DeviumTomlParser, DeviumTomlSerializer) | 4 plugins (JsYamlParser, JsYamlSerializer, SmolTomlParser, SmolTomlSerializer)    |
+
+### Plugin Layer Mapping
+
+Each plugin occupies a specific **layer** in the processing pipeline. The table below maps every shipped plugin to its layer, type, and registration key.
+
+#### JavaScript / TypeScript
+
+| Plugin               | Format Key | Type       | Layer         | Notes                                                     |
+| -------------------- | ---------- | ---------- | ------------- | --------------------------------------------------------- |
+| `JsYamlParser`       | `yaml`     | parser     | parsing       | Wraps `js-yaml`; **default** — registered automatically   |
+| `JsYamlSerializer`   | `yaml`     | serializer | serialization | Wraps `js-yaml`; **default** — registered automatically   |
+| `SmolTomlParser`     | `toml`     | parser     | parsing       | Wraps `smol-toml`; **default** — registered automatically |
+| `SmolTomlSerializer` | `toml`     | serializer | serialization | Wraps `smol-toml`; **default** — registered automatically |
+
+#### PHP
+
+| Plugin                  | Format Key | Type       | Layer         | Notes                                            |
+| ----------------------- | ---------- | ---------- | ------------- | ------------------------------------------------ |
+| `SymfonyYamlParser`     | `yaml`     | parser     | parsing       | Wraps `symfony/yaml`; optional override          |
+| `SymfonyYamlSerializer` | `yaml`     | serializer | serialization | Wraps `symfony/yaml`; optional override          |
+| `NativeYamlParser`      | `yaml`     | parser     | parsing       | Wraps `ext-yaml`; optional override              |
+| `NativeYamlSerializer`  | `yaml`     | serializer | serialization | Wraps `ext-yaml`; optional override              |
+| `DeviumTomlParser`      | `toml`     | parser     | parsing       | Wraps `devium/toml`; **default** — auto-detected |
+| `DeviumTomlSerializer`  | `toml`     | serializer | serialization | Wraps `devium/toml`; **default** — auto-detected |
+| `SimpleXmlSerializer`   | `xml`      | serializer | serialization | Wraps `SimpleXMLElement`; fallback for `toXml()` |
+
+#### Extension Layer Diagram
+
+```mermaid
+flowchart LR
+    Input["Raw string / data"] --> IoLoader["IoLoader\n(file & URL)"]
+    IoLoader --> Parser["Format Parser\n(built-in or Plugin)"]
+    Parser --> Accessor["AbstractAccessor\n(normalized data)"]
+    Accessor --> Serializer["Format Serializer\n(built-in or Plugin)"]
+    Serializer --> Output["Output string"]
+
+    subgraph PluginLayer["Plugin Layer"]
+        P1["ParserPlugin\n.parse(raw) → array"]
+        P2["SerializerPlugin\n.serialize(array) → string"]
+    end
+
+    Parser -.->|"PluginRegistry.getParser(format)"| P1
+    Serializer -.->|"PluginRegistry.getSerializer(format)"| P2
+```
+
+#### Plugin Lifecycle
+
+1. **Registration** — `PluginRegistry.registerParser(format, plugin)` / `PluginRegistry.registerSerializer(format, plugin)`. Must happen before the first accessor of that format is created.
+
+2. **Discovery** — When an accessor calls `parse()` or `toYaml()`, the registry is queried with the format key. If a plugin is registered it takes priority over the built-in default; otherwise the built-in library is used.
+
+3. **Invocation** — The plugin's `parse()` or `serialize()` method is called synchronously. Plugins must throw `InvalidFormatException` on malformed input.
+
+4. **Override precedence** — `registered plugin > real library default > built-in lightweight parser` (JS) / `registered plugin > ext-yaml / symfony/yaml` (PHP).
+
+#### Adding a Custom Plugin
+
+```typescript
+// Implement one interface
+import type { ParserPluginInterface } from "@safe-access-inline/safe-access-inline";
+
+class MyYamlParser implements ParserPluginInterface {
+    parse(raw: string): Record<string, unknown> {
+        return myCustomYamlLib.parse(raw);
+    }
+}
+
+// Register once at startup — overrides the default JsYamlParser
+import { PluginRegistry } from "@safe-access-inline/safe-access-inline";
+PluginRegistry.registerParser("yaml", new MyYamlParser());
+```
+
+See also: [Plugin Guide](/js/plugins)
 
 ## Data Flow
 
@@ -386,3 +469,64 @@ round-trip `set() → toXml()` can still access the original XML via `getOrigina
 - **Testing**: Unit tests use mock plugins (anonymous classes/objects) for isolation. Integration tests use real libraries.
 
 **Consequence:** Zero configuration for YAML/TOML in both platforms. Consistent behavior between PHP and JS. Users who need alternative parsers/serializers register them via PluginRegistry.
+
+---
+
+## PHP ↔ JS Implementation Differences
+
+The two implementations are semantically equivalent — the same dot-notation paths, the same operations, the same security guarantees — but idiomatic differences exist at the language level. This section documents them explicitly.
+
+### Feature Parity Matrix
+
+| Feature              | JavaScript / TypeScript                                       | PHP                                                              |
+| -------------------- | ------------------------------------------------------------- | ---------------------------------------------------------------- |
+| **Array operations** | Static class (`ArrayOperations`) delegated from the accessor  | Trait (`HasArrayOperations`) mixed into `AbstractAccessor`       |
+| **Type inference**   | `DeepPaths<T>` / `ValueAtPath<T, P>` generic parameters       | `@template TShape` + custom PHPStan extension                    |
+| **Immutability**     | `Object.freeze()` + `deepFreeze()` at runtime                 | Private `$data` field + `$readonly` flag + `assertNotReadonly()` |
+| **Constructor**      | `constructor(raw: unknown, options?: { readonly?: boolean })` | `__construct(mixed $raw, bool $readonly = false)`                |
+| **`toArray()`**      | Concrete alias of `all()` (not on interface)                  | Concrete alias of `all()` (not on interface)                     |
+| **Async I/O**        | `fromFile()` async + `fromFileSync()` sync                    | Synchronous only                                                 |
+| **File watcher**     | Returns a single `stop()` function                            | Returns `{ poll, stop }` — polling must be driven explicitly     |
+| **XML parsing**      | Delegates to plugin; no native parser                         | `simplexml_load_string()` with XXE protection built-in           |
+| **Schema adapters**  | Zod, Valibot, Yup, JSON Schema                                | JSON Schema, Symfony Validator                                   |
+
+### `toArray()` vs `all()`
+
+Both implementations expose `all()` as the primary method returning a shallow copy of the internal data. `toArray()` is a concrete-class alias that follows PHP idioms (`ArrayAccess`, `Arrayable` conventions). It is not part of the published `ReadableInterface` / `AccessorInterface` contracts in either language:
+
+```typescript
+// JS — both are equivalent
+accessor.all(); // Record<string, unknown>
+accessor.toArray(); // Record<string, unknown>
+```
+
+```php
+// PHP — both are equivalent
+$accessor->all();     // array<mixed>
+$accessor->toArray(); // array<mixed>
+```
+
+### Composition Pattern: Traits (PHP) vs Static Delegation (JS)
+
+PHP uses trait composition to attach array operations and transformations to the abstract base:
+
+```php
+abstract class AbstractAccessor implements AccessorInterface, WritableInterface
+{
+    use HasArrayOperations;
+    use HasTransformations;
+    use HasTypeAccess;
+    // ...
+}
+```
+
+JS achieves the same result through static class delegation:
+
+```typescript
+// In AbstractAccessor
+push(path: string, ...items: unknown[]): AbstractAccessor<T> {
+    return this.mutate(ArrayOperations.push(this.data, path, ...items));
+}
+```
+
+Both approaches produce identical consumer-facing APIs. The difference is an implementation detail with no behavioral impact.
