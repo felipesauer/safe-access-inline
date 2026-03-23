@@ -2,6 +2,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { SafeAccess } from '../../../../src/safe-access';
 import { SchemaRegistry } from '../../../../src/core/registries/schema-registry';
 import { SchemaValidationError } from '../../../../src/exceptions/schema-validation.error';
+import { onAudit, clearAuditListeners } from '../../../../src/security/audit/audit-emitter';
 import type {
     SchemaAdapterInterface,
     SchemaValidationResult,
@@ -34,6 +35,7 @@ describe('Schema Validation', () => {
 
     afterEach(() => {
         SchemaRegistry.clearDefaultAdapter();
+        clearAuditListeners();
     });
 
     it('validate passes when data matches schema', () => {
@@ -90,5 +92,30 @@ describe('Schema Validation', () => {
         expect(error.message).toContain('name: required');
         expect(error.message).toContain('age: must be number');
         expect(error.name).toBe('SchemaValidationError');
+    });
+
+    it('emits plugin.overwrite audit event when overwriting a default adapter', () => {
+        const events: unknown[] = [];
+        const unsub = onAudit((e) => events.push(e));
+
+        SchemaRegistry.setDefaultAdapter(adapter);
+        expect(events).toHaveLength(0); // first set — no overwrite
+
+        SchemaRegistry.setDefaultAdapter(new SimpleSchemaAdapter());
+        expect(events).toHaveLength(1);
+        expect((events[0] as { type: string }).type).toBe('plugin.overwrite');
+        expect((events[0] as { detail: { kind: string } }).detail.kind).toBe('schema-adapter');
+
+        unsub();
+    });
+
+    it('does NOT emit audit event when setting adapter for the first time', () => {
+        const events: unknown[] = [];
+        const unsub = onAudit((e) => events.push(e));
+
+        SchemaRegistry.setDefaultAdapter(adapter);
+        expect(events).toHaveLength(0);
+
+        unsub();
     });
 });
