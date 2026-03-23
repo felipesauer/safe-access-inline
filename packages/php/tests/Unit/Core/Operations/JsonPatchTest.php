@@ -343,6 +343,40 @@ describe(JsonPatch::class, function () {
             [new JsonPatchOperation(op: 'test', path: '/a', value: ['not' => 'a scalar'])],
         );
     })->throws(JsonPatchTestFailedException::class);
+
+    it('applies operations correctly when no test ops present', function () {
+        $result = JsonPatch::applyPatch(
+            ['a' => 1, 'b' => 2],
+            [
+                new JsonPatchOperation(op: 'replace', path: '/a', value: 99),
+                new JsonPatchOperation(op: 'remove', path: '/b'),
+                new JsonPatchOperation(op: 'add', path: '/c', value: 'new'),
+            ],
+        );
+        expect($result)->toBe(['a' => 99, 'c' => 'new']);
+    });
+
+    it('applies test + non-test ops atomically', function () {
+        $data   = ['a' => 1, 'b' => 2];
+        $result = JsonPatch::applyPatch(
+            $data,
+            [
+                new JsonPatchOperation(op: 'test', path: '/a', value: 1),
+                new JsonPatchOperation(op: 'replace', path: '/b', value: 99),
+            ],
+        );
+        expect($result)->toBe(['a' => 1, 'b' => 99]);
+    });
+
+    it('aborts all ops when test op fails (atomicity)', function () {
+        JsonPatch::applyPatch(
+            ['a' => 1, 'b' => 2],
+            [
+                new JsonPatchOperation(op: 'replace', path: '/b', value: 99),
+                new JsonPatchOperation(op: 'test', path: '/a', value: 999), // wrong value — should fail
+            ],
+        );
+    })->throws(JsonPatchTestFailedException::class);
 });
 
 describe('AbstractAccessor readonly mode', function () {
@@ -459,6 +493,47 @@ describe('AbstractAccessor getTemplate and merge(array)', function () {
         $b = ['x' => ['b' => 2, 'a' => 1]];
         $ops = JsonPatch::diff($a, $b);
         expect($ops)->toBe([]);
+    });
+
+});
+
+describe('JsonPatch test op — absent path', function () {
+
+    it('test op on absent top-level path throws JsonPatchTestFailedException', function () {
+        JsonPatch::applyPatch(
+            ['a' => 1],
+            [new JsonPatchOperation(op: 'test', path: '/missing', value: null)],
+        );
+    })->throws(JsonPatchTestFailedException::class);
+
+    it('test op on absent nested path throws JsonPatchTestFailedException', function () {
+        JsonPatch::applyPatch(
+            ['a' => ['b' => 1]],
+            [new JsonPatchOperation(op: 'test', path: '/a/missing', value: null)],
+        );
+    })->throws(JsonPatchTestFailedException::class);
+
+    it('test op on deeply absent path throws JsonPatchTestFailedException', function () {
+        JsonPatch::applyPatch(
+            [],
+            [new JsonPatchOperation(op: 'test', path: '/x/y/z', value: 0)],
+        );
+    })->throws(JsonPatchTestFailedException::class);
+
+    it('test op on existing key with null value passes when expected null', function () {
+        $result = JsonPatch::applyPatch(
+            ['a' => null],
+            [new JsonPatchOperation(op: 'test', path: '/a', value: null)],
+        );
+        expect($result)->toBe(['a' => null]);
+    });
+
+    it('test op on existing key with falsy-zero passes when expected zero', function () {
+        $result = JsonPatch::applyPatch(
+            ['count' => 0],
+            [new JsonPatchOperation(op: 'test', path: '/count', value: 0)],
+        );
+        expect($result)->toBe(['count' => 0]);
     });
 
 });

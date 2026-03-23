@@ -14,17 +14,15 @@ use SafeAccessInline\Security\Guards\SecurityGuard;
  * Provides diff generation and patch application.
  *
  * The JSON Patch `test` op checks that the value at `path` equals `value`.
- * In **JavaScript**, an absent path yields `undefined`; in **PHP**, it yields `null`.
- * Consequently, a `test` op with `"value": null` will:
+ * Both PHP and JS now treat an **absent path as a test failure** — a `test` op
+ * against a missing path throws {@see JsonPatchTestFailedException} regardless of
+ * the expected value. This aligns the two implementations:
  *
- *   - **PHP**: PASS when the path is absent (absent ≡ `null`)
- *   - **JS**:  FAIL when the path is absent (`undefined !== null`)
+ *   - **PHP**: absent path → test FAILS (throws JsonPatchTestFailedException)
+ *   - **JS**:  absent path → test FAILS (throws JsonPatchTestFailedError)
  *
- * This is an expected cross-language difference. Callers targeting both platforms
- * should only use `test` ops against paths that are *known to exist* in both
- * environments, and should avoid relying on `null`-test semantics for absent paths.
- *
- * See plan item C5 for full context.
+ * A `test` op asserting `null` for a *present* `null`-valued path still passes;
+ * only paths that do not exist at all will throw.
  */
 final class JsonPatch
 {
@@ -142,6 +140,13 @@ final class JsonPatch
     /**
      * Applies a JSON Patch to a data array. Returns a new array (immutable).
      *
+     * **Atomicity:** When the patch contains `test` operations, all operations are first
+     * applied to a preflight copy. If any `test` assertion fails, none of the changes
+     * take effect (the exception is thrown before the result is returned).
+     *
+     * **Optimisation:** When there are no `test` operations, the preflight clone is
+     * skipped — operations are applied directly to the local parameter copy.
+     *
      * @param array<mixed>         $data
      * @param JsonPatchOperation[] $ops
      * @return array<mixed>
@@ -150,7 +155,22 @@ final class JsonPatch
     {
         self::validatePatch($ops);
 
-        // Pre-flight: run all operations on a copy to check test assertions (atomicity)
+        // Optimisation: skip the preflight clone if no test ops need atomicity checking.
+        $hasTestOps = array_reduce(
+            $ops,
+            static fn (bool $carry, JsonPatchOperation $op): bool => $carry || $op->op === PatchOperationType::TEST->value,
+            false,
+        );
+
+        if (!$hasTestOps) {
+            foreach ($ops as $op) {
+                $data = self::applyOneOp($data, $op);
+            }
+            return $data;
+        }
+
+        // Pre-flight: run all operations on a copy; if a test op fails, the
+        // whole patch is aborted and the original $data is left unchanged.
         $preflight = $data;
         foreach ($ops as $op) {
             $preflight = self::applyOneOp($preflight, $op);
@@ -186,6 +206,12 @@ final class JsonPatch
                 $result = self::setAtPointer($result, $op->path, $value);
                 break;
             case PatchOperationType::TEST->value:
+                // Absent paths are treated as test failures — consistent with JS behaviour.
+                if (!self::pathExistsAtPointer($result, $op->path)) {
+                    throw new JsonPatchTestFailedException(
+                        "Test operation failed: path '{$op->path}' does not exist."
+                    );
+                }
                 $actual = self::getAtPointer($result, $op->path);
                 if (!self::deepEqual($actual, $op->value)) {
                     throw new JsonPatchTestFailedException(
@@ -257,6 +283,36 @@ final class JsonPatch
             }
         }
         return $current;
+    }
+
+    /**
+     * Returns true when the JSON Pointer `$pointer` addresses an existing node in `$data`,
+     * even when that node's value is `null`.
+     *
+     * Used by the `test` op to distinguish "path absent" from "path present with null value".
+     *
+     * @param  mixed  $data    Document root.
+     * @param  string $pointer RFC 6901 JSON Pointer string.
+     * @return bool   True when the path exists; false when any segment is missing.
+     */
+    private static function pathExistsAtPointer(mixed $data, string $pointer): bool
+    {
+        $keys = self::parsePointer($pointer);
+        // Root pointer "" always exists.
+        if (count($keys) === 0) {
+            return true;
+        }
+        $current = $data;
+        foreach ($keys as $key) {
+            if (is_array($current) && is_numeric($key) && array_key_exists((int) $key, $current)) {
+                $current = $current[(int) $key];
+            } elseif (is_array($current) && array_key_exists($key, $current)) {
+                $current = $current[$key];
+            } else {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
