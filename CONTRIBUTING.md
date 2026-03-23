@@ -20,6 +20,7 @@ Thank you for considering contributing! This guide covers everything you need to
         - [Global State Teardown](#global-state-teardown)
         - [Quality Gates](#quality-gates)
         - [Future Quality Improvements](#future-quality-improvements)
+        - [Mutation Testing](#mutation-testing)
         - [Documentation](#documentation)
     - [Coding Standards](#coding-standards)
         - [PHP](#php-1)
