@@ -43,14 +43,14 @@
         "spatie/phpunit-snapshot-assertions": "^5.3",
         "phpbench/phpbench": "^1.5",
         "psr/simple-cache": "^3.0",
-        "respect/validation": "^3.1.0"
+        "respect/validation": "^2.4"
     },
     "suggest": {
         "ext-yaml": "Preferred YAML engine — when installed, used automatically over symfony/yaml for better performance",
         "symfony/yaml": "Required for YAML parsing when ext-yaml is not available (^8.0)",
         "devium/toml": "Required for TOML parsing (^1.0)",
         "psr/simple-cache": "Required for remember()/forget() cache integration methods (^3.0)",
-        "respect/validation": "Required for RespectValidationAdapter schema validation support (^3.1.0)"
+        "respect/validation": "Required for RespectValidationAdapter schema validation support (^2.4)"
     },
     "autoload": {
         "psr-4": {
