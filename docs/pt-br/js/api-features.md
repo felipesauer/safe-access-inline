@@ -358,14 +358,40 @@ const safe = mask(data, ["api_*", "credentials"]);
 
 ### Sanitização CSV
 
-**Import:** `import { sanitizeCsvCell, sanitizeCsvRow } from '@safe-access-inline/safe-access-inline'`
+**Import:** `import { sanitizeCsvCell, sanitizeCsvRow, sanitizeCsvHeaders } from '@safe-access-inline/safe-access-inline'`
 
 Protege contra injeção de fórmulas CSV.
 
 - `sanitizeCsvCell(cell: string, mode?: CsvSanitizeMode): string`
 - `sanitizeCsvRow(row: string[], mode?: CsvSanitizeMode): string[]`
+- `sanitizeCsvHeaders(headers: string[], mode?: CsvSanitizeMode): string[]`
 
 Modos: `'prefix'` (prefixa com `'`), `'strip'` (remove todos os caracteres de prefixo de injeção CSV: `=`, `+`, `-`, `@`, `\t`, `\r`, `\n` conforme orientação OWASP CSV Injection), `'error'` (lança erro), `'none'` (passthrough).
+
+`sanitizeCsvHeaders()` aplica a mesma sanitização de célula a um array de cabeçalhos de coluna — útil quando os valores de cabeçalho originam de dados fornecidos pelo usuário ou fontes externas.
+
+### Sanitização de Headers HTTP
+
+**Import:** `import { sanitizeHeaders } from '@safe-access-inline/safe-access-inline'`
+
+#### `sanitizeHeaders(headers: Record<string, string> | null | undefined): Record<string, string>`
+
+Sanitiza um mapa de headers HTTP antes de passá-los para requisições de saída. Retorna um novo registro — a entrada nunca é mutada.
+
+- Nomes de header são convertidos para minúsculas e validados contra os caracteres de token RFC 7230; nomes inválidos são descartados silenciosamente.
+- Valores de header têm sequências CRLF (`\r\n`) e caracteres de controle ASCII removidos para prevenir injeção de headers.
+- Aceita `null` / `undefined` — retorna um objeto vazio.
+
+```typescript
+import { sanitizeHeaders } from "@safe-access-inline/safe-access-inline";
+
+const safe = sanitizeHeaders({
+    "Content-Type": "application/json",
+    "X-Custom": "value\r\nevil: injected", // CRLF removido
+    "": "sem-nome", // nome vazio descartado
+});
+// { "content-type": "application/json", "x-custom": "valueevilinjected" }
+```
 
 ### Deep Freeze
 
@@ -400,7 +426,58 @@ const accessor = SafeAccess.fromFileSync("./config.yaml", {
 const accessor = await SafeAccess.fromFile("./config.json");
 ```
 
+`fromFileSync()` e `fromFile()` aceitam um objeto `FileLoadOptions` como segundo argumento.
+
+#### `FileLoadOptions`
+
+```typescript
+import type { FileLoadOptions } from "@safe-access-inline/safe-access-inline";
+
+interface FileLoadOptions {
+    /** Override de formato explícito — detectado automaticamente pela extensão se omitido. */
+    format?: string | Format;
+    /** Restringe o carregamento a esses diretórios (proteção contra path-traversal). */
+    allowedDirs?: string[];
+    /** Defina `true` para desabilitar a restrição de allowed-dirs. */
+    allowAnyPath?: boolean;
+    /** Tamanho máximo do arquivo em bytes (lança `SecurityError` se excedido). */
+    maxSize?: number;
+    /** Lista de extensões de arquivo permitidas, ex: `['.json', '.yaml']`. */
+    allowedExtensions?: string[];
+}
+```
+
 JavaScript expõe APIs de carregamento de arquivos síncronas e assíncronas. Essa é uma diferença intencional entre linguagens: o pacote PHP expõe apenas I/O síncrono, enquanto o pacote JS fornece variantes assíncronas para runtimes Node e variantes síncronas para bootstrap, scripts ou CLI.
+
+### Streaming de Arquivos Grandes
+
+Para processamento eficiente de memória de arquivos CSV ou NDJSON grandes, o JS fornece streaming assíncrono baseado em `AsyncGenerator` — funcionalmente equivalente às variantes `Generator` síncronas do PHP.
+
+#### `SafeAccess.streamCsv(filePath: string, options?: FileLoadOptions): AsyncGenerator<string[]>`
+
+Produz linhas CSV analisadas uma por vez sem carregar o arquivo inteiro na memória.
+
+```typescript
+for await (const row of SafeAccess.streamCsv("/app/data/users.csv", {
+    allowedDirs: ["/app/data"],
+})) {
+    console.log(row); // string[]
+}
+```
+
+#### `SafeAccess.streamNdjson(filePath: string, options?: FileLoadOptions): AsyncGenerator<unknown>`
+
+Produz registros NDJSON analisados um por vez.
+
+```typescript
+for await (const event of SafeAccess.streamNdjson("/app/data/events.ndjson", {
+    allowedDirs: ["/app/data"],
+})) {
+    console.log(event); // objeto analisado
+}
+```
+
+No PHP, o equivalente é um laço `foreach ($stream as $row)` síncrono sobre um `Generator`. Ambos os paradigmas entregam a mesma garantia: linhas são produzidas uma de cada vez sem carregar o arquivo inteiro na memória. Veja [Arquitetura — Streaming: Síncrono (PHP) vs Assíncrono (JS)](/guide/architecture#streaming-síncrono-php-vs-assíncrono-js).
 
 ### Carregamento via URL
 
@@ -441,6 +518,68 @@ stop();
 No pacote JS, `watchFile()` retorna uma única função de unsubscribe e usa o watcher da plataforma (`fs.watch`) internamente.
 
 Isso difere intencionalmente do PHP, onde `watchFile()` retorna `{ poll, stop }` porque o loop de polling precisa ser dirigido explicitamente em um runtime síncrono.
+
+### IoLoader
+
+**Import:** `import { configureIoLoader, resetIoLoaderConfig, assertPathWithinAllowedDirs, resolveFormatFromExtension } from '@safe-access-inline/safe-access-inline'`
+
+`IoLoader` é o subsistema de I/O interno invocado por `fromFile()`, `fromFileSync()` e `fromUrl()`. Aplica proteção SSRF, guardas contra path-traversal e timeouts de requisição configuráveis.
+
+#### Configuração
+
+```typescript
+import { configureIoLoader } from "@safe-access-inline/safe-access-inline";
+
+configureIoLoader({
+    requestTimeoutMs: 15_000, // timeout total da requisição HTTP (padrão: 10 000 ms)
+    connectTimeoutMs: 8_000, // timeout da fase de conexão TCP (padrão: 5 000 ms)
+});
+```
+
+#### `IoLoaderConfig`
+
+```typescript
+interface IoLoaderConfig {
+    /** Timeout total da requisição HTTP em milissegundos. */
+    readonly requestTimeoutMs: number;
+    /** Milissegundos máximos para estabelecer a conexão TCP. */
+    readonly connectTimeoutMs: number;
+    /** Cliente HTTP injetável (substitui o transporte `https.request` embutido). */
+    readonly httpClient?: HttpClientInterface;
+    /** Resolvedor DNS injetável (substitui o resolvedor `dns.promises` embutido). */
+    readonly dnsResolver?: DnsResolverInterface;
+}
+```
+
+#### Injeção de Dependência — `HttpClientInterface` e `DnsResolverInterface`
+
+Você pode substituir o transporte HTTP embutido e o resolvedor DNS por implementações customizadas — útil para testes, proxies ou ambientes restritos.
+
+**`HttpClientInterface`** substitui `https.request()`:
+
+```typescript
+import type { HttpClientInterface } from "@safe-access-inline/safe-access-inline";
+
+const mockClient: HttpClientInterface = {
+    async fetch(url, options) {
+        return {
+            ok: true,
+            status: 200,
+            async text() {
+                return '{"chave":"valor"}';
+            },
+            async json() {
+                return { chave: "valor" };
+            },
+        };
+    },
+};
+
+configureIoLoader({ httpClient: mockClient });
+const accessor = await SafeAccess.fromUrl("https://example.com/config.json");
+```
+
+> **Segurança:** A validação SSRF (bloqueio de IPs privados) é sempre aplicada, mesmo quando um `httpClient` customizado está configurado. A resolução DNS e verificação de intervalo de IP são executadas antes de qualquer chamada de rede.
 
 ---
 

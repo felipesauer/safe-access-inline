@@ -40,6 +40,7 @@ outline: deep
         - [Feature Parity Matrix](#feature-parity-matrix)
         - [`toArray()` vs `all()`](#toarray-vs-all)
         - [Composition Pattern: Traits (PHP) vs Static Delegation (JS)](#composition-pattern-traits-php-vs-static-delegation-js)
+        - [Streaming: Sync (PHP) vs Async (JS)](#streaming-sync-php-vs-async-js)
 
 ## Overview
 
@@ -478,17 +479,18 @@ The two implementations are semantically equivalent — the same dot-notation pa
 
 ### Feature Parity Matrix
 
-| Feature              | JavaScript / TypeScript                                       | PHP                                                              |
-| -------------------- | ------------------------------------------------------------- | ---------------------------------------------------------------- |
-| **Array operations** | Static class (`ArrayOperations`) delegated from the accessor  | Trait (`HasArrayOperations`) mixed into `AbstractAccessor`       |
-| **Type inference**   | `DeepPaths<T>` / `ValueAtPath<T, P>` generic parameters       | `@template TShape` + custom PHPStan extension                    |
-| **Immutability**     | `Object.freeze()` + `deepFreeze()` at runtime                 | Private `$data` field + `$readonly` flag + `assertNotReadonly()` |
-| **Constructor**      | `constructor(raw: unknown, options?: { readonly?: boolean })` | `__construct(mixed $raw, bool $readonly = false)`                |
-| **`toArray()`**      | Concrete alias of `all()` (not on interface)                  | Concrete alias of `all()` (not on interface)                     |
-| **Async I/O**        | `fromFile()` async + `fromFileSync()` sync                    | Synchronous only                                                 |
-| **File watcher**     | Returns a single `stop()` function                            | Returns `{ poll, stop }` — polling must be driven explicitly     |
-| **XML parsing**      | Delegates to plugin; no native parser                         | `simplexml_load_string()` with XXE protection built-in           |
-| **Schema adapters**  | Zod, Valibot, Yup, JSON Schema                                | JSON Schema, Symfony Validator                                   |
+| Feature              | JavaScript / TypeScript                                           | PHP                                                                     |
+| -------------------- | ----------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| **Array operations** | Static class (`ArrayOperations`) delegated from the accessor      | Trait (`HasArrayOperations`) mixed into `AbstractAccessor`              |
+| **Type inference**   | `DeepPaths<T>` / `ValueAtPath<T, P>` generic parameters           | `@template TShape` + custom PHPStan extension                           |
+| **Immutability**     | `Object.freeze()` + `deepFreeze()` at runtime                     | Private `$data` field + `$readonly` flag + `assertNotReadonly()`        |
+| **Constructor**      | `constructor(raw: unknown, options?: { readonly?: boolean })`     | `__construct(mixed $raw, bool $readonly = false)`                       |
+| **`toArray()`**      | Concrete alias of `all()` (not on interface)                      | Concrete alias of `all()` (not on interface)                            |
+| **Async I/O**        | `fromFile()` async + `fromFileSync()` sync                        | Synchronous only                                                        |
+| **Streaming**        | `streamCsv()` / `streamNdjson()` — `AsyncGenerator` (`for await`) | `streamCsv()` / `streamNdjson()` — `Generator` (`foreach`, synchronous) |
+| **File watcher**     | Returns a single `stop()` function                                | Returns `{ poll, stop }` — polling must be driven explicitly            |
+| **XML parsing**      | Delegates to plugin; no native parser                             | `simplexml_load_string()` with XXE protection built-in                  |
+| **Schema adapters**  | Zod, Valibot, Yup, JSON Schema                                    | JSON Schema, Symfony Validator                                          |
 
 ### `toArray()` vs `all()`
 
@@ -530,3 +532,18 @@ push(path: string, ...items: unknown[]): AbstractAccessor<T> {
 ```
 
 Both approaches produce identical consumer-facing APIs. The difference is an implementation detail with no behavioral impact.
+
+### Streaming: Sync (PHP) vs Async (JS)
+
+Both packages expose `streamCsv()` and `streamNdjson()` for memory-efficient, row-at-a-time processing of large files. The contracts are identical, but the runtime models differ:
+
+| Aspect      | JavaScript / TypeScript                 | PHP                                   |
+| ----------- | --------------------------------------- | ------------------------------------- |
+| Return type | `AsyncGenerator<string[]>`              | `Generator` (synchronous, lazy)       |
+| Iteration   | `for await (const row of stream) {}`    | `foreach ($stream as $row) {}`        |
+| Blocking    | Non-blocking — yields to the event loop | Blocking — runs on the call stack     |
+| Concurrency | Interleaves with other async tasks      | Single-threaded; I/O during iteration |
+
+**Why the difference?** PHP's runtime is inherently synchronous — lazy `Generator` semantics are the idiomatic PHP solution and require no event loop. In Node.js, the `AsyncGenerator` pattern integrates naturally with `async/await` and avoids blocking the event loop during large file reads.
+
+Both approaches deliver the same user-facing guarantee: rows are yielded one at a time without loading the entire file into memory. The choice of paradigm is a language-level constraint, not a feature difference.

@@ -77,7 +77,7 @@ foreach (SafeAccess::streamCsv('/app/data/users.csv', ['/app/data']) as $row) {
 ```
 
 ::: tip JS comparison
-In JS, the equivalent is `for await (const row of SafeAccess.streamCsv(path))`. PHP's synchronous `foreach` delivers the same row-at-a-time semantics.
+In JS, the equivalent is `for await (const row of SafeAccess.streamCsv(path))`. PHP's synchronous `foreach` delivers the same row-at-a-time semantics. See [Architecture — Streaming: Sync (PHP) vs Async (JS)](/guide/architecture#streaming-sync-php-vs-async-js) for a detailed comparison.
 :::
 
 #### `SafeAccess::streamNdjson(string $filePath, array $allowedDirs = [], bool $allowAnyPath = false): Generator`

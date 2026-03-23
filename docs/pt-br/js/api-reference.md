@@ -12,6 +12,8 @@ outline: deep
 - [Operações de Array (Imutável)](#operacoes-de-array-imutavel)
 - [Segurança & Validação](#seguranca-validacao)
 - [Injeção de Dependência](#injecao-de-dependencia)
+- [Tipos de I/O](#tipos-de-io)
+- [Funções Utilitárias de Segurança](#funcoes-utilitarias-de-seguranca)
   **Ver também:**
 
 - [API — Operações & I/O](/pt-br/js/api-features)
@@ -702,3 +704,114 @@ const container = new ServiceContainer({ pluginRegistry: meuRegistry });
 ```
 
 Veja também: [Arquitetura — Sistema de Plugins](/pt-br/guide/architecture#plugin-system)
+
+---
+
+## Tipos de I/O
+
+### `FileLoadOptions`
+
+Controla o comportamento de carregamento de arquivos para `fromFile()`, `fromFileSync()`, `streamCsv()` e `streamNdjson()`.
+
+```typescript
+import type { FileLoadOptions } from "@safe-access-inline/safe-access-inline";
+
+interface FileLoadOptions {
+    /** Override de formato explícito — detectado automaticamente pela extensão se omitido. */
+    format?: string | Format;
+    /** Restringe o carregamento a esses diretórios. Proteção contra path-traversal. */
+    allowedDirs?: string[];
+    /** Defina `true` para desabilitar a restrição de allowed-dirs. */
+    allowAnyPath?: boolean;
+    /** Tamanho máximo do arquivo em bytes. Lança `SecurityError` se excedido. */
+    maxSize?: number;
+    /** Lista de extensões de arquivo permitidas, ex: `['.json', '.yaml']`. Lança `SecurityError` caso contrário. */
+    allowedExtensions?: string[];
+}
+```
+
+### `HttpClientInterface`
+
+Transporte HTTP injetável usado por `fromUrl()` e `IoLoader`. Implementar esta interface permite substituir a chamada `https.request()` embutida — útil para testes, proxies e ambientes isolados.
+
+```typescript
+import type {
+    HttpClientInterface,
+    HttpRequestOptions,
+    HttpResponse,
+} from "@safe-access-inline/safe-access-inline";
+
+interface HttpRequestOptions {
+    headers?: Record<string, string>;
+    timeout?: number;
+    signal?: AbortSignal;
+}
+
+interface HttpResponse {
+    readonly ok: boolean;
+    readonly status: number;
+    text(): Promise<string>;
+    json(): Promise<unknown>;
+}
+
+interface HttpClientInterface {
+    fetch(url: string, options?: HttpRequestOptions): Promise<HttpResponse>;
+}
+```
+
+Injete via `configureIoLoader({ httpClient: meuCliente })`. A validação SSRF ainda é executada antes de qualquer chamada a `httpClient.fetch()`.
+
+### `DnsResolverInterface`
+
+Resolvedor DNS injetável usado pela guarda SSRF antes do fetch de URL. Substitui as buscas `dns.promises`.
+
+```typescript
+import type { DnsResolverInterface } from "@safe-access-inline/safe-access-inline";
+
+interface DnsResolverInterface {
+    resolve(hostname: string): Promise<string[]>;
+    resolve4?(hostname: string): Promise<string[]>;
+    resolve6?(hostname: string): Promise<string[]>;
+}
+```
+
+Injete via `configureIoLoader({ dnsResolver: meuResolver })`.
+
+---
+
+## Funções Utilitárias de Segurança
+
+### `sanitizeHeaders()`
+
+```typescript
+import { sanitizeHeaders } from "@safe-access-inline/safe-access-inline";
+
+function sanitizeHeaders(
+    headers: Record<string, string> | null | undefined,
+): Record<string, string>;
+```
+
+Sanitiza headers HTTP antes do uso em requisições de saída:
+
+- Nomes de header são convertidos para minúsculas e validados contra os caracteres de token RFC 7230; nomes inválidos são descartados.
+- Valores de header têm sequências CRLF e caracteres de controle removidos (prevenção de injeção de headers).
+- Retorna um novo registro — a entrada não é mutada.
+- `null` / `undefined` retorna `{}`.
+
+### `sanitizeCsvHeaders()`
+
+```typescript
+import { sanitizeCsvHeaders } from "@safe-access-inline/safe-access-inline";
+
+function sanitizeCsvHeaders(
+    headers: string[],
+    mode?: CsvSanitizeMode,
+): string[];
+```
+
+Aplica `sanitizeCsvCell()` a cada elemento de uma linha de cabeçalho. Protege contra injeção de fórmulas CSV em nomes de coluna originados de dados não confiáveis.
+
+```typescript
+sanitizeCsvHeaders(["Nome", "=SUM(A1)", "Email"], "strip");
+// ["Nome", "SUM(A1)", "Email"]
+```

@@ -40,6 +40,7 @@ outline: deep
         - [Matriz de Paridade de Funcionalidades](#matriz-de-paridade-de-funcionalidades)
         - [`toArray()` vs `all()`](#toarray-vs-all)
         - [Padrão de Composição: Traits (PHP) vs Delegação Estática (JS)](#padrão-de-composição-traits-php-vs-delegação-estática-js)
+        - [Streaming: Síncrono (PHP) vs Assíncrono (JS)](#streaming-síncrono-php-vs-assíncrono-js)
 
 ## Visão Geral
 
@@ -473,17 +474,18 @@ As duas implementações são semanticamente equivalentes — os mesmos caminhos
 
 ### Matriz de Paridade de Funcionalidades
 
-| Funcionalidade          | JavaScript / TypeScript                                       | PHP                                                                 |
-| ----------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------- |
-| **Operações de array**  | Classe estática (`ArrayOperations`) delegada pelo accessor    | Trait (`HasArrayOperations`) mixado em `AbstractAccessor`           |
-| **Inferência de tipos** | Parâmetros genéricos `DeepPaths<T>` / `ValueAtPath<T, P>`     | `@template TShape` + extensão PHPStan customizada                   |
-| **Imutabilidade**       | `Object.freeze()` + `deepFreeze()` em runtime                 | Campo privado `$data` + flag `$readonly` + `assertNotReadonly()`    |
-| **Constructor**         | `constructor(raw: unknown, options?: { readonly?: boolean })` | `__construct(mixed $raw, bool $readonly = false)`                   |
-| **`toArray()`**         | Alias concreto de `all()` (não na interface)                  | Alias concreto de `all()` (não na interface)                        |
-| **I/O Assíncrono**      | `fromFile()` async + `fromFileSync()` sync                    | Apenas síncrono                                                     |
-| **File watcher**        | Retorna uma única função `stop()`                             | Retorna `{ poll, stop }` — polling deve ser dirigido explicitamente |
-| **Parsing XML**         | Delega para plugin; sem parser nativo                         | `simplexml_load_string()` com proteção XXE embutida                 |
-| **Adapters de schema**  | Zod, Valibot, Yup, JSON Schema                                | JSON Schema, Symfony Validator                                      |
+| Funcionalidade          | JavaScript / TypeScript                                           | PHP                                                                  |
+| ----------------------- | ----------------------------------------------------------------- | -------------------------------------------------------------------- |
+| **Operações de array**  | Classe estática (`ArrayOperations`) delegada pelo accessor        | Trait (`HasArrayOperations`) mixado em `AbstractAccessor`            |
+| **Inferência de tipos** | Parâmetros genéricos `DeepPaths<T>` / `ValueAtPath<T, P>`         | `@template TShape` + extensão PHPStan customizada                    |
+| **Imutabilidade**       | `Object.freeze()` + `deepFreeze()` em runtime                     | Campo privado `$data` + flag `$readonly` + `assertNotReadonly()`     |
+| **Constructor**         | `constructor(raw: unknown, options?: { readonly?: boolean })`     | `__construct(mixed $raw, bool $readonly = false)`                    |
+| **`toArray()`**         | Alias concreto de `all()` (não na interface)                      | Alias concreto de `all()` (não na interface)                         |
+| **I/O Assíncrono**      | `fromFile()` async + `fromFileSync()` sync                        | Apenas síncrono                                                      |
+| **Streaming**           | `streamCsv()` / `streamNdjson()` — `AsyncGenerator` (`for await`) | `streamCsv()` / `streamNdjson()` — `Generator` (`foreach`, síncrono) |
+| **File watcher**        | Retorna uma única função `stop()`                                 | Retorna `{ poll, stop }` — polling deve ser dirigido explicitamente  |
+| **Parsing XML**         | Delega para plugin; sem parser nativo                             | `simplexml_load_string()` com proteção XXE embutida                  |
+| **Adapters de schema**  | Zod, Valibot, Yup, JSON Schema                                    | JSON Schema, Symfony Validator                                       |
 
 ### `toArray()` vs `all()`
 
@@ -525,3 +527,18 @@ push(path: string, ...items: unknown[]): AbstractAccessor<T> {
 ```
 
 Ambas abordagens produzem APIs idênticas para o consumidor. A diferença é um detalhe de implementação sem impacto comportamental.
+
+### Streaming: Síncrono (PHP) vs Assíncrono (JS)
+
+Ambos os pacotes expõem `streamCsv()` e `streamNdjson()` para processamento eficiente de memória, linha por vez, de arquivos grandes. Os contratos são idênticos, mas os modelos de runtime diferem:
+
+| Aspecto         | JavaScript / TypeScript                 | PHP                                     |
+| --------------- | --------------------------------------- | --------------------------------------- |
+| Tipo de retorno | `AsyncGenerator<string[]>`              | `Generator` (síncrono, lazy)            |
+| Iteração        | `for await (const row of stream) {}`    | `foreach ($stream as $row) {}`          |
+| Bloqueante      | Não bloqueante — cede para o event loop | Bloqueante — executa na call stack      |
+| Concorrência    | Intercala com outras tarefas async      | Single-threaded; I/O durante a iteração |
+
+**Por que a diferença?** O runtime do PHP é inerentemente síncrono — a semântica lazy do `Generator` é a solução idiomática PHP e não requer event loop. No Node.js, o padrão `AsyncGenerator` se integra naturalmente com `async/await` e evita bloquear o event loop durante leituras de arquivos grandes.
+
+Ambas as abordagens entregam a mesma garantia ao usuário: linhas são produzidas uma de cada vez sem carregar o arquivo inteiro na memória. A escolha do paradigma é uma restrição do nível da linguagem, não uma diferença de funcionalidade.

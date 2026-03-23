@@ -12,6 +12,7 @@ outline: deep
 - [Schema Validation](#schema-validation)
 - [Security](#security)
 - [I/O & File Loading](#io--file-loading)
+    - [Streaming Large Files](#streaming-large-files)
 - [Audit Logging](#audit-logging)
 - [Framework Integrations](#framework-integrations)
 
@@ -347,14 +348,40 @@ const safe = mask(data, ["api_*", "credentials"]);
 
 ### CSV Sanitization
 
-**Import:** `import { sanitizeCsvCell, sanitizeCsvRow } from '@safe-access-inline/safe-access-inline'`
+**Import:** `import { sanitizeCsvCell, sanitizeCsvRow, sanitizeCsvHeaders } from '@safe-access-inline/safe-access-inline'`
 
 Protects against CSV formula injection.
 
 - `sanitizeCsvCell(cell: string, mode?: CsvSanitizeMode): string`
 - `sanitizeCsvRow(row: string[], mode?: CsvSanitizeMode): string[]`
+- `sanitizeCsvHeaders(headers: string[], mode?: CsvSanitizeMode): string[]`
 
 Modes: `'prefix'` (prefix with `'`), `'strip'` (removes all CSV injection prefix characters: `=`, `+`, `-`, `@`, `\t`, `\r`, `\n` per OWASP CSV Injection guidance), `'error'` (throw), `'none'` (passthrough).
+
+`sanitizeCsvHeaders()` applies the same cell sanitization to an array of column headers — useful when header values originate from user-supplied data or external sources.
+
+### HTTP Header Sanitization
+
+**Import:** `import { sanitizeHeaders } from '@safe-access-inline/safe-access-inline'`
+
+#### `sanitizeHeaders(headers: Record<string, string> | null | undefined): Record<string, string>`
+
+Sanitizes a map of HTTP request headers before passing them to outgoing requests. Returns a new record — the input is never mutated.
+
+- Header names are lowercased and validated against RFC 7230 token characters; invalid names are silently dropped.
+- Header values have CRLF sequences (`\r\n`) and ASCII control characters stripped to prevent header injection.
+- Accepts `null` / `undefined` — returns an empty object.
+
+```typescript
+import { sanitizeHeaders } from "@safe-access-inline/safe-access-inline";
+
+const safe = sanitizeHeaders({
+    "Content-Type": "application/json",
+    "X-Custom": "value\r\nevil: injected", // CRLF stripped
+    "": "no-name", // empty name dropped
+});
+// { "content-type": "application/json", "x-custom": "valueevilinjected" }
+```
 
 ### Deep Freeze
 
@@ -389,7 +416,58 @@ const accessor = SafeAccess.fromFileSync("./config.yaml", {
 const accessor = await SafeAccess.fromFile("./config.json");
 ```
 
+Both `fromFileSync()` and `fromFile()` accept a `FileLoadOptions` object as the second argument.
+
+#### `FileLoadOptions`
+
+```typescript
+import type { FileLoadOptions } from "@safe-access-inline/safe-access-inline";
+
+interface FileLoadOptions {
+    /** Explicit format override — auto-detected from extension if omitted. */
+    format?: string | Format;
+    /** Restrict loading to these directories (path-traversal guard). */
+    allowedDirs?: string[];
+    /** Set to `true` to disable the allowed-dirs restriction. */
+    allowAnyPath?: boolean;
+    /** Maximum file size in bytes (throws `SecurityError` if exceeded). */
+    maxSize?: number;
+    /** Allowlist of file extensions, e.g. `['.json', '.yaml']`. */
+    allowedExtensions?: string[];
+}
+```
+
 JavaScript exposes both synchronous and asynchronous file-loading APIs. This is a deliberate cross-language difference: the PHP package exposes synchronous I/O only, while the JS package provides async variants for Node runtimes and sync variants for bootstrap or CLI use cases.
+
+### Streaming Large Files
+
+For memory-efficient processing of large CSV or NDJSON files, JS provides asynchronous `AsyncGenerator`-based streaming — equivalent in functionality to PHP's synchronous `Generator` variants.
+
+#### `SafeAccess.streamCsv(filePath: string, options?: FileLoadOptions): AsyncGenerator<string[]>`
+
+Yields parsed CSV rows one at a time without loading the entire file into memory.
+
+```typescript
+for await (const row of SafeAccess.streamCsv("/app/data/users.csv", {
+    allowedDirs: ["/app/data"],
+})) {
+    console.log(row); // string[]
+}
+```
+
+#### `SafeAccess.streamNdjson(filePath: string, options?: FileLoadOptions): AsyncGenerator<unknown>`
+
+Yields parsed NDJSON records one at a time.
+
+```typescript
+for await (const event of SafeAccess.streamNdjson("/app/data/events.ndjson", {
+    allowedDirs: ["/app/data"],
+})) {
+    console.log(event); // parsed object
+}
+```
+
+In PHP, the equivalent is a synchronous `foreach ($stream as $row)` loop over a `Generator`. Both paradigms deliver the same guarantee: rows are yielded one at a time without loading the entire file into memory. See [Architecture — Streaming: Sync vs Async](/guide/architecture#streaming-sync-php-vs-async-js).
 
 ### URL Loading
 
@@ -456,8 +534,56 @@ interface IoLoaderConfig {
     readonly requestTimeoutMs: number;
     /** Maximum milliseconds to wait while establishing the TCP connection. */
     readonly connectTimeoutMs: number;
+    /** Injectable HTTP client (replaces the built-in `https.request` transport). */
+    readonly httpClient?: HttpClientInterface;
+    /** Injectable DNS resolver (replaces the built-in `dns.promises` resolver). */
+    readonly dnsResolver?: DnsResolverInterface;
 }
 ```
+
+#### Dependency Injection — `HttpClientInterface` and `DnsResolverInterface`
+
+You can replace the built-in HTTP transport and DNS resolver with custom implementations — useful for testing, proxying, or restricted environments.
+
+**`HttpClientInterface`** replaces `https.request()`:
+
+```typescript
+import type { HttpClientInterface } from "@safe-access-inline/safe-access-inline";
+
+const mockClient: HttpClientInterface = {
+    async fetch(url, options) {
+        return {
+            ok: true,
+            status: 200,
+            async text() {
+                return '{"key":"value"}';
+            },
+            async json() {
+                return { key: "value" };
+            },
+        };
+    },
+};
+
+configureIoLoader({ httpClient: mockClient });
+const accessor = await SafeAccess.fromUrl("https://example.com/config.json");
+```
+
+**`DnsResolverInterface`** replaces `dns.promises`:
+
+```typescript
+import type { DnsResolverInterface } from "@safe-access-inline/safe-access-inline";
+
+const mockDns: DnsResolverInterface = {
+    async resolve(hostname) {
+        return ["93.184.216.34"];
+    },
+};
+
+configureIoLoader({ dnsResolver: mockDns });
+```
+
+> **Security:** SSRF validation (private-IP blocking) is always applied, even when a custom `httpClient` is configured. The DNS resolution and IP-range check run before any network call is made.
 
 #### `configureIoLoader(overrides: Partial<IoLoaderConfig>): void`
 

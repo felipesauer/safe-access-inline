@@ -14,6 +14,8 @@ outline: deep
 - [Readonly](#readonly)
 - [JSON Patch (RFC 6902)](#json-patch-rfc-6902)
 - [Dependency Injection](#dependency-injection)
+- [I/O Types](#io-types)
+- [Security Utility Functions](#security-utility-functions)
 
 See also: [API — Operations & I/O](/js/api-features) · [API — Types & Internals](/js/api-types)
 
@@ -768,6 +770,117 @@ const container = new ServiceContainer({ pluginRegistry: myRegistry });
 ```
 
 See also: [Architecture — Plugin System](/guide/architecture#plugin-system)
+
+---
+
+## I/O Types
+
+### `FileLoadOptions`
+
+Controls file-loading behaviour for `fromFile()`, `fromFileSync()`, `streamCsv()`, and `streamNdjson()`.
+
+```typescript
+import type { FileLoadOptions } from "@safe-access-inline/safe-access-inline";
+
+interface FileLoadOptions {
+    /** Explicit format override — auto-detected from extension if omitted. */
+    format?: string | Format;
+    /** Restrict loading to these directories. Path-traversal guard. */
+    allowedDirs?: string[];
+    /** Set to `true` to disable the allowed-dirs restriction. */
+    allowAnyPath?: boolean;
+    /** Maximum file size in bytes. Throws `SecurityError` when exceeded. */
+    maxSize?: number;
+    /** Allowlist of file extensions, e.g. `['.json', '.yaml']`. Throws `SecurityError` otherwise. */
+    allowedExtensions?: string[];
+}
+```
+
+### `HttpClientInterface`
+
+Injectable HTTP transport used by `fromUrl()` and `IoLoader`. Implementing this interface allows replacing the built-in `https.request()` call — useful for testing, proxies, and sandboxed environments.
+
+```typescript
+import type {
+    HttpClientInterface,
+    HttpRequestOptions,
+    HttpResponse,
+} from "@safe-access-inline/safe-access-inline";
+
+interface HttpRequestOptions {
+    headers?: Record<string, string>;
+    timeout?: number;
+    signal?: AbortSignal;
+}
+
+interface HttpResponse {
+    readonly ok: boolean;
+    readonly status: number;
+    text(): Promise<string>;
+    json(): Promise<unknown>;
+}
+
+interface HttpClientInterface {
+    fetch(url: string, options?: HttpRequestOptions): Promise<HttpResponse>;
+}
+```
+
+Inject via `configureIoLoader({ httpClient: myClient })`. SSRF validation still runs before any call to `httpClient.fetch()`.
+
+### `DnsResolverInterface`
+
+Injectable DNS resolver used by the SSRF guard prior to URL fetching. Replaces `dns.promises` lookups.
+
+```typescript
+import type { DnsResolverInterface } from "@safe-access-inline/safe-access-inline";
+
+interface DnsResolverInterface {
+    resolve(hostname: string): Promise<string[]>;
+    resolve4?(hostname: string): Promise<string[]>;
+    resolve6?(hostname: string): Promise<string[]>;
+}
+```
+
+Inject via `configureIoLoader({ dnsResolver: myResolver })`.
+
+---
+
+## Security Utility Functions
+
+### `sanitizeHeaders()`
+
+```typescript
+import { sanitizeHeaders } from "@safe-access-inline/safe-access-inline";
+
+function sanitizeHeaders(
+    headers: Record<string, string> | null | undefined,
+): Record<string, string>;
+```
+
+Sanitizes HTTP request headers before use in outgoing requests:
+
+- Header names are lowercased and validated against RFC 7230 token characters; invalid names are dropped.
+- Header values have CRLF sequences and control characters stripped (header-injection prevention).
+- Returns a new record — input is not mutated.
+- `null` / `undefined` returns `{}`.
+
+### `sanitizeCsvHeaders()`
+
+```typescript
+import { sanitizeCsvHeaders } from "@safe-access-inline/safe-access-inline";
+
+function sanitizeCsvHeaders(
+    headers: string[],
+    mode?: CsvSanitizeMode,
+): string[];
+```
+
+Applies `sanitizeCsvCell()` to each element of a header row. Protects against CSV formula injection in column names sourced from untrusted data.
+
+```typescript
+sanitizeCsvHeaders(["Name", "=SUM(A1)", "Email"], "strip");
+// ["Name", "SUM(A1)", "Email"]
+```
 
 ```
 

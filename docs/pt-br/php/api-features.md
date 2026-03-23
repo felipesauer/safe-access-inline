@@ -77,7 +77,7 @@ foreach (SafeAccess::streamCsv('/app/data/users.csv', ['/app/data']) as $row) {
 ```
 
 ::: tip Comparação com JS
-No JS, o equivalente é `for await (const row of SafeAccess.streamCsv(path))`. O `foreach` síncrono do PHP entrega a mesma semântica de linha por vez.
+No JS, o equivalente é `for await (const row of SafeAccess.streamCsv(path))`. O `foreach` síncrono do PHP entrega a mesma semântica de linha por vez. Veja [Arquitetura — Streaming: Síncrono (PHP) vs Assíncrono (JS)](/guide/architecture#streaming-síncrono-php-vs-assíncrono-js) para uma comparação detalhada.
 :::
 
 #### `SafeAccess::streamNdjson(string $filePath, array $allowedDirs = [], bool $allowAnyPath = false): Generator`
