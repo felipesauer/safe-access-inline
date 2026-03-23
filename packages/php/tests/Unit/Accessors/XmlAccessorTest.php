@@ -110,6 +110,34 @@ describe(XmlAccessor::class, function () {
         expect($accessor->keys())->toBe(['a', 'b']);
     });
 
+    it('handles repeated tags as arrays', function () {
+        $xmlItems = '<root><item>A</item><item>B</item><item>C</item></root>';
+        $accessor = XmlAccessor::from($xmlItems);
+        expect($accessor->get('item'))->toBe(['A', 'B', 'C']);
+    });
+
+    it('handles self-closing tags', function () {
+        $xmlSelfClose = '<root><item/><other>val</other></root>';
+        $accessor = XmlAccessor::from($xmlSelfClose);
+        expect($accessor->has('item'))->toBeTrue();
+        expect($accessor->get('other'))->toBe('val');
+    });
+
+    it('handles XML with attributes (empty element)', function () {
+        $xmlAttrs = '<root><item id="1" type="main"/></root>';
+        $accessor = XmlAccessor::from($xmlAttrs);
+        expect($accessor->get('item.@attributes.id'))->toBe('1');
+        expect($accessor->get('item.@attributes.type'))->toBe('main');
+    });
+
+    it('handles XML with text and attributes (SimpleXML json_encode quirk)', function () {
+        $xmlAttrsText = '<root><item id="1" type="main">text</item></root>';
+        $accessor = XmlAccessor::from($xmlAttrsText);
+        // Unlike JS which parses explicitly, PHP SimpleXML drops attributes when json serialized as a scalar string
+        expect($accessor->get('item'))->toBe('text');
+        expect($accessor->has('item.@attributes'))->toBeFalse();
+    });
+
     it('toXml returns asXML when created from SimpleXMLElement', function () {
         $xml = new SimpleXMLElement('<root><name>Ana</name></root>');
         $accessor = XmlAccessor::from($xml);
