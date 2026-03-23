@@ -131,9 +131,19 @@ $config = SafeAccess::layerFiles(
 
 ## Observação de Arquivos
 
-#### `SafeAccess::watchFile(string $filePath, callable $onChange, ?string $format = null, array $allowedDirs = []): array{poll: callable(): void, stop: callable(): void}`
+#### `SafeAccess::watchFile(string $filePath, callable $onChange, FileLoadOptions|string|null $formatOrOptions = null, array $allowedDirs = [], bool $allowAnyPath = false): array{poll: callable(): void, stop: callable(): void}`
 
 Observa um arquivo por mudanças usando polling. Chama `$onChange(AbstractAccessor)` quando o arquivo é modificado. Retorna um array com dois callables: `poll` (inicia o loop de polling bloqueante) e `stop` (para de observar).
+
+**Parâmetros:**
+
+| Parâmetro          | Tipo                            | Padrão  | Descrição                                                                            |
+| ------------------ | ------------------------------- | ------- | ------------------------------------------------------------------------------------ |
+| `$filePath`        | `string`                        | —       | Caminho do arquivo a observar.                                                       |
+| `$onChange`        | `callable`                      | —       | Callback chamado com um `AbstractAccessor` atualizado a cada mudança.                |
+| `$formatOrOptions` | `FileLoadOptions\|string\|null` | `null`  | String de formato, DTO `FileLoadOptions`, ou `null` para auto-detecção.              |
+| `$allowedDirs`     | `array`                         | `[]`    | Legado: diretórios em que o arquivo deve residir (ignorado ao usar DTO).             |
+| `$allowAnyPath`    | `bool`                          | `false` | Quando `true`, desativa a verificação de `allowedDirs`. Use com cuidado em produção. |
 
 ```php
 $watcher = SafeAccess::watchFile('/app/config.json', function ($accessor) {
@@ -147,6 +157,47 @@ $watcher['poll']();
 $watcher['stop']();
 ```
 
+```php
+// ── Usando DTO FileLoadOptions (forma ergonômica) ─────────────────────────
+use SafeAccessInline\Contracts\FileLoadOptions;
+
+$watcher = SafeAccess::watchFile(
+    '/app/config.json',
+    fn ($accessor) => reload($accessor),
+    new FileLoadOptions(allowedDirs: ['/app'], format: 'json'),
+);
+$watcher['poll']();
+```
+
+#### `SafeAccess::watchFilePoll(string $filePath, callable $callback, FileLoadOptions|string|null $formatOrOptions = null, int $pollIntervalMs = 500, ?int $maxIterations = null): void`
+
+Wrapper bloqueante de conveniência em torno de `watchFile()` que conduz o loop de polling internamente. O método retorna quando `$maxIterations` ticks são concluídos (ou executa indefinidamente quando `null`).
+
+| Parâmetro          | Tipo                            | Padrão | Descrição                                                    |
+| ------------------ | ------------------------------- | ------ | ------------------------------------------------------------ |
+| `$filePath`        | `string`                        | —      | Caminho do arquivo a monitorar.                              |
+| `$callback`        | `callable`                      | —      | Chamado com um accessor atualizado a cada mudança detectada. |
+| `$formatOrOptions` | `FileLoadOptions\|string\|null` | `null` | Formato ou DTO.                                              |
+| `$pollIntervalMs`  | `int`                           | `500`  | Milissegundos entre verificações.                            |
+| `$maxIterations`   | `int\|null`                     | `null` | Para após N ticks. `null` = executa para sempre.             |
+
+::: warning
+Sempre passe `$maxIterations` em testes para evitar loops infinitos.
+:::
+
+```php
+// Verifica por 10 segundos (20 ticks × 500 ms) e então retorna.
+SafeAccess::watchFilePoll(
+    '/app/config.json',
+    function ($accessor) {
+        echo 'Config mudou: ' . $accessor->get('version') . PHP_EOL;
+    },
+    new FileLoadOptions(allowedDirs: ['/app'], format: 'json'),
+    pollIntervalMs: 500,
+    maxIterations: 20,
+);
+```
+
 ---
 
 ## Log de Auditoria
@@ -155,7 +206,7 @@ $watcher['stop']();
 
 Inscreve-se em eventos de auditoria. Retorna uma função de cancelamento de inscrição.
 
-Tipos de evento: `file.read`, `file.watch`, `url.fetch`, `security.violation`, `security.deprecation`, `data.mask`, `data.freeze`, `data.format_warning`, `schema.validate`.
+Tipos de evento: `file.read`, `file.write`, `file.watch`, `url.fetch`, `security.violation`, `security.deprecation`, `data.mask`, `data.freeze`, `data.format_warning`, `schema.validate`.
 
 ```php
 $unsub = SafeAccess::onAudit(function (array $event) {

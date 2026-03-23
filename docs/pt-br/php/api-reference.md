@@ -206,18 +206,50 @@ afterEach(function (): void {
 `resetAll()` é um superconjunto de `clearCustomAccessors()` — também limpa o registry de plugins, registry de schemas, política global e listeners de auditoria. Use quando precisar de um estado completamente limpo entre testes.
 :::
 
-#### `SafeAccess::fromFile(string $filePath, ?string $format = null, array $allowedDirs = [], bool $allowAnyPath = false): AbstractAccessor`
+#### `SafeAccess::reset(): void`
 
-Lê um arquivo do disco e cria o accessor apropriado. Auto-detecta o formato pela extensão do arquivo se `$format` for `null`. O parâmetro `$allowedDirs` restringe quais diretórios podem ser lidos (proteção contra path-traversal). Defina `$allowAnyPath = true` para ignorar restrições de diretório (use com cautela).
+Alias para `resetAll()`. Prefira este nome em hooks de teste por ser mais legível:
+
+```php
+beforeEach(fn () => SafeAccess::reset());
+```
+
+#### `SafeAccess::fromFile(string $filePath, FileLoadOptions|string|null $formatOrOptions = null, array $allowedDirs = [], bool $allowAnyPath = false): AbstractAccessor`
+
+Lê um arquivo do disco e cria o accessor apropriado. Auto-detecta o formato pela extensão do arquivo quando `$formatOrOptions` for `null`. O parâmetro `$allowedDirs` restringe quais diretórios podem ser lidos (proteção contra path-traversal). Defina `$allowAnyPath = true` para ignorar restrições de diretório (use com cautela).
 
 Esta API é síncrona. O accessor já retorna completamente carregado.
 
+**Três formas de chamar:**
+
+| Forma                 | Exemplo                                                                              |
+| --------------------- | ------------------------------------------------------------------------------------ |
+| Sem segundo argumento | `SafeAccess::fromFile('/app/config.json')`                                           |
+| String de formato     | `SafeAccess::fromFile('/app/data.yml', 'yaml')`                                      |
+| DTO `FileLoadOptions` | `SafeAccess::fromFile('/app/data.json', new FileLoadOptions(allowedDirs: ['/app']))` |
+
 ```php
+// Auto-detectar formato pela extensão
 $accessor = SafeAccess::fromFile('/etc/config.json');
+
+// String de formato explícita
 $accessor = SafeAccess::fromFile('/app/config.yaml', 'yaml');
+
+// Legado: allowedDirs como argumentos posicionais
 $accessor = SafeAccess::fromFile('/app/config.json', null, ['/app']);
 $accessor = SafeAccess::fromFile('/tmp/data.json', null, [], true); // caminho irrestrito
+
+// Ergonômico: DTO FileLoadOptions
+use SafeAccessInline\Contracts\FileLoadOptions;
+
+$accessor = SafeAccess::fromFile('/app/config.json', new FileLoadOptions(
+    allowedDirs: ['/app/config'],
+));
 ```
+
+::: tip DTO FileLoadOptions
+Use `FileLoadOptions` quando precisar configurar mais de uma opção — é mais legível e auto-documentado do que passar argumentos posicionais. Veja [FileLoadOptions](/pt-br/php/api-types#fileloadoptions).
+:::
 
 Lança `SecurityException` se o caminho estiver fora dos diretórios permitidos.
 
@@ -486,13 +518,24 @@ $new = $accessor->remove('user.age');
 
 Converte dados para array PHP. Intenção semântica: "converter para formato array". Atualmente idêntico a `all()`, mas semanticamente distinto para extensibilidade futura.
 
-#### `toJson(int $flags = 0): string`
+#### `toJson(int|bool|array $flagsOrOptions = 0): string`
 
-Converte dados para string JSON.
+Converte dados para string JSON. Aceita três formas:
+
+| Tipo do argumento | Comportamento                                                            |
+| ----------------- | ------------------------------------------------------------------------ |
+| `int`             | Bitmask `JSON_*` bruto (ex: `JSON_PRETTY_PRINT`)                         |
+| `bool`            | `true` → `JSON_PRETTY_PRINT`; `false` → compacto                         |
+| `array`           | Opções nomeadas: `pretty`, `unescapeUnicode`, `unescapeSlashes`, `space` |
 
 ```php
-$accessor->toJson();                    // compacto
-$accessor->toJson(JSON_PRETTY_PRINT);   // formatado
+$accessor->toJson();                                     // compacto
+$accessor->toJson(JSON_PRETTY_PRINT);                    // bitmask (legado)
+$accessor->toJson(true);                                 // atalho para pretty
+$accessor->toJson(['pretty' => true]);                   // opção nomeada
+$accessor->toJson(['unescapeUnicode' => true]);           // mantém unicode
+$accessor->toJson(['unescapeSlashes' => true]);           // mantém barras
+$accessor->toJson(['pretty' => true, 'unescapeUnicode' => true]); // combinado
 ```
 
 #### `toObject(): stdClass`

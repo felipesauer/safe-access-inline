@@ -187,18 +187,50 @@ afterEach(function (): void {
 `resetAll()` is a superset of `clearCustomAccessors()` — it also clears the plugin registry, schema registry, global policy, and audit listeners. Use it when you need a completely clean slate between tests.
 :::
 
-#### `SafeAccess::fromFile(string $filePath, ?string $format = null, array $allowedDirs = [], bool $allowAnyPath = false): AbstractAccessor`
+#### `SafeAccess::reset(): void`
 
-Reads a file from disk and creates the appropriate accessor. Auto-detects format from file extension if `$format` is `null`. The `$allowedDirs` parameter restricts which directories can be read (path-traversal protection). Set `$allowAnyPath = true` to bypass directory restrictions (use with caution).
+Alias for `resetAll()`. Prefer this name for readability in test hooks:
+
+```php
+beforeEach(fn () => SafeAccess::reset());
+```
+
+#### `SafeAccess::fromFile(string $filePath, FileLoadOptions|string|null $formatOrOptions = null, array $allowedDirs = [], bool $allowAnyPath = false): AbstractAccessor`
+
+Reads a file from disk and creates the appropriate accessor. Auto-detects format from file extension when `$formatOrOptions` is `null`. The `$allowedDirs` parameter restricts which directories can be read (path-traversal protection). Set `$allowAnyPath = true` to bypass directory restrictions (use with caution).
 
 This API is synchronous. The accessor is fully loaded before the method returns.
 
+**Three ways to call:**
+
+| Form                  | Example                                                                              |
+| --------------------- | ------------------------------------------------------------------------------------ |
+| No second argument    | `SafeAccess::fromFile('/app/config.json')`                                           |
+| Format string         | `SafeAccess::fromFile('/app/data.yml', 'yaml')`                                      |
+| `FileLoadOptions` DTO | `SafeAccess::fromFile('/app/data.json', new FileLoadOptions(allowedDirs: ['/app']))` |
+
 ```php
+// Auto-detect format from extension
 $accessor = SafeAccess::fromFile('/etc/config.json');
+
+// Explicit format string
 $accessor = SafeAccess::fromFile('/app/config.yaml', 'yaml');
+
+// Legacy: allowedDirs as positional args
 $accessor = SafeAccess::fromFile('/app/config.json', null, ['/app']);
 $accessor = SafeAccess::fromFile('/tmp/data.json', null, [], true); // unrestricted path
+
+// Ergonomic: FileLoadOptions DTO
+use SafeAccessInline\Contracts\FileLoadOptions;
+
+$accessor = SafeAccess::fromFile('/app/config.json', new FileLoadOptions(
+    allowedDirs: ['/app/config'],
+));
 ```
+
+::: tip FileLoadOptions DTO
+Use `FileLoadOptions` when you need to configure more than one option — it is more readable and self-documenting than passing positional arguments. See [FileLoadOptions](/php/api-types#fileloadoptions).
+:::
 
 Throws `SecurityException` if the path is outside allowed directories.
 
@@ -467,13 +499,24 @@ $new = $accessor->remove('user.age');
 
 Convert data to a PHP array. Semantic intent: "convert to array format". Currently identical to `all()`, but semantically distinct for future extensibility.
 
-#### `toJson(int|bool $flags = 0): string`
+#### `toJson(int|bool|array $flagsOrOptions = 0): string`
 
-Convert data to a JSON string. Passing `true` as a boolean is a shorthand for `JSON_PRETTY_PRINT`.
+Convert data to a JSON string. Accepts three forms:
+
+| Argument type | Behaviour                                                              |
+| ------------- | ---------------------------------------------------------------------- |
+| `int`         | Raw `JSON_*` bitmask (e.g. `JSON_PRETTY_PRINT`)                        |
+| `bool`        | `true` → `JSON_PRETTY_PRINT`; `false` → compact                        |
+| `array`       | Named options: `pretty`, `unescapeUnicode`, `unescapeSlashes`, `space` |
 
 ```php
-$accessor->toJson();                    // compact
-$accessor->toJson(JSON_PRETTY_PRINT);   // pretty-printed
+$accessor->toJson();                                     // compact
+$accessor->toJson(JSON_PRETTY_PRINT);                    // bitmask (legacy)
+$accessor->toJson(true);                                 // pretty shorthand
+$accessor->toJson(['pretty' => true]);                   // named option
+$accessor->toJson(['unescapeUnicode' => true]);           // keep unicode as-is
+$accessor->toJson(['unescapeSlashes' => true]);           // keep slashes as-is
+$accessor->toJson(['pretty' => true, 'unescapeUnicode' => true]); // combined
 ```
 
 #### `toObject(): stdClass`

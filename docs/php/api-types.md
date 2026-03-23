@@ -336,18 +336,41 @@ $accessor = SafeAccess::withPolicy($csvString, $policy);
 
 **Namespace:** `SafeAccessInline\Contracts\FileLoadOptions`
 
-A readonly DTO that encapsulates file-loading options. Accepted by `fromFile()`, `layerFiles()`, and `watchFile()` as an alternative to positional arguments.
+A readonly DTO that encapsulates file-loading options. Accepted by `fromFile()`, `layerFiles()`, `watchFile()`, and `watchFilePoll()` as an alternative to positional arguments.
 
-| Property        | Type      | Default | Description                                       |
-| --------------- | --------- | ------- | ------------------------------------------------- |
-| `$format`       | `?string` | `null`  | Force a specific format; overrides auto-detection |
-| `$allowedDirs`  | `array`   | `[]`    | Directory allowlist for path-traversal protection |
-| `$allowAnyPath` | `bool`    | `false` | Bypass directory restrictions (use with caution)  |
+| Property             | Type      | Default | Description                                                          |
+| -------------------- | --------- | ------- | -------------------------------------------------------------------- |
+| `$format`            | `?string` | `null`  | Force a specific format; overrides auto-detection                    |
+| `$allowedDirs`       | `array`   | `[]`    | Directory allowlist for path-traversal protection                    |
+| `$allowAnyPath`      | `bool`    | `false` | Bypass directory restrictions (use with caution)                     |
+| `$maxSize`           | `?int`    | `null`  | Reject files larger than this byte count (`null` = no limit)         |
+| `$allowedExtensions` | `array`   | `[]`    | Allowlist of extensions (e.g. `['json', 'yaml']`). Empty = allow all |
 
 ```php
 use SafeAccessInline\Contracts\FileLoadOptions;
 use SafeAccessInline\SafeAccess;
 
-$opts = new FileLoadOptions(format: 'json', allowedDirs: ['/app/config']);
+// Minimum: restrict to one directory
+$opts = new FileLoadOptions(allowedDirs: ['/app/config']);
 $accessor = SafeAccess::fromFile('/app/config/app.json', $opts);
+
+// With explicit format + directory
+$opts = new FileLoadOptions(
+    format: 'json',
+    allowedDirs: ['/app/config', '/etc/myapp'],
+);
+
+// Permissive — for tests or internal scripts only
+$opts = new FileLoadOptions(allowAnyPath: true);
+
+// Size & extension constraints
+$opts = new FileLoadOptions(
+    allowedDirs: ['/uploads'],
+    maxSize: 512 * 1024,              // 512 KB hard limit
+    allowedExtensions: ['json', 'yaml'],
+);
 ```
+
+::: tip When to use the DTO
+Prefer `FileLoadOptions` over the positional `$format` / `$allowedDirs` / `$allowAnyPath` arguments when you need to configure more than one field. The DTO is more readable, self-documenting, and forward-compatible as new options are added.
+:::
