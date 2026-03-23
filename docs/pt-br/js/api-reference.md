@@ -8,7 +8,7 @@ outline: deep
 
 - [Facade SafeAccess](#facade-safeaccess)
 - [Métodos de Instância do Accessor](#metodos-de-instancia-do-accessor)
-- [Performance: Caminhos Compilados](#performance-caminhos-compilados)
+- [Desempenho: Caminhos Compilados](#desempenho-caminhos-compilados)
 - [Operações de Array (Imutável)](#operacoes-de-array-imutavel)
 - [Segurança & Validação](#seguranca-validacao)
 - [Injeção de Dependência](#injecao-de-dependencia)
@@ -171,7 +171,7 @@ const accessor = SafeAccess.custom("custom", data);
 
 ---
 
-## Performance: Caminhos Compilados
+## Desempenho: Caminhos Compilados
 
 Pré-compile caminhos em notação de ponto que são acessados repetidamente para evitar re-análise a cada chamada.
 
@@ -596,6 +596,68 @@ SchemaRegistry.setDefaultAdapter(myZodAdapter);
 
 // Validar inline
 accessor.validate(mySchema);
+```
+
+### Readonly
+
+Todos os métodos factory (`fromJson`, `fromArray`, etc.) aceitam `{ readonly: true }` para criar um accessor que lança `ReadonlyViolationError` em qualquer mutação. Você também pode congelar uma instância existente em tempo de execução.
+
+#### `freeze(): AbstractAccessor`
+
+Retorna uma cópia congelada deste accessor. Todas as operações de escrita subsequentes lançarão `ReadonlyViolationError`.
+
+```typescript
+const frozen = accessor.freeze();
+frozen.set("key", "value"); // lança ReadonlyViolationError
+
+// Via opções do factory
+const ro = SafeAccess.fromJson('{"key":"value"}', { readonly: true });
+ro.set("key", "new"); // lança ReadonlyViolationError
+```
+
+### JSON Patch (RFC 6902)
+
+Métodos de instância para computar e aplicar operações RFC 6902 JSON Patch. Funções livres também são exportadas para uso standalone — veja [API — Operações & I/O](/pt-br/js/api-features#json-patch).
+
+#### `diff(other: AbstractAccessor): JsonPatchOperation[]`
+
+Computa um JSON Patch RFC 6902 entre este accessor e `other`.
+
+```typescript
+const patches = accessorA.diff(accessorB);
+// [{ op: 'replace', path: '/name', value: 'New' }, ...]
+```
+
+#### `applyPatch(ops: JsonPatchOperation[]): AbstractAccessor`
+
+Aplica operações RFC 6902 JSON Patch. Retorna uma **nova instância** — não muta.
+
+```typescript
+const updated = accessor.applyPatch([
+    { op: "replace", path: "/name", value: "Atualizado" },
+    { op: "add", path: "/novaChave", value: 42 },
+    { op: "remove", path: "/chaveAntiga" },
+]);
+```
+
+#### `validatePatch(ops: JsonPatchOperation[]): void`
+
+Valida uma lista de operações RFC 6902 JSON Patch. Lança `JsonPatchValidationError` se alguma operação for estruturalmente inválida.
+
+```typescript
+accessor.validatePatch([{ op: "replace", path: "/name", value: "OK" }]); // passa
+accessor.validatePatch([{ op: "invalid" as any, path: "/" }]); // lança
+```
+
+#### `JsonPatchOperation`
+
+```typescript
+type JsonPatchOperation = {
+    op: "add" | "remove" | "replace" | "move" | "copy" | "test";
+    path: string;
+    value?: unknown;
+    from?: string;
+};
 ```
 
 ---

@@ -77,7 +77,7 @@ foreach (SafeAccess::streamCsv('/app/data/users.csv', ['/app/data']) as $row) {
 ```
 
 ::: tip Comparação com JS
-No JS, o equivalente é `for await (const row of SafeAccess.streamCsv(path))`. O `foreach` síncrono do PHP entrega a mesma semântica de linha por vez. Veja [Arquitetura — Streaming: Síncrono (PHP) vs Assíncrono (JS)](/guide/architecture#streaming-síncrono-php-vs-assíncrono-js) para uma comparação detalhada.
+No JS, o equivalente é `for await (const row of SafeAccess.streamCsv(path))`. O `foreach` síncrono do PHP entrega a mesma semântica de linha por vez. Veja [Arquitetura — Streaming: Síncrono (PHP) vs Assíncrono (JS)](/pt-br/guide/architecture#streaming-síncrono-php-vs-assíncrono-js) para uma comparação detalhada.
 :::
 
 #### `SafeAccess::streamNdjson(string $filePath, array $allowedDirs = [], bool $allowAnyPath = false): Generator`
@@ -379,10 +379,48 @@ readonly class SchemaValidationIssue
 
 O pacote exporta adapters prontos para os sistemas de schema que suporta:
 
-| Adapter                   | Dependência         | Notas                                                                                                                                          |
-| ------------------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `JsonSchemaAdapter`       | Nenhuma             | Validador built-in com suporte a `type`, `required`, `properties`, `items`, `minimum`, `maximum`, `minLength`, `maxLength`, `enum` e `pattern` |
-| `SymfonyValidatorAdapter` | `symfony/validator` | Aceita uma instância opcional de validator ou cria uma automaticamente quando o pacote está instalado                                          |
+| Adapter                    | Dependência          | Notas                                                                                                                                           |
+| -------------------------- | -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `JsonSchemaAdapter`        | Nenhuma              | Validador built-in com suporte a `type`, `required`, `properties`, `items`, `minimum`, `maximum`, `minLength`, `maxLength`, `enum` e `pattern`  |
+| `SymfonyValidatorAdapter`  | `symfony/validator`  | Aceita uma instância opcional de validator ou cria uma automaticamente quando o pacote está instalado                                           |
+| `RespectValidationAdapter` | `respect/validation` | Aceita qualquer instância `Validatable` como schema; mapeia mensagens de `NestedValidationException` para `SchemaValidationIssue[]` estruturado |
+
+### RespectValidationAdapter
+
+**Namespace:** `SafeAccessInline\SchemaAdapters\RespectValidationAdapter`
+
+Requer `respect/validation ^2.3`:
+
+```bash
+composer require respect/validation
+```
+
+O schema passado a `validate()` deve ser uma instância de `Respect\Validation\Validatable` (ex.: construída com `Validator::key(...)`). Erros de `NestedValidationException::getMessages()` são mapeados automaticamente para `SchemaValidationIssue[]` com caminhos em dot-notation.
+
+```php
+use Respect\Validation\Validator as v;
+use SafeAccessInline\SchemaAdapters\RespectValidationAdapter;
+
+$schema = v::key('name', v::stringType()->notEmpty())
+           ->key('age', v::intType()->min(0));
+
+$accessor = SafeAccess::fromJson('{"name":"Ana","age":30}');
+$result = $accessor->validate($schema, new RespectValidationAdapter());
+// $result->valid === true
+
+// Exemplo de falha
+$schema = v::key('name', v::stringType()->notEmpty());
+$accessor = SafeAccess::fromJson('{"name":""}');
+$result = $accessor->validate($schema, new RespectValidationAdapter());
+// $result->valid === false
+// $result->errors[0]->path    === '$.name'
+// $result->errors[0]->message === '"name" não deve estar vazio'
+```
+
+> **Nota sobre paridade cross-language:**
+> O pacote JS oferece adapters para Zod, Valibot, Yup e JSON Schema.
+> O PHP agora inclui `JsonSchemaAdapter`, `SymfonyValidatorAdapter` e `RespectValidationAdapter`.
+> Adapters adicionais podem ser criados implementando `SchemaAdapterInterface`.
 
 ---
 
