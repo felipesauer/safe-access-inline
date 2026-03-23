@@ -272,6 +272,128 @@ interface SerializerPlugin {
 
 ---
 
+## Additional Types
+
+### `ToJsonOptions`
+
+Optional output controls for `toJson()`. Mirrors PHP's `toJson()` behaviour (unescaped unicode / slashes by default).
+
+```typescript
+import type { ToJsonOptions } from "@safe-access-inline/safe-access-inline";
+
+interface ToJsonOptions {
+    /**
+     * When `true`, replaces `\uXXXX` escape sequences with their actual Unicode characters
+     * — equivalent to PHP's `JSON_UNESCAPED_UNICODE`.
+     * @defaultValue false
+     */
+    readonly unescapeUnicode?: boolean;
+
+    /**
+     * When `true`, replaces `\/` with `/` in the output
+     * — equivalent to PHP's `JSON_UNESCAPED_SLASHES`.
+     * @defaultValue false
+     */
+    readonly unescapeSlashes?: boolean;
+
+    /**
+     * Indentation to use when `pretty` is `true`. Accepts a number (spaces) or a string (e.g. `'\t'`).
+     * @defaultValue 2
+     */
+    readonly space?: number | string;
+}
+```
+
+```typescript
+accessor.toJson(true, { unescapeUnicode: true, space: 4 });
+// Produces PHP-compatible output: no \uXXXX sequences, 4-space indent
+```
+
+### `FilterCondition`
+
+A single condition within a parsed filter expression (e.g. `[?age >= 18]`).
+
+```typescript
+import type { FilterCondition } from "@safe-access-inline/safe-access-inline";
+
+interface FilterCondition {
+    /** The field path to evaluate (e.g. `"age"`, `"profile.name"`). */
+    field: string;
+    /** The comparison operator. */
+    operator: "==" | "!=" | ">" | "<" | ">=" | "<=";
+    /** The value to compare against. */
+    value: unknown;
+    /** Optional function name (e.g. `"length"`, `"match"`, `"keys"`). */
+    func?: string;
+    /** Optional function arguments. */
+    funcArgs?: string[];
+}
+```
+
+### `FilterExpression`
+
+A parsed filter expression consisting of one or more `FilterCondition`s joined by logical operators.
+
+```typescript
+import type { FilterExpression } from "@safe-access-inline/safe-access-inline";
+
+interface FilterExpression {
+    /** Ordered list of comparison conditions. */
+    conditions: FilterCondition[];
+    /** Logical operators connecting adjacent conditions (`length === conditions.length - 1`). */
+    logicals: ("&&" | "||")[];
+}
+```
+
+```typescript
+// The expression `[?age>=18 && active==true]` parses to:
+// {
+//   conditions: [
+//     { field: 'age', operator: '>=', value: 18 },
+//     { field: 'active', operator: '==', value: true },
+//   ],
+//   logicals: ['&&'],
+// }
+```
+
+### `TraceSegment`
+
+A single step in the result of `AbstractAccessor.trace()`. Each entry corresponds to one parsed segment of the dot-notation path.
+
+```typescript
+import type { TraceSegment } from "@safe-access-inline/safe-access-inline";
+
+interface TraceSegment {
+    /** String representation of this segment (key name, `[*]`, `[?...]`, etc.). */
+    readonly segment: string;
+    /** `true` when the segment resolved to a defined value. */
+    readonly found: boolean;
+    /**
+     * JavaScript type of the resolved value, or `null` when `found` is `false`.
+     * Possible values: `'object'`, `'array'`, `'string'`, `'number'`, `'boolean'`, `'null'`.
+     */
+    readonly type:
+        | "object"
+        | "array"
+        | "string"
+        | "number"
+        | "boolean"
+        | "null"
+        | null;
+}
+```
+
+```typescript
+const result = accessor.trace("user.profile.name");
+// [
+//   { segment: 'user', found: true, type: 'object' },
+//   { segment: 'profile', found: true, type: 'object' },
+//   { segment: 'name', found: true, type: 'string' },
+// ]
+```
+
+---
+
 ## Enums
 
 ### `Format`

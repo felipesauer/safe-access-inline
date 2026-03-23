@@ -667,6 +667,26 @@ type JsonPatchOperation = {
 
 ---
 
+## Global State Reset
+
+#### `SafeAccess.resetAll(): void`
+
+Resets **all** global static state at once: the default plugin registry, the default schema registry, the path cache, any globally configured security policy, and all audit listeners.
+
+```typescript
+import { SafeAccess } from "@safe-access-inline/safe-access-inline";
+
+afterEach(() => {
+    SafeAccess.resetAll();
+});
+```
+
+**When to use:** In test suite teardown, when multiple subsystems were configured globally and a completely clean slate is needed between test cases.
+
+**Note:** `resetAll()` only resets the **default** (global) registries. Instances created via `ServiceContainer.create()` manage their own state independently and are unaffected. For new code, prefer `ServiceContainer` — see [Dependency Injection](#dependency-injection).
+
+---
+
 ## Dependency Injection
 
 **Import:** `import { ServiceContainer, defaultContainer } from '@safe-access-inline/safe-access-inline'`
