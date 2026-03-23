@@ -473,7 +473,7 @@ JavaScript exposes both synchronous and asynchronous file-loading APIs. This is 
 
 For memory-efficient processing of large CSV or NDJSON files, JS provides asynchronous `AsyncGenerator`-based streaming — equivalent in functionality to PHP's synchronous `Generator` variants.
 
-#### `SafeAccess.streamCsv(filePath: string, options?: FileLoadOptions): AsyncGenerator<string[]>`
+#### `SafeAccess.streamCsv(filePath: string, options?: FileLoadOptions): AsyncGenerator<ObjectAccessor>`
 
 Yields parsed CSV rows one at a time without loading the entire file into memory.
 
@@ -481,11 +481,11 @@ Yields parsed CSV rows one at a time without loading the entire file into memory
 for await (const row of SafeAccess.streamCsv("/app/data/users.csv", {
     allowedDirs: ["/app/data"],
 })) {
-    console.log(row); // string[]
+    console.log(row.get("name")); // ObjectAccessor
 }
 ```
 
-#### `SafeAccess.streamNdjson(filePath: string, options?: FileLoadOptions): AsyncGenerator<unknown>`
+#### `SafeAccess.streamNdjson(filePath: string, options?: FileLoadOptions): AsyncGenerator<JsonAccessor>`
 
 Yields parsed NDJSON records one at a time.
 
@@ -493,7 +493,7 @@ Yields parsed NDJSON records one at a time.
 for await (const event of SafeAccess.streamNdjson("/app/data/events.ndjson", {
     allowedDirs: ["/app/data"],
 })) {
-    console.log(event); // parsed object
+    console.log(event.get("type")); // JsonAccessor
 }
 ```
 

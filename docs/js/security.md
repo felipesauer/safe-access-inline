@@ -29,7 +29,7 @@ import {
     getGlobalPolicy,
 } from "@safe-access-inline/safe-access-inline";
 
-const policy: SecurityPolicy = mergePolicy(defaultPolicy, {
+const policy: SecurityPolicy = mergePolicy(defaultPolicy(), {
     maxDepth: 128,
     maxPayloadBytes: 1_048_576,
     allowedDirs: ["/app/config"],
@@ -64,7 +64,7 @@ Set a global policy that applies as the default for all operations:
 
 ```typescript
 setGlobalPolicy(STRICT_POLICY);
-const current = getGlobalPolicy(); // SecurityPolicy | undefined
+const current = getGlobalPolicy(); // SecurityPolicy | null
 clearGlobalPolicy();
 
 // Or via SafeAccess facade
@@ -81,13 +81,13 @@ const accessor = SafeAccess.fromObject({
     api_key: "abc-123",
 });
 
-const safe = accessor.masked();
+const safe = accessor.mask();
 safe.get("password"); // '[REDACTED]'
 safe.get("api_key"); // '[REDACTED]'
 safe.get("user"); // 'Ana'
 
 // Custom patterns
-const custom = accessor.masked(["custom_secret", /.*_token/]);
+const custom = accessor.mask(["custom_secret", /.*_token/]);
 ```
 
 ### Readonly & Deep Freeze
@@ -99,7 +99,8 @@ ro.get("key"); // 'value'
 ro.set("key", "new"); // throws ReadonlyViolationError
 
 // Deep freeze — prevents prototype pollution on the data object
-SafeAccess.deepFreeze(myObject);
+import { deepFreeze } from "@safe-access-inline/safe-access-inline";
+deepFreeze(myObject);
 ```
 
 ---

@@ -256,6 +256,16 @@ accessor.getMany({
 // { 'user.name': 'Ana', 'user.email': 'N/A' }
 ```
 
+#### `getWildcard<T = unknown>(path: string, defaultValue?: T[]): T[]`
+
+Convenience wrapper for wildcard paths — always returns a typed array. Equivalent to calling `get()` with a path containing a `*` or `.**` expression, but with explicit typed-array return guarantees.
+
+```typescript
+accessor.getWildcard("users.*.name"); // ['Alice', 'Bob', 'Charlie']
+accessor.getWildcard("items.*.price", []); // [] if path not found
+accessor.getWildcard<number>("prices.*", [0]); // [1.99, 2.49, 3.00]
+```
+
 #### `has(path: string): boolean`
 
 Check if a path exists in the data.
@@ -304,7 +314,7 @@ Check if a path exists using an array of segments.
 
 Returns the normalized type of the value at the given path, or `null` if path doesn't exist.
 
-Possible values: `"string"`, `"number"`, `"bool"`, `"object"`, `"array"`, `"null"`, `"undefined"`. Returns `null` (not a string) when the path does not exist.
+Possible values: `"string"`, `"number"`, `"bool"`, `"object"`, `"array"`, `"null"`. Returns `null` (not a string) when the path does not exist.
 
 ```typescript
 accessor.type("name"); // "string"
@@ -390,7 +400,7 @@ Removes a path using an array of segments. Returns a **new instance**.
 
 Returns a shallow copy of the data. Semantic intent: "convert to array/object format". Currently identical to `all()`, but semantically distinct for future extensibility.
 
-#### `toJson(pretty?: boolean): string`
+#### `toJson(pretty?: boolean, options?: ToJsonOptions): string`
 
 Convert to JSON string.
 
@@ -580,18 +590,18 @@ accessor.nth("items", 99, "fallback"); // "fallback"
 
 ### Security & Validation
 
-#### `masked(patterns?: MaskPattern[]): AbstractAccessor`
+#### `mask(patterns?: MaskPattern[]): AbstractAccessor`
 
 Returns a **new instance** with sensitive values redacted. Without patterns, auto-detects common sensitive keys (password, secret, token, api_key, etc.). With patterns, additionally masks keys matching the wildcard patterns.
 
 ```typescript
-const safe = accessor.masked(); // auto-mask common keys
-const custom = accessor.masked(["api_*", "credentials"]); // custom patterns
+const safe = accessor.mask(); // auto-mask common keys
+const custom = accessor.mask(["api_*", "credentials"]); // custom patterns
 ```
 
-#### `validate<TSchema>(schema: TSchema, adapter?: SchemaAdapterInterface): this`
+#### `validate<TSchema>(schema: TSchema, adapter?: SchemaAdapterInterface): SchemaValidationResult`
 
-Validates the data against a schema using the given adapter (or the default adapter set via `SchemaRegistry`). Returns `this` if valid; throws `SchemaValidationError` if invalid.
+Validates the data against a schema using the given adapter (or the default adapter set via `SchemaRegistry`). Returns a `SchemaValidationResult` — check `result.valid` to determine success. Does not throw on validation failure.
 
 ```typescript
 import { SchemaRegistry } from "@safe-access-inline/safe-access-inline";
@@ -599,8 +609,13 @@ import { SchemaRegistry } from "@safe-access-inline/safe-access-inline";
 // Register a default schema adapter (e.g., Zod)
 SchemaRegistry.setDefaultAdapter(myZodAdapter);
 
-// Validate inline
-accessor.validate(mySchema);
+// Validate and check result
+const result = accessor.validate(mySchema);
+if (result.valid) {
+    accessor.get("name"); // safe to access
+} else {
+    console.log(result.errors);
+}
 ```
 
 ### Readonly
