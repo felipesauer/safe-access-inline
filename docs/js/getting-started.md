@@ -121,3 +121,58 @@ accessor.transform("yaml"); // delegates to toYaml() — no plugin needed
 YAML and TOML work out of the box using `js-yaml` and `smol-toml`. The Plugin System lets you override default parsers and serializers with custom implementations.
 
 See the [Plugin System](/js/plugins) page for full documentation, shipped plugins, custom examples, and testing utilities.
+
+---
+
+## Async / Await: Key Difference from PHP
+
+::: info Coming from PHP?
+In PHP, `fromFile()` and `fromUrl()` are **synchronous** — they block until the read completes.
+In JavaScript / TypeScript, these operations are **asynchronous** and return a `Promise`. You must
+`await` them (or use `.then()`). `fromFileSync()` is the synchronous alternative for environments
+where async is not possible.
+:::
+
+| Method               | Return type                 | When to use                                            |
+| -------------------- | --------------------------- | ------------------------------------------------------ |
+| `fromFile(path)`     | `Promise<AbstractAccessor>` | Most cases — async, non-blocking                       |
+| `fromFileSync(path)` | `AbstractAccessor`          | Scripts, CLIs, test setup where `await` is unavailable |
+| `fromUrl(url)`       | `Promise<AbstractAccessor>` | Remote content — always async                          |
+| `layerFiles(paths)`  | `Promise<AbstractAccessor>` | Layered config loading — async                         |
+
+```typescript
+// ✅ Correct — await the Promise
+const accessor = await SafeAccess.fromFile("/app/config.json", {
+    allowAnyPath: true,
+});
+accessor.get("server.port"); // 3000
+
+// ✅ fromFileSync — synchronous variant (no await needed)
+const accessor2 = SafeAccess.fromFileSync("/app/config.json", {
+    allowAnyPath: true,
+});
+accessor2.get("server.port"); // 3000
+
+// ✅ Top-level await in ES modules, or inside an async function
+async function loadConfig() {
+    const config = await SafeAccess.fromFile("/app/config.json", {
+        allowAnyPath: true,
+    });
+    return config.get("database.host", "localhost");
+}
+
+// ✅ fromUrl — always async
+const remote = await SafeAccess.fromUrl("https://api.example.com/config.json");
+remote.get("version"); // "1.2.0"
+```
+
+**PHP comparison:**
+
+```php
+// PHP — synchronous, no await needed
+$accessor = SafeAccess::fromFile('/app/config.json');
+$accessor->get('server.port'); // 3000
+```
+
+For more details on I/O behaviour differences between PHP and JS, see
+[Architecture — Feature Parity Matrix](/guide/architecture#feature-parity-matrix).

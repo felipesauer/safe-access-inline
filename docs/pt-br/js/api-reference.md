@@ -600,6 +600,26 @@ accessor.validate(mySchema);
 
 ---
 
+## Reset de Estado Global
+
+#### `SafeAccess.resetAll(): void`
+
+Reseta **todo** o estado estático global de uma vez: o registry de plugins padrão, o registry de schemas padrão, o cache de caminhos, qualquer política de segurança configurada globalmente e todos os listeners de auditoria.
+
+```typescript
+import { SafeAccess } from "@safe-access-inline/safe-access-inline";
+
+afterEach(() => {
+    SafeAccess.resetAll();
+});
+```
+
+**Quando usar:** No teardown da suíte de testes, quando múltiplos subsistemas foram configurados globalmente e é necessário um estado completamente limpo entre os casos de teste.
+
+**Nota:** `resetAll()` reseta apenas os registries **padrão** (globais). Instâncias criadas via `ServiceContainer.create()` gerenciam seu próprio estado de forma independente e não são afetadas. Para novo código, prefira `ServiceContainer` — veja [Injeção de Dependência](#injeção-de-dependência).
+
+---
+
 ## Injeção de Dependência
 
 **Import:** `import { ServiceContainer, defaultContainer } from '@safe-access-inline/safe-access-inline'`

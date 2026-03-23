@@ -174,7 +174,7 @@ accessor.nth("items", -1); // último item
 
 **Import:** `import { diff, applyPatch } from '@safe-access-inline/safe-access-inline'`
 
-#### `diff(a: Record<string, unknown>, b: Record<string, unknown>): JsonPatchOp[]`
+#### `diff(a: Record<string, unknown>, b: Record<string, unknown>): JsonPatchOperation[]`
 
 Calcula um JSON Patch RFC 6902 entre dois objetos.
 
@@ -183,7 +183,7 @@ const patches = diff(original, modified);
 // [{ op: 'replace', path: '/name', value: 'New' }, ...]
 ```
 
-#### `applyPatch(data: Record<string, unknown>, ops: JsonPatchOp[]): Record<string, unknown>`
+#### `applyPatch(data: Record<string, unknown>, ops: JsonPatchOperation[]): Record<string, unknown>`
 
 Aplica um JSON Patch a um objeto. Retorna um novo objeto (não muta o input).
 
@@ -200,10 +200,10 @@ const patches = accessorA.diff(accessorB);
 const patched = accessor.applyPatch(patches);
 ```
 
-#### `JsonPatchOp`
+#### `JsonPatchOperation`
 
 ```typescript
-type JsonPatchOp = {
+type JsonPatchOperation = {
     op: "add" | "remove" | "replace" | "move" | "copy" | "test";
     path: string;
     value?: unknown;
@@ -408,6 +408,36 @@ Congela recursivamente um objeto. Útil para tornar configurações imutáveis e
 - `assertSafeUrl(url: string, options?): void` — Lança `SecurityError` se a URL aponta para um IP privado (proteção contra SSRF).
 - `isPrivateIp(ip: string): boolean` — Retorna `true` para IPs privados/loopback.
 
+### FilterParser — Proteção contra ReDoS
+
+**Import:** `import { FilterParser } from '@safe-access-inline/safe-access-inline'`
+
+Expressões de filtro (`[?age>=18 && active==true]`) em caminhos dot-notation são analisadas e avaliadas pelo `FilterParser`. Para prevenir ataques de ReDoS, a função de filtro `match()` aplica diversas verificações antes de construir um `RegExp`:
+
+| Verificação                                  | O que detecta                                                      |
+| -------------------------------------------- | ------------------------------------------------------------------ |
+| `maxPatternLength` (padrão: 128)             | Rejeita padrões que excedem o limite configurado                   |
+| Quantificadores aninhados                    | `(x+)+`, `(x+)*`, `(x*){2,}` — formas de backtracking catastrófico |
+| Quantificadores em alternância               | `(a\|b)+`, `(x\|y)*` — backtracking polinomial em alternância      |
+| Quantificadores não capturantes em lookahead | `(?...*)`, `(?...*[...]*)`                                         |
+| Grupos adjacentes com quantificadores        | Grupos quantificados adjacentes que multiplicam o backtracking     |
+
+Se alguma verificação for positiva, `match()` retorna `false` ao invés de lançar exceção. Isso garante que expressões de filtro com padrões inseguros degradem silenciosamente (sem correspondência) sem travar a aplicação.
+
+```typescript
+import { FilterParser } from "@safe-access-inline/safe-access-inline";
+
+// Configurando o comprimento máximo de padrão (padrão: 128)
+FilterParser.configure({ maxPatternLength: 64 });
+
+// Restaurando os padrões
+FilterParser.resetConfig();
+```
+
+**Alinhamento PHP:** O `FilterParser` do PHP aplica as mesmas verificações estáticas em `evaluateFunction()`. A constante `maxPatternLength` é 128 em ambas as implementações.
+
+> **Dica:** Prefira `starts_with()` e `contains()` a `match()` para testes de string — eles não são baseados em regex e não carregam risco de ReDoS.
+
 ---
 
 ## I/O & Carregamento de Arquivos
@@ -518,6 +548,30 @@ stop();
 No pacote JS, `watchFile()` retorna uma única função de unsubscribe e usa o watcher da plataforma (`fs.watch`) internamente.
 
 Isso difere intencionalmente do PHP, onde `watchFile()` retorna `{ poll, stop }` porque o loop de polling precisa ser dirigido explicitamente em um runtime síncrono.
+
+### Escrita de Arquivos
+
+`SafeAccess.writeFile()` e `SafeAccess.writeFileSync()` gravam uma string no disco com a mesma proteção contra path-traversal aplicada por `fromFile()`.
+
+```typescript
+import { SafeAccess } from "@safe-access-inline/safe-access-inline";
+
+// Síncrono
+SafeAccess.writeFile("./output.json", JSON.stringify({ key: "value" }));
+
+// Assíncrono (recomendado)
+await SafeAccess.writeFileAsync(
+    "./output.json",
+    JSON.stringify({ key: "value" }),
+);
+
+// Com restrição de diretório
+await SafeAccess.writeFileAsync("./output.json", content, {
+    allowedDirs: ["./output"],
+});
+```
+
+Ambos os métodos emitem um evento de auditoria `file.write` (veja [Log de Auditoria](#log-de-auditoria)).
 
 ### IoLoader
 
