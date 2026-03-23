@@ -1,9 +1,5 @@
 # PHP
 packages/php/vendor/
-# Lock files are intentionally excluded for library packages.
-# Libraries should test against dependency ranges to catch compatibility issues early.
-# See: https://getcomposer.org/doc/02-libraries.md#lock-file
-packages/php/composer.lock
 packages/php/.phpunit.cache/
 packages/php/.php-cs-fixer.cache
 packages/php/.phpstan.cache/
@@ -17,9 +13,6 @@ packages/php/reports/
 packages/js/node_modules/
 packages/js/dist/
 packages/js/coverage/
-# Lock files are intentionally excluded for library packages.
-# See: https://docs.npmjs.com/cli/v10/configuring-npm/package-lock-json#package-lockjson-vs-npm-shrinkwrapjson
-packages/js/package-lock.json
 packages/js/.stryker-tmp/
 packages/js/reports/
 
@@ -27,13 +20,11 @@ packages/js/reports/
 packages/cli/node_modules/
 packages/cli/dist/
 packages/cli/coverage/
-packages/cli/package-lock.json
 packages/cli/.stryker-tmp/
 packages/cli/reports/
 
 # Root tooling (husky, commitlint, lint-staged)
 node_modules/
-package-lock.json
 
 # Lint-staged artifacts
 .php-cs-fixer.cache
