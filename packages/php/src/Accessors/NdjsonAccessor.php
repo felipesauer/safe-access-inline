@@ -9,8 +9,15 @@ use SafeAccessInline\Exceptions\InvalidFormatException;
 
 /**
  * Accessor for NDJSON (Newline Delimited JSON) strings.
- * Each line is a separate JSON object.
- * Result: indexed array of parsed JSON objects.
+ *
+ * Each non-empty line is treated as a separate JSON object.
+ * Lines are parsed in order; the result is a numerically indexed array.
+ * Any malformed line causes an immediate {@link InvalidFormatException}, reporting
+ * the original (1-based) line number for easy diagnosis.
+ * Blank and whitespace-only lines are silently skipped.
+ *
+ * @example
+ * SafeAccess::fromNdjson($ndjsonString)->get('0.id');
  * @extends AbstractAccessor<array<mixed>>
  */
 class NdjsonAccessor extends AbstractAccessor
