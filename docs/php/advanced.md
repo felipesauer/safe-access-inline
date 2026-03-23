@@ -172,12 +172,14 @@ $config = SafeAccess::layerFiles([
 ### File watching
 
 ```php
-$stop = SafeAccess::watchFile('/app/config.json', function ($accessor) {
+$watcher = SafeAccess::watchFile('/app/config.json', function ($accessor) {
     echo "Config updated: " . $accessor->get('version') . "\n";
 });
 
-// Later: stop watching
-$stop();
+// Poll for changes (drives the watch loop)
+$watcher['poll']();
+// Or stop watching
+$watcher['stop']();
 ```
 
 ---
@@ -258,6 +260,7 @@ use SafeAccessInline\Core\Config\MaskerConfig;
 $config = new MaskerConfig(
     defaultMaskValue: '[REDACTED]',
     maxRecursionDepth: 100,
+    maxPatternCacheSize: 200,
 );
 ```
 

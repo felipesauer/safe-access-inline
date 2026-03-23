@@ -70,13 +70,13 @@ $accessor = SafeAccess::fromArray([
     'api_key' => 'abc-123',
 ]);
 
-$safe = $accessor->masked();
+$safe = $accessor->mask();
 $safe->get('password');  // '[REDACTED]'
 $safe->get('api_key');   // '[REDACTED]'
 $safe->get('user');      // 'Ana'
 
 // Custom patterns
-$safe = $accessor->masked(['custom_secret', '*_token']);
+$safe = $accessor->mask(['custom_secret', '*_token']);
 ```
 
 ### Readonly accessors

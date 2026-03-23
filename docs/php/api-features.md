@@ -65,14 +65,14 @@ For memory-efficient processing of large CSV or NDJSON files, PHP provides synch
 
 #### `SafeAccess::streamCsv(string $filePath, array $allowedDirs = [], bool $allowAnyPath = false): Generator`
 
-Reads a CSV file row by row, yielding each row as an associative array (header keys → cell values). The file is never fully loaded into memory.
+Reads a CSV file row by row, yielding each row as an `ObjectAccessor` instance. The file is never fully loaded into memory.
 
 ```php
 use SafeAccessInline\SafeAccess;
 
 foreach (SafeAccess::streamCsv('/app/data/users.csv', ['/app/data']) as $row) {
-    // $row = ['name' => 'Ana', 'age' => '30', 'city' => 'Porto Alegre']
-    echo $row['name'] . "\n";
+    // $row is an ObjectAccessor
+    echo $row->get('name') . "\n";
 }
 ```
 
@@ -82,12 +82,12 @@ In JS, the equivalent is `for await (const row of SafeAccess.streamCsv(path))`. 
 
 #### `SafeAccess::streamNdjson(string $filePath, array $allowedDirs = [], bool $allowAnyPath = false): Generator`
 
-Reads an NDJSON file line by line, yielding each line as a decoded associative array.
+Reads an NDJSON file line by line, yielding each line as a `JsonAccessor` instance.
 
 ```php
 foreach (SafeAccess::streamNdjson('/app/data/events.ndjson', ['/app/data']) as $event) {
-    // $event = ['type' => 'click', 'ts' => 1711234567]
-    processEvent($event);
+    // $event is a JsonAccessor
+    processEvent($event->get('type'));
 }
 ```
 

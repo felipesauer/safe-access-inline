@@ -138,7 +138,7 @@ $accessor->get('*.name');                // ["Ana", "Bob"]
 To guard against CSV injection attacks (cells starting with `=`, `+`, `-`, `@`), pass a `csvMode` to `SecurityPolicy`. Accepted values:
 
 - `'none'` _(default)_ — no sanitization
-- `'prefix'` — prepends a tab to dangerous cells
+- `'prefix'` — prepends a single quote (`'`) to dangerous cells
 - `'strip'` — removes the dangerous leading character
 - `'error'` — throws a `SecurityError` on detection
 
