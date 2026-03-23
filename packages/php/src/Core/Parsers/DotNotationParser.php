@@ -52,6 +52,21 @@ final class DotNotationParser
     }
 
     /**
+     * Resets the parser configuration to its default values.
+     *
+     * Convenience method equivalent to `configure(new ParserConfig())`.
+     * Useful in test teardown to restore a clean state.
+     *
+     * **JS alignment:** mirrors `DotNotationParser.resetConfig()` in the JS package.
+     *
+     * @see configure()
+     */
+    public static function resetConfig(): void
+    {
+        self::$config = new ParserConfig();
+    }
+
+    /**
      * Accesses a value in a nested structure.
      *
      * @param array<mixed> $data Normalized data structure

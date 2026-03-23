@@ -84,8 +84,15 @@ final class AuditLogger
         foreach ($snapshot as $listener) {
             try {
                 $listener($event);
-            } catch (\Throwable) {
-                // Isolate listener errors so subsequent listeners still fire
+            } catch (\Throwable $e) {
+                // Isolate listener errors so subsequent listeners still fire.
+                // Mirror JS behavior: log to error stream so failures are observable in production.
+                error_log(sprintf(
+                    '[SafeAccess] AuditLogger: listener error suppressed: %s in %s:%d',
+                    $e->getMessage(),
+                    $e->getFile(),
+                    $e->getLine()
+                ));
             }
         }
     }

@@ -173,3 +173,28 @@ describe(DotNotationParser::class, function () {
         expect($result)->toBe(['C', 'D', 'E']);
     })->with('store_data');
 });
+
+describe('DotNotationParser::configure and resetConfig', function () {
+
+    afterEach(function (): void {
+        DotNotationParser::resetConfig();
+    });
+
+    it('resetConfig restores default maxDepth so deep paths resolve correctly', function (): void {
+        // Configure a tight limit that blocks deep access
+        DotNotationParser::configure(new \SafeAccessInline\Core\Config\ParserConfig(maxResolveDepth: 1));
+
+        // After reset, a deep path should resolve normally
+        DotNotationParser::resetConfig();
+        $data = ['a' => ['b' => 'deep']];
+        $reset = DotNotationParser::get($data, 'a.b', 'fallback');
+        expect($reset)->toBe('deep');
+    });
+
+    it('resetConfig is idempotent when called multiple times', function (): void {
+        DotNotationParser::resetConfig();
+        DotNotationParser::resetConfig();
+        $data = ['x' => 1];
+        expect(DotNotationParser::get($data, 'x'))->toBe(1);
+    });
+});

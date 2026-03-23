@@ -9,7 +9,7 @@
 
 require __DIR__ . '/../vendor/autoload.php';
 
-use SafeAccessInline\Core\DotNotationParser;
+use SafeAccessInline\Core\Parsers\DotNotationParser;
 
 // ── Data fixtures ─────────────────────────────────────
 
