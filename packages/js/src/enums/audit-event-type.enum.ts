@@ -5,6 +5,7 @@
  */
 export enum AuditEventType {
     FILE_READ = 'file.read',
+    FILE_WRITE = 'file.write',
     FILE_WATCH = 'file.watch',
     URL_FETCH = 'url.fetch',
     SECURITY_VIOLATION = 'security.violation',

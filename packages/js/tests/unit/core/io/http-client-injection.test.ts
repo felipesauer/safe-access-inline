@@ -182,3 +182,42 @@ describe('DnsResolverInterface injection via configureIoLoader', () => {
         expect((callOptions as { dnsResolver?: unknown } | undefined)?.dnsResolver).toBeUndefined();
     });
 });
+
+describe('configureIoLoader — maxPayloadBytes global cap', () => {
+    it('applies the global maxPayloadBytes cap when per-request option is absent', async () => {
+        const bigBody = 'x'.repeat(2_000); // 2 KB
+        const mockClient: HttpClientInterface = {
+            fetch: vi.fn().mockResolvedValue(makeOkResponse(bigBody)),
+        };
+        // Set a 1 KB global cap via configureIoLoader
+        configureIoLoader({ httpClient: mockClient, maxPayloadBytes: 1_000 });
+        await expect(fetchUrl('https://example.com/big.json')).rejects.toThrow();
+    });
+
+    it('per-request maxPayloadBytes overrides the global configureIoLoader cap', async () => {
+        const smallBody = JSON.stringify({ ok: true });
+        const mockClient: HttpClientInterface = {
+            fetch: vi.fn().mockResolvedValue(makeOkResponse(smallBody)),
+        };
+        // Small global cap
+        configureIoLoader({ httpClient: mockClient, maxPayloadBytes: 1 });
+        // But per-request allows more
+        const result = await fetchUrl('https://example.com/data.json', {
+            maxPayloadBytes: 1_000_000,
+        });
+        expect(result).toBe(smallBody);
+    });
+
+    it('resetIoLoaderConfig restores the default maxPayloadBytes', async () => {
+        configureIoLoader({ maxPayloadBytes: 1 });
+        resetIoLoaderConfig();
+        const body = JSON.stringify({ restored: true });
+        const mockClient: HttpClientInterface = {
+            fetch: vi.fn().mockResolvedValue(makeOkResponse(body)),
+        };
+        configureIoLoader({ httpClient: mockClient });
+        // Should succeed because default is 10 MB and body is tiny
+        const result = await fetchUrl('https://example.com/test.json');
+        expect(result).toBe(body);
+    });
+});

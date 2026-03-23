@@ -1,18 +1,20 @@
 import type { HttpClientInterface } from '../../contracts/http-client.interface';
 import type { DnsResolverInterface } from '../../contracts/dns-resolver.interface';
+import { DEFAULT_SECURITY_OPTIONS } from '../../security/guards/security-options';
 
 /**
  * Configuration for HTTP request behaviour in {@link fetchUrl}.
  *
  * Controls the total request timeout, TCP connection-phase timeout,
- * and optional injectable clients for HTTP transport and DNS resolution.
+ * per-request payload size cap, and optional injectable clients for
+ * HTTP transport and DNS resolution.
  *
  * @example
  * ```typescript
  * import { configureIoLoader } from '@safe-access-inline/safe-access-inline';
  *
- * // Override timeouts
- * configureIoLoader({ requestTimeoutMs: 15_000 });
+ * // Override timeouts and per-loader payload cap
+ * configureIoLoader({ requestTimeoutMs: 15_000, maxPayloadBytes: 5_242_880 }); // 5 MB cap
  *
  * // Inject a custom HTTP client (e.g. for testing)
  * configureIoLoader({ httpClient: myMockClient });
@@ -26,6 +28,19 @@ export interface IoLoaderConfig {
     readonly requestTimeoutMs: number;
     /** Maximum milliseconds to wait while establishing the TCP connection. */
     readonly connectTimeoutMs: number;
+    /**
+     * Maximum allowed response body size in bytes.
+     *
+     * When set, this value takes precedence over the global
+     * {@link DEFAULT_SECURITY_OPTIONS.maxPayloadBytes} constant,
+     * allowing different payload caps per loader instance.
+     *
+     * Defaults to {@link DEFAULT_SECURITY_OPTIONS.maxPayloadBytes} (10 MB).
+     *
+     * **PHP alignment:** mirrors `IoLoaderConfig::$maxPayloadBytes` in the PHP package,
+     * which likewise defaults to 10 MB and can be overridden per-request.
+     */
+    readonly maxPayloadBytes: number;
     /**
      * Optional injectable HTTP client.
      *
@@ -52,4 +67,5 @@ export interface IoLoaderConfig {
 export const DEFAULT_IO_LOADER_CONFIG: IoLoaderConfig = Object.freeze({
     requestTimeoutMs: 10_000,
     connectTimeoutMs: 5_000,
+    maxPayloadBytes: DEFAULT_SECURITY_OPTIONS.maxPayloadBytes,
 });

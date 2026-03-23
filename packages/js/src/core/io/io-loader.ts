@@ -6,7 +6,6 @@ import { SecurityError } from '../../exceptions/security.error';
 import { assertSafeUrl, resolveAndValidateIp } from '../../security/sanitizers/ip-range-checker';
 import { Format } from '../../enums/format.enum';
 import { emitAudit, AuditEventType } from '../../security/audit/audit-emitter';
-import { DEFAULT_SECURITY_OPTIONS } from '../../security/guards/security-options';
 import { type IoLoaderConfig, DEFAULT_IO_LOADER_CONFIG } from '../config/io-loader-config';
 
 let ioConfig: IoLoaderConfig = DEFAULT_IO_LOADER_CONFIG;
@@ -158,6 +157,50 @@ export async function readFile(
 }
 
 /**
+ * Synchronously writes `content` to `filePath` after verifying it is within
+ * `allowedDirs`. Prevents path-traversal attacks with the same guards used by
+ * {@link readFileSync}.
+ *
+ * @param filePath - Destination file path.
+ * @param content  - UTF-8 string content to write.
+ * @param options  - Optional `allowedDirs` and `allowAnyPath` flags.
+ * @throws {@link SecurityError} When path validation fails.
+ */
+export function writeFileSync(
+    filePath: string,
+    content: string,
+    options?: { allowedDirs?: string[]; allowAnyPath?: boolean },
+): void {
+    const resolved = assertPathWithinAllowedDirs(filePath, options?.allowedDirs, {
+        allowAnyPath: options?.allowAnyPath,
+    });
+    emitAudit(AuditEventType.FILE_WRITE, { filePath });
+    fs.writeFileSync(resolved, content, 'utf-8');
+}
+
+/**
+ * Asynchronously writes `content` to `filePath` after verifying it is within
+ * `allowedDirs`. Prevents path-traversal attacks with the same guards used by
+ * {@link readFile}.
+ *
+ * @param filePath - Destination file path.
+ * @param content  - UTF-8 string content to write.
+ * @param options  - Optional `allowedDirs` and `allowAnyPath` flags.
+ * @throws {@link SecurityError} When path validation fails.
+ */
+export async function writeFile(
+    filePath: string,
+    content: string,
+    options?: { allowedDirs?: string[]; allowAnyPath?: boolean },
+): Promise<void> {
+    const resolved = assertPathWithinAllowedDirs(filePath, options?.allowedDirs, {
+        allowAnyPath: options?.allowAnyPath,
+    });
+    emitAudit(AuditEventType.FILE_WRITE, { filePath });
+    await fsp.writeFile(resolved, content, 'utf-8');
+}
+
+/**
  * Fetches a remote URL over HTTPS with full SSRF protection.
  *
  * Validates the URL, resolves DNS, pins the connection to the pre-validated IP,
@@ -201,7 +244,7 @@ export async function fetchUrl(
             throw new SecurityError(`Failed to fetch URL '${url}': HTTP ${resp.status}`);
         }
         const body = await resp.text();
-        const maxBytes = options?.maxPayloadBytes ?? DEFAULT_SECURITY_OPTIONS.maxPayloadBytes;
+        const maxBytes = options?.maxPayloadBytes ?? ioConfig.maxPayloadBytes;
         if (Buffer.byteLength(body, 'utf-8') > maxBytes) {
             throw new SecurityError(`Response body exceeds maximum size of ${maxBytes} bytes.`);
         }
@@ -239,8 +282,7 @@ export async function fetchUrl(
                     );
                     return;
                 }
-                const maxBytes =
-                    options?.maxPayloadBytes ?? DEFAULT_SECURITY_OPTIONS.maxPayloadBytes;
+                const maxBytes = options?.maxPayloadBytes ?? ioConfig.maxPayloadBytes;
                 let body = '';
                 let received = 0;
                 res.setEncoding('utf-8');

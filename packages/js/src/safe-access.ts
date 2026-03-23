@@ -16,6 +16,8 @@ import { Format } from './enums/format.enum';
 import {
     readFileSync,
     readFile,
+    writeFileSync as ioWriteFileSync,
+    writeFile as ioWriteFile,
     fetchUrl,
     resolveFormatFromExtension,
     assertPathWithinAllowedDirs,
@@ -423,6 +425,40 @@ export class SafeAccess {
             return SafeAccess.from(content, detectedFormat as string);
         }
         return TypeDetector.resolve(content);
+    }
+
+    /**
+     * Synchronously writes `content` to `filePath` after enforcing path-traversal
+     * protection. Requires `allowedDirs` or `allowAnyPath: true`.
+     *
+     * @param filePath - Destination file path.
+     * @param content  - UTF-8 string to write.
+     * @param options  - Optional `allowedDirs` and `allowAnyPath` flags.
+     * @throws {@link SecurityError} When path validation fails.
+     */
+    static writeFile(
+        filePath: string,
+        content: string,
+        options?: Pick<FileLoadOptions, 'allowedDirs' | 'allowAnyPath'>,
+    ): void {
+        ioWriteFileSync(filePath, content, options);
+    }
+
+    /**
+     * Asynchronously writes `content` to `filePath` after enforcing path-traversal
+     * protection. Requires `allowedDirs` or `allowAnyPath: true`.
+     *
+     * @param filePath - Destination file path.
+     * @param content  - UTF-8 string to write.
+     * @param options  - Optional `allowedDirs` and `allowAnyPath` flags.
+     * @throws {@link SecurityError} When path validation fails.
+     */
+    static async writeFileAsync(
+        filePath: string,
+        content: string,
+        options?: Pick<FileLoadOptions, 'allowedDirs' | 'allowAnyPath'>,
+    ): Promise<void> {
+        await ioWriteFile(filePath, content, options);
     }
 
     // ── Layered Config ───────────────────────────────
