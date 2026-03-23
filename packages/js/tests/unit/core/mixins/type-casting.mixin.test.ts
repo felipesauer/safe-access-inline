@@ -147,4 +147,37 @@ describe(TypeCastingMixin.name, () => {
             expect(acc.getFloat('missing', 0.5)).toBeCloseTo(0.5);
         });
     });
+
+    describe('getWildcard', () => {
+        it('returns an array of matching values', () => {
+            const acc = SafeAccess.fromObject({ items: [1, 2, 3] });
+            expect(acc.getWildcard('items')).toEqual([1, 2, 3]);
+        });
+
+        it('returns typed values when generic is specified', () => {
+            const acc = SafeAccess.fromObject({ names: ['Ana', 'Bob'] });
+            const result = acc.getWildcard<string>('names');
+            expect(result).toEqual(['Ana', 'Bob']);
+        });
+
+        it('returns defaultValue when path is not an array', () => {
+            const acc = SafeAccess.fromObject({ n: 42 });
+            expect(acc.getWildcard('n', ['fallback'])).toEqual(['fallback']);
+        });
+
+        it('returns defaultValue for missing path', () => {
+            const acc = SafeAccess.fromObject({});
+            expect(acc.getWildcard('missing', ['default'])).toEqual(['default']);
+        });
+
+        it('returns empty array by default when path is missing', () => {
+            const acc = SafeAccess.fromObject({});
+            expect(acc.getWildcard('missing')).toEqual([]);
+        });
+
+        it('returns empty array for an empty array value', () => {
+            const acc = SafeAccess.fromObject({ arr: [] });
+            expect(acc.getWildcard('arr')).toEqual([]);
+        });
+    });
 });

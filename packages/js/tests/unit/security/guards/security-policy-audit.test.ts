@@ -18,6 +18,7 @@ import {
     onAudit,
     emitAudit,
     clearAuditListeners,
+    configure as configureAudit,
 } from '../../../../src/security/audit/audit-emitter';
 import type { AuditEvent } from '../../../../src/security/audit/audit-emitter';
 import { mask } from '../../../../src/security/sanitizers/data-masker';
@@ -305,6 +306,42 @@ describe('AuditLogger', () => {
         SafeAccess.clearAuditListeners();
         emitAudit('file.read', { filePath: 'd.json' });
         expect(events).toHaveLength(0);
+    });
+
+    describe('configure', () => {
+        afterEach(() => {
+            // restore default so other tests are not polluted
+            configureAudit({ maxListeners: 100 });
+        });
+
+        it('configure — raises maxListeners cap so additional listeners succeed', () => {
+            configureAudit({ maxListeners: 200 });
+            // register 101 listeners — would throw at 101 with the default cap of 100
+            for (let i = 0; i < 101; i++) {
+                expect(() => onAudit(() => {})).not.toThrow();
+            }
+        });
+
+        it('configure — lowers maxListeners and warns when count already exceeds new cap', () => {
+            const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+            onAudit(() => {}); // now 1 listener
+            configureAudit({ maxListeners: 0 });
+            expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('lower than'));
+            warnSpy.mockRestore();
+        });
+
+        it('configure — after lowering, new onAudit calls throw RangeError', () => {
+            configureAudit({ maxListeners: 0 });
+            expect(() => onAudit(() => {})).toThrow(RangeError);
+        });
+
+        it('configure — does not warn when new cap equals or exceeds listener count', () => {
+            const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+            onAudit(() => {});
+            configureAudit({ maxListeners: 100 }); // same as default, 1 < 100
+            expect(warnSpy).not.toHaveBeenCalled();
+            warnSpy.mockRestore();
+        });
     });
 });
 

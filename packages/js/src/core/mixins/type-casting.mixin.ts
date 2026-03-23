@@ -122,4 +122,31 @@ export abstract class TypeCastingMixin extends ArrayOperationsMixin {
         const n = typeof val === 'string' ? parseFloat(val) : Number(val);
         return isNaN(n) || !isFinite(n) ? defaultValue : n;
     }
+
+    /**
+     * Returns all values matching a wildcard path expression as a typed array.
+     *
+     * Convenience wrapper around `get()` for wildcard paths — improves discoverability
+     * and provides explicit return-type guarantees.
+     *
+     * **PHP alignment:** mirrors `HasWildcardSupport::getWildcard(string $path, mixed $default): array`
+     * in the PHP package.
+     *
+     * @param path - Dot-notation path, typically containing a wildcard (`*`) segment.
+     * @param defaultValue - Fallback array when the path yields no results or a non-array value.
+     *   Defaults to `[]`.
+     * @returns Typed array of matched values, or `defaultValue`.
+     *
+     * @example
+     * ```ts
+     * accessor.getWildcard('users.*.name');           // ['Alice', 'Bob', 'Charlie']
+     * accessor.getWildcard('items.*.price', []);      // [] if path not found
+     * accessor.getWildcard<number>('prices.*', [0]);  // [1.99, 2.49, 3.00]
+     * ```
+     */
+    getWildcard<T = unknown>(path: string, defaultValue: T[] = []): T[] {
+        const result = this.get(path);
+        if (!Array.isArray(result)) return defaultValue;
+        return result as T[];
+    }
 }

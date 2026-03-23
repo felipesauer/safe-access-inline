@@ -640,8 +640,6 @@ describe('FilterParser — numeric type guard regression', () => {
         expect(FilterParser.evaluate({ price: 30, qty: 0 }, expr)).toBe(false);
     });
 
-    // ── branch gap coverage: starts_with / contains / values edge cases ──
-
     it('evaluate — starts_with with no prefix arg (funcArgs[1] undefined → ?? fallback)', () => {
         // funcArgs[1] is undefined → prefix = '' → val.startsWith('') is always true
         const expr = FilterParser.parse('starts_with(@.name)==true');
