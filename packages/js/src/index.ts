@@ -1,6 +1,7 @@
 // Barrel export
 export { SafeAccess } from './safe-access';
 export { Format } from './enums/format.enum';
+export { CsvMode } from './enums/csv-mode.enum';
 export { SegmentType } from './enums/segment-type.enum';
 export { PatchOperationType } from './enums/patch-operation-type.enum';
 export { AuditEventType } from './enums/audit-event-type.enum';
@@ -15,7 +16,7 @@ export type {
 export type { DnsResolverInterface } from './contracts/dns-resolver.interface';
 export type { ReadableInterface } from './contracts/readable.interface';
 export type { WritableInterface } from './contracts/writable.interface';
-export type { TransformableInterface } from './contracts/transformable.interface';
+export type { TransformableInterface, ToJsonOptions } from './contracts/transformable.interface';
 export type { CacheInterface } from './contracts/cache.interface';
 export type { AuditEvent, AuditListener } from './contracts/audit-event.interface';
 export type { FilterCondition, FilterExpression } from './contracts/filter-expression.interface';
@@ -148,7 +149,12 @@ export {
     clearGlobalPolicy,
     getGlobalPolicy,
 } from './security/guards/security-policy';
-export { onAudit, emitAudit, clearAuditListeners } from './security/audit/audit-emitter';
+export {
+    onAudit,
+    emitAudit,
+    clearAuditListeners,
+    configure as configureAudit,
+} from './security/audit/audit-emitter';
 
 // ── Convenience Type Aliases ────────────────────
 export type { AbstractAccessor as ReadonlyAccessor } from './core/abstract-accessor';
