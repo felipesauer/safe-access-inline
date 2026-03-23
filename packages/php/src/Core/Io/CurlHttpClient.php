@@ -17,11 +17,16 @@ class CurlHttpClient implements HttpClientInterface
     /**
      * Fetches remote content from a URL using cURL.
      *
+     * Only HTTP 2xx responses are accepted. Any response with a status code
+     * outside that range (redirect, client error, server error) throws a
+     * {@see SecurityException} so that Location-header redirections and error
+     * pages are never silently returned to the caller.
+     *
      * @param  string             $url         The URL to fetch.
      * @param  array<int, mixed>  $curlOptions cURL option constants mapped to their values.
      * @return string Raw response body.
      *
-     * @throws SecurityException If cURL initialization or the request fails.
+     * @throws SecurityException If cURL initialization, the request, or the HTTP status code fails.
      */
     public function fetch(string $url, array $curlOptions): string
     {
@@ -38,6 +43,14 @@ class CurlHttpClient implements HttpClientInterface
 
             if ($errno !== 0 || !is_string($content)) {
                 throw new SecurityException("Failed to fetch URL: '{$url}'");
+            }
+
+            /** @var int $httpCode */
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            if ($httpCode > 0 && ($httpCode < 200 || $httpCode >= 300)) {
+                throw new SecurityException(
+                    "URL fetch returned HTTP {$httpCode} for '{$url}' — only 2xx responses are accepted."
+                );
             }
 
             return $content;

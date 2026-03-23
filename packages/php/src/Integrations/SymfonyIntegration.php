@@ -24,6 +24,7 @@ class SymfonyIntegration
      * Creates an accessor from a Symfony ParameterBag.
      *
      * @param object $parameterBag Symfony ParameterBagInterface instance
+     * @return AbstractAccessor<array<mixed>> Accessor wrapping the parameter bag data.
      */
     public static function fromParameterBag(object $parameterBag): AbstractAccessor
     {
@@ -35,6 +36,7 @@ class SymfonyIntegration
      * Creates an accessor from a Symfony config array (as produced by Extension::load()).
      *
      * @param array<string, mixed> $config Processed configuration array
+     * @return AbstractAccessor<array<mixed>> Accessor wrapping the config array.
      */
     public static function fromConfig(array $config): AbstractAccessor
     {
@@ -46,6 +48,7 @@ class SymfonyIntegration
      *
      * @param string $yamlPath Path to a YAML config file
      * @param string[] $allowedDirs Optional directory whitelist
+     * @return AbstractAccessor<array<mixed>> Accessor wrapping the YAML file data.
      */
     public static function fromYamlFile(string $yamlPath, array $allowedDirs = [], bool $allowAnyPath = false): AbstractAccessor
     {

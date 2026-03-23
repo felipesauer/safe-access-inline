@@ -5,13 +5,17 @@ declare(strict_types=1);
 namespace SafeAccessInline\Accessors;
 
 use SafeAccessInline\Core\AbstractAccessor;
+use SafeAccessInline\Core\Config\ParserConfig;
 use SafeAccessInline\Exceptions\InvalidFormatException;
 use SafeAccessInline\Exceptions\SecurityException;
+use SafeAccessInline\Security\Guards\SecurityGuard;
+use SafeAccessInline\Security\Guards\SecurityOptions;
 
 /**
  * Accessor for XML data.
  * Accepts an XML string or SimpleXMLElement.
  * Converts: XML → SimpleXMLElement → JSON → associative array.
+ * @extends AbstractAccessor<array<mixed>>
  */
 class XmlAccessor extends AbstractAccessor
 {
@@ -66,9 +70,16 @@ class XmlAccessor extends AbstractAccessor
         }
 
         $json = json_encode($xml, JSON_THROW_ON_ERROR);
-        /** @var array<mixed> */
-        // 512 is PHP’s standard json_decode depth; XML structural depth is enforced separately by SecurityOptions
-        return json_decode($json, true, 512, JSON_THROW_ON_ERROR);
+        /** @var array<mixed> $parsed */
+        $parsed = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
+
+        // P3: enforce maximum XML nesting depth to prevent DoS via deeply nested structures.
+        SecurityOptions::assertMaxStructuralDepth($parsed, ParserConfig::DEFAULT_MAX_XML_DEPTH);
+
+        // P4: reject XML tag/attribute names that match the prototype-pollution deny-list.
+        self::assertSafeKeys($parsed);
+
+        return $parsed;
     }
 
     /**
@@ -78,6 +89,32 @@ class XmlAccessor extends AbstractAccessor
     public function getOriginalXml(): \SimpleXMLElement|string
     {
         return $this->originalXml;
+    }
+
+    /**
+     * Recursively asserts that every key in `$data` is safe per
+     * {@see SecurityGuard::assertSafeKey()}.
+     *
+     * XML tag/attribute names may be attacker-controlled (e.g. user-uploaded files).
+     * Checking them after XML to JSON to PHP-array conversion ensures that
+     * prototype-pollution sentinels (`__proto__`, `constructor`, ...) are rejected
+     * before the parsed structure reaches callers.
+     *
+     * @param  mixed $data
+     * @param  int   $depth Internal recursion depth cap.
+     * @throws SecurityException When a forbidden key is encountered.
+     */
+    private static function assertSafeKeys(mixed $data, int $depth = 0): void
+    {
+        if ($depth > ParserConfig::DEFAULT_MAX_XML_DEPTH || !is_array($data)) {
+            return;
+        }
+        foreach ($data as $key => $value) {
+            if (is_string($key)) {
+                SecurityGuard::assertSafeKey($key);
+            }
+            self::assertSafeKeys($value, $depth + 1);
+        }
     }
 
     /**

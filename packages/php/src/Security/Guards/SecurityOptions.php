@@ -30,6 +30,10 @@ final class SecurityOptions
     /**
      * Asserts that a string payload does not exceed the byte limit.
      *
+     * Uses `mb_strlen($input, '8bit')` for binary-safe byte counting, which is
+     * equivalent to `strlen()` but explicit about the encoding context and
+     * correct regardless of the `mbstring.func_overload` INI setting.
+     *
      * @param  string   $input    Raw payload string to measure.
      * @param  int|null $maxBytes Override the default {@see MAX_PAYLOAD_BYTES} limit.
      *
@@ -38,7 +42,7 @@ final class SecurityOptions
     public static function assertPayloadSize(string $input, ?int $maxBytes = null): void
     {
         $limit = $maxBytes ?? self::MAX_PAYLOAD_BYTES;
-        $size = strlen($input);
+        $size = mb_strlen($input, '8bit');
         if ($size > $limit) {
             throw new SecurityException(
                 "Payload size {$size} bytes exceeds maximum of {$limit} bytes."
@@ -88,11 +92,16 @@ final class SecurityOptions
     /**
      * Asserts that the structural depth of data does not exceed the given limit.
      *
+     * The traversal is capped at `$maxDepth + 1` internally so that circular
+     * PHP array references (constructed with `&`) cannot cause unbounded
+     * recursion. When the cap is hit the returned depth already exceeds `$maxDepth`,
+     * so the SecurityException is still thrown.
+     *
      * @throws SecurityException
      */
     public static function assertMaxStructuralDepth(mixed $data, int $maxDepth): void
     {
-        $depth = self::measureDepth($data, 0);
+        $depth = self::measureDepth($data, 0, $maxDepth + 1);
         if ($depth > $maxDepth) {
             throw new SecurityException(
                 "Data structural depth {$depth} exceeds policy maximum of {$maxDepth}."
@@ -129,18 +138,33 @@ final class SecurityOptions
     /**
      * Recursively measures the maximum nesting depth of `$value`.
      *
-     * @param  mixed $value   Value to measure.
-     * @param  int   $current Depth of the current level.
+     * The optional `$maxDepth` cap terminates traversal early so that PHP arrays
+     * containing circular references (created via `&`) cannot overflow the call
+     * stack. When the cap is reached the current depth is returned immediately,
+     * which is already above any caller-supplied limit and therefore still
+     * triggers a SecurityException in {@see assertMaxStructuralDepth}.
+     *
+     * PHP arrays are copy-on-write value types; true self-referential cycles can
+     * only exist when created with PHP reference assignments (`$a[] = &$a`).
+     * The `$maxDepth` cap acts as the cycle-break: once traversal reaches
+     * `$current >= $maxDepth` the recursion terminates immediately regardless of
+     * whether the sub-tree is cyclic or merely very deep. There is therefore no
+     * risk of unbounded recursion for any array reachable via normal PHP code or
+     * user-supplied decoded JSON/YAML data.
+     *
+     * @param  mixed $value    Value to measure.
+     * @param  int   $current  Depth of the current level.
+     * @param  int   $maxDepth Upper bound on recursion (default: {@see MAX_DEPTH}).
      * @return int   Maximum depth reached in the subtree.
      */
-    private static function measureDepth(mixed $value, int $current): int
+    private static function measureDepth(mixed $value, int $current, int $maxDepth = self::MAX_DEPTH): int
     {
-        if (!is_array($value)) {
+        if ($current >= $maxDepth || !is_array($value)) {
             return $current;
         }
         $max = $current;
         foreach ($value as $child) {
-            $d = self::measureDepth($child, $current + 1);
+            $d = self::measureDepth($child, $current + 1, $maxDepth);
             if ($d > $max) {
                 $max = $d;
             }

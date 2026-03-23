@@ -8,7 +8,7 @@ use SafeAccessInline\Core\Config\AuditConfig;
 
 /**
  * @phpstan-type AuditEventType 'file.read'|'file.watch'|'url.fetch'|'security.violation'|'security.deprecation'|'data.mask'|'data.freeze'|'data.format_warning'|'schema.validate'|'plugin.overwrite'
- * @phpstan-type AuditEvent array{type: AuditEventType, timestamp: float, detail: array<string, mixed>}
+ * @phpstan-type AuditEvent array{type: AuditEventType, timestamp: int, detail: array<string, mixed>}
  */
 final class AuditLogger
 {
@@ -35,11 +35,11 @@ final class AuditLogger
         self::$config = $config;
     }
 
-    /** @var list<callable(array{type: string, timestamp: float, detail: array<string, mixed>}): void> Registered audit listeners. */
+    /** @var list<callable(array{type: string, timestamp: int, detail: array<string, mixed>}): void> Registered audit listeners. */
     private static array $listeners = [];
 
     /**
-     * @param callable(array{type: string, timestamp: float, detail: array<string, mixed>}): void $listener
+     * @param callable(array{type: string, timestamp: int, detail: array<string, mixed>}): void $listener
      * @return callable(): void Unsubscribe function
      * @throws \OverflowException When the maximum number of listeners is reached
      */
@@ -77,7 +77,7 @@ final class AuditLogger
         }
         $event = [
             'type' => $type,
-            'timestamp' => microtime(true),
+            'timestamp' => (int) round(microtime(true) * 1000),
             'detail' => $detail,
         ];
         $snapshot = self::$listeners;

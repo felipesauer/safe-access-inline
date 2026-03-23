@@ -10,6 +10,7 @@ use SafeAccessInline\Exceptions\InvalidFormatException;
 /**
  * Accessor for PHP objects (stdClass, anonymous classes, DTOs, etc.).
  * Converts internally: object → JSON → associative array.
+ * @extends AbstractAccessor<array<mixed>>
  */
 class ObjectAccessor extends AbstractAccessor
 {

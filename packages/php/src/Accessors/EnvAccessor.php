@@ -13,6 +13,7 @@ use SafeAccessInline\Exceptions\InvalidFormatException;
  *
  * Example:
  *   "APP_KEY=secret\nDEBUG=true\n# comment" → ['APP_KEY' => 'secret', 'DEBUG' => 'true']
+ * @extends AbstractAccessor<array<mixed>>
  */
 class EnvAccessor extends AbstractAccessor
 {

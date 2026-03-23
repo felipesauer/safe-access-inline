@@ -16,10 +16,12 @@ use SafeAccessInline\Accessors\XmlAccessor;
 use SafeAccessInline\Accessors\YamlAccessor;
 use SafeAccessInline\Contracts\FileLoadOptions;
 use SafeAccessInline\Core\AbstractAccessor;
+use SafeAccessInline\Core\CompiledPath;
 use SafeAccessInline\Core\Config\SafeAccessConfig;
 use SafeAccessInline\Core\Io\FileWatcher;
 use SafeAccessInline\Core\Io\IoLoader;
 use SafeAccessInline\Core\Operations\DeepMerger;
+use SafeAccessInline\Core\Parsers\DotNotationParser;
 use SafeAccessInline\Core\Parsers\FilterParser;
 use SafeAccessInline\Core\Registries\PluginRegistry;
 use SafeAccessInline\Core\Registries\SchemaRegistry;
@@ -44,7 +46,7 @@ use SimpleXMLElement;
  */
 final class SafeAccess
 {
-    /** @var array<string, class-string<AbstractAccessor>> Map of custom format name to accessor class. */
+    /** @var array<string, class-string<AbstractAccessor<array<mixed>>>> Map of custom format name to accessor class. */
     private static array $customAccessors = [];
 
     // ── Unified Factory ─────────────────────────────
@@ -57,6 +59,7 @@ final class SafeAccess
      * @param string|Format $format Optional format: 'array','object','json','xml','yaml','toml','ini','csv','env', a Format enum value, or a custom name
      *
      * @throws InvalidFormatException When the format is unknown
+     * @return AbstractAccessor<array<mixed>> Accessor wrapping the input data.
      */
     public static function from(mixed $data, string|Format $format = ''): AbstractAccessor
     {
@@ -225,6 +228,8 @@ final class SafeAccess
 
     /**
      * Automatically detects the format and returns the appropriate Accessor.
+     *
+     * @return AbstractAccessor<array<mixed>> Accessor wrapping the detected data.
      */
     public static function detect(mixed $data): AbstractAccessor
     {
@@ -240,7 +245,7 @@ final class SafeAccess
      * Registers a custom Accessor for non-native formats.
      *
      * @param  string                         $name  Identifier (e.g. `'protobuf'`, `'msgpack'`).
-     * @param  class-string<AbstractAccessor> $class Accessor class to associate with `$name`.
+     * @param  class-string<AbstractAccessor<array<mixed>>> $class Accessor class to associate with `$name`.
      *
      * @throws \OverflowException When the maximum number of custom accessors is already registered.
      */
@@ -269,7 +274,7 @@ final class SafeAccess
      *
      * @param  string           $name Format name passed to {@see extend()}.
      * @param  mixed            $data Input data to wrap.
-     * @return AbstractAccessor A new accessor instance.
+     * @return AbstractAccessor<array<mixed>> A new accessor instance.
      *
      * @throws \RuntimeException When `$name` has not been registered.
      */
@@ -292,6 +297,7 @@ final class SafeAccess
      * @param FileLoadOptions|string|null $formatOrOptions Format string, FileLoadOptions DTO, or null for auto-detect.
      * @param array<string>              $allowedDirs  Directories the file must reside within (ignored when using DTO).
      * @param bool                       $allowAnyPath When true, allows any filesystem path (ignored when using DTO).
+     * @return AbstractAccessor<array<mixed>> Accessor wrapping the file content.
      */
     public static function fromFile(
         string $filePath,
@@ -323,7 +329,7 @@ final class SafeAccess
      * @param  string                    $url     Remote URL to fetch content from.
      * @param  string|null               $format  Explicit format identifier, or null for auto-detection.
      * @param  array<string, mixed>      $options cURL options forwarded to the HTTP client.
-     * @return AbstractAccessor Accessor wrapping the fetched content.
+     * @return AbstractAccessor<array<mixed>> Accessor wrapping the fetched content.
      *
      * @throws SecurityException         If the URL violates the active security policy.
      * @throws InvalidFormatException    If the content cannot be parsed.
@@ -355,8 +361,8 @@ final class SafeAccess
      *
      * Later sources override earlier ones for conflicting keys.
      *
-     * @param  AbstractAccessor[] $sources Ordered list of accessors to merge.
-     * @return AbstractAccessor   A new ObjectAccessor containing the merged result.
+     * @param  AbstractAccessor<array<mixed>>[] $sources Ordered list of accessors to merge.
+     * @return AbstractAccessor<array<mixed>>   A new ObjectAccessor containing the merged result.
      */
     public static function layer(array $sources): AbstractAccessor
     {
@@ -374,6 +380,7 @@ final class SafeAccess
      * @param array<string>              $paths        File paths to layer.
      * @param FileLoadOptions|array<string> $optionsOrAllowedDirs FileLoadOptions DTO or legacy allowedDirs array.
      * @param bool                       $allowAnyPath Legacy parameter (ignored when using DTO).
+     * @return AbstractAccessor<array<mixed>> Accessor wrapping the merged file content.
      */
     public static function layerFiles(array $paths, FileLoadOptions|array $optionsOrAllowedDirs = [], bool $allowAnyPath = false): AbstractAccessor
     {
@@ -395,7 +402,7 @@ final class SafeAccess
      * Returns an array with 'poll' (blocking loop) and 'stop' callables.
      *
      * @param string                          $filePath     Path to the file.
-     * @param callable(AbstractAccessor): void $onChange     Callback invoked on file changes.
+     * @param callable(AbstractAccessor<array<mixed>>): void $onChange     Callback invoked on file changes.
      * @param FileLoadOptions|string|null      $formatOrOptions Format string, FileLoadOptions DTO, or null for auto-detect.
      * @param array<string>                   $allowedDirs  Legacy parameter (ignored when using DTO).
      * @param bool                            $allowAnyPath Legacy parameter (ignored when using DTO).
@@ -429,7 +436,7 @@ final class SafeAccess
      *
      * @param  mixed          $data   Raw data (string, array, object, etc.).
      * @param  SecurityPolicy $policy Policy constraints to enforce.
-     * @return AbstractAccessor Accessor wrapping the validated data.
+     * @return AbstractAccessor<array<mixed>> Accessor wrapping the validated data.
      *
      * @throws SecurityException If any policy constraint is violated.
      */
@@ -463,7 +470,7 @@ final class SafeAccess
      *
      * @param  string         $filePath Absolute or relative path to the file.
      * @param  SecurityPolicy $policy   Policy constraints to enforce.
-     * @return AbstractAccessor Accessor wrapping the validated file content.
+     * @return AbstractAccessor<array<mixed>> Accessor wrapping the validated file content.
      *
      * @throws SecurityException      If any policy constraint is violated.
      * @throws InvalidFormatException If the file content cannot be parsed.
@@ -501,7 +508,7 @@ final class SafeAccess
      *
      * @param  string         $url    Remote URL to fetch.
      * @param  SecurityPolicy $policy Policy constraints to enforce.
-     * @return AbstractAccessor Accessor wrapping the validated remote content.
+     * @return AbstractAccessor<array<mixed>> Accessor wrapping the validated remote content.
      *
      * @throws SecurityException      If any policy constraint is violated.
      * @throws InvalidFormatException If the content cannot be parsed.
@@ -551,6 +558,115 @@ final class SafeAccess
         SecurityPolicy::clearGlobal();
     }
 
+    // ── Streaming ───────────────────────────────────────
+
+    /**
+     * Streams a CSV file line by line, yielding one {@see ObjectAccessor} per data row.
+     *
+     * The first line is treated as the header row. Memory usage is proportional to a single
+     * row, not the entire file. The file handle is closed automatically via `finally` even
+     * if the consumer breaks out of the generator early.
+     *
+     * @param  string   $filePath    Path to the CSV file.
+     * @param  string[] $allowedDirs Directories the file must reside within.
+     * @param  bool     $allowAnyPath When true, bypasses directory restrictions.
+     * @return \Generator<int, ObjectAccessor, mixed, void>
+     *
+     * @throws SecurityException When path validation fails.
+     */
+    public static function streamCsv(
+        string $filePath,
+        array $allowedDirs = [],
+        bool $allowAnyPath = false,
+    ): \Generator {
+        $resolved = IoLoader::assertPathWithinAllowedDirs($filePath, $allowedDirs, $allowAnyPath);
+        $handle = fopen($resolved, 'r');
+        if ($handle === false) {
+            throw new \RuntimeException("Cannot open file: {$resolved}");
+        }
+        try {
+            /** @var non-empty-list<string>|false $headers */
+            $headers = fgetcsv($handle, 0, ',', '"', '');
+            if ($headers === false) {
+                return;
+            }
+            while (($fields = fgetcsv($handle, 0, ',', '"', '')) !== false) {
+                if ($fields === [null]) {
+                    continue;
+                }
+                /** @var array<string, mixed> $row */
+                $row = array_combine($headers, array_pad($fields, count($headers), null));
+                yield ObjectAccessor::from((object) $row);
+            }
+        } finally {
+            fclose($handle);
+        }
+    }
+
+    /**
+     * Streams an NDJSON file line by line, yielding one {@see JsonAccessor} per JSON line.
+     *
+     * Empty lines are skipped. The file handle is closed automatically via `finally` even
+     * if the consumer breaks out of the generator early.
+     *
+     * @param  string   $filePath    Path to the NDJSON file.
+     * @param  string[] $allowedDirs Directories the file must reside within.
+     * @param  bool     $allowAnyPath When true, bypasses directory restrictions.
+     * @return \Generator<int, JsonAccessor, mixed, void>
+     *
+     * @throws SecurityException When path validation fails.
+     */
+    public static function streamNdjson(
+        string $filePath,
+        array $allowedDirs = [],
+        bool $allowAnyPath = false,
+    ): \Generator {
+        $resolved = IoLoader::assertPathWithinAllowedDirs($filePath, $allowedDirs, $allowAnyPath);
+        $handle = fopen($resolved, 'r');
+        if ($handle === false) {
+            throw new \RuntimeException("Cannot open file: {$resolved}");
+        }
+        try {
+            while (($line = fgets($handle)) !== false) {
+                $trimmed = trim($line);
+                if ($trimmed !== '') {
+                    yield JsonAccessor::from($trimmed);
+                }
+            }
+        } finally {
+            fclose($handle);
+        }
+    }
+
+    // ── Path Utilities ──────────────────────────────────
+
+    /**
+     * Renders a template string by replacing `{key}` placeholders with corresponding values from the bindings array.
+     *
+     * @param  string                    $template The template string containing `{key}` placeholders.
+     * @param  array<string, int|string> $bindings Variables to replace placeholders with.
+     * @return string               The rendered string.
+     */
+    public static function getTemplate(string $template, array $bindings): string
+    {
+        return DotNotationParser::renderTemplate($template, $bindings);
+    }
+
+    /**
+     * Pre-compiles a dot-notation path into a {@see CompiledPath} for repeated use.
+     *
+     * The returned object can be passed to {@see AbstractAccessor::getCompiled()} to resolve
+     * values without re-parsing the path on each call. Combine with a tight loop or repeated
+     * access against different accessors for maximum throughput.
+     *
+     * @param  string       $path Dot-notation path to compile.
+     * @return CompiledPath Pre-compiled path object.
+     */
+    public static function compilePath(string $path): CompiledPath
+    {
+        return new CompiledPath(DotNotationParser::getSegments($path));
+    }
+
     // ── Audit ───────────────────────────────────────────
 
     /**
@@ -595,9 +711,9 @@ final class SafeAccess
     }
 
     /**
-     * Prevents instantiation.
+     * Prevents instantiation. This is a static utility class.
      *
-     * @codeCoverageIgnore
+     * @codeCoverageIgnore Private constructor on a static utility class cannot be invoked from tests.
      */
     private function __construct()
     {

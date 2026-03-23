@@ -17,6 +17,6 @@ trait HasFactory
      */
     public static function make(mixed ...$parameters): static
     {
-        return new static(...$parameters); // @phpstan-ignore new.static, new.staticInAbstractClassStaticMethod
+        return new static(...$parameters); // @phpstan-ignore new.static, new.staticInAbstractClassStaticMethod, return.type
     }
 }

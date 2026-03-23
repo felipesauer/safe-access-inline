@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace SafeAccessInline\Contracts;
 
-interface AccessorInterface extends ReadableInterface, TransformableInterface
+interface AccessorInterface extends ReadableInterface, TransformableInterface, WritableInterface
 {
     /**
      * Static factory — creates an instance from raw data.

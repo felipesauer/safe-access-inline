@@ -5,7 +5,16 @@
 /.php-cs-fixer.cache export-ignore
 /.phpstan.cache/ export-ignore
 /phpstan.neon export-ignore
+/phpstan-extension.neon export-ignore
 /phpunit.xml.dist export-ignore
+/phpbench.json export-ignore
+/infection.json5 export-ignore
 /tests/ export-ignore
+/benchmarks/ export-ignore
+/coverage/ export-ignore
+/coverage.xml export-ignore
+/reports/ export-ignore
+/scripts/ export-ignore
+/phpstan/ export-ignore
 /.gitattributes export-ignore
 /.gitignore export-ignore

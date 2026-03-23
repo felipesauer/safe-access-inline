@@ -118,6 +118,34 @@ final class SecurityPolicy
     }
 
     /**
+     * Merges two policy objects, building a new instance where every field
+     * from `$overrides` takes precedence over the corresponding field in `$base`.
+     *
+     * Array fields (`allowedDirs`, `maskPatterns`) fall back to `$base` values
+     * when the `$overrides` array is empty, preserving useful base configuration.
+     * The `url` sub-policy is shallow-merged so callers can extend only the
+     * properties they care about (e.g., add an `allowedHosts` without losing
+     * the `allowedPorts` from the base).
+     *
+     * @param  self $base      Foundation policy.
+     * @param  self $overrides Policy whose fields take precedence.
+     * @return self New merged policy instance.
+     */
+    public static function mergePolicy(self $base, self $overrides): self
+    {
+        return $base->merge([
+            'maxDepth'        => $overrides->maxDepth,
+            'maxPayloadBytes' => $overrides->maxPayloadBytes,
+            'maxKeys'         => $overrides->maxKeys,
+            'allowedDirs'     => $overrides->allowedDirs,
+            'allowAnyPath'    => $overrides->allowAnyPath,
+            'url'             => $overrides->url,
+            'csvMode'         => $overrides->csvMode,
+            'maskPatterns'    => $overrides->maskPatterns,
+        ]);
+    }
+
+    /**
      * @param array<string, mixed> $overrides
      */
     public function merge(array $overrides): self

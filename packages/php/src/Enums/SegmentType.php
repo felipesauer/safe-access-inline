@@ -16,4 +16,5 @@ enum SegmentType: string
     case MULTI_KEY = 'multi-key';
     case FILTER = 'filter';
     case SLICE = 'slice';
+    case PROJECTION = 'projection';
 }

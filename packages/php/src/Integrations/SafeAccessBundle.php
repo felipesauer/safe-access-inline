@@ -42,7 +42,16 @@ class SafeAccessBundle
     {
         $filePath = $config['config_file'] ?? null;
 
-        if (is_string($filePath)) {
+        /** @var string[]|null $layerPaths */
+        $layerPaths = $config['layer_paths'] ?? null;
+
+        if (is_array($layerPaths) && count($layerPaths) > 0) {
+            /** @phpstan-ignore method.notFound */
+            $container->register('safe_access', AbstractAccessor::class)
+                ->setFactory([SafeAccess::class, 'layerFiles'])
+                ->setArguments([$layerPaths])
+                ->setPublic(true);
+        } elseif (is_string($filePath)) {
             /** @phpstan-ignore method.notFound */
             $container->register('safe_access', AbstractAccessor::class)
                 ->setFactory([SafeAccess::class, 'fromFile'])

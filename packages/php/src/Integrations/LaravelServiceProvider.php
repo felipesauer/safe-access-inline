@@ -42,6 +42,14 @@ class LaravelServiceProvider
         $app->singleton('safe-access', function ($app): AbstractAccessor {
             /** @var array<string, mixed> $config */
             $config = $app['config']->get('safe-access', []);
+
+            /** @var string[]|null $layerPaths */
+            $layerPaths = $config['layerPaths'] ?? null;
+
+            if (is_array($layerPaths) && count($layerPaths) > 0) {
+                return SafeAccess::layerFiles($layerPaths);
+            }
+
             return SafeAccess::from($config, 'array');
         });
 
@@ -64,6 +72,7 @@ class LaravelServiceProvider
      * Creates an accessor from the full Laravel config repository.
      *
      * @param object $config Laravel config repository (\Illuminate\Config\Repository)
+     * @return AbstractAccessor<array<mixed>> Accessor wrapping the full config.
      */
     public static function fromConfig(object $config): AbstractAccessor
     {
@@ -76,6 +85,7 @@ class LaravelServiceProvider
      *
      * @param object $config Laravel config repository
      * @param string $key Config key (e.g. 'database', 'app')
+     * @return AbstractAccessor<array<mixed>> Accessor wrapping the specified config key.
      */
     public static function fromConfigKey(object $config, string $key): AbstractAccessor
     {

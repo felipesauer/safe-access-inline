@@ -46,6 +46,35 @@ $accessor->get('..name');                 // ["Ana"] — recursive descent
 
 Supports **Array · Object · JSON · XML · YAML · TOML · INI · CSV · ENV · NDJSON**.
 
+## PHPStan Integration & Type Inference
+
+When annotated with a concrete shape, the library narrows the return type of `get()` at static analysis time — no casting required:
+
+```php
+use SafeAccessInline\SafeAccess;
+use SafeAccessInline\Accessors\JsonAccessor;
+
+/** @var JsonAccessor<array{user: array{name: string, age: int}, active: bool}> $acc */
+$acc = SafeAccess::fromJson($json);
+
+$name   = $acc->get('user.name');   // PHPStan: string|null
+$age    = $acc->get('user.age', 0); // PHPStan: int
+$active = $acc->get('active');      // PHPStan: bool|null
+$city   = $acc->get('user.city');   // PHPStan: mixed (not in shape → fallback)
+```
+
+This is powered by the custom PHPStan extension shipped in `phpstan/` and registered via `phpstan-extension.neon`. Add it to your project's PHPStan config:
+
+```neon
+# phpstan.neon
+includes:
+    - vendor/safe-access-inline/safe-access-inline/phpstan-extension.neon
+```
+
+Without the `@var` annotation, `get()` returns `mixed` — full backward compatibility is preserved.
+
+---
+
 ## Documentation
 
 > **Full API reference, configuration options, plugins, and advanced guides:**

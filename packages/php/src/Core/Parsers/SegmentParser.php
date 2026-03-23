@@ -19,7 +19,7 @@ final class SegmentParser
      * Parses a dot-notation path into an array of typed segments.
      *
      * @param string $path Dot-notation path string.
-     * @return list<array{type: SegmentType::DESCENT, key: string}|array{type: SegmentType::DESCENT_MULTI, keys: non-empty-list<string>}|array{type: SegmentType::FILTER, expression: array{conditions: array<array{field: string, operator: string, value: mixed}>, logicals: array<string>}}|array{type: SegmentType::KEY, value: string}|array{type: SegmentType::MULTI_INDEX, indices: non-empty-list<int>}|array{type: SegmentType::MULTI_KEY, keys: non-empty-list<string>}|array{type: SegmentType::SLICE, start: int|null, end: int|null, step: int|null}|array{type: SegmentType::WILDCARD}>
+     * @return list<array{type: SegmentType::DESCENT, key: string}|array{type: SegmentType::DESCENT_MULTI, keys: non-empty-list<string>}|array{type: SegmentType::FILTER, expression: array{conditions: array<array{field: string, operator: string, value: mixed}>, logicals: array<string>}}|array{type: SegmentType::KEY, value: string}|array{type: SegmentType::MULTI_INDEX, indices: non-empty-list<int>}|array{type: SegmentType::MULTI_KEY, keys: non-empty-list<string>}|array{type: SegmentType::PROJECTION, fields: list<array{alias: string, source: string}>}|array{type: SegmentType::SLICE, start: int|null, end: int|null, step: int|null}|array{type: SegmentType::WILDCARD}>
      */
     public static function parseSegments(string $path): array
     {
@@ -91,6 +91,28 @@ final class SegmentParser
                     continue;
                 }
                 $i++;
+                // Projection after dot: .{field1, field2} or .{alias: field}
+                if ($i < $len && $path[$i] === '{') {
+                    $j = $i + 1;
+                    while ($j < $len && $path[$j] !== '}') {
+                        $j++;
+                    }
+                    $inner = substr($path, $i + 1, $j - $i - 1);
+                    $i = $j + 1;
+                    $fields = [];
+                    foreach (array_filter(array_map('trim', explode(',', $inner))) as $entry) {
+                        $colonIdx = strpos($entry, ':');
+                        if ($colonIdx !== false) {
+                            $fields[] = [
+                                'alias' => trim(substr($entry, 0, $colonIdx)),
+                                'source' => trim(substr($entry, $colonIdx + 1)),
+                            ];
+                        } else {
+                            $fields[] = ['alias' => $entry, 'source' => $entry];
+                        }
+                    }
+                    $segments[] = ['type' => SegmentType::PROJECTION, 'fields' => $fields];
+                }
                 continue;
             }
 
@@ -168,6 +190,12 @@ final class SegmentParser
                     $end = count($sliceParts) > 1 && $sliceParts[1] !== '' ? (int) $sliceParts[1] : null;
                     $step = count($sliceParts) > 2 && $sliceParts[2] !== '' ? (int) $sliceParts[2] : null;
                     $segments[] = ['type' => SegmentType::SLICE, 'start' => $start, 'end' => $end, 'step' => $step];
+                    continue;
+                }
+
+                // Wildcard inside brackets: [*]
+                if ($inner === '*') {
+                    $segments[] = ['type' => SegmentType::WILDCARD];
                     continue;
                 }
 

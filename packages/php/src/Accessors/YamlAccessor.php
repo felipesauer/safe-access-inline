@@ -15,6 +15,7 @@ use Symfony\Component\Yaml\Yaml;
  *
  * @example
  * SafeAccess::fromYaml($yamlString)->get('database.host');
+ * @extends AbstractAccessor<array<mixed>>
  */
 class YamlAccessor extends AbstractAccessor
 {

@@ -14,7 +14,21 @@ interface TransformableInterface
     /** @return array<mixed> */
     public function toArray(): array;
 
-    /** @param int $flags Flags for json_encode (e.g. JSON_PRETTY_PRINT) */
+    /**
+     * Serializes the accessor data to a JSON string.
+     *
+     * PHP accepts an `int $flags` bitmask (e.g. `JSON_PRETTY_PRINT`), whereas the JS
+     * implementation accepts a `bool $pretty` flag. These are intentional language-idiomatic
+     * differences: consumers on each platform should use the respective convention and must
+     * not pass the other platform's type. Cross-language interop concerns only the *output*
+     * JSON string, which is identical regardless of how pretty-printing is requested.
+     *
+     * @note PHP uses `int` flags (bitmask) while JS uses `boolean` — this is an expected
+     *       language-idiomatic divergence and is intentional. See plan item A3.
+     *
+     * @param int $flags Flags for `json_encode()` (e.g. `JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE`).
+     * @return string JSON-encoded data.
+     */
     public function toJson(int $flags = 0): string;
 
     /** @param string $rootElement Name of the root XML element */
@@ -32,7 +46,39 @@ interface TransformableInterface
     /** @return string NDJSON formatted output */
     public function toNdjson(): string;
 
-    /** @return object stdClass representing the data structure */
+    /**
+     * Serialises the accessor's data to an INI-format string.
+     *
+     * Top-level scalar values become `key = value` pairs; top-level nested arrays become
+     * `[section]` blocks. Deeper nesting is serialised as a JSON string value.
+     *
+     * @return string A valid INI string with sections for nested arrays.
+     */
+    public function toIni(): string;
+
+    /**
+     * Serialises the accessor's data to a `.env`-format string.
+     *
+     * Only flat (non-array) top-level values are emitted. Nested arrays are skipped silently.
+     *
+     * @note ENV values are always strings. Typed values (booleans, integers) are coerced to string,
+     *       so a round-trip through {@see \SafeAccessInline\Accessors\EnvAccessor} produces strings
+     *       rather than the original typed primitives.
+     *
+     * @return string A valid `.env` string with KEY=VALUE pairs per line.
+     */
+    public function toEnv(): string;
+
+    /**
+     * Converts the dataset to a structured PHP object.
+     *
+     * **Cross-Language Divergence:** In PHP, `toObject()` returns a `stdClass`
+     * object, which requires property access syntax (`$obj->property`).
+     * In JS/TS, `toObject()` returns a plain associative record (equivalent to
+     * PHP's associative array). If you need an associative structure, use `toArray()`.
+     *
+     * @return object stdClass representing the data structure
+     */
     public function toObject(): object;
 
     /**

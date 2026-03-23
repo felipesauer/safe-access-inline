@@ -297,16 +297,16 @@ trait HasArrayOperations
     /**
      * Sets `$value` at `$path` and returns a new accessor instance with the updated data.
      *
+     * Delegates to {@see AbstractAccessor::mutate()} so that `$data` never needs
+     * to be written from outside the owner class.
+     *
      * @param  string $path  Dot-notation path.
      * @param  mixed  $value Value to store.
      * @return static New instance with the applied change.
      */
     private function setInternal(string $path, mixed $value): static
     {
-        $newData = DotNotationParser::set($this->data, $path, $value);
-        $clone = clone $this;
-        $clone->data = $newData;
-        return $clone;
+        return $this->mutate(DotNotationParser::set($this->data, $path, $value));
     }
 
     /**

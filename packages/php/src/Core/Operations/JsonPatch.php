@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace SafeAccessInline\Core\Operations;
 
+use SafeAccessInline\Contracts\JsonPatchOperation;
 use SafeAccessInline\Enums\PatchOperationType;
 use SafeAccessInline\Exceptions\JsonPatchTestFailedException;
 use SafeAccessInline\Security\Guards\SecurityGuard;
@@ -11,16 +12,29 @@ use SafeAccessInline\Security\Guards\SecurityGuard;
 /**
  * JSON Patch operations per RFC 6902.
  * Provides diff generation and patch application.
+ *
+ * The JSON Patch `test` op checks that the value at `path` equals `value`.
+ * In **JavaScript**, an absent path yields `undefined`; in **PHP**, it yields `null`.
+ * Consequently, a `test` op with `"value": null` will:
+ *
+ *   - **PHP**: PASS when the path is absent (absent ≡ `null`)
+ *   - **JS**:  FAIL when the path is absent (`undefined !== null`)
+ *
+ * This is an expected cross-language difference. Callers targeting both platforms
+ * should only use `test` ops against paths that are *known to exist* in both
+ * environments, and should avoid relying on `null`-test semantics for absent paths.
+ *
+ * See plan item C5 for full context.
  */
 final class JsonPatch
 {
     /**
      * Generates a JSON Patch representing the differences between two arrays.
      *
-     * @param array<mixed> $a Source data
-     * @param array<mixed> $b Target data
-     * @param string $basePath Base JSON Pointer path
-     * @return array<array{op: string, path: string, value?: mixed, from?: string}>
+     * @param array<mixed> $a        Source data.
+     * @param array<mixed> $b        Target data.
+     * @param string       $basePath Base JSON Pointer path.
+     * @return JsonPatchOperation[]  Ordered list of typed patch operations.
      */
     public static function diff(array $a, array $b, string $basePath = ''): array
     {
@@ -29,7 +43,10 @@ final class JsonPatch
         // Removed keys
         foreach (array_keys($a) as $key) {
             if (!array_key_exists($key, $b)) {
-                $ops[] = ['op' => PatchOperationType::REMOVE->value, 'path' => $basePath . '/' . self::escapePointer((string) $key)];
+                $ops[] = new JsonPatchOperation(
+                    op:   PatchOperationType::REMOVE->value,
+                    path: $basePath . '/' . self::escapePointer((string) $key),
+                );
             }
         }
 
@@ -38,7 +55,11 @@ final class JsonPatch
             $pointer = $basePath . '/' . self::escapePointer((string) $key);
 
             if (!array_key_exists($key, $a)) {
-                $ops[] = ['op' => PatchOperationType::ADD->value, 'path' => $pointer, 'value' => $bVal];
+                $ops[] = new JsonPatchOperation(
+                    op:    PatchOperationType::ADD->value,
+                    path:  $pointer,
+                    value: $bVal,
+                );
             } elseif (!self::deepEqual($a[$key], $bVal)) {
                 $aVal = $a[$key];
 
@@ -47,7 +68,11 @@ final class JsonPatch
                 } elseif (is_array($aVal) && is_array($bVal) && array_is_list($aVal) && array_is_list($bVal)) {
                     $ops = array_merge($ops, self::diffArrays($aVal, $bVal, $pointer));
                 } else {
-                    $ops[] = ['op' => PatchOperationType::REPLACE->value, 'path' => $pointer, 'value' => $bVal];
+                    $ops[] = new JsonPatchOperation(
+                        op:    PatchOperationType::REPLACE->value,
+                        path:  $pointer,
+                        value: $bVal,
+                    );
                 }
             }
         }
@@ -59,7 +84,7 @@ final class JsonPatch
      * @param array<mixed> $a
      * @param array<mixed> $b
      * @param string $basePath
-     * @return array<array{op: string, path: string, value?: mixed}>
+     * @return JsonPatchOperation[]
      */
     private static function diffArrays(array $a, array $b, string $basePath): array
     {
@@ -69,14 +94,25 @@ final class JsonPatch
         for ($i = 0; $i < $maxLen; $i++) {
             $pointer = $basePath . '/' . $i;
             if ($i >= count($a)) {
-                $ops[] = ['op' => PatchOperationType::ADD->value, 'path' => $pointer, 'value' => $b[$i]];
+                $ops[] = new JsonPatchOperation(
+                    op:    PatchOperationType::ADD->value,
+                    path:  $pointer,
+                    value: $b[$i],
+                );
             } elseif ($i >= count($b)) {
-                $ops[] = ['op' => PatchOperationType::REMOVE->value, 'path' => $basePath . '/' . (count($a) - 1 - ($i - count($b)))];
+                $ops[] = new JsonPatchOperation(
+                    op:   PatchOperationType::REMOVE->value,
+                    path: $basePath . '/' . (count($a) - 1 - ($i - count($b))),
+                );
             } elseif (!self::deepEqual($a[$i], $b[$i])) {
                 if (is_array($a[$i]) && is_array($b[$i]) && !array_is_list($a[$i]) && !array_is_list($b[$i])) {
                     $ops = array_merge($ops, self::diff($a[$i], $b[$i], $pointer));
                 } else {
-                    $ops[] = ['op' => PatchOperationType::REPLACE->value, 'path' => $pointer, 'value' => $b[$i]];
+                    $ops[] = new JsonPatchOperation(
+                        op:    PatchOperationType::REPLACE->value,
+                        path:  $pointer,
+                        value: $b[$i],
+                    );
                 }
             }
         }
@@ -89,15 +125,15 @@ final class JsonPatch
      *
      * Checks that `move` and `copy` operations include the required `from` field.
      *
-     * @param array<array{op: string, path: string, value?: mixed, from?: string}> $ops
+     * @param JsonPatchOperation[] $ops
      * @throws \InvalidArgumentException When a `move` or `copy` operation is missing `from`.
      */
     public static function validatePatch(array $ops): void
     {
         foreach ($ops as $op) {
-            if (in_array($op['op'], [PatchOperationType::MOVE->value, PatchOperationType::COPY->value], true) && !isset($op['from'])) {
+            if (in_array($op->op, [PatchOperationType::MOVE->value, PatchOperationType::COPY->value], true) && $op->from === null) {
                 throw new \InvalidArgumentException(
-                    "JSON Patch '{$op['op']}' operation requires a 'from' field."
+                    "JSON Patch '{$op->op}' operation requires a 'from' field."
                 );
             }
         }
@@ -106,8 +142,8 @@ final class JsonPatch
     /**
      * Applies a JSON Patch to a data array. Returns a new array (immutable).
      *
-     * @param array<mixed> $data
-     * @param array<array{op: string, path: string, value?: mixed, from?: string}> $ops
+     * @param array<mixed>         $data
+     * @param JsonPatchOperation[] $ops
      * @return array<mixed>
      */
     public static function applyPatch(array $data, array $ops): array
@@ -124,34 +160,36 @@ final class JsonPatch
     }
 
     /**
-     * @param array<mixed> $result
-     * @param array{op: string, path: string, value?: mixed, from?: string} $op
-     * @return array<mixed>
+     * Applies a single typed JSON Patch operation to a data array.
+     *
+     * @param  array<mixed>       $result Current data state.
+     * @param  JsonPatchOperation $op     Typed patch operation to apply.
+     * @return array<mixed>               Updated data state.
      */
-    private static function applyOneOp(array $result, array $op): array
+    private static function applyOneOp(array $result, JsonPatchOperation $op): array
     {
-        switch ($op['op']) {
+        switch ($op->op) {
             case PatchOperationType::ADD->value:
             case PatchOperationType::REPLACE->value:
-                $result = self::setAtPointer($result, $op['path'], $op['value'] ?? null);
+                $result = self::setAtPointer($result, $op->path, $op->value);
                 break;
             case PatchOperationType::REMOVE->value:
-                $result = self::removeAtPointer($result, $op['path']);
+                $result = self::removeAtPointer($result, $op->path);
                 break;
             case PatchOperationType::MOVE->value:
-                $value = self::getAtPointer($result, $op['from'] ?? '');
-                $result = self::removeAtPointer($result, $op['from'] ?? '');
-                $result = self::setAtPointer($result, $op['path'], $value);
+                $value = self::getAtPointer($result, $op->from ?? '');
+                $result = self::removeAtPointer($result, $op->from ?? '');
+                $result = self::setAtPointer($result, $op->path, $value);
                 break;
             case PatchOperationType::COPY->value:
-                $value = self::getAtPointer($result, $op['from'] ?? '');
-                $result = self::setAtPointer($result, $op['path'], $value);
+                $value = self::getAtPointer($result, $op->from ?? '');
+                $result = self::setAtPointer($result, $op->path, $value);
                 break;
             case PatchOperationType::TEST->value:
-                $actual = self::getAtPointer($result, $op['path']);
-                if (!self::deepEqual($actual, $op['value'] ?? null)) {
+                $actual = self::getAtPointer($result, $op->path);
+                if (!self::deepEqual($actual, $op->value)) {
                     throw new JsonPatchTestFailedException(
-                        "Test operation failed: value at '{$op['path']}' does not match expected value."
+                        "Test operation failed: value at '{$op->path}' does not match expected value."
                     );
                 }
                 break;

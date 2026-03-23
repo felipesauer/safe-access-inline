@@ -30,6 +30,16 @@ interface ReadableInterface
     public function getMany(array $paths): array;
 
     /**
+     * Resolves a template path by substituting {key} placeholders, then retrieves the value.
+     *
+     * @param string $template Path template with {key} placeholders (e.g. 'users.{id}.name')
+     * @param array<string, string|int> $bindings Key-value pairs to substitute into the template
+     * @param mixed $default Fallback when the resolved path does not exist
+     * @return mixed
+     */
+    public function getTemplate(string $template, array $bindings = [], mixed $default = null): mixed;
+
+    /**
      * Returns all internal data as an associative array.
      *
      * @return array<mixed>

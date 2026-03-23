@@ -24,13 +24,17 @@ trait HasTransformations
     /**
      * Serialises the accessor's data to a JSON string.
      *
-     * @param  int    $flags Bitmask of {@see JSON_*} flags passed to `json_encode`.
+     * @param  int|bool $flags Bitmask of {@see JSON_*} flags passed to `json_encode`, or a boolean to toggle `JSON_PRETTY_PRINT`.
      * @return string JSON-encoded data.
      *
      * @throws \JsonException On encoding failure.
      */
-    public function toJson(int $flags = 0): string
+    public function toJson(int|bool $flags = 0): string
     {
+        if (is_bool($flags)) {
+            $flags = $flags ? JSON_PRETTY_PRINT : 0;
+        }
+
         return json_encode($this->data, $flags | JSON_THROW_ON_ERROR);
     }
 
@@ -183,10 +187,96 @@ trait HasTransformations
     }
 
     /**
-     * Transform data to a specific format using a registered serializer plugin.
-     * Falls back to built-in serializers for YAML and TOML.
+     * Serialises the accessor's data to an INI-format string.
      *
-     * @param string $format Format identifier (e.g., 'yaml', 'xml', 'toml')
+     * Top-level scalar values are emitted as `key = value` pairs.
+     * Top-level nested arrays are emitted as `[section]` blocks.
+     * Deeper nesting (arrays within sections) is serialised as a JSON string value.
+     * Delegates to a registered `'ini'` serializer plugin when available.
+     *
+     * @return string A valid INI string with sections for nested arrays.
+     */
+    public function toIni(): string
+    {
+        if (PluginRegistry::hasSerializer('ini')) {
+            return PluginRegistry::getSerializer('ini')->serialize($this->data);
+        }
+
+        $flatLines    = [];
+        $sectionBlocks = [];
+
+        foreach ($this->data as $key => $value) {
+            if (is_array($value)) {
+                $block = ["[{$key}]"];
+                foreach ($value as $subKey => $subValue) {
+                    $serialized = is_array($subValue)
+                        ? json_encode($subValue, JSON_THROW_ON_ERROR)
+                        : $subValue;
+                    $block[] = "{$subKey} = " . $this->serializeIniValue($serialized);
+                }
+                $sectionBlocks[] = implode("\n", $block);
+            } else {
+                $flatLines[] = "{$key} = " . $this->serializeIniValue($value);
+            }
+        }
+
+        $parts = [];
+        if ($flatLines !== []) {
+            $parts[] = implode("\n", $flatLines);
+        }
+        foreach ($sectionBlocks as $block) {
+            $parts[] = $block;
+        }
+
+        return implode("\n\n", $parts) . "\n";
+    }
+
+    /**
+     * Serialises the accessor's data to a `.env`-format string.
+     *
+     * Only flat (non-array) top-level values are emitted as `KEY=VALUE` pairs.
+     * Nested arrays are skipped silently — ENV is an inherently flat format.
+     * Values containing spaces are wrapped in double quotes.
+     * Delegates to a registered `'env'` serializer plugin when available.
+     *
+     * @return string A valid `.env` string with KEY=VALUE pairs per line.
+     */
+    public function toEnv(): string
+    {
+        if (PluginRegistry::hasSerializer('env')) {
+            return PluginRegistry::getSerializer('env')->serialize($this->data);
+        }
+
+        $lines = [];
+        foreach ($this->data as $key => $value) {
+            if (is_array($value)) {
+                continue;
+            }
+
+            if ($value === true) {
+                $str = 'true';
+            } elseif ($value === false) {
+                $str = 'false';
+            } elseif ($value === null) {
+                $str = '';
+            } elseif (is_scalar($value)) {
+                $str = (string) $value;
+            } else {
+                $str = '';
+            }
+
+            $quotedValue = str_contains($str, ' ') ? "\"" . $str . "\"" : $str;
+            $lines[]     = "{$key}={$quotedValue}";
+        }
+
+        return implode("\n", $lines) . "\n";
+    }
+
+    /**
+     * Transform data to a specific format using a registered serializer plugin.
+     * Falls back to built-in serializers for YAML, TOML, INI, and ENV.
+     *
+     * @param  string $format Format identifier (e.g., 'yaml', 'xml', 'toml', 'ini', 'env')
      * @return string Serialized output
      * @throws UnsupportedTypeException If no serializer is registered and no built-in fallback exists
      */
@@ -196,15 +286,56 @@ trait HasTransformations
             return PluginRegistry::getSerializer($format)->serialize($this->data);
         }
 
-        // Fall back to built-in serializers for YAML and TOML
         if ($format === 'yaml') {
             return $this->toYaml();
         }
         if ($format === 'toml') {
             return $this->toToml();
         }
+        if ($format === 'ini') {
+            return $this->toIni();
+        }
+        if ($format === 'env') {
+            return $this->toEnv();
+        }
 
         return PluginRegistry::getSerializer($format)->serialize($this->data);
+    }
+
+    /**
+     * Serialises a scalar value for use in an INI file.
+     *
+     * Booleans are emitted as `true`/`false`; `null` is emitted as `none` (the token
+     * that {@see \SafeAccessInline\Accessors\IniAccessor} maps back to `null` via
+     * `coerceBooleans()`). Numbers are cast to string without quoting so that
+     * `INI_SCANNER_TYPED` re-coerces them correctly on parse.
+     * String values containing INI special characters or whitespace are wrapped in double
+     * quotes unless they already contain a `"` (which would make quoting ambiguous).
+     *
+     * @param  mixed $value Scalar value to serialise.
+     * @return string INI-safe string representation.
+     */
+    private function serializeIniValue(mixed $value): string
+    {
+        if ($value === true) {
+            return 'true';
+        }
+        if ($value === false) {
+            return 'false';
+        }
+        if ($value === null) {
+            return 'none';
+        }
+        if (is_int($value) || is_float($value)) {
+            return (string) $value;
+        }
+
+        $str = is_string($value) ? $value : '';
+        if (preg_match('/[=;#\[\]\s]/', $str) && !str_contains($str, '"')) {
+            return '"' . $str . '"';
+        }
+
+        return $str;
     }
 
 }
