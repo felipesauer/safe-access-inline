@@ -13,6 +13,23 @@ Per-package changelogs are maintained automatically by [release-please](https://
 
 ## [Unreleased]
 
+### Documentation
+
+- **JS** — Fixed branch coverage to 100% (`XmlAccessor` — non-null assertion on always-captured regex group)
+- **PHP + JS** — Corrected `masked()` → `mask()` throughout all API reference and security docs
+- **PHP + JS** — Fixed `validate()` return type to `SchemaValidationResult`; removed incorrect "throws on failure" claim
+- **PHP + JS** — Fixed `streamCsv` / `streamNdjson` yield types to `ObjectAccessor` / `JsonAccessor`
+- **PHP** — Fixed `watchFile()` example to use returned `array{poll, stop}` instead of direct callable
+- **JS** — Fixed `defaultPolicy` references to call it as a function: `defaultPolicy()`
+- **PHP + JS** — Fixed CSV `'prefix'` mode description: prepends single quote `'`, not a tab
+- **JS** — Fixed `CsvMode.PREFIX` JSDoc to reflect single-quote prefix
+- **JS** — Fixed `deepFreeze` usage: exported standalone function, not a `SafeAccess` static method
+- **JS** — Removed `"undefined"` from `type()` possible return values
+- **PHP** — Added `maxPatternCacheSize` to `MaskerConfig` example
+- **JS** — Fixed `getGlobalPolicy()` return type comment: `SecurityPolicy | null`, not `| undefined`
+- **JS** — Added missing `getWildcard<T>` method to JS API reference
+- **JS** — Updated `toJson()` signature to include `options?: ToJsonOptions` parameter
+
 ## [0.2.2] — 2026-03-14
 
 ### Added
