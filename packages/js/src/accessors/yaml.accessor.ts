@@ -21,11 +21,11 @@ export class YamlAccessor<
      * @returns A new {@link YamlAccessor} instance.
      * @throws {InvalidFormatError} If `data` is not a string or fails to parse.
      */
-    static from(data: unknown): YamlAccessor {
+    static from(data: unknown, options?: { readonly?: boolean }): YamlAccessor {
         if (typeof data !== 'string') {
             throw new InvalidFormatError('YamlAccessor expects a YAML string.');
         }
-        return new YamlAccessor(data);
+        return new YamlAccessor(data, options);
     }
 
     /**

@@ -19,11 +19,11 @@ export class ObjectAccessor<
      * @returns A new {@link ObjectAccessor} instance.
      * @throws {InvalidFormatError} If `data` is not a non-null object.
      */
-    static from(data: unknown): ObjectAccessor {
+    static from(data: unknown, options?: { readonly?: boolean }): ObjectAccessor {
         if (typeof data !== 'object' || data === null) {
             throw new InvalidFormatError('ObjectAccessor expects an object.');
         }
-        return new ObjectAccessor(data);
+        return new ObjectAccessor(data, options);
     }
 
     /**

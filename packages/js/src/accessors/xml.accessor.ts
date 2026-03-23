@@ -38,11 +38,11 @@ export class XmlAccessor<
      * @throws {InvalidFormatError} If `data` is not a string.
      * @throws {SecurityError} If the XML contains DOCTYPE or ENTITY declarations.
      */
-    static from(data: unknown): XmlAccessor {
+    static from(data: unknown, options?: { readonly?: boolean }): XmlAccessor {
         if (typeof data !== 'string') {
             throw new InvalidFormatError('XmlAccessor expects an XML string.');
         }
-        return new XmlAccessor(data);
+        return new XmlAccessor(data, options);
     }
 
     /**
@@ -132,6 +132,12 @@ export class XmlAccessor<
     /**
      * Recursively parses child XML content into a plain record.
      *
+     * Elements without attributes and without child elements are stored as plain strings.
+     * Elements with attributes are represented as objects with an `@attributes` key containing
+     * a string record of `name → value` pairs — matching the shape produced by PHP's
+     * `json_encode(simplexml_load_string(...))` conversion.
+     * Elements with both attributes and text content additionally carry a `#text` key.
+     *
      * @param content - The inner XML content string.
      * @param depth - Current recursion depth (guards against excessive nesting).
      * @param maxDepth - Maximum allowed nesting depth from {@link ParserConfig.maxXmlDepth}.
@@ -157,21 +163,38 @@ export class XmlAccessor<
             const attrs = match[2] || match[5] || '';
             const innerContent = match[3] ?? '';
 
-            // Check attribute names for forbidden keys
-            const attrRegex = /(\w+)\s*=/g;
+            // Parse attribute key="value" or key='value' pairs; validate names for safety
+            const parsedAttrs: Record<string, string> = {};
+            const attrValueRegex = /(\w+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
             let attrMatch: RegExpExecArray | null;
-            while ((attrMatch = attrRegex.exec(attrs)) !== null) {
+            let hasAttributes = false;
+            while ((attrMatch = attrValueRegex.exec(attrs)) !== null) {
                 SecurityGuard.assertSafeKey(attrMatch[1]);
+                parsedAttrs[attrMatch[1]] = attrMatch[2] ?? attrMatch[3] ?? '';
+                hasAttributes = true;
             }
 
             // Check if inner content has child elements
             const hasChildElements = /<\w+[^>]*>/.test(innerContent);
+            const trimmedText = innerContent.trim();
 
             let value: unknown;
-            if (hasChildElements) {
-                value = XmlAccessor.parseChildren(innerContent, depth + 1, maxDepth);
+            if (hasAttributes || hasChildElements) {
+                // Produce a structured node: @attributes + children or #text
+                const node: Record<string, unknown> = {};
+                if (hasAttributes) {
+                    node['@attributes'] = parsedAttrs;
+                }
+                if (hasChildElements) {
+                    const children = XmlAccessor.parseChildren(innerContent, depth + 1, maxDepth);
+                    Object.assign(node, children);
+                } else if (trimmedText !== '') {
+                    // Mixed content: element has both attributes and text
+                    node['#text'] = trimmedText;
+                }
+                value = node;
             } else {
-                value = innerContent;
+                value = trimmedText;
             }
 
             // Handle repeated tags as arrays

@@ -15,11 +15,11 @@ export class EnvAccessor<
      * @returns A new {@link EnvAccessor} instance.
      * @throws {InvalidFormatError} If `data` is not a string.
      */
-    static from(data: unknown): EnvAccessor {
+    static from(data: unknown, options?: { readonly?: boolean }): EnvAccessor {
         if (typeof data !== 'string') {
             throw new InvalidFormatError('EnvAccessor expects an ENV string.');
         }
-        return new EnvAccessor(data);
+        return new EnvAccessor(data, options);
     }
 
     /**
