@@ -6,9 +6,17 @@ export { PatchOperationType } from './enums/patch-operation-type.enum';
 export { AuditEventType } from './enums/audit-event-type.enum';
 export { AbstractAccessor } from './core/abstract-accessor';
 export type { AccessorInterface } from './contracts/accessor.interface';
+export type { FileLoadOptions } from './contracts/file-load-options.interface';
+export type {
+    HttpClientInterface,
+    HttpRequestOptions,
+    HttpResponse,
+} from './contracts/http-client.interface';
+export type { DnsResolverInterface } from './contracts/dns-resolver.interface';
 export type { ReadableInterface } from './contracts/readable.interface';
 export type { WritableInterface } from './contracts/writable.interface';
 export type { TransformableInterface } from './contracts/transformable.interface';
+export type { CacheInterface } from './contracts/cache.interface';
 export type { AuditEvent, AuditListener } from './contracts/audit-event.interface';
 export type { FilterCondition, FilterExpression } from './contracts/filter-expression.interface';
 export type { JsonPatchOperation } from './contracts/json-patch-operation.interface';
@@ -43,11 +51,19 @@ export { diff, applyPatch, validatePatch } from './core/operations/json-patch';
 export { ReadonlyViolationError } from './exceptions/readonly-violation.error';
 export { PluginRegistry } from './core/registries/plugin-registry';
 export type { ParserPlugin, SerializerPlugin } from './core/registries/plugin-registry';
+export type { IPluginRegistry } from './contracts/plugin-registry.contract';
+export type { ISchemaRegistry } from './contracts/schema-registry.contract';
+export { ServiceContainer, defaultContainer } from './core/container';
 export { JsYamlParser } from './plugins/js-yaml.parser';
 export { JsYamlSerializer } from './plugins/js-yaml.serializer';
 export { SmolTomlParser } from './plugins/smol-toml.parser';
 export { SmolTomlSerializer } from './plugins/smol-toml.serializer';
 export type { DeepPaths, ValueAtPath } from './types/deep-paths';
+export { CompiledPath } from './types/compiled-path';
+/**
+ * @internal These utilities are exposed for internal CLI usage and should not be relied upon directly.
+ * They will be removed from the public API in a future major version.
+ */
 export {
     readFileSync,
     readFile,
@@ -55,6 +71,11 @@ export {
     resolveFormatFromExtension,
     assertPathWithinAllowedDirs,
 } from './core/io/io-loader';
+
+/**
+ * @internal These utilities are exposed for internal CLI usage and should not be relied upon directly.
+ * They will be removed from the public API in a future major version.
+ */
 export {
     assertSafeUrl,
     isPrivateIp,
@@ -62,6 +83,11 @@ export {
     isIpv6Loopback,
     assertResolvedIpNotPrivate,
 } from './security/sanitizers/ip-range-checker';
+
+/**
+ * @internal These utilities are exposed for internal CLI usage and should not be relied upon directly.
+ * They will be removed from the public API in a future major version.
+ */
 export { deepMerge } from './core/operations/deep-merger';
 export { PathCache } from './core/resolvers/path-cache';
 export type { SafeAccessConfig } from './core/config/safe-access-config';
@@ -78,11 +104,21 @@ export type { AuditConfig } from './core/config/audit-config';
 export { DEFAULT_AUDIT_CONFIG } from './core/config/audit-config';
 export type { FilterParserConfig } from './core/config/filter-parser-config';
 export { DEFAULT_FILTER_PARSER_CONFIG } from './core/config/filter-parser-config';
+export type { TraceSegment } from './contracts/trace-segment.interface';
+export { safeAccessMiddleware } from './integrations/express';
+export type { SafeAccessExpressOptions, RequestHandler } from './integrations/express';
+export { loadConfig as loadNextConfig } from './integrations/nextjs';
+export type { SafeAccessNextOptions } from './integrations/nextjs';
 export type { IoLoaderConfig } from './core/config/io-loader-config';
 export { DEFAULT_IO_LOADER_CONFIG } from './core/config/io-loader-config';
 export { configureIoLoader, resetIoLoaderConfig } from './core/io/io-loader';
 export { watchFile } from './core/io/file-watcher';
-export { sanitizeCsvCell, sanitizeCsvRow } from './security/sanitizers/csv-sanitizer';
+export {
+    sanitizeCsvCell,
+    sanitizeCsvRow,
+    sanitizeCsvHeaders,
+} from './security/sanitizers/csv-sanitizer';
+export { sanitizeHeaders } from './security/sanitizers/sanitize-headers';
 export { mask } from './security/sanitizers/data-masker';
 export type { MaskPattern } from './security/sanitizers/data-masker';
 export {

@@ -9,4 +9,12 @@ export default defineConfig({
     format: ['cjs', 'esm'],
     dts: true,
     clean: true,
+    esbuildOptions(options) {
+        // optional-require.ts guards import.meta.url at runtime — in CJS output
+        // it correctly falls back to the native require. Suppress the spurious warning.
+        options.logOverride = {
+            ...options.logOverride,
+            'empty-import-meta': 'silent',
+        };
+    },
 });

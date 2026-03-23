@@ -4,6 +4,7 @@ export default defineConfig({
     test: {
         globals: true,
         setupFiles: ['./tests/setup.ts'],
+        exclude: ['**/node_modules/**', '**/.stryker-tmp/**'],
         coverage: {
             provider: 'v8',
             reporter: ['text', 'lcov', 'clover'],
