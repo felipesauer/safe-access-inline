@@ -56,6 +56,14 @@ import { CompiledPath } from './types/compiled-path';
  * file watching, audit listeners, and a custom-accessor extension point.
  */
 export class SafeAccess {
+    /**
+     * @remarks
+     * **Static module-level state:** `customAccessors` is shared across the entire process.
+     * In long-running runtimes (Bun, Node.js cluster workers, Nitro, Fastify), accessors
+     * registered in one request persist into subsequent requests. Call
+     * {@link SafeAccess.clearCustomAccessors} in your worker boot/reset hook to prevent
+     * stale registrations from leaking between requests.
+     */
     private static customAccessors = new Map<string, new (data: unknown) => AbstractAccessor>();
 
     // ── Unified Factory ─────────────────────────────

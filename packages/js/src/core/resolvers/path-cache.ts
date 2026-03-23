@@ -7,6 +7,14 @@ type Segment = { type: string; [key: string]: unknown };
  *
  * Backed by a `Map` whose insertion order provides O(1) eviction of the
  * oldest entry when the cache exceeds {@link CacheConfig.maxSize}.
+ *
+ * @remarks
+ * **Static module-level state:** `PathCache` holds a single module-level cache
+ * shared across all code in the same module instance. In long-running runtimes
+ * (Bun, Node.js cluster workers, Nitro, Fastify) this state persists for the
+ * lifetime of the process. Call {@link PathCache.clear} in your worker boot/reset
+ * hook when you need a clean slate between requests.
+ * PHP alignment: mirrors the equivalent warning in `PathCache.php`.
  */
 export class PathCache {
     private static config: CacheConfig = DEFAULT_CACHE_CONFIG;

@@ -17,16 +17,31 @@ export type { DnsResolverInterface } from './contracts/dns-resolver.interface';
 export type { ReadableInterface } from './contracts/readable.interface';
 export type { WritableInterface } from './contracts/writable.interface';
 export type { TransformableInterface, ToJsonOptions } from './contracts/transformable.interface';
+/**
+ * @internal Implementation detail exposed for advanced use cases. Do not rely on this in application code.
+ */
 export type { CacheInterface } from './contracts/cache.interface';
 export type { AuditEvent, AuditListener } from './contracts/audit-event.interface';
 export type { FilterCondition, FilterExpression } from './contracts/filter-expression.interface';
 export type { JsonPatchOperation } from './contracts/json-patch-operation.interface';
 export { DotNotationParser } from './core/parsers/dot-notation-parser';
+/**
+ * @internal Implementation detail exposed for advanced use cases. Do not rely on this in application code.
+ */
 export { SegmentParser } from './core/parsers/segment-parser';
 export type { Segment } from './core/parsers/segment-parser';
+/**
+ * @internal Implementation detail exposed for advanced use cases. Do not rely on this in application code.
+ */
 export { PathResolver } from './core/resolvers/path-resolver';
 export { renderTemplate } from './core/rendering/template-renderer';
+/**
+ * @internal Implementation detail exposed for advanced use cases. Do not rely on this in application code.
+ */
 export { ArrayOperations } from './core/operations/array-operations';
+/**
+ * @internal Implementation detail exposed for advanced use cases. Do not rely on this in application code.
+ */
 export { FormatSerializer } from './core/rendering/format-serializer';
 export { FilterParser } from './core/parsers/filter-parser';
 export { TypeDetector } from './core/rendering/type-detector';
@@ -46,6 +61,9 @@ export { PathNotFoundError } from './exceptions/path-not-found.error';
 export { UnsupportedTypeError } from './exceptions/unsupported-type.error';
 export { SecurityError } from './exceptions/security.error';
 export { JsonPatchTestFailedError } from './exceptions/json-patch-test-failed.error';
+/**
+ * @internal Implementation detail exposed for advanced use cases. Do not rely on this in application code.
+ */
 export { SecurityGuard } from './security/guards/security-guard';
 export { deepFreeze } from './core/operations/deep-freeze';
 export { diff, applyPatch, validatePatch } from './core/operations/json-patch';
@@ -65,13 +83,8 @@ export { CompiledPath } from './types/compiled-path';
  * @internal These utilities are exposed for internal CLI usage and should not be relied upon directly.
  * They will be removed from the public API in a future major version.
  */
-export {
-    readFileSync,
-    readFile,
-    fetchUrl,
-    resolveFormatFromExtension,
-    assertPathWithinAllowedDirs,
-} from './core/io/io-loader';
+export { readFileSync, readFile, fetchUrl } from './core/io/io-loader';
+export { resolveFormatFromExtension, assertPathWithinAllowedDirs } from './core/io/io-loader';
 
 /**
  * @internal These utilities are exposed for internal CLI usage and should not be relied upon directly.

@@ -421,7 +421,7 @@ export class FilterParser {
                 return left * right;
             case '/':
                 return right !== 0 ? left / right : undefined;
-            /* v8 ignore start */
+            /* v8 ignore start — default unreachable: TypeScript type narrowing ensures the switch is always one of '+' | '-' | '*' | '/' */
             default:
                 return undefined;
             /* v8 ignore stop */
