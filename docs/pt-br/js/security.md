@@ -6,10 +6,19 @@ outline: deep
 
 ## Índice
 
-- [Segurança](#segurança)
-- [Validação de Schema](#validação-de-schema)
-- [Log de Auditoria](#log-de-auditoria)
-- [Integrações de Framework](#integrações-de-framework)
+- [Segurança \& Integrações — JavaScript / TypeScript](#segurança--integrações--javascript--typescript)
+    - [Índice](#índice)
+    - [Segurança](#segurança)
+        - [SecurityPolicy](#securitypolicy)
+            - [Presets de Política](#presets-de-política)
+            - [Política Global](#política-global)
+        - [Mascaramento de dados](#mascaramento-de-dados)
+        - [Readonly \& Deep Freeze](#readonly--deep-freeze)
+    - [Validação de Schema](#validação-de-schema)
+    - [Log de Auditoria](#log-de-auditoria)
+    - [Integrações de Framework](#integrações-de-framework)
+        - [NestJS](#nestjs)
+        - [Vite](#vite)
 
 ## Segurança
 
@@ -27,7 +36,7 @@ import {
     getGlobalPolicy,
 } from "@safe-access-inline/safe-access-inline";
 
-const policy: SecurityPolicy = mergePolicy(defaultPolicy, {
+const policy: SecurityPolicy = mergePolicy(defaultPolicy(), {
     maxDepth: 128,
     maxPayloadBytes: 1_048_576,
     allowedDirs: ["/app/config"],
@@ -62,7 +71,7 @@ Defina uma política global que se aplica como padrão para todas as operações
 
 ```typescript
 setGlobalPolicy(STRICT_POLICY);
-const current = getGlobalPolicy(); // SecurityPolicy | undefined
+const current = getGlobalPolicy(); // SecurityPolicy | null
 clearGlobalPolicy();
 
 // Ou via facade SafeAccess
@@ -79,13 +88,13 @@ const accessor = SafeAccess.fromObject({
     api_key: "abc-123",
 });
 
-const safe = accessor.masked();
+const safe = accessor.mask();
 safe.get("password"); // '[REDACTED]'
 safe.get("api_key"); // '[REDACTED]'
 safe.get("user"); // 'Ana'
 
 // Padrões customizados
-const custom = accessor.masked(["custom_secret", /.*_token/]);
+const custom = accessor.mask(["custom_secret", /.*_token/]);
 ```
 
 ### Readonly & Deep Freeze
@@ -97,7 +106,8 @@ ro.get("key"); // 'value'
 ro.set("key", "new"); // lança ReadonlyViolationError
 
 // Deep freeze — previne poluição de protótipo no objeto de dados
-SafeAccess.deepFreeze(myObject);
+import { deepFreeze } from "@safe-access-inline/safe-access-inline";
+deepFreeze(myObject);
 ```
 
 ---

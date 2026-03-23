@@ -115,7 +115,7 @@ import {
     defaultPolicy,
 } from "@safe-access-inline/safe-access-inline";
 
-const policy = mergePolicy(defaultPolicy, { csvMode: "strip" });
+const policy = mergePolicy(defaultPolicy(), { csvMode: "strip" });
 const accessor = SafeAccess.withPolicy(csvString, policy);
 ```
 

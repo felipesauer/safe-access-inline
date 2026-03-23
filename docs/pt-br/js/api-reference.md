@@ -251,6 +251,16 @@ accessor.getMany({
 // { 'user.name': 'Ana', 'user.email': 'N/A' }
 ```
 
+#### `getWildcard<T = unknown>(path: string, defaultValue?: T[]): T[]`
+
+Wrapper de conveniência para caminhos com wildcard — sempre retorna um array tipado. Equivalente a chamar `get()` com um caminho contendo `*` ou `.**`, mas com garantia explícita de retorno como array tipado.
+
+```typescript
+accessor.getWildcard("users.*.name"); // ['Alice', 'Bob', 'Charlie']
+accessor.getWildcard("items.*.price", []); // [] se caminho não encontrado
+accessor.getWildcard<number>("prices.*", [0]); // [1.99, 2.49, 3.00]
+```
+
 #### `has(path: string): boolean`
 
 Verifica se um caminho existe nos dados.
@@ -299,7 +309,7 @@ Verifica se um caminho existe usando um array de segmentos.
 
 Retorna o tipo normalizado do valor no caminho dado, ou `null` se o caminho não existir.
 
-Valores possíveis: `"string"`, `"number"`, `"bool"`, `"object"`, `"array"`, `"null"`, `"undefined"`.
+Valores possíveis: `"string"`, `"number"`, `"bool"`, `"object"`, `"array"`, `"null"`.
 
 ```typescript
 accessor.type("name"); // "string"
@@ -385,7 +395,7 @@ Remove um caminho usando um array de segmentos. Retorna uma **nova instância**.
 
 Retorna uma cópia rasa dos dados. Intenção semântica: "converter para formato array/objeto". Atualmente idêntico a `all()`, mas semanticamente distinto para extensibilidade futura.
 
-#### `toJson(pretty?: boolean): string`
+#### `toJson(pretty?: boolean, options?: ToJsonOptions): string`
 
 Converte para string JSON.
 
@@ -575,18 +585,18 @@ accessor.nth("items", 99, "fallback"); // "fallback"
 
 ### Segurança & Validação
 
-#### `masked(patterns?: MaskPattern[]): AbstractAccessor`
+#### `mask(patterns?: MaskPattern[]): AbstractAccessor`
 
 Retorna uma **nova instância** com valores sensíveis mascarados. Sem patterns, auto-detecta chaves sensíveis comuns (password, secret, token, api_key, etc.). Com patterns, mascara adicionalmente chaves que correspondem aos padrões wildcard.
 
 ```typescript
-const safe = accessor.masked(); // auto-mascara chaves comuns
-const custom = accessor.masked(["api_*", "credentials"]); // padrões customizados
+const safe = accessor.mask(); // auto-mascara chaves comuns
+const custom = accessor.mask(["api_*", "credentials"]); // padrões customizados
 ```
 
-#### `validate<TSchema>(schema: TSchema, adapter?: SchemaAdapterInterface): this`
+#### `validate<TSchema>(schema: TSchema, adapter?: SchemaAdapterInterface): SchemaValidationResult`
 
-Valida os dados contra um schema usando o adapter fornecido (ou o adapter padrão definido via `SchemaRegistry`). Retorna `this` se válido; lança `SchemaValidationError` se inválido.
+Valida os dados contra um schema usando o adapter fornecido (ou o adapter padrão definido via `SchemaRegistry`). Retorna um `SchemaValidationResult` — verifique `result.valid` para determinar o sucesso. Não lança exceção em caso de falha na validação.
 
 ```typescript
 import { SchemaRegistry } from "@safe-access-inline/safe-access-inline";
@@ -594,8 +604,13 @@ import { SchemaRegistry } from "@safe-access-inline/safe-access-inline";
 // Registrar um adapter de schema padrão (ex: Zod)
 SchemaRegistry.setDefaultAdapter(myZodAdapter);
 
-// Validar inline
-accessor.validate(mySchema);
+// Validar e verificar resultado
+const result = accessor.validate(mySchema);
+if (result.valid) {
+    accessor.get("name"); // acesso seguro
+} else {
+    console.log(result.errors);
+}
 ```
 
 ### Readonly

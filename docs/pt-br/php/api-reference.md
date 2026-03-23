@@ -603,30 +603,35 @@ $accessor->transform('csv');
 
 ### Segurança & Validação
 
-#### `masked(array $patterns = []): static`
+#### `mask(array $patterns = []): static`
 
 Retorna uma **nova instância** com dados sensíveis substituídos por `[REDACTED]`. Auto-detecta chaves comuns (password, token, secret, api_key, etc.). Padrões glob customizados podem ser fornecidos.
 
 ```php
-$safe = $accessor->masked();
+$safe = $accessor->mask();
 $safe->get('database.password'); // '[REDACTED]'
 
 // Com padrões customizados
-$safe = $accessor->masked(['*_key', 'credentials.*']);
+$safe = $accessor->mask(['*_key', 'credentials.*']);
 ```
 
-#### `validate(mixed $schema, ?SchemaAdapterInterface $adapter = null): static`
+#### `validate(mixed $schema, ?SchemaAdapterInterface $adapter = null): SchemaValidationResult`
 
-Valida dados contra um schema. Usa o adapter padrão do `SchemaRegistry` se nenhum for fornecido. Lança `SchemaValidationException` em caso de falha. Retorna `$this` para encadeamento fluente.
+Valida dados contra um schema. Usa o adapter padrão do `SchemaRegistry` se nenhum for fornecido. Retorna um `SchemaValidationResult` — verifique `$result->valid` para determinar o sucesso. Não lança exceção em caso de falha na validação.
 
 ```php
 use SafeAccessInline\Core\Registries\SchemaRegistry;
 
 SchemaRegistry::setDefaultAdapter($myAdapter);
-$accessor->validate($schema)->get('name'); // encadeamento fluente
+$result = $accessor->validate($schema);
+if ($result->valid) {
+    $accessor->get('name'); // acesso seguro
+} else {
+    print_r($result->errors);
+}
 
 // Com adapter explícito
-$accessor->validate($schema, new MySchemaAdapter());
+$result = $accessor->validate($schema, new MySchemaAdapter());
 ```
 
 ### Readonly
