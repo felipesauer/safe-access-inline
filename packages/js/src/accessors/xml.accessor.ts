@@ -170,7 +170,8 @@ export class XmlAccessor<
             let hasAttributes = false;
             while ((attrMatch = attrValueRegex.exec(attrs)) !== null) {
                 SecurityGuard.assertSafeKey(attrMatch[1]);
-                parsedAttrs[attrMatch[1]] = attrMatch[2] ?? attrMatch[3] ?? '';
+                // The regex alternation guarantees either group 2 (double-quote) or group 3 (single-quote) is captured
+                parsedAttrs[attrMatch[1]] = attrMatch[2] ?? attrMatch[3]!;
                 hasAttributes = true;
             }
 

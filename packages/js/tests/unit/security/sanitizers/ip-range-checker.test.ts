@@ -396,6 +396,34 @@ describe('resolveAndValidateIp — edge cases', () => {
         expect(result).toBe('8.8.8.8');
     });
 
+    it('returns v6 address via dnsResolver injection when only AAAA records resolve (kills v6 fallback branch)', async () => {
+        // Uses the dnsResolver injection path to avoid lazy-import coverage gaps
+        // and deterministically cover the `if (v6Addresses.length > 0)` return on line 237.
+        const result = await resolveAndValidateIp('v6only.example.com', {
+            dnsResolver: {
+                resolve4: async () => [],
+                resolve6: async () => ['2001:db8::1'],
+            },
+        });
+        expect(result).toBe('2001:db8::1');
+    });
+
+    it('returns null from catch block when dnsResolver.resolve4 throws a non-SecurityError synchronously', async () => {
+        // Covers the `return null` on the catch branch (line 237).
+        // A synchronous throw from resolve4 propagates before .catch(() => []) is chained,
+        // so the outer try/catch receives it. Since it's not a SecurityError, the catch
+        // block swallows it and returns null.
+        const result = await resolveAndValidateIp('example.com', {
+            dnsResolver: {
+                resolve4: () => {
+                    throw new TypeError('unexpected sync failure');
+                },
+                resolve6: async () => [],
+            },
+        });
+        expect(result).toBeNull();
+    });
+
     it('throws SecurityError when v4 address resolves to a private IP', async () => {
         const dns = await import('node:dns/promises');
         vi.mocked(dns.resolve4).mockResolvedValueOnce(['10.0.0.1']);

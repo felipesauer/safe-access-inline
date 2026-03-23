@@ -212,6 +212,14 @@ describe(XmlAccessor.name, () => {
         expect(acc.has('br')).toBe(true);
     });
 
+    it('parses element with single-quoted attribute value', () => {
+        // Exercises the attrMatch[2] ?? attrMatch[3]! branch where attrMatch[2] is undefined
+        const xml = "<root><item lang='en'>hello</item></root>";
+        const acc = XmlAccessor.from(xml);
+        expect(acc.get('item.@attributes.lang')).toBe('en');
+        expect(acc.get('item.#text')).toBe('hello');
+    });
+
     it('parses element with no attributes and no self-closing (plain element)', () => {
         // Exercises the match[2] empty-string fallback (attrs = '' or match[5])
         const xml = '<root><plain>val</plain></root>';

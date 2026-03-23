@@ -4,7 +4,7 @@
 export enum CsvMode {
     /** No protection. Values are serialised as-is. */
     NONE = 'none',
-    /** Prefix unsafe values with a tab character. */
+    /** Prefix unsafe values with a single quote (`'`). */
     PREFIX = 'prefix',
     /** Strip leading unsafe characters (+, -, =, @). */
     STRIP = 'strip',

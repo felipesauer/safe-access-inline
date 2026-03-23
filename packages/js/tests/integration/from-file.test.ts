@@ -57,6 +57,33 @@ describe('SafeAccess.fromFile / fromFileSync / fromUrl', () => {
                 SafeAccess.fromFileSync('/etc/hostname', { allowedDirs: [fixturesDir] }),
             ).toThrow(SecurityError);
         });
+
+        it('throws SecurityError when file extension is not in allowedExtensions', () => {
+            // Extension check runs before file I/O — no real file needed
+            expect(() =>
+                SafeAccess.fromFileSync('/app/config.txt', {
+                    allowedExtensions: ['.json'],
+                    allowAnyPath: true,
+                }),
+            ).toThrow(SecurityError);
+        });
+
+        it('allows file when extension matches allowedExtensions', () => {
+            const acc = SafeAccess.fromFileSync(path.join(fixturesDir, 'config.json'), {
+                allowedExtensions: ['.json'],
+                allowedDirs: [fixturesDir],
+            });
+            expect(acc.get('app.name')).toBe('test-app');
+        });
+
+        it('throws SecurityError when file exceeds maxSize', () => {
+            expect(() =>
+                SafeAccess.fromFileSync(path.join(fixturesDir, 'config.json'), {
+                    allowedDirs: [fixturesDir],
+                    maxSize: 1,
+                }),
+            ).toThrow(SecurityError);
+        });
     });
 
     describe('fromFile() (async)', () => {
@@ -70,6 +97,15 @@ describe('SafeAccess.fromFile / fromFileSync / fromUrl', () => {
         it('enforces allowedDirs', async () => {
             await expect(
                 SafeAccess.fromFile('/etc/hostname', { allowedDirs: [fixturesDir] }),
+            ).rejects.toThrow(SecurityError);
+        });
+
+        it('throws SecurityError when file exceeds maxSize (async)', async () => {
+            await expect(
+                SafeAccess.fromFile(path.join(fixturesDir, 'config.json'), {
+                    allowedDirs: [fixturesDir],
+                    maxSize: 1,
+                }),
             ).rejects.toThrow(SecurityError);
         });
     });
