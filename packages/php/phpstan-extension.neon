@@ -1,0 +1,26 @@
+##
+# phpstan-extension.neon
+#
+# SafeAccessInline PHPStan extension — D1: DeepPaths approximation.
+#
+# Include this file in your project's phpstan.neon to enable return-type
+# narrowing for `AbstractAccessor::get()` calls when the accessor is
+# annotated with an explicit generic shape.
+#
+# Example phpstan.neon:
+#
+#   includes:
+#       - vendor/safe-access-inline/safe-access-inline/phpstan-extension.neon
+#
+# Then annotate your accessors:
+#
+#   /** @var JsonAccessor<array{name: string, age: int}> $acc */
+#   $acc = SafeAccess::fromJson($json);
+#   $name = $acc->get('name'); // PHPStan: string|null
+##
+
+services:
+    -
+        class: SafeAccessInline\PHPStan\GetReturnTypeExtension
+        tags:
+            - phpstan.broker.dynamicMethodReturnTypeExtension
