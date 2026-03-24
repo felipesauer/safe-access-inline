@@ -69,12 +69,6 @@ describe(ObjectAccessor::class, function () {
         expect(json_decode($accessor->toJson(), true))->toBe(['name' => 'Ana']);
     });
 
-    it('toObject', function () {
-        $accessor = ObjectAccessor::from((object) ['name' => 'Ana']);
-        $obj = $accessor->toObject();
-        expect($obj->name)->toBe('Ana');
-    });
-
     it('type', function () {
         $accessor = ObjectAccessor::from((object) ['name' => 'Ana', 'age' => 30]);
         expect($accessor->type('name'))->toBe('string');

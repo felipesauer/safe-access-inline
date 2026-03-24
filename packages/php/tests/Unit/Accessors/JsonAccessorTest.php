@@ -80,17 +80,11 @@ describe(JsonAccessor::class, function () {
         expect(json_decode($accessor->toJson(), true))->toBe(['name' => 'Ana']);
     });
 
-    it('toObject', function () {
-        $accessor = JsonAccessor::from('{"name": "Ana"}');
-        $obj = $accessor->toObject();
-        expect($obj->name)->toBe('Ana');
-    });
-
     it('type', function () {
         $accessor = JsonAccessor::from('{"s": "str", "n": 42, "b": true, "a": [1]}');
         expect($accessor->type('s'))->toBe('string');
         expect($accessor->type('n'))->toBe('number');
-        expect($accessor->type('b'))->toBe('bool');
+        expect($accessor->type('b'))->toBe('boolean');
         expect($accessor->type('a'))->toBe('array');
         expect($accessor->type('missing'))->toBeNull();
     });

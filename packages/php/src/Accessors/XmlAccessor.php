@@ -19,7 +19,8 @@ use SafeAccessInline\Security\Guards\SecurityOptions;
  */
 class XmlAccessor extends AbstractAccessor
 {
-    private \SimpleXMLElement|string $originalXml;
+    /** @var string Original XML preserved in its serialized string form. */
+    private string $originalXml;
 
     /**
      * Creates an XmlAccessor from an XML string or SimpleXMLElement.
@@ -51,7 +52,9 @@ class XmlAccessor extends AbstractAccessor
     protected function parse(mixed $raw): array
     {
         assert(is_string($raw) || $raw instanceof \SimpleXMLElement);
-        $this->originalXml = $raw;
+        // Normalize to string immediately so that getOriginalXml() always returns string,
+        // matching the JS counterpart which never exposes a parsed XML object.
+        $this->originalXml = $raw instanceof \SimpleXMLElement ? ($raw->asXML() ?: '') : $raw;
 
         if (is_string($raw)) {
             self::assertSafeXml($raw);
@@ -83,10 +86,15 @@ class XmlAccessor extends AbstractAccessor
     }
 
     /**
-     * Returns the original XML exactly as provided.
-     * @return \SimpleXMLElement|string
+     * Returns the original XML exactly as provided, serialized to a string.
+     *
+     * When the accessor was constructed from a `\SimpleXMLElement`, that object is
+     * serialized via `asXML()` at construction time so that this method always returns
+     * a plain string — matching the JS counterpart's `getOriginalXml(): string` signature.
+     *
+     * @return string The original XML string.
      */
-    public function getOriginalXml(): \SimpleXMLElement|string
+    public function getOriginalXml(): string
     {
         return $this->originalXml;
     }
@@ -135,10 +143,6 @@ class XmlAccessor extends AbstractAccessor
     /** {@inheritDoc} */
     public function toXml(string $rootElement = 'root'): string
     {
-        if (is_string($this->originalXml)) {
-            return $this->originalXml;
-        }
-
-        return $this->originalXml->asXML() ?: '';
+        return $this->originalXml;
     }
 }

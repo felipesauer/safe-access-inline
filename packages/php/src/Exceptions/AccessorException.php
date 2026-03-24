@@ -12,7 +12,7 @@ namespace SafeAccessInline\Exceptions;
 class AccessorException extends \RuntimeException implements \Throwable
 {
     /**
-     * @param string     $message  Human-readable description of the error.
+     * @param string     $message  Description of the error.
      * @param int        $code     Optional exception code.
      * @param \Throwable|null $previous Optional previous exception for chaining.
      */

@@ -9,7 +9,6 @@ use SafeAccessInline\Contracts\PluginRegistryInterface;
 use SafeAccessInline\Contracts\SerializerPluginInterface;
 use SafeAccessInline\Core\Config\PluginRegistryConfig;
 use SafeAccessInline\Exceptions\UnsupportedTypeException;
-use SafeAccessInline\Security\Audit\AuditLogger;
 
 /**
  * Concrete, instantiable implementation of {@see PluginRegistryInterface}.
@@ -50,13 +49,6 @@ final class PluginRegistryImpl implements PluginRegistryInterface
                     self::MAX_PARSERS,
                 )
             );
-        }
-        if (isset($this->parsers[$format])) {
-            AuditLogger::emit('plugin.overwrite', [
-                'kind' => 'parser',
-                'format' => $format,
-                'message' => "Parser for format '{$format}' is being overwritten.",
-            ]);
         }
         $this->parsers[$format] = $parser;
     }
@@ -103,13 +95,6 @@ final class PluginRegistryImpl implements PluginRegistryInterface
                     self::MAX_SERIALIZERS,
                 )
             );
-        }
-        if (isset($this->serializers[$format])) {
-            AuditLogger::emit('plugin.overwrite', [
-                'kind' => 'serializer',
-                'format' => $format,
-                'message' => "Serializer for format '{$format}' is being overwritten.",
-            ]);
         }
         $this->serializers[$format] = $serializer;
     }

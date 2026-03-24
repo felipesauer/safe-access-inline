@@ -36,8 +36,5 @@
         <include>
             <directory>src</directory>
         </include>
-        <exclude>
-            <directory>src/Integrations</directory>
-        </exclude>
     </source>
 </phpunit>

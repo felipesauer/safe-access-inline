@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SafeAccessInline\Core\Parsers;
 
 use SafeAccessInline\Enums\SegmentType;
+use SafeAccessInline\Exceptions\InvalidFormatException;
 
 /**
  * Parses dot-notation path strings into structured segment arrays.
@@ -188,8 +189,11 @@ final class SegmentParser
                     $sliceParts = explode(':', $inner);
                     $start = $sliceParts[0] !== '' ? (int) $sliceParts[0] : null;
                     $end = count($sliceParts) > 1 && $sliceParts[1] !== '' ? (int) $sliceParts[1] : null;
-                    $step = count($sliceParts) > 2 && $sliceParts[2] !== '' ? (int) $sliceParts[2] : null;
-                    $segments[] = ['type' => SegmentType::SLICE, 'start' => $start, 'end' => $end, 'step' => $step];
+                    $rawStep = count($sliceParts) > 2 && $sliceParts[2] !== '' ? (int) $sliceParts[2] : null;
+                    if ($rawStep === 0) {
+                        throw new InvalidFormatException('Slice step cannot be zero.');
+                    }
+                    $segments[] = ['type' => SegmentType::SLICE, 'start' => $start, 'end' => $end, 'step' => $rawStep];
                     continue;
                 }
 

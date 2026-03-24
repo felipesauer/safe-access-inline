@@ -4,12 +4,7 @@
 
 ### Documentation
 
-- Corrected `masked()` → `mask()` throughout API reference and security docs
-- Fixed `validate()` return type to `SchemaValidationResult`; removed incorrect "throws on failure" claim
-- Fixed `streamCsv` / `streamNdjson` yield types to `ObjectAccessor` / `JsonAccessor`
-- Fixed `watchFile()` example to use returned `array{poll, stop}` instead of direct callable
 - Fixed CSV `'prefix'` mode description: prepends single quote `'`, not a tab
-- Added `maxPatternCacheSize` to `MaskerConfig` configuration example
 
 ## [0.3.1](https://github.com/felipesauer/safe-access-inline/compare/php-v0.3.0...php-v0.3.1) (2026-03-19)
 

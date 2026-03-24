@@ -8,10 +8,8 @@
         "safe-access",
         "dot-notation",
         "nested-data",
-        "laravel",
         "json",
         "yaml",
-        "schema",
         "plugins"
     ],
     "homepage": "https://github.com/felipesauer/safe-access-inline",
@@ -28,7 +26,6 @@
     },
     "require": {
         "php": "^8.2",
-        "ext-curl": "*",
         "ext-json": "*",
         "ext-simplexml": "*",
         "ext-libxml": "*"
@@ -41,16 +38,12 @@
         "devium/toml": "^1.0",
         "symfony/yaml": "^8.0",
         "spatie/phpunit-snapshot-assertions": "^5.3",
-        "phpbench/phpbench": "^1.5",
-        "psr/simple-cache": "^3.0",
-        "respect/validation": "^2.4"
+        "phpbench/phpbench": "^1.5"
     },
     "suggest": {
         "ext-yaml": "Preferred YAML engine — when installed, used automatically over symfony/yaml for better performance",
         "symfony/yaml": "Required for YAML parsing when ext-yaml is not available (^8.0)",
-        "devium/toml": "Required for TOML parsing (^1.0)",
-        "psr/simple-cache": "Required for remember()/forget() cache integration methods (^3.0)",
-        "respect/validation": "Required for RespectValidationAdapter schema validation support (^2.4)"
+        "devium/toml": "Required for TOML parsing (^1.0)"
     },
     "autoload": {
         "psr-4": {
@@ -79,16 +72,6 @@
             "php scripts/fix-junit.php",
             "vendor/bin/infection --threads=4 --min-msi=100 --min-covered-msi=100 --coverage=.infection.cache/infection --skip-initial-tests"
         ]
-    },
-    "extra": {
-        "laravel": {
-            "providers": [
-                "SafeAccessInline\\Integrations\\LaravelServiceProvider"
-            ],
-            "aliases": {
-                "SafeAccess": "SafeAccessInline\\Integrations\\LaravelFacade"
-            }
-        }
     },
     "funding": [
         {

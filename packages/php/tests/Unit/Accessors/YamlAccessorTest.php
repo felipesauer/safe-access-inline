@@ -176,7 +176,7 @@ describe(YamlAccessor::class, function () {
         $accessor = SafeAccess::fromYaml('ignored');
         expect($accessor->type('name'))->toBe('string');
         expect($accessor->type('age'))->toBe('number');
-        expect($accessor->type('active'))->toBe('bool');
+        expect($accessor->type('active'))->toBe('boolean');
     });
 
     it('handles empty YAML returning empty array via symfony', function () {

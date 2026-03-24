@@ -22,9 +22,17 @@ trait HasWildcardSupport
      *
      * Example: ->getWildcard('users.*.name') returns ['Ana', 'Bob']
      *
+     * Annotate the local variable with `@var` to enable IDE type inference
+     * (PHP has no native runtime generics):
+     * ```php
+     * // @var list<string> $names
+     * $names = $accessor->getWildcard('users.*.name');
+     * ```
+     *
+     * @template T
      * @param string $path Path with wildcard (*)
      * @param mixed $default Default value for each unmatched item
-     * @return array<mixed>
+     * @return list<T>
      */
     public function getWildcard(string $path, mixed $default = null): array
     {

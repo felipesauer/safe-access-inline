@@ -47,21 +47,4 @@ describe('TomlAccessor with real devium/toml', function () {
         expect($accessor->get('server.ssl.cert'))->toBe('/path/to/cert');
     });
 
-    it('TOML → toToml roundtrip preserves data', function () {
-        $toml = "title = \"Test\"\n\n[server]\nhost = \"localhost\"\nport = 8080";
-        $accessor = SafeAccess::fromToml($toml);
-        $output = $accessor->toToml();
-        $accessor2 = SafeAccess::fromToml($output);
-        expect($accessor2->get('title'))->toBe('Test');
-        expect($accessor2->get('server.host'))->toBe('localhost');
-        expect($accessor2->get('server.port'))->toBe(8080);
-    });
-
-    it('toToml returns valid TOML string', function () {
-        $accessor = SafeAccess::fromArray(['name' => 'Ana', 'count' => 5]);
-        $output = $accessor->toToml();
-        expect($output)->toContain('name');
-        expect($output)->toContain('Ana');
-        expect($output)->toContain('count = 5');
-    });
 });

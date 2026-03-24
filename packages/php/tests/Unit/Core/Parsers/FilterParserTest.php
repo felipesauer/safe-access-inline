@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use SafeAccessInline\Contracts\FilterCondition;
 use SafeAccessInline\Contracts\FilterExpression;
-use SafeAccessInline\Core\Config\FilterParserConfig;
 use SafeAccessInline\Core\Parsers\FilterParser;
 
 describe(FilterParser::class, function () {
@@ -59,12 +58,11 @@ describe(FilterParser::class, function () {
         }
     });
 
-    it('parse — returns empty conditions for invalid condition token (graceful fallback)', function () {
-        // RuntimeException must NOT escape — parse() catches it and returns []
-        // to maintain the "path not found → empty result" contract.
-        $result = FilterParser::parse('invalidnooperator');
-        expect($result['conditions'])->toBeEmpty();
-        expect($result['logicals'])->toBeEmpty();
+    it('parse — throws InvalidArgumentException for invalid condition token', function () {
+        // parse() re-throws to align with JS FilterParser.parse() behaviour —
+        // silently swallowing parse errors hides caller bugs.
+        expect(fn () => FilterParser::parse('invalidnooperator'))
+            ->toThrow(\InvalidArgumentException::class);
     });
 
     // ── parseValue() ──────────────────────────────────
@@ -207,44 +205,6 @@ describe(FilterParser::class, function () {
         expect($expr['conditions'][0]['value'])->toBe('x || y');
     });
 
-    // ── SEC-01 / SEC-05 regression: evalMatch hardening ──
-
-    it('evaluate — match with slash in pattern does not inject flags', function () {
-        $expr = FilterParser::parse("match(@.url,'https://example')");
-        expect(FilterParser::evaluate(['url' => 'https://example.com'], $expr))->toBeTrue();
-        expect(FilterParser::evaluate(['url' => 'ftp://other'], $expr))->toBeFalse();
-    });
-
-    it('evaluate — match with catastrophic backtracking pattern returns false', function () {
-        // ReDoS-style pattern with limited backtrack should not hang
-        $expr = FilterParser::parse("match(@.val,'a+a+a+a+a+a+a+a+a+a+b')");
-        $evil = str_repeat('a', 50);
-        // Should complete quickly due to backtrack limit; result is false (no match)
-        expect(FilterParser::evaluate(['val' => $evil], $expr))->toBeFalse();
-    });
-
-    it('evaluate — length() on non-string/non-array returns 0', function () {
-        $expr = FilterParser::parse('length(@.val) == 0');
-        expect(FilterParser::evaluate(['val' => 42], $expr))->toBeTrue();
-    });
-
-    it('evaluate — match() on non-string value returns false', function () {
-        $expr = FilterParser::parse("match(@.val,'pattern')");
-        expect(FilterParser::evaluate(['val' => 123], $expr))->toBeFalse();
-    });
-
-    it('evaluate — keys() on list array returns element count (matches JS Object.keys behaviour)', function () {
-        $expr = FilterParser::parse('keys(@.val) == 3');
-        expect(FilterParser::evaluate(['val' => [1, 2, 3]], $expr))->toBeTrue();
-    });
-
-    it('evaluate — match with ReDoS oversized pattern is rejected', function () {
-        $longPattern = str_repeat('a', 257);
-        $expr = FilterParser::parse("match(@.val,'{$longPattern}')");
-        // Pattern rejected by ReDoS guard (>256 chars) → returns false
-        expect(FilterParser::evaluate(['val' => 'aaaaab'], $expr))->toBeFalse();
-    });
-
     // ── FilterCondition DTO ─────────────────────────────
 
     it('FilterCondition — constructor stores field, operator, value and optional fields', function () {
@@ -279,45 +239,6 @@ describe(FilterParser::class, function () {
         expect($expr->conditions)->toHaveCount(1)
             ->and($expr->conditions[0])->toBe($cond)
             ->and($expr->logicals)->toBe([]);
-    });
-
-    it('configure — sets custom FilterParserConfig', function () {
-        FilterParser::configure(new FilterParserConfig(maxPatternLength: 64));
-        $expr = FilterParser::parse('@.name == "test"');
-        expect($expr['conditions'])->toHaveCount(1);
-        FilterParser::resetConfig();
-    });
-
-    it('resetConfig — restores default configuration', function () {
-        FilterParser::configure(new FilterParserConfig(maxPatternLength: 1));
-        FilterParser::resetConfig();
-        $item = ['name' => 'hello'];
-        $expr = FilterParser::parse('match(@.name, "^h")') ;
-        expect(FilterParser::evaluate($item, $expr))->toBeTrue();
-    });
-
-    it('resolveFilterArg resolves bare field name without @. prefix via function call', function () {
-        $expr = FilterParser::parse('length(name) > 3');
-        expect(FilterParser::evaluate(['name' => 'hello'], $expr))->toBeTrue();
-        expect(FilterParser::evaluate(['name' => 'hi'], $expr))->toBeFalse();
-    });
-
-    // ── SEC: ReDoS pattern-shape guards ──────────────────────────────────
-
-    it('evaluate — match with (a+)+ nested quantifier is rejected by ReDoS guard', function () {
-        // Guard regex ([+*])\)\1 matches `+)+` in `(a+)+`
-        // Construct expr array directly — parser cannot parse `)` inside quoted args
-        $cond = ['field' => '@.v', 'operator' => '==', 'value' => true, 'func' => 'match', 'funcArgs' => ['@.v', '(a+)+']];
-        $expr = ['conditions' => [$cond], 'logicals' => []];
-        expect(FilterParser::evaluate(['v' => 'aaaa'], $expr))->toBeFalse();
-    });
-
-    it('evaluate — match with (?:a+)* non-capturing quantifier is rejected by ReDoS guard', function () {
-        // Guard regex \(\?[^)]*[+*] matches `(?:a+` in `(?:a+)*`
-        // Construct expr array directly — parser cannot parse `)` inside quoted args
-        $cond = ['field' => '@.v', 'operator' => '==', 'value' => true, 'func' => 'match', 'funcArgs' => ['@.v', '(?:a+)*b']];
-        $expr = ['conditions' => [$cond], 'logicals' => []];
-        expect(FilterParser::evaluate(['v' => 'aaab'], $expr))->toBeFalse();
     });
 
     // ── starts_with() ─────────────────────────────────────────────────────────

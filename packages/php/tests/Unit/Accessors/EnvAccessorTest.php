@@ -92,38 +92,4 @@ describe(EnvAccessor::class, function () {
         expect($accessor->count())->toBe(2);
     });
 
-    // ── toEnv serialization ────────────────────────────────────────────────────
-
-    it('toEnv — serializes flat keys as KEY=VALUE', function () {
-        $accessor = EnvAccessor::from("APP=MyApp\nPORT=3000");
-        $env = $accessor->toEnv();
-        expect($env)->toContain('APP=MyApp');
-        expect($env)->toContain('PORT=3000');
-    });
-
-    it('toEnv — wraps values with spaces in double quotes', function () {
-        $accessor = EnvAccessor::from('NAME=John Doe');
-        $env = $accessor->toEnv();
-        expect($env)->toContain('NAME="John Doe"');
-    });
-
-    it('toEnv — round-trips: toEnv → from → all() equals original', function () {
-        $original = EnvAccessor::from("APP=MyApp\nPORT=3000\nDEBUG=false");
-        $roundTripped = EnvAccessor::from($original->toEnv());
-        expect($roundTripped->all())->toEqual($original->all());
-    });
-
-    it('toEnv — skips nested arrays silently', function () {
-        $accessor = EnvAccessor::from('FLAT=value')->set('nested', ['key' => 'val']);
-        $env = $accessor->toEnv();
-        expect($env)->toContain('FLAT=value');
-        expect($env)->not->toContain('nested');
-        expect($env)->not->toContain('key=val');
-    });
-
-    it('toEnv — ends with a trailing newline', function () {
-        $env = EnvAccessor::from('A=1')->toEnv();
-        expect(str_ends_with($env, "\n"))->toBeTrue();
-    });
-
 });

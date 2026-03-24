@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace SafeAccessInline\Security\Guards;
 
 use SafeAccessInline\Exceptions\SecurityException;
-use SafeAccessInline\Security\Audit\AuditLogger;
 
 /**
  * Validates object keys against a deny-list to prevent prototype-pollution attacks.
@@ -78,7 +77,6 @@ final class SecurityGuard
     public static function assertSafeKey(string $key): void
     {
         if (isset(self::getForbiddenKeysMap()[$key])) {
-            AuditLogger::emit('security.violation', ['reason' => 'forbidden_key', 'key' => $key]);
             throw new SecurityException(
                 "Forbidden key '{$key}' detected. This key is blocked to prevent prototype pollution."
             );

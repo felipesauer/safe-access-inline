@@ -14,7 +14,6 @@ enum Format: string
     case Yaml = 'yaml';
     case Toml = 'toml';
     case Ini = 'ini';
-    case Csv = 'csv';
     case Env = 'env';
     case Ndjson = 'ndjson';
 }

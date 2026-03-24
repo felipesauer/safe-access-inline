@@ -1,8 +1,7 @@
 {
     "$schema": "vendor/infection/infection/resources/schema.json",
     "source": {
-        "directories": ["src"],
-        "excludes": ["Integrations"]
+        "directories": ["src"]
     },
     "testFramework": "phpunit",
     "phpUnit": {

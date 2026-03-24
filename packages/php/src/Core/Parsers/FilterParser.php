@@ -4,9 +4,6 @@ declare(strict_types=1);
 
 namespace SafeAccessInline\Core\Parsers;
 
-use SafeAccessInline\Core\Config\FilterParserConfig;
-use SafeAccessInline\Enums\AuditEventType;
-use SafeAccessInline\Security\Audit\AuditLogger;
 use SafeAccessInline\Security\Guards\SecurityGuard;
 
 /**
@@ -28,38 +25,12 @@ use SafeAccessInline\Security\Guards\SecurityGuard;
  * Operators: ==, !=, >, <, >=, <=
  * Logical:   &&, ||
  * Values:    number, 'string', "string", true, false, null
- * Functions: length(@.field), match(@.field, 'pattern'), keys(@),
- *            starts_with(@.field, 'prefix'), contains(@.field, 'needle'), values(@)
+ * Functions: starts_with(@.field, 'prefix'), contains(@.field, 'needle'), values(@)
+ *
+ * @internal Implementation detail. Do not rely on this in application code.
  */
 final class FilterParser
 {
-    /** Active filter parser configuration, lazily initialised on first access. */
-    private static FilterParserConfig $config;
-
-    /**
-     * Returns the active filter parser configuration, lazily initialised.
-     */
-    private static function config(): FilterParserConfig
-    {
-        return self::$config ??= new FilterParserConfig();
-    }
-
-    /**
-     * Overrides the default filter parser configuration.
-     */
-    public static function configure(FilterParserConfig $config): void
-    {
-        self::$config = $config;
-    }
-
-    /**
-     * Resets the configuration to defaults.
-     */
-    public static function resetConfig(): void
-    {
-        self::$config = new FilterParserConfig();
-    }
-
     /**
      * Parses a filter expression (without enclosing [? and ]).
      *
@@ -77,17 +48,7 @@ final class FilterParser
             try {
                 $conditions[] = self::parseCondition(trim($token));
             } catch (\RuntimeException $e) {
-                // Exotic tokens (backticks, semicolons, unrecognised operators) cannot be
-                // parsed into a valid condition. Return empty conditions so the caller treats
-                // this filter as "no match" — consistent with "path not found" semantics.
-                AuditLogger::emit(AuditEventType::DATA_FORMAT_WARNING->value, [
-                    'reason'     => 'invalid_filter_condition',
-                    'expression' => $expression,
-                    'token'      => $token,
-                    'error'      => $e->getMessage(),
-                ]);
-
-                return ['conditions' => [], 'logicals' => []];
+                throw new \InvalidArgumentException($e->getMessage(), 0, $e);
             }
         }
 
@@ -309,10 +270,10 @@ final class FilterParser
     /**
      * Dispatches a filter function call and returns its computed value.
      *
-     * Supports `length`, `match`, and `keys`. Throws for unknown functions.
+     * Supports `starts_with`, `contains`, and `values`. Throws for unknown functions.
      *
      * @param  array<mixed>  $item     Data item to operate on.
-     * @param  string        $func     Function name, e.g. `'length'`, `'match'`.
+     * @param  string        $func     Function name.
      * @param  array<string> $funcArgs Parsed function arguments.
      * @return mixed Computed result of the function call.
      *
@@ -321,9 +282,6 @@ final class FilterParser
     private static function evaluateFunction(array $item, string $func, array $funcArgs): mixed
     {
         return match ($func) {
-            'length' => self::evalLength($item, $funcArgs),
-            'match' => self::evalMatch($item, $funcArgs),
-            'keys' => self::evalKeys($item, $funcArgs),
             'starts_with' => self::evalStartsWith($item, $funcArgs),
             'contains' => self::evalContains($item, $funcArgs),
             'values' => self::evalValues($item, $funcArgs),
@@ -331,106 +289,6 @@ final class FilterParser
         };
     }
 
-    /**
-     * Evaluates the `length()` filter function.
-     *
-     * Returns the character count for strings and the element count for arrays;
-     * returns 0 for any other type.
-     *
-     * @param  array<mixed>  $item     Data item to operate on.
-     * @param  array<string> $funcArgs Parsed function arguments; first arg is the field path.
-     * @return int Length of the resolved value.
-     */
-    private static function evalLength(array $item, array $funcArgs): int
-    {
-        $val = self::resolveFilterArg($item, $funcArgs[0] ?? '@');
-        if (is_string($val)) {
-            return strlen($val);
-        }
-        if (is_array($val)) {
-            return count($val);
-        }
-        return 0;
-    }
-
-    /**
-     * @param array<mixed> $item
-     * @param array<string> $funcArgs
-     */
-    /**
-     * Evaluates the `match()` filter function.
-     *
-     * Applies the PCRE pattern in `$funcArgs[1]` against the resolved string value.
-     * Enforces ReDoS guards from {@see FilterParserConfig} before executing the match.
-     *
-     * @param  array<mixed>  $item     Data item to operate on.
-     * @param  array<string> $funcArgs Arguments: [0] = field path, [1] = regex pattern.
-     * @return bool True when the resolved string matches the pattern.
-     */
-    private static function evalMatch(array $item, array $funcArgs): bool
-    {
-        $val = self::resolveFilterArg($item, $funcArgs[0] ?? '@');
-        if (!is_string($val)) {
-            return false;
-        }
-        $pattern = trim($funcArgs[1] ?? '');
-        // Strip quotes from pattern
-        if (
-            (str_starts_with($pattern, "'") && str_ends_with($pattern, "'"))
-            || (str_starts_with($pattern, '"') && str_ends_with($pattern, '"'))
-        ) {
-            $pattern = substr($pattern, 1, -1);
-        }
-        // ReDoS guard: reject patterns exhibiting catastrophic backtracking or excessive length.
-        // Detected forms (in order of coverage):
-        //   [+*])[+*{]      — classic nested quantifier via capturing group: (a+)+ or (a+){n,m}
-        //   [+*])[+*{]      — same via non-capturing group: (?:a+)+ or (?:a+){n,m}
-        //   ({...})[+*{]    — nested range quantifier: (a{2,5})+
-        //   ([^|)]*|[^)]*)[+*{] — quantified alternation: (a|b)+
-        //   (?...[+*])      — inline-flag or atomic group with quantifier inside
-        //   (.+|.+)         — tautological alternation with dot: (.+|.+) variants
-        if (
-            preg_match('/[+*]\)[+*{]|\(\?:[^)]*[+*]\)[+*{]|\([^)]*\{[0-9,]+\}\)[+*{]|\([^)]*\|[^)]*\)[+*{]|\(\?[^)]*[+*]|\([.][+*]\|[.][+*]\)/', $pattern) === 1
-            || strlen($pattern) > self::config()->maxPatternLength
-        ) {
-            return false;
-        }
-        // Escape the PCRE delimiter to prevent flag injection (e.g. 'foo/i')
-        $safePattern = str_replace('/', '\\/', $pattern);
-        $prevBacktrack = ini_set('pcre.backtrack_limit', (string) self::config()->pcreBacktrackLimit);
-        $prevRecursion = ini_set('pcre.recursion_limit', (string) self::config()->pcreRecursionLimit);
-        try {
-            $result = @preg_match('/' . $safePattern . '/u', $val);
-        } finally {
-            if ($prevBacktrack !== false) {
-                ini_set('pcre.backtrack_limit', (string) $prevBacktrack);
-            }
-            if ($prevRecursion !== false) {
-                ini_set('pcre.recursion_limit', (string) $prevRecursion);
-            }
-        }
-        return $result === 1;
-    }
-
-    /**
-     * Evaluates the `keys()` filter function.
-     *
-     * Returns the number of keys in the resolved array (both list and associative).
-     * This matches the JS `Object.keys()` behaviour where numeric indices count as keys.
-     * Returns 0 for non-array values.
-     *
-     * @param  array<mixed>  $item     Data item to operate on.
-     * @param  array<string> $funcArgs Parsed function arguments; first arg is the field path.
-     * @return int Number of keys in the resolved array.
-     */
-    private static function evalKeys(array $item, array $funcArgs): int
-    {
-        $val = self::resolveFilterArg($item, $funcArgs[0] ?? '@');
-        if (is_array($val)) {
-            return count(array_keys($val));
-        }
-        return 0;
-    }
     /**
      * Evaluates the `starts_with()` filter function.
      *

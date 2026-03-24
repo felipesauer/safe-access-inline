@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 /**
  * Tipo: Integration — Multi-format
- * Verifica que JSON, YAML, XML e CSV produzem resultados idênticos para as mesmas queries.
+ * Verifica que JSON, YAML e XML produzem resultados idênticos para as mesmas queries.
  * Usa o mesmo dataset canônico serializado em cada formato.
  * Se falhar, o bug está no adapter de formato, não no engine de acesso.
  * Rodar: composer test -- --filter FormatsIntegrationTest
@@ -15,8 +15,6 @@ use SafeAccessInline\SafeAccess;
 describe('Multi-format integration', function (): void {
 
     $jsonString = '{"user":{"name":"Ana","age":30},"items":[{"name":"Widget","price":10},{"name":"Gadget","price":50},{"name":"Gizmo","price":25}]}';
-
-    $csvString = "name,price\nWidget,10\nGadget,50\nGizmo,25";
 
     // JSON é o formato de referência — todos os demais são comparados contra ele
     describe('JSON accessor queries', function () use ($jsonString): void {
@@ -83,24 +81,4 @@ describe('Multi-format integration', function (): void {
         });
     });
 
-    // CSV é flat (apenas linhas) — testa com o subtabela de items
-    describe('CSV accessor queries', function () use ($csvString): void {
-        $accessor = SafeAccess::fromCsv($csvString);
-
-        it('array index: 0.name', function () use ($accessor): void {
-            expect($accessor->get('0.name'))->toBe('Widget');
-        });
-
-        it('wildcard: *.name', function () use ($accessor): void {
-            expect($accessor->get('*.name'))->toBe(['Widget', 'Gadget', 'Gizmo']);
-        });
-
-        it('default for missing path: 0.nonexistent', function () use ($accessor): void {
-            expect($accessor->get('0.nonexistent', 'N/A'))->toBe('N/A');
-        });
-
-        it('array index: 2.name', function () use ($accessor): void {
-            expect($accessor->get('2.name'))->toBe('Gizmo');
-        });
-    });
 });

@@ -26,15 +26,6 @@ describe('Cross-format conversion', function () {
         expect($accessor2->toArray())->toBe($data);
     });
 
-    it('JSON → Object → JSON roundtrip', function () {
-        $json = '{"name": "Ana", "active": true}';
-        $accessor = SafeAccess::fromJson($json);
-        $obj = $accessor->toObject();
-
-        $accessor2 = SafeAccess::fromObject($obj);
-        expect(json_decode($accessor2->toJson(), true))->toBe(json_decode($json, true));
-    });
-
     it('XML → Array → XML roundtrip preserves values', function () {
         $xml = '<root><name>Ana</name><age>30</age></root>';
         $accessor = SafeAccess::fromXml($xml);
@@ -46,19 +37,6 @@ describe('Cross-format conversion', function () {
         $accessor2 = SafeAccess::fromArray($array);
         expect($accessor2->get('name'))->toBe('Ana');
         expect($accessor2->get('age'))->toBe('30');
-    });
-
-    it('CSV → Array → JSON pipeline', function () {
-        $csv = "name,age\nAna,30\nBob,25";
-        $accessor = SafeAccess::fromCsv($csv);
-        $array = $accessor->toArray();
-
-        $accessor2 = SafeAccess::fromArray($array);
-        $json = $accessor2->toJson();
-        $decoded = json_decode($json, true);
-
-        expect($decoded[0]['name'])->toBe('Ana');
-        expect($decoded[1]['name'])->toBe('Bob');
     });
 
     it('INI → Array → JSON pipeline', function () {
@@ -89,39 +67,5 @@ describe('Cross-format conversion', function () {
         expect(SafeAccess::detect('{"a": 1}'))->toBeInstanceOf(\SafeAccessInline\Accessors\JsonAccessor::class);
         expect(SafeAccess::detect('<root><a>1</a></root>'))->toBeInstanceOf(\SafeAccessInline\Accessors\XmlAccessor::class);
     });
-
-    it('YAML → toYaml roundtrip (zero config)', function () {
-        $yaml = "app:\n  name: MyApp\n  port: 3000";
-        $accessor = SafeAccess::fromYaml($yaml);
-        $output = $accessor->toYaml();
-        $accessor2 = SafeAccess::fromYaml($output);
-        expect($accessor2->get('app.name'))->toBe('MyApp');
-        expect($accessor2->get('app.port'))->toBe(3000);
-    })->skip(!class_exists(\Symfony\Component\Yaml\Yaml::class), 'symfony/yaml not installed (run with deps=full to enable)');
-
-    it('TOML → toToml roundtrip (zero config)', function () {
-        $toml = "title = \"Test\"\n\n[server]\nhost = \"localhost\"\nport = 8080";
-        $accessor = SafeAccess::fromToml($toml);
-        $output = $accessor->toToml();
-        $accessor2 = SafeAccess::fromToml($output);
-        expect($accessor2->get('title'))->toBe('Test');
-        expect($accessor2->get('server.host'))->toBe('localhost');
-        expect($accessor2->get('server.port'))->toBe(8080);
-    })->skip(!class_exists(\Devium\Toml\Toml::class), 'devium/toml not installed (run with deps=full to enable)');
-
-    it('JSON → toYaml pipeline (zero config)', function () {
-        $accessor = SafeAccess::fromJson('{"name": "Ana", "age": 30}');
-        $yaml = $accessor->toYaml();
-        expect($yaml)->toContain('name:');
-        expect($yaml)->toContain('Ana');
-        expect($yaml)->toContain('age: 30');
-    })->skip(!class_exists(\Symfony\Component\Yaml\Yaml::class), 'symfony/yaml not installed (run with deps=full to enable)');
-
-    it('JSON → toToml pipeline (zero config)', function () {
-        $accessor = SafeAccess::fromJson('{"name": "Ana", "age": 30}');
-        $toml = $accessor->toToml();
-        expect($toml)->toContain('Ana');
-        expect($toml)->toContain('age = 30');
-    })->skip(!class_exists(\Devium\Toml\Toml::class), 'devium/toml not installed (run with deps=full to enable)');
 
 });

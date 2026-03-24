@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace SafeAccessInline\Core\Parsers;
 
 use SafeAccessInline\Core\Config\ParserConfig;
-use SafeAccessInline\Core\Rendering\TemplateRenderer;
 use SafeAccessInline\Core\Resolvers\PathCache;
 use SafeAccessInline\Core\Resolvers\PathResolver;
 use SafeAccessInline\Enums\SegmentType;
@@ -27,6 +26,8 @@ use SafeAccessInline\Security\Guards\SecurityGuard;
  *   - Escaped literal dot:      "config\.db.host" → key "config.db", sub-key "host"
  *
  * All operations are pure (no side-effects) and static.
+ *
+ * @internal Implementation detail. Do not rely on this in application code.
  */
 final class DotNotationParser
 {
@@ -104,10 +105,7 @@ final class DotNotationParser
     /**
      * Returns the parsed and cached segments for `$path`.
      *
-     * Used by {@see \SafeAccessInline\SafeAccess::compilePath()} to build a
-     * {@see \SafeAccessInline\Core\CompiledPath}.
-     *
-     * @param  string             $path Dot-notation path to compile.
+     * @param  string             $path Dot-notation path to parse.
      * @return list<array<mixed>> Parsed path segments (retrieved from or stored in cache).
      */
     public static function getSegments(string $path): array
@@ -423,14 +421,4 @@ final class DotNotationParser
         return $result;
     }
 
-    /**
-     * Renders a template path replacing {key} with bindings values.
-     *
-     * @param array<string, string|int> $bindings
-     * @see TemplateRenderer::render()
-     */
-    public static function renderTemplate(string $template, array $bindings): string
-    {
-        return TemplateRenderer::render($template, $bindings);
-    }
 }

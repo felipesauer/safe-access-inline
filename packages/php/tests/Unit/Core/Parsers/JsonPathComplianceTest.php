@@ -118,40 +118,6 @@ describe(DotNotationParser::class, function () {
         expect($result)->toBe(['A', 'B']);
     })->with('store_data');
 
-    // Filter functions
-    test('length(@.name) > N filters by string length', function (array $data) {
-        $result = DotNotationParser::get($data, 'users[?length(@.name)>3].name');
-        expect($result)->toBe(['Alice', 'Carol']);
-    })->with('store_data');
-
-    test('length(@.tags) > N filters by array length', function (array $data) {
-        $result = DotNotationParser::get($data, 'store.books[?length(@.tags)>1].title');
-        expect($result)->toBe(['B', 'C']);
-    })->with('store_data');
-
-    test("match(@.author, 'pattern') filters by regex", function (array $data) {
-        $result = DotNotationParser::get($data, "store.books[?match(@.author,'A.*')].title");
-        expect($result)->toBe(['A']);
-    })->with('store_data');
-
-    test('keys(@) > N filters by key count', function () {
-        $items = [
-            'a' => ['x' => 1, 'y' => 2, 'z' => 3],
-            'b' => ['x' => 1],
-            'c' => ['x' => 1, 'y' => 2, 'z' => 3, 'w' => 4],
-        ];
-        $result = DotNotationParser::get($items, '[?keys(@)>2]');
-        expect($result)->toBe([
-            ['x' => 1, 'y' => 2, 'z' => 3],
-            ['x' => 1, 'y' => 2, 'z' => 3, 'w' => 4],
-        ]);
-    });
-
-    test('filter functions with && logical', function (array $data) {
-        $result = DotNotationParser::get($data, 'store.books[?length(@.title)==1 && price>15].title');
-        expect($result)->toBe(['B', 'C', 'D', 'E']);
-    })->with('store_data');
-
     // Combined features
     test('$ + bracket + filter', function (array $data) {
         $result = DotNotationParser::get($data, '$.store.books[?price>25].title');

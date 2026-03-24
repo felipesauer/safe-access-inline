@@ -15,7 +15,7 @@ use SafeAccessInline\Exceptions\UnsupportedTypeException;
  * Parsers are used by Accessors to convert raw input → array.
  * Serializers are used by toXml(), toYaml(), transform() to convert array → string.
  *
- * Built-in parsers (json, xml, ini, csv, env) are always available.
+ * Built-in parsers (json, xml, ini, env) are always available.
  * Optional parsers (yaml, toml) require registration via registerParser().
  *
  * All static methods delegate to a shared module-level default instance.

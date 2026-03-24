@@ -40,16 +40,6 @@ describe('Array-based paths', function () {
 
 describe('Template paths (DotNotationParser)', function () {
 
-    it('renderTemplate replaces placeholders', function () {
-        $result = DotNotationParser::renderTemplate('users.{id}.name', ['id' => '42']);
-        expect($result)->toBe('users.42.name');
-    });
-
-    it('renderTemplate throws for missing binding', function () {
-        expect(fn () => DotNotationParser::renderTemplate('users.{id}.name', []))
-            ->toThrow(\RuntimeException::class, "Missing binding for key 'id'");
-    });
-
     it('getBySegments retrieves literal path', function () {
         $data = ['a' => ['b' => ['c' => 'val']]];
         expect(DotNotationParser::getBySegments($data, ['a', 'b', 'c']))->toBe('val');

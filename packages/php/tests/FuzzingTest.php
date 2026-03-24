@@ -106,33 +106,6 @@ describe(SafeAccess::class . ' — fuzzing hostile inputs', function (): void {
         }
     });
 
-    /** Delimitadores incomuns são fonte clássica de bugs em parsers CSV — sem crash */
-    it('CSV with unusual delimiters does not crash PHP', function (): void {
-        $hostileCsvs = [
-            "a,b\n\"val,ue\",test",
-            "a,b\n\"val\"\"ue\",test",
-            "a,b\n\"val\nue\",test",
-            "a,b\n\"\",\"\"",
-            ",\n,",
-            "a\n\n\n",
-            str_repeat("a,", 1000) . "b\n" . str_repeat("1,", 1000) . "2",
-        ];
-
-        foreach ($hostileCsvs as $csv) {
-            $crashed = false;
-            try {
-                SafeAccess::fromCsv($csv)->get('0.a', null);
-            } catch (SecurityException | InvalidFormatException) {
-                // Controlled rejection — acceptable
-            } catch (\Error) {
-                $crashed = true;
-            } catch (\Exception) {
-                // Controlled exception — acceptable
-            }
-            expect($crashed)->toBeFalse("Uncontrolled crash parsing CSV");
-        }
-    });
-
     /** JSON com chaves duplicadas tem comportamento indefinido — deve ser determinístico e não vazar estado */
     it('JSON with duplicate or prototype-polluting keys is handled safely', function (): void {
         $hostileJsons = [
