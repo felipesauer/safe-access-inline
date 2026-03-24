@@ -2,176 +2,134 @@
 outline: deep
 ---
 
-# Segurança & Integrações — PHP
+# Segurança — PHP
 
 ## Índice
 
-- [Segurança \& Integrações — PHP](#segurança--integrações--php)
+- [Segurança — PHP](#segurança--php)
     - [Índice](#índice)
-    - [Segurança](#segurança)
-        - [SecurityPolicy](#securitypolicy)
-        - [Mascaramento de dados](#mascaramento-de-dados)
-        - [Accessors readonly](#accessors-readonly)
-    - [Validação de Schema](#validação-de-schema)
-    - [Log de Auditoria](#log-de-auditoria)
-    - [Integrações de Framework](#integrações-de-framework)
-        - [Laravel](#laravel)
-        - [Symfony](#symfony)
+    - [SecurityPolicy](#securitypolicy)
+        - [Referência dos campos da política](#referência-dos-campos-da-política)
+        - [Quando uma violação é detectada](#quando-uma-violação-é-detectada)
+    - [Política Global](#política-global)
+    - [Accessors Readonly](#accessors-readonly)
+    - [Deep Freeze \& Poluição de Prototype](#deep-freeze--poluição-de-prototype)
 
-## Segurança
+---
 
-### SecurityPolicy
+## SecurityPolicy
 
-Combine todas as configurações de segurança em uma única política:
+Um objeto `SecurityPolicy` aplica um conjunto de restrições a qualquer operação de parse ou carregamento. Todos os parâmetros do construtor são opcionais:
 
 ```php
+use SafeAccessInline\SafeAccess;
 use SafeAccessInline\Security\Guards\SecurityPolicy;
 
 $policy = new SecurityPolicy(
     maxDepth: 128,
-    maxPayloadBytes: 1_048_576,  // 1 MB
-    maxKeys: 5000,
+    maxPayloadBytes: 1_048_576, // 1 MB
+    maxKeys: 5_000,
     allowedDirs: ['/app/config'],
-    url: ['allowedHosts' => ['api.example.com']],
-    csvMode: 'strip',
-    maskPatterns: ['password', '*_token'],
 );
 
-// Carregar com política
+// Aplicar a um payload de string
 $accessor = SafeAccess::withPolicy($jsonString, $policy);
-$accessor = SafeAccess::fromFileWithPolicy('/app/config.json', $policy);
-$accessor = SafeAccess::fromUrlWithPolicy('https://api.example.com/config.json', $policy);
 ```
 
-#### Presets de Política
+### Referência dos campos da política
 
-Dois presets integrados estão disponíveis:
+| Campo             | Tipo       | Padrão       | Protege contra                                            |
+| ----------------- | ---------- | ------------ | --------------------------------------------------------- |
+| `maxDepth`        | `int`      | `128`        | Objetos profundamente aninhados que causam stack overflow |
+| `maxPayloadBytes` | `int`      | `10_485_760` | Esgotamento de memória por payloads muito grandes         |
+| `maxKeys`         | `int`      | `10_000`     | Objetos com milhões de chaves consumindo RAM excessiva    |
+| `allowedDirs`     | `string[]` | `[]`         | Ataques de path-traversal em operações de carregamento    |
 
-- **`SecurityPolicy::strict()`** — limites restritivos para entrada não confiável
-- **`SecurityPolicy::permissive()`** — limites relaxados para ambientes confiáveis
+### Quando uma violação é detectada
+
+Violações lançam uma `SecurityException`:
 
 ```php
-$accessor = SafeAccess::withPolicy($data, SecurityPolicy::strict());
+use SafeAccessInline\SafeAccess;
+use SafeAccessInline\Security\Guards\SecurityPolicy;
+use SafeAccessInline\Exceptions\SecurityException;
+
+$policy = new SecurityPolicy(maxPayloadBytes: 128); // limite pequeno para demo
+
+$bigJson = json_encode(['data' => str_repeat('x', 1000)]);
+
+try {
+    SafeAccess::withPolicy($bigJson, $policy);
+} catch (SecurityException $e) {
+    echo 'Restrição de segurança violada: ' . $e->getMessage();
+    // "Payload exceeds maximum allowed size"
+}
 ```
 
-#### Política Global
+---
 
-Defina uma política global que se aplica como padrão para todas as operações:
+## Política Global
+
+Defina uma política padrão que se aplica automaticamente a todas as operações sem precisar passá-la explicitamente:
 
 ```php
-SecurityPolicy::setGlobal(SecurityPolicy::strict());
+use SafeAccessInline\SafeAccess;
+use SafeAccessInline\Security\Guards\SecurityPolicy;
+
+$appPolicy = new SecurityPolicy(
+    maxDepth: 64,
+    maxPayloadBytes: 2_097_152, // 2 MB
+);
+
+// Instalar globalmente
+SecurityPolicy::setGlobal($appPolicy);
+// ou: SafeAccess::setGlobalPolicy($appPolicy);
+
+// Estas operações agora respeitam a política global automaticamente
+$a = SafeAccess::fromJson($largeJson);
+
+// Inspecionar ou remover a política global
 $current = SecurityPolicy::getGlobal(); // ?SecurityPolicy
 SecurityPolicy::clearGlobal();
-
-// Ou via facade SafeAccess
-SafeAccess::setGlobalPolicy(SecurityPolicy::strict());
-SafeAccess::clearGlobalPolicy();
-```
-
-### Mascaramento de dados
-
-```php
-$accessor = SafeAccess::fromArray([
-    'user' => 'Ana',
-    'password' => 's3cret',
-    'api_key' => 'abc-123',
-]);
-
-$safe = $accessor->mask();
-$safe->get('password');  // '[REDACTED]'
-$safe->get('api_key');   // '[REDACTED]'
-$safe->get('user');      // 'Ana'
-
-// Padrões customizados
-$safe = $accessor->mask(['custom_secret', '*_token']);
-```
-
-### Accessors readonly
-
-```php
-$readonly = new \SafeAccessInline\Accessors\ArrayAccessor(['key' => 'value'], true);
-$readonly->get('key');           // 'value' — leitura funciona
-$readonly->set('key', 'new');    // lança ReadonlyViolationException
+// ou: SafeAccess::clearGlobalPolicy();
 ```
 
 ---
 
-## Validação de Schema
+## Accessors Readonly
+
+Passe `true` como segundo argumento do construtor para qualquer accessor para prevenir todas as mutações. Qualquer chamada a `set()`, `remove()`, `merge()` ou `push()` lança `ReadonlyViolationException`:
 
 ```php
-use SafeAccessInline\Core\Registries\SchemaRegistry;
+use SafeAccessInline\SafeAccess;
+use SafeAccessInline\Exceptions\ReadonlyViolationException;
 
-// Registrar um adaptador padrão (implemente SchemaAdapterInterface)
-SchemaRegistry::setDefaultAdapter($myAdapter);
+$ro = SafeAccess::fromObject(['key' => 'value'], readonly: true);
 
-// Validar — lança SchemaValidationException em caso de falha
-$accessor->validate($schema);
+echo $ro->get('key'); // 'value' — leituras sempre funcionam
 
-// Encadeamento fluente
-$name = $accessor->validate($schema)->get('name');
+try {
+    $ro->set('key', 'new');
+} catch (ReadonlyViolationException $e) {
+    echo 'Não é possível mutar um accessor readonly';
+}
+```
 
-// Com adaptador explícito
-$accessor->validate($schema, new MySchemaAdapter());
+Você também pode congelar um accessor existente em tempo de execução:
+
+```php
+$accessor = SafeAccess::fromJson('{"config": {"debug": false}}');
+$frozen = $accessor->freeze();
+
+$frozen->get('config.debug'); // false
+$frozen->set('config.debug', true); // lança ReadonlyViolationException
+$accessor->set('config.debug', true); // ainda funciona — o original não está congelado
 ```
 
 ---
 
-## Log de Auditoria
+## Deep Freeze & Poluição de Prototype
 
-Rastreie operações relevantes para segurança:
+A mutação de objetos em PHP funciona de forma diferente do JavaScript, mas `deepFreeze` é exposto como utilitário por completeza. A principal proteção em PHP vem através do **accessor readonly** (veja acima) e da validação de entrada via `SecurityPolicy`.
 
-```php
-$unsub = SafeAccess::onAudit(function (array $event) {
-    // $event = ['type' => 'file.read', 'timestamp' => ..., 'detail' => [...]]
-    logger()->info($event['type'], $event['detail']);
-});
-
-// Eventos: file.read, file.watch, url.fetch, security.violation,
-//         security.deprecation, data.mask, data.freeze, schema.validate
-
-// Limpar
-$unsub();
-SafeAccess::clearAuditListeners();
-```
-
----
-
-## Integrações de Framework
-
-### Laravel
-
-```php
-use SafeAccessInline\Integrations\LaravelServiceProvider;
-
-// No método register() de um service provider:
-LaravelServiceProvider::register($this->app);
-
-// Agora resolva a partir do container:
-$accessor = app('safe-access');
-$accessor = app(\SafeAccessInline\Core\AbstractAccessor::class);
-
-// Ou encapsule a config diretamente:
-$config = LaravelServiceProvider::fromConfig(config());
-$config->get('app.name');                        // acesso type-safe
-$config->get('database.connections.*.driver');    // wildcard
-
-// Chave de config específica:
-$db = LaravelServiceProvider::fromConfigKey(config(), 'database');
-$db->get('default'); // 'mysql'
-```
-
-### Symfony
-
-```php
-use SafeAccessInline\Integrations\SymfonyIntegration;
-
-// A partir de ParameterBag
-$accessor = SymfonyIntegration::fromParameterBag($container->getParameterBag());
-$accessor->get('kernel.environment');  // 'prod'
-
-// A partir de array de config
-$accessor = SymfonyIntegration::fromConfig($processedConfig);
-
-// A partir de arquivo YAML (com proteção de caminho)
-$accessor = SymfonyIntegration::fromYamlFile('/app/config/services.yaml', ['/app/config']);
-```
+> Para prevenção de XXE em XML (bloqueio de DOCTYPE/ENTITY), a biblioteca aplica automaticamente em toda chamada `fromXml()` — nenhuma configuração necessária.

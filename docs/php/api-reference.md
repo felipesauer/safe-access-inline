@@ -80,15 +80,6 @@ $accessor = SafeAccess::fromIni("[section]\nkey = value");
 $readonly = SafeAccess::fromIni($ini, true);
 ```
 
-#### `SafeAccess::fromCsv(string $data, bool $readonly = false): CsvAccessor`
-
-Creates an accessor from a CSV string (first line = headers).
-
-```php
-$accessor = SafeAccess::fromCsv("name,age\nAna,30");
-$readonly = SafeAccess::fromCsv($csv, true);
-```
-
 #### `SafeAccess::fromEnv(string $data, bool $readonly = false): EnvAccessor`
 
 Creates an accessor from a `.env` format string.
@@ -112,7 +103,7 @@ $readonly = SafeAccess::fromNdjson($ndjson, true);
 
 Unified factory — creates an accessor from any data. With a format string or `Format` enum value, delegates to the corresponding typed factory. Without a format, auto-detects (same as `detect()`).
 
-Supported formats: `'array'`, `'object'`, `'json'`, `'xml'`, `'yaml'`, `'toml'`, `'ini'`, `'csv'`, `'env'`, or any custom name registered via `extend()`. All built-in formats are also available as `Format` enum cases.
+Supported formats: `'array'`, `'object'`, `'json'`, `'xml'`, `'yaml'`, `'toml'`, `'ini'`, `'env'`, `'ndjson'`. All built-in formats are also available as `Format` enum cases.
 
 ```php
 use SafeAccessInline\Enums\Format;
@@ -129,13 +120,9 @@ $json = SafeAccess::from('{"name": "Ana"}', Format::Json);    // JsonAccessor
 $yaml = SafeAccess::from("name: Ana", Format::Yaml);           // YamlAccessor
 $xml  = SafeAccess::from('<root><n>1</n></root>', Format::Xml); // XmlAccessor
 $arr  = SafeAccess::from(['a' => 1], Format::Array);            // ArrayAccessor
-
-// Custom format (string only)
-SafeAccess::extend('custom', MyAccessor::class);
-$custom = SafeAccess::from($data, 'custom');
 ```
 
-Throws `InvalidFormatException` if the format is unknown and not registered.
+Throws `InvalidFormatException` if the format is unknown.
 
 #### `SafeAccess::detect(mixed $data): AbstractAccessor`
 
@@ -147,109 +134,15 @@ Detection priority: array → SimpleXMLElement → object → JSON string (with 
 $accessor = SafeAccess::detect(['key' => 'value']); // ArrayAccessor
 ```
 
-#### `SafeAccess::extend(string $name, string $class): void`
-
-Registers a custom accessor class.
-
-```php
-SafeAccess::extend('custom', MyAccessor::class);
-```
-
-#### `SafeAccess::custom(string $name, mixed $data): AbstractAccessor`
-
-Instantiates a previously registered custom accessor.
-
-```php
-$accessor = SafeAccess::custom('custom', $data);
-```
-
-#### `SafeAccess::clearCustomAccessors(): void`
-
-Removes all custom accessors registered via `extend()`. Intended for test teardown to prevent cross-test pollution.
-
-```php
-afterEach(function (): void {
-    SafeAccess::clearCustomAccessors();
-});
-```
-
 #### `SafeAccess::resetAll(): void`
 
-Resets **all** global state at once: global security policy, audit listeners, plugin registry, and schema registry. Intended for test suite teardown when multiple subsystems have been configured.
+Resets **all** global state at once: global security policy and plugin registry. Intended for test suite teardown when multiple subsystems have been configured.
 
 ```php
 afterEach(function (): void {
     SafeAccess::resetAll();
 });
 ```
-
-::: tip vs. clearCustomAccessors()
-`resetAll()` is a superset of `clearCustomAccessors()` — it also clears the plugin registry, schema registry, global policy, and audit listeners. Use it when you need a completely clean slate between tests.
-:::
-
-#### `SafeAccess::reset(): void`
-
-Alias for `resetAll()`. Prefer this name for readability in test hooks:
-
-```php
-beforeEach(fn () => SafeAccess::reset());
-```
-
-#### `SafeAccess::fromFile(string $filePath, FileLoadOptions|string|null $formatOrOptions = null, array $allowedDirs = [], bool $allowAnyPath = false): AbstractAccessor`
-
-Reads a file from disk and creates the appropriate accessor. Auto-detects format from file extension when `$formatOrOptions` is `null`. The `$allowedDirs` parameter restricts which directories can be read (path-traversal protection). Set `$allowAnyPath = true` to bypass directory restrictions (use with caution).
-
-This API is synchronous. The accessor is fully loaded before the method returns.
-
-**Three ways to call:**
-
-| Form                  | Example                                                                              |
-| --------------------- | ------------------------------------------------------------------------------------ |
-| No second argument    | `SafeAccess::fromFile('/app/config.json')`                                           |
-| Format string         | `SafeAccess::fromFile('/app/data.yml', 'yaml')`                                      |
-| `FileLoadOptions` DTO | `SafeAccess::fromFile('/app/data.json', new FileLoadOptions(allowedDirs: ['/app']))` |
-
-```php
-// Auto-detect format from extension
-$accessor = SafeAccess::fromFile('/etc/config.json');
-
-// Explicit format string
-$accessor = SafeAccess::fromFile('/app/config.yaml', 'yaml');
-
-// Legacy: allowedDirs as positional args
-$accessor = SafeAccess::fromFile('/app/config.json', null, ['/app']);
-$accessor = SafeAccess::fromFile('/tmp/data.json', null, [], true); // unrestricted path
-
-// Ergonomic: FileLoadOptions DTO
-use SafeAccessInline\Contracts\FileLoadOptions;
-
-$accessor = SafeAccess::fromFile('/app/config.json', new FileLoadOptions(
-    allowedDirs: ['/app/config'],
-));
-```
-
-::: tip FileLoadOptions DTO
-Use `FileLoadOptions` when you need to configure more than one option — it is more readable and self-documenting than passing positional arguments. See [FileLoadOptions](/php/api-types#fileloadoptions).
-:::
-
-Throws `SecurityException` if the path is outside allowed directories.
-
-#### `SafeAccess::fromUrl(string $url, ?string $format = null, array $options = []): AbstractAccessor`
-
-Fetches a URL (HTTPS-only, SSRF-safe) and returns the appropriate accessor. Auto-detects format from URL path extension.
-
-This API is synchronous. The response is fetched and parsed before the method returns.
-
-Options: `allowPrivateIps` (bool), `allowedHosts` (string[]), `allowedPorts` (int[]).
-
-```php
-$accessor = SafeAccess::fromUrl('https://api.example.com/config.json');
-$accessor = SafeAccess::fromUrl('https://api.example.com/data', 'json', [
-    'allowedHosts' => ['api.example.com'],
-]);
-```
-
-Throws `SecurityException` on SSRF attempts, private IPs, non-HTTPS, or disallowed hosts.
 
 #### `SafeAccess::withPolicy(mixed $data, SecurityPolicy $policy): AbstractAccessor`
 
@@ -258,67 +151,9 @@ Auto-detects format and enforces security limits from the policy (`maxPayloadByt
 ```php
 use SafeAccessInline\Security\Guards\SecurityPolicy;
 
-$policy = new SecurityPolicy(maskPatterns: ['password', 'secret']);
+$policy = new SecurityPolicy(allowedDirs: ['/app/config']);
 $accessor = SafeAccess::withPolicy($jsonString, $policy);
 ```
-
-#### `SafeAccess::fromFileWithPolicy(string $filePath, SecurityPolicy $policy): AbstractAccessor`
-
-Loads a file constrained to the policy's `allowedDirs`.
-
-```php
-$policy = new SecurityPolicy(allowedDirs: ['/app/config']);
-$accessor = SafeAccess::fromFileWithPolicy('/app/config/app.json', $policy);
-```
-
-#### `SafeAccess::fromUrlWithPolicy(string $url, SecurityPolicy $policy): AbstractAccessor`
-
-Fetches a URL constrained by the policy's URL options.
-
-```php
-$policy = new SecurityPolicy(url: [
-    'allowedHosts' => ['api.example.com'],
-    'allowPrivateIps' => false,
-]);
-$accessor = SafeAccess::fromUrlWithPolicy('https://api.example.com/config.json', $policy);
-```
-
-#### `SafeAccess::getTemplate(string $template, array $bindings): string`
-
-Renders a template string by replacing `{key}` placeholders with corresponding values from the bindings array. **Note**: This is a static string manipulation utility. To read a template path from an accessor directly, use `$accessor->getTemplate()`.
-
-```php
-$rendered = SafeAccess::getTemplate('Hello {user.name}', ['user' => ['name' => 'John']]);
-// "Hello John"
-```
-
-#### `SafeAccess::compilePath(string $path): CompiledPath`
-
-Parses a dot-notation path once and returns an opaque `CompiledPath` object. Pass it to `getCompiled()` to resolve values without re-tokenizing the path on each call. Best suited for tight loops or hot paths where the same field is read across many accessors.
-
-**Parameters:**
-
-- `$path` — dot-notation path to compile (e.g., `'user.address.city'`).
-
-**Returns:** A `CompiledPath` instance (opaque handle).
-
-```php
-use SafeAccessInline\SafeAccess;
-
-// Compile once
-$compiledPath = SafeAccess::compilePath('user.address.city');
-
-// Reuse across many accessors — no re-parsing
-$a = SafeAccess::fromArray(['user' => ['address' => ['city' => 'São Paulo']]]);
-$b = SafeAccess::fromArray(['user' => ['address' => ['city' => 'Lisbon']]]);
-
-$a->getCompiled($compiledPath); // "São Paulo"
-$b->getCompiled($compiledPath); // "Lisbon"
-```
-
-::: tip Performance tip
-`compilePath()` combined with `getCompiled()` performs better than `get()` in tight loops where the same path is used many times. For one-off access, prefer the simpler `get()` API.
-:::
 
 ---
 
@@ -350,26 +185,6 @@ $accessor->getMany([
     'user.email' => 'N/A',
 ]);
 // ['user.name' => 'Ana', 'user.email' => 'N/A']
-```
-
-#### `getTemplate(string $template, array $bindings, mixed $default = null): mixed`
-
-Resolves a template string by substituting binding keys with their values, then reads the resulting path from the accessor.
-
-```php
-// Template uses {key} placeholders resolved against $bindings
-$accessor->getTemplate('users.{id}.name', ['id' => '0']); // 'Ana'
-$accessor->getTemplate('settings.{section}.{key}', ['section' => 'db', 'key' => 'host'], 'localhost');
-```
-
-#### `getCompiled(CompiledPath $compiled, mixed $default = null): mixed`
-
-Resolves a pre-compiled path (see [`SafeAccess::compilePath()`](#safeaccess-compilepath-string-path-compiledpath)) against this accessor's data. Prefer this over `get()` when the same path is read repeatedly in a loop.
-
-```php
-$compiled = SafeAccess::compilePath('user.name');
-$accessor->getCompiled($compiled);           // 'Ana'
-$accessor->getCompiled($compiled, 'N/A');    // 'Ana' if exists, 'N/A' if missing
 ```
 
 #### `has(string $path): bool`
@@ -519,10 +334,6 @@ $accessor->toJson(['unescapeSlashes' => true]);           // keep slashes as-is
 $accessor->toJson(['pretty' => true, 'unescapeUnicode' => true]); // combined
 ```
 
-#### `toObject(): stdClass`
-
-Convert data to a stdClass object.
-
 #### `toXml(string $rootElement = 'root'): string`
 
 Convert data to an XML string. Checks `PluginRegistry` for an XML serializer first; falls back to built-in `SimpleXMLElement` implementation.
@@ -559,65 +370,9 @@ $accessor = SafeAccess::fromArray([['id' => 1], ['id' => 2]]);
 $accessor->toNdjson(); // '{"id":1}\n{"id":2}'
 ```
 
-#### `toCsv(?string $csvMode = null): string`
-
-Serializes the data to CSV format. The optional `$csvMode` parameter controls CSV injection sanitization: `'none'` (default), `'prefix'`, `'strip'`, or `'error'`.
-
-```php
-$accessor->toCsv();          // default: no sanitization
-$accessor->toCsv('strip');   // strip dangerous leading characters
-```
-
-#### `transform(string $format): string`
-
-Serialize data to any format. Falls back to built-in serializers for `yaml` and `toml` (no plugin required). Other formats require a registered serializer plugin; throws `UnsupportedTypeException` if none is found.
-
-```php
-// yaml and toml work without registration
-$accessor->transform('yaml');  // "name: Ana\nage: 30\n"
-$accessor->transform('toml');  // 'name = "Ana"\nage = 30\n'
-
-// Custom formats need a plugin
-PluginRegistry::registerSerializer('csv', new MyCsvSerializer());
-$accessor->transform('csv');
-```
-
-### Security & Validation
-
-#### `mask(array $patterns = []): static`
-
-Returns a **new instance** with sensitive data replaced by `[REDACTED]`. Auto-detects common keys (password, token, secret, api_key, etc.). Custom glob patterns can be provided.
-
-```php
-$safe = $accessor->mask();
-$safe->get('database.password'); // '[REDACTED]'
-
-// With custom patterns
-$safe = $accessor->mask(['*_key', 'credentials.*']);
-```
-
-#### `validate(mixed $schema, ?SchemaAdapterInterface $adapter = null): SchemaValidationResult`
-
-Validates data against a schema. Uses `SchemaRegistry` default adapter if none provided. Returns a `SchemaValidationResult` — check `$result->valid` to determine success. Does not throw on validation failure.
-
-```php
-use SafeAccessInline\Core\Registries\SchemaRegistry;
-
-SchemaRegistry::setDefaultAdapter($myAdapter);
-$result = $accessor->validate($schema);
-if ($result->valid) {
-    $accessor->get('name'); // safe to access
-} else {
-    print_r($result->errors);
-}
-
-// With explicit adapter
-$result = $accessor->validate($schema, new MySchemaAdapter());
-```
-
 ### Readonly
 
-The `AbstractAccessor` constructor accepts `bool $readonly = false`. When `true`, all write methods (`set`, `remove`, `merge`, `push`, `pop`, etc.) throw `ReadonlyViolationException`. You can also freeze an existing accessor at runtime.
+The `AbstractAccessor` constructor accepts `bool $readonly = false`. When `true`, all write methods (`set`, `remove`, `merge`, etc.) throw `ReadonlyViolationException`. You can also freeze an existing accessor at runtime.
 
 #### `freeze(): static`
 
@@ -632,149 +387,6 @@ $frozen->set('a', 1); // throws ReadonlyViolationException
 $accessor = SafeAccess::fromArray(['key' => 'value']);
 $readonly = new \SafeAccessInline\Accessors\ArrayAccessor(['key' => 'value'], true);
 $readonly->set('key', 'new'); // throws ReadonlyViolationException
-```
-
-### Array Operations (Immutable)
-
-All array operations return **new instances** — the original is never mutated.
-
-#### `push(string $path, mixed ...$items): static`
-
-Appends items to the end of the array at `$path`.
-
-```php
-$new = $accessor->push('tags', 'php', 'safe');
-```
-
-#### `pop(string $path): static`
-
-Removes the last item from the array at `$path`.
-
-```php
-$new = $accessor->pop('tags');
-```
-
-#### `shift(string $path): static`
-
-Removes the first item from the array at `$path`.
-
-```php
-$new = $accessor->shift('queue');
-```
-
-#### `unshift(string $path, mixed ...$items): static`
-
-Prepends items to the beginning of the array at `$path`.
-
-```php
-$new = $accessor->unshift('queue', 'first');
-```
-
-#### `insert(string $path, int $index, mixed ...$items): static`
-
-Inserts items at a specific index in the array at `$path`. Supports negative indices.
-
-```php
-$new = $accessor->insert('items', 1, 'inserted');
-$new = $accessor->insert('items', -1, 'before-last');
-```
-
-#### `filterAt(string $path, callable $predicate): static`
-
-Filters array items at `$path` using a predicate `fn($value, $key): bool`.
-
-```php
-$new = $accessor->filterAt('users', fn($u) => $u['active'] === true);
-```
-
-#### `mapAt(string $path, callable $transform): static`
-
-Transforms each array item at `$path` using `fn($value, $key): mixed`.
-
-```php
-$new = $accessor->mapAt('prices', fn($p) => $p * 1.1);
-```
-
-#### `sortAt(string $path, ?string $key = null, string $direction = 'asc'): static`
-
-Sorts the array at `$path`. Optionally by a sub-key. Direction: `'asc'` or `'desc'`.
-
-```php
-$sorted = $accessor->sortAt('users', 'name');
-$desc   = $accessor->sortAt('scores', null, 'desc');
-```
-
-#### `unique(string $path, ?string $key = null): static`
-
-Removes duplicate values from the array at `$path`. Optionally de-duplicates by a sub-key.
-
-```php
-$new = $accessor->unique('tags');
-$new = $accessor->unique('users', 'email');
-```
-
-#### `flatten(string $path, int $depth = 1): static`
-
-Flattens nested arrays at `$path` by `$depth` levels.
-
-```php
-$new = $accessor->flatten('matrix');        // 1 level
-$new = $accessor->flatten('deep', PHP_INT_MAX); // fully flat
-```
-
-#### `first(string $path, mixed $default = null): mixed`
-
-Returns the first element of the array at `$path`.
-
-```php
-$accessor->first('items'); // first item or null
-```
-
-#### `last(string $path, mixed $default = null): mixed`
-
-Returns the last element of the array at `$path`.
-
-```php
-$accessor->last('items'); // last item or null
-```
-
-#### `nth(string $path, int $index, mixed $default = null): mixed`
-
-Returns the element at index `$index`. Supports negative indices (`-1` = last).
-
-```php
-$accessor->nth('items', 0);    // first
-$accessor->nth('items', -1);   // last
-$accessor->nth('items', 99, 'fallback'); // 'fallback'
-```
-
-### JSON Patch & Diff
-
-#### `diff(AbstractAccessor|array $other): array`
-
-Generates RFC 6902 JSON Patch operations representing the differences between two accessors.
-
-```php
-$a = SafeAccess::fromArray(['name' => 'Ana', 'age' => 30]);
-$b = SafeAccess::fromArray(['name' => 'Ana', 'age' => 31, 'city' => 'SP']);
-
-$ops = $a->diff($b);
-// [
-//   ['op' => 'replace', 'path' => '/age', 'value' => 31],
-//   ['op' => 'add', 'path' => '/city', 'value' => 'SP'],
-// ]
-```
-
-#### `applyPatch(array $ops): static`
-
-Applies RFC 6902 JSON Patch operations. Supports: `add`, `replace`, `remove`, `move`, `copy`, `test`. Returns a **new instance**.
-
-```php
-$new = $accessor->applyPatch([
-    ['op' => 'replace', 'path' => '/name', 'value' => 'Updated'],
-    ['op' => 'add', 'path' => '/new_key', 'value' => 42],
-    ['op' => 'remove', 'path' => '/old_key'],
-]);
 ```
 
 ### Segment-Based Access
@@ -794,22 +406,6 @@ $accessor->getAt(['users', '0', 'name']); // literal traversal
 #### `removeAt(array $segments): static`
 
 ---
-
-### Debugging
-
-#### `trace(string $path): array`
-
-Returns an ordered array of resolution steps used to traverse the path. Useful for diagnosing unexpected `null` returns or understanding how wildcards and filters are resolved.
-
-```php
-$accessor = SafeAccess::fromArray(['users' => [['name' => 'Ana']]]);
-$steps = $accessor->trace('users.0.name');
-// [
-//   ['step' => 'users',  'value' => [['name' => 'Ana']]],
-//   ['step' => '0',      'value' => ['name' => 'Ana']],
-//   ['step' => 'name',   'value' => 'Ana'],
-// ]
-```
 
 ### Wildcard Convenience
 

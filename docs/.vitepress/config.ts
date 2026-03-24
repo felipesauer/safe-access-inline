@@ -169,7 +169,6 @@ function sidebar() {
             text: "Introduction",
             items: [
                 { text: "What is Safe Access Inline?", link: "/guide/" },
-                { text: "Architecture", link: "/guide/architecture" },
             ],
         },
         {

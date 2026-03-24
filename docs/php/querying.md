@@ -104,3 +104,100 @@ $withMeta = $accessor->merge(['version' => '2.0', 'debug' => false]);
 $withMeta->get('version');   // '2.0'
 $withMeta->get('user.name'); // 'Ana' (preserved)
 ```
+
+---
+
+## Combining Path Expressions
+
+Segments can be freely combined in a single path. The query is evaluated left-to-right:
+
+```php
+$accessor = SafeAccess::fromArray([
+    'catalog' => [
+        ['id' => 1, 'name' => 'Laptop', 'tags' => ['electronics', 'portable'], 'price' => 1200],
+        ['id' => 2, 'name' => 'Phone',  'tags' => ['electronics', 'mobile'],   'price' => 800],
+        ['id' => 3, 'name' => 'Desk',   'tags' => ['furniture'],               'price' => 300],
+        ['id' => 4, 'name' => 'Tablet', 'tags' => ['electronics', 'portable'], 'price' => 600],
+    ],
+]);
+
+// Filter, then pick a field
+$accessor->get('catalog[?price>500].name');
+// ['Laptop', 'Phone', 'Tablet']
+
+// Slice, then wildcard
+$accessor->get('catalog[0:2].*.name');
+// ['Laptop', 'Phone'] (first 2 items, all names)
+
+// Combined AND filter + field pick
+$accessor->get('catalog[?price>500 && price<1000].name');
+// ['Phone', 'Tablet']
+
+// Recursive descent + filter
+$accessor->get("catalog[?price>1000].tags.0");
+// ['electronics'] (first tag of expensive items)
+```
+
+---
+
+## Dynamic Paths with `getTemplate()`
+
+`getTemplate()` substitutes `{key}` placeholders in a path template before resolving it — useful when the path contains a value only known at runtime:
+
+```php
+$users = SafeAccess::fromArray([
+    'users' => [
+        ['name' => 'Ana', 'role' => 'admin'],
+        ['name' => 'Bob', 'role' => 'user'],
+    ],
+]);
+
+// Resolve path with a dynamic index
+$users->getTemplate('users.{index}.name', ['index' => 0]); // 'Ana'
+$users->getTemplate('users.{index}.name', ['index' => 1]); // 'Bob'
+
+// Multiple substitutions
+$config = SafeAccess::fromArray([
+    'services' => [
+        'auth' => ['host' => 'auth.example.com', 'port' => 443],
+        'api'  => ['host' => 'api.example.com',  'port' => 8080],
+    ],
+]);
+
+$config->getTemplate('services.{service}.{field}', [
+    'service' => 'auth',
+    'field'   => 'host',
+], 'unknown'); // 'auth.example.com'
+
+$config->getTemplate('services.{service}.{field}', [
+    'service' => 'db',
+    'field'   => 'host',
+], 'unknown'); // 'unknown' (path not found, returns default)
+```
+
+---
+
+## Batch Reads with `getMany()`
+
+`getMany()` reads multiple paths in a single call, returning an associative array of path → value. Missing paths fall back to the provided default:
+
+```php
+$accessor = SafeAccess::fromArray([
+    'user'     => ['name' => 'Ana', 'email' => 'ana@example.com', 'role' => 'admin'],
+    'settings' => ['theme' => 'dark'],
+]);
+
+$values = $accessor->getMany([
+    'user.name'      => 'Unknown',
+    'user.email'     => 'N/A',
+    'user.phone'     => 'N/A',    // path does not exist — uses default
+    'settings.theme' => 'light',
+]);
+
+// [
+//   'user.name'      => 'Ana',
+//   'user.email'     => 'ana@example.com',
+//   'user.phone'     => 'N/A',
+//   'settings.theme' => 'dark',
+// ]
+```

@@ -101,7 +101,6 @@ const json = SafeAccess.detect('{"key": "value"}'); // JsonAccessor
 const accessor = SafeAccess.fromJson('{"name": "Ana", "age": 30}');
 
 accessor.toArray(); // { name: "Ana", age: 30 }
-accessor.toObject(); // deep clone as plain object
 accessor.toJson(); // '{"name":"Ana","age":30}'
 accessor.toJson(true); // pretty-printed JSON
 
@@ -109,10 +108,9 @@ accessor.toJson(true); // pretty-printed JSON
 accessor.toYaml(); // "name: Ana\nage: 30\n"
 accessor.toToml(); // 'name = "Ana"\nage = 30\n'
 accessor.toXml("person"); // uses built-in serializer (plugin can override)
-accessor.transform("yaml"); // delegates to toYaml() — no plugin needed
 ```
 
-> **Note:** `toYaml()`, `toToml()`, and `toXml()` work out of the box. `transform()` also falls back to built-in serializers for `yaml`, `toml`, and `csv`. For custom formats, register a serializer plugin via `PluginRegistry`.
+> **Note:** `toYaml()`, `toToml()`, and `toXml()` work out of the box. For custom formats, register a serializer plugin via `PluginRegistry`.
 
 ---
 
@@ -124,55 +122,28 @@ See the [Plugin System](/js/plugins) page for full documentation, shipped plugin
 
 ---
 
-## Async / Await: Key Difference from PHP
+## Real-world Scenarios
 
-::: info Coming from PHP?
-In PHP, `fromFile()` and `fromUrl()` are **synchronous** — they block until the read completes.
-In JavaScript / TypeScript, these operations are **asynchronous** and return a `Promise`. You must
-`await` them (or use `.then()`). `fromFileSync()` is the synchronous alternative for environments
-where async is not possible.
-:::
-
-| Method               | Return type                 | When to use                                            |
-| -------------------- | --------------------------- | ------------------------------------------------------ |
-| `fromFile(path)`     | `Promise<AbstractAccessor>` | Most cases — async, non-blocking                       |
-| `fromFileSync(path)` | `AbstractAccessor`          | Scripts, CLIs, test setup where `await` is unavailable |
-| `fromUrl(url)`       | `Promise<AbstractAccessor>` | Remote content — always async                          |
-| `layerFiles(paths)`  | `Promise<AbstractAccessor>` | Layered config loading — async                         |
+### Scenario 1 — Parse a `.env` file and build a typed config object
 
 ```typescript
-// ✅ Correct — await the Promise
-const accessor = await SafeAccess.fromFile("/app/config.json", {
-    allowAnyPath: true,
-});
-accessor.get("server.port"); // 3000
+import { SafeAccess } from "@safe-access-inline/safe-access-inline";
+import { readFileSync } from "node:fs";
 
-// ✅ fromFileSync — synchronous variant (no await needed)
-const accessor2 = SafeAccess.fromFileSync("/app/config.json", {
-    allowAnyPath: true,
-});
-accessor2.get("server.port"); // 3000
+const raw = readFileSync(".env", "utf-8");
+const env = SafeAccess.fromEnv(raw);
 
-// ✅ Top-level await in ES modules, or inside an async function
-async function loadConfig() {
-    const config = await SafeAccess.fromFile("/app/config.json", {
-        allowAnyPath: true,
-    });
-    return config.get("database.host", "localhost");
+interface DbConfig {
+    host: string;
+    port: number;
+    name: string;
 }
 
-// ✅ fromUrl — always async
-const remote = await SafeAccess.fromUrl("https://api.example.com/config.json");
-remote.get("version"); // "1.2.0"
+const db: DbConfig = {
+    host: env.get("DB_HOST", "localhost") as string,
+    port: parseInt(env.get("DB_PORT", "5432") as string, 10),
+    name: env.get("DB_NAME", "myapp") as string,
+};
+
+console.log(db); // { host: 'localhost', port: 5432, name: 'myapp' }
 ```
-
-**PHP comparison:**
-
-```php
-// PHP — synchronous, no await needed
-$accessor = SafeAccess::fromFile('/app/config.json');
-$accessor->get('server.port'); // 3000
-```
-
-For more details on I/O behaviour differences between PHP and JS, see
-[Architecture — Feature Parity Matrix](/guide/architecture#feature-parity-matrix).

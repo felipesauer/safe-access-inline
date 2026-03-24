@@ -16,7 +16,7 @@ outline: deep
 - [Consultas e Filtros](/pt-br/js/querying)
 - [Formatos & TypeScript](/pt-br/js/formats)
 - [Recursos Avançados](/pt-br/js/advanced)
-- [Segurança & Integrações](/pt-br/js/security)
+- [Segurança](/pt-br/js/security)
 
 ---
 
@@ -108,7 +108,6 @@ const json = SafeAccess.detect('{"key": "value"}'); // JsonAccessor
 const accessor = SafeAccess.fromJson('{"name": "Ana", "age": 30}');
 
 accessor.toArray(); // { name: "Ana", age: 30 }
-accessor.toObject(); // cópia profunda como objeto plano
 accessor.toJson(); // '{"name":"Ana","age":30}'
 accessor.toJson(true); // JSON formatado
 
@@ -116,10 +115,9 @@ accessor.toJson(true); // JSON formatado
 accessor.toYaml(); // "name: Ana\nage: 30\n"
 accessor.toToml(); // 'name = "Ana"\nage = 30\n'
 accessor.toXml("person"); // usa serializador interno (plugin pode substituir)
-accessor.transform("yaml"); // delega para toYaml()
 ```
 
-> **Nota:** `toYaml()`, `toToml()` e `toXml()` funcionam sem configuração. `transform()` também utiliza os serializadores internos para `yaml`, `toml` e `csv`.
+> **Nota:** `toYaml()`, `toToml()` e `toXml()` funcionam sem configuração.
 
 ---
 
@@ -131,55 +129,64 @@ Consulte a página do [Sistema de Plugins](/pt-br/js/plugins) para documentaçã
 
 ---
 
-## Async / Await: Diferença Chave para o PHP
+## Cenários Reais
 
-::: info Vindo do PHP?
-No PHP, `fromFile()` e `fromUrl()` são **síncronos** — eles bloqueiam até a leitura ser concluída.
-No JavaScript / TypeScript, essas operações são **assíncronas** e retornam uma `Promise`. Você deve
-usar `await` (ou `.then()`). `fromFileSync()` é a alternativa síncrona para ambientes
-onde async não é possível.
-:::
-
-| Método               | Tipo de retorno             | Quando usar                                                     |
-| -------------------- | --------------------------- | --------------------------------------------------------------- |
-| `fromFile(path)`     | `Promise<AbstractAccessor>` | Maioria dos casos — async, sem bloqueio                         |
-| `fromFileSync(path)` | `AbstractAccessor`          | Scripts, CLIs, setup de testes onde `await` não está disponível |
-| `fromUrl(url)`       | `Promise<AbstractAccessor>` | Conteúdo remoto — sempre async                                  |
-| `layerFiles(paths)`  | `Promise<AbstractAccessor>` | Carregamento de config em camadas — async                       |
+### 1. Carregar, ler e atualizar um arquivo de configuração JSON
 
 ```typescript
-// ✅ Correto — aguardar a Promise
-const accessor = await SafeAccess.fromFile("/app/config.json", {
-    allowAnyPath: true,
-});
-accessor.get("server.port"); // 3000
+import { SafeAccess } from "@safe-access-inline/safe-access-inline";
+import { readFileSync, writeFileSync } from "node:fs";
 
-// ✅ fromFileSync — variante síncrona (sem await necessário)
-const accessor2 = SafeAccess.fromFileSync("/app/config.json", {
-    allowAnyPath: true,
-});
-accessor2.get("server.port"); // 3000
+// Carregar e ler
+const raw = readFileSync("./config/app.json", "utf8");
+const cfg = SafeAccess.fromJson(raw);
 
-// ✅ Top-level await em módulos ES, ou dentro de uma função async
-async function loadConfig() {
-    const config = await SafeAccess.fromFile("/app/config.json", {
-        allowAnyPath: true,
-    });
-    return config.get("database.host", "localhost");
+const host = cfg.get("database.host", "localhost");
+const port = cfg.get("database.port", 5432);
+console.log(`Conectando em ${host}:${port}`);
+
+// Aplicar patch e salvar de volta
+const updated = cfg.set("database.port", 5433).set("app.version", "2.1.0");
+
+writeFileSync("./config/app.json", updated.toJson(true), "utf8");
+```
+
+### 2. Parse de arquivo .env e construção de objeto de configuração tipado
+
+```typescript
+import { SafeAccess } from "@safe-access-inline/safe-access-inline";
+import { readFileSync } from "node:fs";
+
+const env = readFileSync(".env", "utf8");
+const accessor = SafeAccess.fromEnv(env);
+
+interface AppConfig {
+    apiUrl: string;
+    port: number;
+    debug: boolean;
 }
 
-// ✅ fromUrl — sempre async
-const remote = await SafeAccess.fromUrl("https://api.example.com/config.json");
-remote.get("version"); // "1.2.0"
+const config: AppConfig = {
+    apiUrl: accessor.get("API_URL", "http://localhost") as string,
+    port: Number(accessor.get("PORT", "3000")),
+    debug: accessor.get("DEBUG", "false") === "true",
+};
 ```
 
-**Comparação com PHP:**
+### 3. Mesclar override de ambiente sobre configuração base YAML
 
-```php
-// PHP — síncrono, sem await necessário
-$accessor = SafeAccess::fromFile('/app/config.json');
-$accessor->get('server.port'); // 3000
+```typescript
+import { SafeAccess } from "@safe-access-inline/safe-access-inline";
+import { readFileSync } from "node:fs";
+
+const base = SafeAccess.fromYaml(readFileSync("./config/base.yaml", "utf8"));
+const override = SafeAccess.fromYaml(
+    readFileSync(`./config/${process.env.NODE_ENV}.yaml`, "utf8"),
+);
+
+// Deep-merge: chaves do override sobrescrevem, o restante é preservado
+const config = base.merge(override.all());
+
+config.get("database.host"); // valor final mesclado
+config.get("app.name"); // preservado da config base
 ```
-
-Para mais detalhes sobre as diferenças de comportamento de I/O entre PHP e JS, veja
-[Arquitetura — Matrix de Paridade de Recursos](/pt-br/guide/architecture#feature-parity-matrix).

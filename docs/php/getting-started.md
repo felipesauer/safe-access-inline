@@ -13,7 +13,7 @@ outline: deep
 - [Querying & Filtering](/php/querying)
 - [Formats & Utility Methods](/php/formats)
 - [Advanced Features](/php/advanced)
-- [Security & Integrations](/php/security)
+- [Security](/php/security)
 
 ## Requirements
 
@@ -104,7 +104,6 @@ $obj   = SafeAccess::detect((object)['a' => 1]);    // ObjectAccessor
 $accessor = SafeAccess::fromJson('{"name": "Ana", "age": 30}');
 
 $accessor->toArray();    // ['name' => 'Ana', 'age' => 30]
-$accessor->toObject();   // stdClass { name: "Ana", age: 30 }
 $accessor->toXml();      // "<root><name>Ana</name><age>30</age></root>"
 $accessor->toJson();     // '{"name":"Ana","age":30}'
 $accessor->toYaml();     // "name: Ana\nage: 30\n"
@@ -116,3 +115,70 @@ $accessor->toToml();     // 'name = "Ana"\nage = 30\n'
 ## Plugin System
 
 Replace built-in YAML/TOML parsers or add custom ones. See the [Plugin System](/php/plugins) page for the full guide.
+
+---
+
+## Real-world Scenarios
+
+### Scenario 1 — Load a config file, read values, patch, and write back
+
+```php
+use SafeAccessInline\SafeAccess;
+
+// 1. Load
+$raw = file_get_contents('/app/config/app.json');
+$accessor = SafeAccess::fromJson($raw);
+
+// 2. Read
+$host = $accessor->get('database.host', 'localhost');
+$port = $accessor->get('database.port', 5432);
+echo "Connecting to {$host}:{$port}";
+
+// 3. Patch immutably
+$updated = $accessor
+    ->set('database.port', 5433)
+    ->set('app.version', '2.1.0')
+    ->set('app.updatedAt', date('c'));
+
+// 4. Write back as pretty JSON
+file_put_contents('/app/config/app.json', $updated->toJson(true));
+```
+
+### Scenario 2 — Parse a `.env` file and build a typed config object
+
+```php
+use SafeAccessInline\SafeAccess;
+
+$raw = file_get_contents('.env');
+$env = SafeAccess::fromEnv($raw);
+
+$db = [
+    'host' => (string) $env->get('DB_HOST', 'localhost'),
+    'port' => (int) $env->get('DB_PORT', '5432'),
+    'name' => (string) $env->get('DB_NAME', 'myapp'),
+];
+
+var_dump($db);
+// ['host' => 'localhost', 'port' => 5432, 'name' => 'myapp']
+```
+
+### Scenario 3 — Merge environment-specific overrides onto a base config
+
+```php
+use SafeAccessInline\SafeAccess;
+use SafeAccessInline\Exceptions\InvalidFormatException;
+
+$base = SafeAccess::fromYaml(file_get_contents('/app/config/base.yaml'));
+$env  = $_ENV['APP_ENV'] ?? 'development';
+
+$config = $base;
+try {
+    $override = SafeAccess::fromYaml(file_get_contents("/app/config/{$env}.yaml"));
+    // Deep-merge the override — base values are preserved unless explicitly replaced
+    $config = $base->merge($override->all());
+} catch (InvalidFormatException) {
+    // No environment-specific override — use base config as-is
+}
+
+echo $config->get('database.host');
+```

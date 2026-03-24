@@ -8,7 +8,6 @@ outline: deep
 
 - [PluginRegistry](#pluginregistry)
 - [PathCache](#pathcache)
-- [DotNotationParser](#dotnotationparser)
 - [Erros](#erros)
 - [Tipos TypeScript](#tipos-typescript)
 - [Enums](#enums)
@@ -127,87 +126,68 @@ Indica se o cache está atualmente ativo.
 
 ---
 
-## DotNotationParser
-
-**Import:** `import { DotNotationParser } from '@safe-access-inline/safe-access-inline'`
-
-Classe utilitária estática. Normalmente usada internamente, mas disponível para uso direto.
-
-#### `DotNotationParser.get(data, path, defaultValue?): unknown`
-
-Suporta expressões de caminho avançadas:
-
-| Sintaxe           | Descrição                                                                     | Exemplo                 |
-| ----------------- | ----------------------------------------------------------------------------- | ----------------------- |
-| `a.b.c`           | Acesso a chave aninhada                                                       | `"user.profile.name"`   |
-| `a[0]`            | Índice com colchetes                                                          | `"items[0].title"`      |
-| `a.*`             | Wildcard — retorna array de valores                                           | `"users.*.name"`        |
-| `a[?field>value]` | Filtro — retorna itens correspondentes                                        | `"products[?price>20]"` |
-| `..key`           | Descida recursiva — coleta todos os valores de `key` em qualquer profundidade | `"..name"`              |
-
-**Expressões de filtro** suportam:
-
-- Comparação: `==`, `!=`, `>`, `<`, `>=`, `<=`
-- Lógicos: `&&` (AND), `\|\|` (OR)
-- Valores: números, `'strings'`, `true`, `false`, `null`
-
-```typescript
-// Filtro: todos os usuários admin
-DotNotationParser.get(data, "users[?role=='admin']");
-
-// Filtro com comparação numérica + continuação de caminho
-DotNotationParser.get(data, "products[?price>20].name");
-
-// AND combinado
-DotNotationParser.get(data, "items[?type=='fruit' && color=='red'].name");
-
-// Descida recursiva: todos os valores "name" em qualquer profundidade
-DotNotationParser.get(data, "..name");
-
-// Descida + wildcard
-DotNotationParser.get(data, "..items.*.id");
-
-// Descida + filtro
-DotNotationParser.get(data, "..employees[?active==true].name");
-```
-
-#### `DotNotationParser.has(data, path): boolean`
-
-#### `DotNotationParser.set(data, path, value): Record<string, unknown>`
-
-Retorna um novo objeto (usa `structuredClone`, não muta o input).
-
-#### `DotNotationParser.merge(data, path, value): Record<string, unknown>`
-
-Faz deep merge de `value` no `path` dado. Quando `path` é uma string vazia, mescla na raiz. Objetos são mesclados recursivamente; todos os outros valores são substituídos.
-
-```typescript
-const result = DotNotationParser.merge(data, "user.settings", {
-    theme: "dark",
-});
-// Mescla { theme: "dark" } em data.user.settings
-```
-
-#### `DotNotationParser.remove(data, path): Record<string, unknown>`
-
-Retorna um novo objeto (não muta o input).
-
----
-
 ## Erros
 
-| Erro                       | Quando                                                                                                                     |
-| -------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `AccessorError`            | Classe base de erro                                                                                                        |
-| `InvalidFormatError`       | Formato de input inválido (ex: JSON malformado, plugin parser ausente)                                                     |
-| `PathNotFoundError`        | Reservado (não lançado por `get()`)                                                                                        |
-| `UnsupportedTypeError`     | Nenhum plugin serializer/parser registrado para o formato solicitado                                                       |
-| `SecurityError`            | Violação de restrição de segurança (tamanho do payload, contagem de chaves, profundidade, segurança de URL, entidades XML) |
-| `ReadonlyViolationError`   | Tentativa de mutação em um accessor readonly                                                                               |
-| `SchemaValidationError`    | Dados falham na validação de schema via `validate()`                                                                       |
-| `JsonPatchTestFailedError` | Operação `test` do JSON Patch falhou — valor no caminho não corresponde ao valor esperado                                  |
+| Erro                     | Quando                                                                                                                     |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| `AccessorError`          | Classe base de erro                                                                                                        |
+| `InvalidFormatError`     | Formato de input inválido (ex: JSON malformado, plugin parser ausente)                                                     |
+| `PathNotFoundError`      | Reservado (não lançado por `get()`)                                                                                        |
+| `UnsupportedTypeError`   | Nenhum plugin serializer/parser registrado para o formato solicitado                                                       |
+| `SecurityError`          | Violação de restrição de segurança (tamanho do payload, contagem de chaves, profundidade, segurança de URL, entidades XML) |
+| `ReadonlyViolationError` | Tentativa de mutação em um accessor readonly                                                                               |
 
 Todos os erros estendem a classe base `Error` e `AccessorError`.
+
+### Capturando erros
+
+```typescript
+import {
+    SafeAccess,
+    InvalidFormatError,
+    SecurityError,
+    ReadonlyViolationError,
+    UnsupportedTypeError,
+} from "@safe-access-inline/safe-access-inline";
+
+// Formato inválido
+try {
+    SafeAccess.fromJson("{invalid json}");
+} catch (e) {
+    if (e instanceof InvalidFormatError) {
+        console.error("Falha no parse:", e.message);
+    }
+}
+
+// Violação de política de segurança
+try {
+    const policy = { maxDepth: 2 };
+    SafeAccess.withPolicy(deeplyNested, policy);
+} catch (e) {
+    if (e instanceof SecurityError) {
+        console.error("Limite de segurança excedido:", e.message);
+    }
+}
+
+// Tentativa de mutação em accessor readonly
+try {
+    const ro = SafeAccess.fromObject(config, { readonly: true });
+    ro.set("key", "value"); // lança
+} catch (e) {
+    if (e instanceof ReadonlyViolationError) {
+        console.error("O accessor é somente-leitura:", e.message);
+    }
+}
+
+// Plugin de serializer ausente
+try {
+    accessor.toYaml();
+} catch (e) {
+    if (e instanceof UnsupportedTypeError) {
+        console.error("Nenhum serializer registrado para yaml:", e.message);
+    }
+}
+```
 
 ---
 
@@ -226,11 +206,9 @@ interface AccessorInterface {
     all(): Record<string, unknown>;
     toArray(): Record<string, unknown>;
     toJson(pretty?: boolean): string;
-    toObject(): Record<string, unknown>;
     toYaml(): string;
     toToml(): string;
     toXml(rootElement?: string): string;
-    transform(format: string): string;
 }
 
 interface ParserPlugin {
@@ -354,42 +332,6 @@ interface FilterExpression {
 // }
 ```
 
-### `TraceSegment`
-
-Um passo no resultado de `AbstractAccessor.trace()`. Cada entrada corresponde a um segmento analisado do caminho em notação de ponto.
-
-```typescript
-import type { TraceSegment } from "@safe-access-inline/safe-access-inline";
-
-interface TraceSegment {
-    /** Representação string deste segmento (nome da chave, `[*]`, `[?...]`, etc.). */
-    readonly segment: string;
-    /** `true` quando o segmento resolveu para um valor definido. */
-    readonly found: boolean;
-    /**
-     * Tipo JavaScript do valor resolvido, ou `null` quando `found` for `false`.
-     * Valores possíveis: `'object'`, `'array'`, `'string'`, `'number'`, `'boolean'`, `'null'`.
-     */
-    readonly type:
-        | "object"
-        | "array"
-        | "string"
-        | "number"
-        | "boolean"
-        | "null"
-        | null;
-}
-```
-
-```typescript
-const resultado = accessor.trace("user.profile.name");
-// [
-//   { segment: 'user', found: true, type: 'object' },
-//   { segment: 'profile', found: true, type: 'object' },
-//   { segment: 'name', found: true, type: 'string' },
-// ]
-```
-
 ---
 
 ## Enums
@@ -409,28 +351,14 @@ Enum de string cobrindo todos os formatos built-in. Use como alternativa tipada 
 | `Format.Yaml`   | `'yaml'`   |
 | `Format.Toml`   | `'toml'`   |
 | `Format.Ini`    | `'ini'`    |
-| `Format.Csv`    | `'csv'`    |
 | `Format.Env`    | `'env'`    |
 | `Format.Ndjson` | `'ndjson'` |
 
-### `AuditEventType`
+### `SegmentType` <Badge type="warning" text="@internal" />
 
-Identifica a categoria de um evento de auditoria emitido.
-
-| Membro                                | Valor                    |
-| ------------------------------------- | ------------------------ |
-| `AuditEventType.FILE_READ`            | `'file.read'`            |
-| `AuditEventType.FILE_WATCH`           | `'file.watch'`           |
-| `AuditEventType.URL_FETCH`            | `'url.fetch'`            |
-| `AuditEventType.SECURITY_VIOLATION`   | `'security.violation'`   |
-| `AuditEventType.SECURITY_DEPRECATION` | `'security.deprecation'` |
-| `AuditEventType.DATA_MASK`            | `'data.mask'`            |
-| `AuditEventType.DATA_FREEZE`          | `'data.freeze'`          |
-| `AuditEventType.DATA_FORMAT_WARNING`  | `'data.format_warning'`  |
-| `AuditEventType.SCHEMA_VALIDATE`      | `'schema.validate'`      |
-| `AuditEventType.PLUGIN_OVERWRITE`     | `'plugin.overwrite'`     |
-
-### `SegmentType`
+::: warning @internal
+Este enum é um detalhe de implementação do parser de dot-notation. Não use em código de aplicação — a estrutura pode mudar em versões futuras.
+:::
 
 Discriminador para os tipos de segmento produzidos pelo parser de dot-notation.
 
@@ -446,7 +374,11 @@ Discriminador para os tipos de segmento produzidos pelo parser de dot-notation.
 | `SegmentType.FILTER`        | `'filter'`        |
 | `SegmentType.SLICE`         | `'slice'`         |
 
-### `PatchOperationType`
+### `PatchOperationType` <Badge type="warning" text="@internal" />
+
+::: warning @internal
+Este enum espelha os nomes das operações RFC 6902 JSON Patch usados internamente. Não use em código de aplicação.
+:::
 
 Enum string que espelha os nomes das operações RFC 6902 JSON Patch.
 
@@ -458,45 +390,3 @@ Enum string que espelha os nomes das operações RFC 6902 JSON Patch.
 | `PatchOperationType.MOVE`    | `'move'`    |
 | `PatchOperationType.COPY`    | `'copy'`    |
 | `PatchOperationType.TEST`    | `'test'`    |
-
-### Utilitários de Inferência de Caminho
-
-Inferência de caminho type-safe para validação de caminhos em tempo de compilação e resolução de valores:
-
-```typescript
-import type {
-    DeepPaths,
-    ValueAtPath,
-} from "@safe-access-inline/safe-access-inline";
-
-type Config = {
-    db: { host: string; port: number };
-    cache: { ttl: number; enabled: boolean };
-};
-
-// Todos os caminhos válidos em notação de ponto como tipo união
-type ConfigPaths = DeepPaths<Config>;
-// "db" | "db.host" | "db.port" | "cache" | "cache.ttl" | "cache.enabled"
-
-// Resolver tipo do valor em um caminho específico
-type Host = ValueAtPath<Config, "db.host">; // string
-type Port = ValueAtPath<Config, "db.port">; // number
-
-// Usar em assinaturas de função para type safety
-function getConfig<P extends DeepPaths<Config>>(
-    accessor: AbstractAccessor,
-    path: P,
-): ValueAtPath<Config, P> {
-    return accessor.get(path) as ValueAtPath<Config, P>;
-}
-
-const host = getConfig(accessor, "db.host"); // tipado como string
-```
-
-#### `DeepPaths<T, Depth?>`
-
-Gera uma união de todos os caminhos válidos em notação de ponto para o tipo `T`. Profundidade de recursão padrão: 7 níveis.
-
-#### `ValueAtPath<T, P>`
-
-Resolve o tipo do valor no caminho de notação de ponto `P` no tipo `T`. Retorna `unknown` para caminhos inválidos.

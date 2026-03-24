@@ -43,21 +43,35 @@ accessor.toXml(); // usa seu plugin de serialização XML
 
 ---
 
-## Usando `transform()`
+## End-to-End: YAML → modificar → TOML
 
-O método genérico `transform()` serializa dados para qualquer formato que tenha um serializer registrado:
+Um exemplo completo usando os plugins padrão (sem necessidade de registro para YAML/TOML):
 
 ```typescript
-PluginRegistry.registerSerializer("csv", {
-    serialize: (data) => {
-        return Object.entries(data)
-            .map(([k, v]) => `${k},${v}`)
-            .join("\n");
-    },
-});
+import { SafeAccess } from "@safe-access-inline/safe-access-inline";
 
-const accessor = SafeAccess.fromJson('{"name": "Ana", "age": 30}');
-accessor.transform("csv"); // "name,Ana\nage,30"
+const yaml = `
+app:
+  name: MyApp
+  version: "1.0"
+database:
+  host: localhost
+  port: 5432
+`;
+
+// 1. Fazer parse do YAML
+const accessor = SafeAccess.fromYaml(yaml);
+
+// 2. Modificar de forma imutável
+const updated = accessor.set("app.version", "2.0").set("database.port", 3306);
+
+// 3. Serializar para TOML
+console.log(updated.toToml());
+// app.name = "MyApp"
+// app.version = "2.0"
+// [database]
+// host = "localhost"
+// port = 3306
 ```
 
 ---

@@ -65,37 +65,6 @@ safe-access transform config.json --to yaml
 safe-access transform config.json --to toml
 ```
 
-### `diff` — JSON Patch diff
-
-```bash
-safe-access diff <file1> <file2>
-```
-
-```bash
-safe-access diff config.json config-updated.json
-```
-
-### `mask` — Mask sensitive data
-
-```bash
-safe-access mask <file> --patterns|-p <pattern,...> [--to <format>] [--pretty]
-```
-
-```bash
-safe-access mask config.json --patterns "password,secret,api_*"
-safe-access mask config.json -p "password,secret,api_*"
-```
-
-### `layer` — Merge config files
-
-```bash
-safe-access layer <file1> [file2...] [--to <format>] [--pretty]
-```
-
-```bash
-safe-access layer defaults.yaml overrides.json --to json --pretty
-```
-
 ### `keys` — List keys
 
 ```bash
@@ -129,20 +98,6 @@ safe-access count config.json           # count root keys
 safe-access count config.json "items"   # count elements at path
 ```
 
-### `validate` — Validate against a JSON Schema
-
-```bash
-safe-access validate <file> --schema|-s <schema.json> [--format json]
-```
-
-```bash
-safe-access validate config.json --schema schema.json
-safe-access validate config.json -s schema.json
-
-# Output validation result as structured JSON ({ valid, errors[] })
-safe-access validate config.json --schema schema.json --format json
-```
-
 ### `convert` — Convert format (file or stdin)
 
 ```bash
@@ -159,7 +114,7 @@ safe-access convert --from yaml --to toml < config.yaml
 
 The CLI auto-detects file format from the extension:
 
-`.json` · `.yaml` / `.yml` · `.toml` · `.xml` · `.ini` · `.csv` · `.env` · `.ndjson`
+`.json` · `.yaml` / `.yml` · `.toml` · `.xml` · `.ini` · `.env` · `.ndjson`
 
 ## Piping & Stdin
 
@@ -189,7 +144,6 @@ Output always goes to **stdout**, errors to **stderr** — so you can safely red
 
 ```bash
 safe-access transform config.yaml --to json --pretty > config.json
-safe-access mask config.json --patterns "password,secret" > config-safe.json
 ```
 
 ## Exit Codes
@@ -213,16 +167,6 @@ DEBUG=1 safe-access get config.json "invalid..path"
 
 ## CI/CD Usage
 
-### Config Validation in CI
-
-```bash
-# Validate config against a schema — exits 1 on failure
-safe-access validate config.json --schema schema.json
-
-# Structured JSON output for further processing
-safe-access validate config.json --schema schema.json --format json
-```
-
 ### Check Required Keys
 
 ```bash
@@ -239,20 +183,6 @@ DB_HOST=$(safe-access get config.json "database.host")
 APP_VERSION=$(safe-access get package.json "version")
 ```
 
-### Mask Secrets Before Logging
-
-```bash
-# Safe to log/commit — all sensitive fields redacted
-safe-access mask config.json --patterns "password,secret,*_KEY,*_TOKEN" --to json --pretty
-```
-
-### Config Layer Merging
-
-```bash
-# Merge base → environment → local overrides
-safe-access layer defaults.json production.json local.json --to json --pretty > merged.json
-```
-
 ## Examples
 
 ```bash
@@ -261,10 +191,4 @@ safe-access get docker-compose.yml "services.web.ports"
 
 # Convert JSON to TOML
 safe-access transform config.json --to toml
-
-# Mask secrets before sharing
-safe-access mask .env --patterns "SECRET_*,API_KEY" --to env
-
-# Merge multiple config layers
-safe-access layer defaults.json staging.json local.json --to json --pretty
 ```

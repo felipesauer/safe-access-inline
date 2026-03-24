@@ -134,9 +134,6 @@ class LaravelConfigParser implements ParserPluginInterface
 }
 
 PluginRegistry::registerParser('laravel-config', new LaravelConfigParser());
-
-// Registrar um accessor customizado
-SafeAccess::extend('laravel-config', fn ($data) => /* ... */);
 ```
 
 ---
