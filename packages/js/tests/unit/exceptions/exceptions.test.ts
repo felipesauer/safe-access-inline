@@ -4,8 +4,6 @@ import { AccessorError } from '../../../src/exceptions/accessor.error';
 import { SecurityError } from '../../../src/exceptions/security.error';
 import { InvalidFormatError } from '../../../src/exceptions/invalid-format.error';
 import { ReadonlyViolationError } from '../../../src/exceptions/readonly-violation.error';
-import { SchemaValidationError } from '../../../src/exceptions/schema-validation.error';
-import { JsonPatchTestFailedError } from '../../../src/exceptions/json-patch-test-failed.error';
 import { UnsupportedTypeError } from '../../../src/exceptions/unsupported-type.error';
 
 describe(PathNotFoundError.name, () => {
@@ -63,40 +61,6 @@ describe(ReadonlyViolationError.name, () => {
     it('uses the supplied message when provided', () => {
         const error = new ReadonlyViolationError('custom msg');
         expect(error.message).toBe('custom msg');
-    });
-});
-
-describe(SchemaValidationError.name, () => {
-    it('formats the message from issues array and exposes issues property', () => {
-        // Kills StringLiteral mutant: summary join separator changed
-        const issues = [
-            { path: 'name', message: 'required' },
-            { path: 'age', message: 'must be number' },
-        ];
-        const error = new SchemaValidationError(issues);
-        expect(error).toBeInstanceOf(SchemaValidationError);
-        expect(error).toBeInstanceOf(AccessorError);
-        expect(error.name).toBe('SchemaValidationError');
-        expect(error.message).toBe('Schema validation failed: name: required; age: must be number');
-        expect(error.issues).toEqual(issues);
-    });
-
-    it('exposes a readonly issues array even for a single issue', () => {
-        const issues = [{ path: 'x', message: 'invalid' }];
-        const error = new SchemaValidationError(issues);
-        expect(error.issues).toHaveLength(1);
-        expect(error.issues[0].path).toBe('x');
-    });
-});
-
-describe(JsonPatchTestFailedError.name, () => {
-    it('is instanceof AccessorError and has correct name', () => {
-        // Kills StringLiteral mutant: this.name = 'JsonPatchTestFailedError' → ''
-        const error = new JsonPatchTestFailedError('test op failed');
-        expect(error).toBeInstanceOf(JsonPatchTestFailedError);
-        expect(error).toBeInstanceOf(AccessorError);
-        expect(error.message).toBe('test op failed');
-        expect(error.name).toBe('JsonPatchTestFailedError');
     });
 });
 

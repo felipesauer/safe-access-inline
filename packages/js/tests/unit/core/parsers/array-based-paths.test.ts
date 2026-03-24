@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
 import { SafeAccess } from '../../../../src/safe-access';
-import { DotNotationParser } from '../../../../src/core/parsers/dot-notation-parser';
 import { SecurityError } from '../../../../src/exceptions/security.error';
 
 describe('Array-based Paths', () => {
@@ -38,24 +37,5 @@ describe('Array-based Paths', () => {
     it('segments are literal (no wildcard interpretation)', () => {
         const data = SafeAccess.fromJson('{"*":{"value":1},"a.b":{"value":2}}');
         expect(data.getAt(['*', 'value'])).toBe(1);
-    });
-});
-
-describe('Template Paths', () => {
-    it('renders template path with bindings', () => {
-        const result = DotNotationParser.renderTemplate('users.{id}.name', { id: 42 });
-        expect(result).toBe('users.42.name');
-    });
-
-    it('throws for missing binding', () => {
-        expect(() => DotNotationParser.renderTemplate('users.{id}.name', {})).toThrow(
-            "Missing binding for key 'id'",
-        );
-    });
-
-    it('works with accessor get', () => {
-        const acc = SafeAccess.fromJson('{"users":{"42":{"name":"Ana"}}}');
-        const path = DotNotationParser.renderTemplate('users.{id}.name', { id: 42 });
-        expect(acc.get(path)).toBe('Ana');
     });
 });

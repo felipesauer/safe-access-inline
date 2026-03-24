@@ -184,11 +184,14 @@ export class SegmentParser {
                         sliceParts.length > 1 && sliceParts[1] !== ''
                             ? parseInt(sliceParts[1], 10)
                             : null;
-                    const step =
+                    const rawStep =
                         sliceParts.length > 2 && sliceParts[2] !== ''
                             ? parseInt(sliceParts[2], 10)
                             : null;
-                    segments.push({ type: SegmentType.SLICE, start, end, step });
+                    if (rawStep === 0) {
+                        throw new SyntaxError('Slice step cannot be zero.');
+                    }
+                    segments.push({ type: SegmentType.SLICE, start, end, step: rawStep });
                     continue;
                 }
 

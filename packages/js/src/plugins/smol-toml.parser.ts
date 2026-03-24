@@ -1,5 +1,5 @@
 import type { parse as tomlParse } from 'smol-toml';
-import { optionalRequire } from '../core/io/optional-require';
+import { optionalRequire } from '../core/utils/optional-require';
 import type { ParserPlugin } from '../core/registries/plugin-registry';
 
 const getSmolToml = optionalRequire<{ parse: typeof tomlParse }>('smol-toml', 'TOML');

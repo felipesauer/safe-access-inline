@@ -90,11 +90,6 @@ describe(ArrayAccessor.name, () => {
         expect(JSON.parse(accessor.toJson())).toEqual({ name: 'Ana' });
     });
 
-    it('toObject', () => {
-        const accessor = ArrayAccessor.from({ name: 'Ana' });
-        expect(accessor.toObject()).toEqual({ name: 'Ana' });
-    });
-
     it('all', () => {
         const accessor = ArrayAccessor.from({ x: 1, y: 2 });
         expect(accessor.all()).toEqual({ x: 1, y: 2 });
@@ -113,9 +108,9 @@ describe(ArrayAccessor.name, () => {
 
     it('from — array input is converted to index-keyed plain object (kills L24 mutations)', () => {
         // With mutation (if (Array.isArray(raw)) skipped), the raw array is returned as-is.
-        // toObject() would then return an array, not a plain object.
+        // all() would then return an array, not a plain object.
         const accessor = ArrayAccessor.from([10, 20, 30]);
-        const obj = accessor.toObject();
+        const obj = accessor.all();
         expect(Array.isArray(obj)).toBe(false);
         expect(obj).toEqual({ '0': 10, '1': 20, '2': 30 });
     });

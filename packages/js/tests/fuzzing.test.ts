@@ -103,25 +103,6 @@ describe('Fuzzing — hostile inputs', () => {
         }
     }, 30_000);
 
-    // CSV with embedded delimiters is a classic source of parser bugs
-    it('hostile CSV: embedded commas, quotes, newlines', () => {
-        const hostileCsvs = [
-            'a,b\n"val,ue",test',
-            'a,b\n"val""ue",test',
-            'a,b\n"val\nue",test',
-            'a,b\n"",""',
-            ',\n,',
-            'a\n\n\n',
-        ];
-
-        for (const csv of hostileCsvs) {
-            expect(() => {
-                const accessor = SafeAccess.fromCsv(csv);
-                accessor.get('0.a', null);
-            }).not.toThrow();
-        }
-    }, 30_000);
-
     // XML entity expansion (XXE-like patterns) must not cause resource exhaustion
     it('XML entities: hostile entity patterns', () => {
         const hostileXmls = [

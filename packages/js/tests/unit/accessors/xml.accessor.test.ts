@@ -228,16 +228,8 @@ describe(XmlAccessor.name, () => {
     });
 });
 
-// ── XmlAccessor — clone and getOriginalXml ──────────────────────
-describe('XmlAccessor — clone and getOriginalXml', () => {
-    it('clone creates new instance with modified data', () => {
-        const xml = '<root><name>Ana</name></root>';
-        const acc = XmlAccessor.from(xml);
-        const modified = acc.set('name', 'Bob');
-        expect(modified.get('name')).toBe('Bob');
-        expect(acc.get('name')).toBe('Ana');
-    });
-
+// ── XmlAccessor — getOriginalXml ──────────────────────────────
+describe('XmlAccessor — getOriginalXml', () => {
     it('getOriginalXml returns the original XML string', () => {
         const xml = '<root><name>Ana</name></root>';
         const acc = XmlAccessor.from(xml) as XmlAccessor;

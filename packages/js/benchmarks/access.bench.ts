@@ -11,8 +11,6 @@ import { bench, describe } from 'vitest';
 import { SafeAccess } from '../src/safe-access';
 import { deepMerge } from '../src/core/operations/deep-merger';
 
-// ── Data fixtures ─────────────────────────────────────
-
 const flatObject = Object.fromEntries(
     Array.from({ length: 1000 }, (_, i) => [`key${i}`, `value${i}`]),
 );
@@ -37,8 +35,6 @@ const mergeBase = Object.fromEntries(
 const mergeOverlay = Object.fromEntries(
     Array.from({ length: 1000 }, (_, i) => [`key${i}`, { nested: i * 2, extra: true }]),
 );
-
-// ── Benchmarks ────────────────────────────────────────
 
 describe('SafeAccess end-to-end', () => {
     // Baseline — parse JSON + simple accessor, no wildcards

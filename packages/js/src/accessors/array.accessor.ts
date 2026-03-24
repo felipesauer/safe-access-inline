@@ -45,7 +45,7 @@ export class ArrayAccessor<
      * @param data - The record to wrap.
      * @returns A new {@link ArrayAccessor} instance.
      */
-    clone(data: Record<string, unknown>): ArrayAccessor<T> {
+    protected override clone(data: Record<string, unknown> = {}): ArrayAccessor<T> {
         return new ArrayAccessor(data) as ArrayAccessor<T>;
     }
 }

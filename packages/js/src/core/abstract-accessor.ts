@@ -1,40 +1,19 @@
 import { DotNotationParser } from './parsers/dot-notation-parser';
 import { deepFreeze } from './operations/deep-freeze';
-import {
-    diff as jsonDiff,
-    applyPatch as jsonApplyPatch,
-    validatePatch as jsonValidatePatch,
-} from './operations/json-patch';
-import type { JsonPatchOperation } from './operations/json-patch';
 import type { AccessorInterface } from '../contracts/accessor.interface';
-import type { CacheInterface } from '../contracts/cache.interface';
 import { ReadonlyViolationError } from '../exceptions/readonly-violation.error';
-import { mask } from '../security/sanitizers/data-masker';
-import type { MaskPattern } from '../security/sanitizers/data-masker';
-import type {
-    SchemaAdapterInterface,
-    SchemaValidationResult,
-} from '../contracts/schema-adapter.interface';
-import { SchemaRegistry } from './registries/schema-registry';
-import type { DeepPaths, ValueAtPath } from '../types/deep-paths';
-import { DebugMixin } from './mixins/debug.mixin';
-import type { ToJsonOptions } from '../contracts/transformable.interface';
+import { TypeCastingMixin } from './mixins/type-casting.mixin';
+import type { ToJsonOptions } from '../contracts/accessor.interface';
 
 /**
  * Base class for all format-specific accessors.
  *
  * @remarks
- * In the PHP counterpart, array manipulation and transformation logic is
- * separated into traits (`HasArrayOperations`, `HasTransformations`, etc.
- * under `src/Traits/`). TypeScript does not have native traits, so thin
- * wrappers delegate to {@link ArrayOperations} and {@link FormatSerializer}
- * — effectively serving the same role as PHP's trait composition.
- *
  * Functionality is decomposed into a mixin chain:
- * {@link ArrayOperationsMixin} → {@link TypeCastingMixin} → {@link SerializationMixin} → {@link DebugMixin} → `AbstractAccessor`.
+ * {@link SegmentPathMixin} → {@link TypeCastingMixin} → `AbstractAccessor`.
  */
 export abstract class AbstractAccessor<T extends Record<string, unknown> = Record<string, unknown>>
-    extends DebugMixin
+    extends TypeCastingMixin
     implements AccessorInterface<T>
 {
     protected data: Record<string, unknown> = {};
@@ -69,13 +48,12 @@ export abstract class AbstractAccessor<T extends Record<string, unknown> = Recor
 
     /**
      * Creates a new instance of this accessor carrying `data` as its internal state.
-     *
      * Used internally by all immutable mutation methods to return a new accessor.
      *
-     * @param data - The new internal data record for the cloned accessor.
+     * @param data - The new internal data record for the cloned accessor. Defaults to `{}`.
      * @returns A new accessor of the same concrete type.
      */
-    abstract clone(data: Record<string, unknown>): AbstractAccessor<T>;
+    protected abstract clone(data?: Record<string, unknown>): AbstractAccessor<T>;
 
     /**
      * Clones this accessor with `data` while preserving readonly state.
@@ -108,60 +86,8 @@ export abstract class AbstractAccessor<T extends Record<string, unknown> = Recor
      * @param defaultValue - Value returned when the path does not exist.
      * @returns The value at `path`, or `defaultValue`.
      */
-    get<P extends DeepPaths<T> & string>(path: P): ValueAtPath<T, P>;
-    get<P extends DeepPaths<T> & string>(
-        path: P,
-        defaultValue: ValueAtPath<T, P>,
-    ): ValueAtPath<T, P>;
-    get(path: string, defaultValue?: unknown): unknown;
-    get(path: string, bindings: Record<string, string | number>, defaultValue: unknown): unknown;
-    get(path: string, defaultOrBindings: unknown = null, defaultValue?: unknown): unknown {
-        if (
-            defaultOrBindings !== null &&
-            typeof defaultOrBindings === 'object' &&
-            !Array.isArray(defaultOrBindings) &&
-            path.includes('{')
-        ) {
-            const resolved = DotNotationParser.renderTemplate(
-                path,
-                defaultOrBindings as Record<string, string | number>,
-            );
-            return DotNotationParser.get(this.data, resolved, defaultValue ?? null);
-        }
+    get(path: string, defaultOrBindings: unknown = null): unknown {
         return DotNotationParser.get(this.data, path, defaultOrBindings);
-    }
-
-    /**
-     * Resolves a template path by substituting `{key}` placeholders, then retrieves the value.
-     *
-     * When a binding value begins with `@`, the remainder is treated as a dot-notation path
-     * resolved against the accessor's data. If the path resolves to `null` or `undefined`,
-     * `defaultValue` is returned immediately.
-     *
-     * @param template - Path template with `{key}` placeholders.
-     * @param bindings - Key-value pairs to substitute; values starting with `@` are resolved
-     *   as paths within the accessor's data.
-     * @param defaultValue - Fallback when the resolved path does not exist.
-     * @returns The value at the resolved path, or `defaultValue`.
-     */
-    getTemplate(
-        template: string,
-        bindings: Record<string, string | number>,
-        defaultValue: unknown = null,
-    ): unknown {
-        const resolvedBindings: Record<string, string | number> = {};
-        for (const [key, value] of Object.entries(bindings)) {
-            if (typeof value === 'string' && value.startsWith('@')) {
-                const pathValue = this.get(value.slice(1));
-                if (pathValue === null || pathValue === undefined) return defaultValue;
-                resolvedBindings[key] =
-                    typeof pathValue === 'number' ? pathValue : String(pathValue);
-            } else {
-                resolvedBindings[key] = value;
-            }
-        }
-        const rendered = DotNotationParser.renderTemplate(template, resolvedBindings);
-        return DotNotationParser.get(this.data, rendered, defaultValue);
     }
 
     /**
@@ -182,8 +108,6 @@ export abstract class AbstractAccessor<T extends Record<string, unknown> = Recor
      * @returns A new accessor reflecting the change.
      * @throws {@link ReadonlyViolationError} If this accessor is frozen.
      */
-    set<P extends DeepPaths<T> & string>(path: P, value: ValueAtPath<T, P>): this;
-    set(path: string, value: unknown): this;
     set(path: string, value: unknown): this {
         return this.mutate(DotNotationParser.set(this.data, path, value));
     }
@@ -308,85 +232,6 @@ export abstract class AbstractAccessor<T extends Record<string, unknown> = Recor
     }
 
     /**
-     * Returns a deep clone of the internal data record.
-     *
-     * The returned object is safe to mutate without affecting this accessor.
-     *
-     * @returns A structurally cloned plain object.
-     */
-    toObject(): Record<string, unknown> {
-        return structuredClone(this.data);
-    }
-
-    // ── Security, schema & diff ───────────────────────────────────────────────
-
-    /**
-     * Returns a new accessor with sensitive keys replaced by `[REDACTED]`.
-     *
-     * @param patterns - Key name patterns to mask (supports wildcards).
-     * @returns A new accessor with masked data.
-     */
-    mask(patterns?: MaskPattern[]): this {
-        return this.cloneWithState(mask(this.data, patterns));
-    }
-
-    /**
-     * Validates the data against `schema` using the provided or default adapter.
-     *
-     * Returns a {@link SchemaValidationResult} — check `result.valid` to determine success.
-     * Does not throw on validation failure; throws only when no adapter is configured.
-     *
-     * @param schema - Schema definition passed to the adapter.
-     * @param adapter - Adapter to use; falls back to the globally registered default.
-     * @returns Result carrying `valid` flag and any `errors`.
-     * @throws {Error} When no adapter is provided and no default is set.
-     */
-    validate<TSchema = unknown>(
-        schema: TSchema,
-        adapter?: SchemaAdapterInterface<TSchema>,
-    ): SchemaValidationResult {
-        const resolvedAdapter =
-            adapter ??
-            (SchemaRegistry.getDefaultAdapter() as SchemaAdapterInterface<TSchema> | null);
-        if (!resolvedAdapter) {
-            throw new Error(
-                'No schema adapter provided. Pass an adapter or set a default via SchemaRegistry.setDefaultAdapter().',
-            );
-        }
-        return resolvedAdapter.validate(this.data, schema);
-    }
-
-    /**
-     * Computes an RFC 6902 JSON Patch diff between this accessor and `other`.
-     *
-     * @param other - The accessor to diff against.
-     * @returns Array of JSON Patch operations representing the difference.
-     */
-    diff(other: AbstractAccessor): JsonPatchOperation[] {
-        return jsonDiff(this.data, other.all());
-    }
-
-    /**
-     * Applies an RFC 6902 JSON Patch to the data. Returns a new accessor.
-     *
-     * @param ops - Array of JSON Patch operations to apply.
-     * @returns A new accessor with the patch applied.
-     */
-    applyPatch(ops: JsonPatchOperation[]): this {
-        return this.mutate(jsonApplyPatch(this.data, ops));
-    }
-
-    /**
-     * Validates a list of RFC 6902 JSON Patch operations.
-     *
-     * @param ops - Array of operations to validate.
-     * @throws {Error} When any operation is structurally invalid.
-     */
-    validatePatch(ops: JsonPatchOperation[]): void {
-        jsonValidatePatch(ops);
-    }
-
-    /**
      * Returns a frozen copy of this accessor.
      * All subsequent write operations will throw a {@link ReadonlyViolationError}.
      *
@@ -396,42 +241,13 @@ export abstract class AbstractAccessor<T extends Record<string, unknown> = Recor
         return this.cloneWithState(this.data, true);
     }
 
-    // ── Cache helpers ─────────────────────────────────────────────────────────
-
-    /**
-     * Returns a cached version of this accessor or stores the current data and returns itself.
-     *
-     * @param cache - Cache instance implementing CacheInterface.
-     * @param ttl - Time-to-live in seconds.
-     * @param key - Cache key.
-     * @returns This instance (cache miss) or a new instance hydrated from cache (cache hit).
-     */
-    remember(cache: CacheInterface, ttl: number, key: string): this {
-        const cached = cache.get(key);
-        if (cached !== undefined && cached !== null && typeof cached === 'object') {
-            return this.mutate(cached as Record<string, unknown>);
-        }
-        cache.set(key, this.all(), ttl);
-        return this;
-    }
-
-    /**
-     * Removes the cached representation of this accessor from the cache.
-     *
-     * @param cache - Cache instance implementing CacheInterface.
-     * @param key - Cache key to delete.
-     */
-    forget(cache: CacheInterface, key: string): void {
-        cache.delete(key);
-    }
-
     // ── Internal ──────────────────────────────────────────────────────────────
 
     /**
      * Creates a new mutated accessor, guarding against readonly violations.
      *
      * Changed from `private` to `protected` to allow mixin chain access via
-     * {@link ArrayOperationsMixin}.
+     * {@link SegmentPathMixin}.
      *
      * @param newData - The updated data record.
      * @returns A new accessor carrying `newData`.

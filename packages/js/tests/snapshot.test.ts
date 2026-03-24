@@ -8,7 +8,6 @@
 
 import { describe, it, expect } from 'vitest';
 import { SafeAccess } from '../src/safe-access';
-import { deepMerge } from '../src/core/operations/deep-merger';
 
 // 4-level nested data for recursive descent tests
 const deepData = {
@@ -43,14 +42,6 @@ describe('Snapshot — complex query outputs', () => {
     // Combined filter + wildcard tests the interaction between two resolution strategies
     it('filter combined with wildcard: items[?sub.score>15].sub.name', () => {
         const result = accessor.get('items[?sub.score>15].sub.name');
-        expect(result).toMatchSnapshot();
-    });
-
-    // Deep merge with conflicting keys is the most complex operation — output must be deterministic
-    it('deep merge of two objects with conflicting keys', () => {
-        const base = { a: 1, b: { x: 10, y: 20 }, c: [1, 2] };
-        const overlay = { b: { y: 99, z: 30 }, c: [3], d: 'new' };
-        const result = deepMerge(base, overlay);
         expect(result).toMatchSnapshot();
     });
 

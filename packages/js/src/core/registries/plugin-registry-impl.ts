@@ -1,5 +1,4 @@
 import { UnsupportedTypeError } from '../../exceptions/unsupported-type.error';
-import { AuditEventType, emitAudit } from '../../security/audit/audit-emitter';
 import { DEFAULT_PLUGIN_REGISTRY_CONFIG } from '../config/plugin-registry-config';
 import type {
     IPluginRegistry,
@@ -36,13 +35,6 @@ export class PluginRegistryImpl implements IPluginRegistry {
                     `Call PluginRegistry.reset() to clear before registering new formats.`,
             );
         }
-        if (this.parsers.has(format)) {
-            emitAudit(AuditEventType.PLUGIN_OVERWRITE, {
-                kind: 'parser',
-                format,
-                message: `Parser for format '${format}' is being overwritten.`,
-            });
-        }
         this.parsers.set(format, parser);
     }
 
@@ -75,13 +67,6 @@ export class PluginRegistryImpl implements IPluginRegistry {
                 `Max serializer plugins (${this.MAX_SERIALIZERS}) reached. ` +
                     `Call PluginRegistry.reset() to clear before registering new formats.`,
             );
-        }
-        if (this.serializers.has(format)) {
-            emitAudit(AuditEventType.PLUGIN_OVERWRITE, {
-                kind: 'serializer',
-                format,
-                message: `Serializer for format '${format}' is being overwritten.`,
-            });
         }
         this.serializers.set(format, serializer);
     }

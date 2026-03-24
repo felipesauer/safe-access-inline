@@ -67,7 +67,7 @@ export class EnvAccessor<
      * @param data - The record to wrap.
      * @returns A new {@link EnvAccessor} instance.
      */
-    clone(data: Record<string, unknown>): EnvAccessor<T> {
+    protected override clone(data: Record<string, unknown> = {}): EnvAccessor<T> {
         const inst = Object.create(EnvAccessor.prototype) as EnvAccessor<T>;
         inst.raw = this.raw;
         inst.data = data;

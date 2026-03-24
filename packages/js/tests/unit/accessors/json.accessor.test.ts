@@ -111,11 +111,6 @@ describe(JsonAccessor.name, () => {
         expect(result).toContain('\\u0000');
     });
 
-    it('toObject', () => {
-        const accessor = JsonAccessor.from('{"name": "Ana"}');
-        expect(accessor.toObject()).toEqual({ name: 'Ana' });
-    });
-
     it('type', () => {
         const accessor = JsonAccessor.from('{"s": "str", "n": 42, "b": true, "a": [1]}');
         expect(accessor.type('s')).toBe('string');

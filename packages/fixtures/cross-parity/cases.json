@@ -336,34 +336,6 @@
         "expected": ["Alpha", "Gamma", "Delta"]
     },
     {
-        "id": "filter-length-gt",
-        "description": "length(@.field) > N: labels with more than 4 characters",
-        "path": "products[?length(@.label)>4].label",
-        "defaultValue": null,
-        "expected": ["Alpha", "Gamma", "Delta"]
-    },
-    {
-        "id": "filter-match-function",
-        "description": "match(@.field, pattern): labels matching /^G.*/",
-        "path": "products[?match(@.label,'G.*')].id",
-        "defaultValue": null,
-        "expected": [30]
-    },
-    {
-        "id": "filter-match-no-results",
-        "description": "match() with pattern that matches nothing returns empty array",
-        "path": "products[?match(@.label,'Z.*')].id",
-        "defaultValue": null,
-        "expected": []
-    },
-    {
-        "id": "filter-keys-count",
-        "description": "keys(@) == N: items that have exactly 5 keys",
-        "path": "items[?keys(@)==5].id",
-        "defaultValue": null,
-        "expected": [1, 2, 3]
-    },
-    {
         "id": "wildcard-member-roles",
         "description": "Wildcard on list of team members — collect scalar field",
         "path": "team.members.*.role",

@@ -48,7 +48,7 @@ export class ObjectAccessor<
      * @param data - The record to wrap.
      * @returns A new {@link ObjectAccessor} instance.
      */
-    clone(data: Record<string, unknown>): ObjectAccessor<T> {
+    protected override clone(data: Record<string, unknown> = {}): ObjectAccessor<T> {
         return new ObjectAccessor(data) as ObjectAccessor<T>;
     }
 }

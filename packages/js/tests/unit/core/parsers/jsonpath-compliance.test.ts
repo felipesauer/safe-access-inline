@@ -155,73 +155,6 @@ describe('JSONPath RFC 9535 Compliance', () => {
     });
 
     describe('Filter functions', () => {
-        it('length(@.name) > N filters by string length', () => {
-            const result = DotNotationParser.get(data, 'users[?length(@.name)>3].name');
-            expect(result).toEqual(['Alice', 'Carol']);
-        });
-
-        it('length(@.tags) > N filters by array length', () => {
-            const result = DotNotationParser.get(data, 'store.books[?length(@.tags)>1].title');
-            expect(result).toEqual(['B', 'C']);
-        });
-
-        it("match(@.author, 'A.*') filters by regex", () => {
-            const result = DotNotationParser.get(data, "store.books[?match(@.author,'A.*')].title");
-            expect(result).toEqual(['A']);
-        });
-
-        it('keys(@) > N filters by key count', () => {
-            const items = {
-                a: { x: 1, y: 2, z: 3 },
-                b: { x: 1 },
-                c: { x: 1, y: 2, z: 3, w: 4 },
-            };
-            const result = DotNotationParser.get(items, '[?keys(@)>2]');
-            expect(result).toEqual([
-                { x: 1, y: 2, z: 3 },
-                { x: 1, y: 2, z: 3, w: 4 },
-            ]);
-        });
-
-        it('filter functions work with && logical', () => {
-            const result = DotNotationParser.get(
-                data,
-                'store.books[?length(@.title)==1 && price>15].title',
-            );
-            expect(result).toEqual(['B', 'C', 'D', 'E']);
-        });
-
-        it('match with double-quoted pattern', () => {
-            const result = DotNotationParser.get(data, 'store.books[?match(@.author,"B.*")].title');
-            expect(result).toEqual(['B']);
-        });
-
-        it('match on non-string returns false', () => {
-            const result = DotNotationParser.get(data, "store.books[?match(@.price,'.*')].title");
-            expect(result).toEqual([]);
-        });
-
-        it('keys on non-object returns 0', () => {
-            const items = { a: [1, 2], b: { x: 1 } };
-            const result = DotNotationParser.get(items, '[?keys(@)>0]');
-            expect(result).toEqual([{ x: 1 }]);
-        });
-
-        it('length on object counts keys', () => {
-            const items = { a: { x: 1, y: 2 }, b: { x: 1 } };
-            const result = DotNotationParser.get(items, '[?length(@)>1]');
-            expect(result).toEqual([{ x: 1, y: 2 }]);
-        });
-
-        it('length on non-string/array/object returns 0', () => {
-            const items = {
-                a: { val: 42 },
-                b: { val: 'hello', extra: true },
-            };
-            const result = DotNotationParser.get(items, '[?length(@)>1]');
-            expect(result).toEqual([{ val: 'hello', extra: true }]);
-        });
-
         it('unknown function throws', () => {
             expect(() =>
                 DotNotationParser.get(data, 'store.books[?unknown(@.title)>0].title'),
@@ -296,15 +229,6 @@ describe('JSONPath RFC 9535 Compliance', () => {
         it('filter with <= operator', () => {
             const result = DotNotationParser.get(data, 'store.books[?price<=20].title');
             expect(result).toEqual(['A', 'B']);
-        });
-
-        it('filter with plain field arg in function', () => {
-            const items = [
-                { name: 'Alice', nick: 'Ali' },
-                { name: 'Bob', nick: 'Bobby' },
-            ];
-            const result = DotNotationParser.get({ items }, 'items[?length(@.nick)>3].name');
-            expect(result).toEqual(['Bob']);
         });
 
         it('bracket with non-numeric non-quoted comma values falls through to key', () => {

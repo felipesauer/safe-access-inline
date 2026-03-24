@@ -87,7 +87,7 @@ export class IniAccessor<
      * @param data - The record to wrap.
      * @returns A new {@link IniAccessor} instance.
      */
-    clone(data: Record<string, unknown>): IniAccessor<T> {
+    protected override clone(data: Record<string, unknown> = {}): IniAccessor<T> {
         const inst = Object.create(IniAccessor.prototype) as IniAccessor<T>;
         inst.raw = this.raw;
         inst.data = data;

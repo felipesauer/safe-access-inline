@@ -72,7 +72,7 @@ export class XmlAccessor<
      * @param data - The record to wrap.
      * @returns A new {@link XmlAccessor} instance.
      */
-    clone(data: Record<string, unknown>): XmlAccessor<T> {
+    protected override clone(data: Record<string, unknown> = {}): XmlAccessor<T> {
         // Rebuild a minimal XML from data for roundtrip (stores as JSON internally)
         const inst = Object.create(XmlAccessor.prototype) as XmlAccessor<T>;
         inst.raw = this.originalXml;

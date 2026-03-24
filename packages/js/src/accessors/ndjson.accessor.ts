@@ -66,7 +66,7 @@ export class NdjsonAccessor<
      * @param data - The record to wrap.
      * @returns A new {@link NdjsonAccessor} instance.
      */
-    clone(data: Record<string, unknown>): NdjsonAccessor<T> {
+    protected override clone(data: Record<string, unknown> = {}): NdjsonAccessor<T> {
         const inst = Object.create(NdjsonAccessor.prototype) as NdjsonAccessor<T>;
         inst.raw = this.raw;
         inst.data = data;

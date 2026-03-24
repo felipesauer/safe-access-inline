@@ -110,56 +110,6 @@ describe(PluginRegistry.name, () => {
         expect(PluginRegistry.getParser('toml').parse('')).toEqual({ format: 'toml' });
     });
 
-    // ── Serialization via AbstractAccessor ──
-
-    it('toYaml uses default js-yaml when no serializer registered', () => {
-        const accessor = SafeAccess.fromArray([1, 2]);
-        const result = accessor.toYaml();
-        expect(typeof result).toBe('string');
-    });
-
-    it('toXml uses built-in serializer when no plugin registered', () => {
-        const accessor = SafeAccess.fromArray([1, 2]);
-        const xml = accessor.toXml();
-        expect(xml).toContain('<?xml version="1.0"?>');
-        expect(xml).toContain('<root>');
-    });
-
-    it('toYaml uses registered serializer plugin', () => {
-        PluginRegistry.registerSerializer('yaml', {
-            serialize: (data) => `yaml:${JSON.stringify(data)}`,
-        });
-
-        const accessor = SafeAccess.fromObject({ key: 'value' });
-        expect(accessor.toYaml()).toBe('yaml:{"key":"value"}');
-    });
-
-    it('toXml uses registered serializer plugin', () => {
-        PluginRegistry.registerSerializer('xml', {
-            serialize: (data) => `<root>${JSON.stringify(data)}</root>`,
-        });
-
-        const accessor = SafeAccess.fromObject({ key: 'value' });
-        expect(accessor.toXml()).toBe('<root>{"key":"value"}</root>');
-    });
-
-    it('transform uses registered serializer plugin', () => {
-        PluginRegistry.registerSerializer('custom', {
-            serialize: (data) => `custom:${JSON.stringify(data)}`,
-        });
-
-        const accessor = SafeAccess.fromObject({ key: 'value' });
-        expect(accessor.transform('custom')).toBe('custom:{"key":"value"}');
-    });
-
-    it('transform throws for unregistered format', () => {
-        const accessor = SafeAccess.fromObject({ key: 'value' });
-        expect(() => accessor.transform('nonexistent')).toThrow(UnsupportedTypeError);
-        expect(() => accessor.transform('nonexistent')).toThrow(
-            "No serializer registered for format 'nonexistent'",
-        );
-    });
-
     // ── Parser plugin override for YAML/TOML ──
 
     it('YAML accessor uses registered parser plugin over built-in', () => {

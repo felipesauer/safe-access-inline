@@ -1,7 +1,5 @@
 import { SecurityError } from '../../exceptions/security.error';
 
-const _utf8Encoder = new TextEncoder();
-
 /** Runtime security limits applied to parsing and traversal operations. */
 export interface SecurityOptions {
     maxDepth?: number;
@@ -33,7 +31,7 @@ export const DEFAULT_SECURITY_OPTIONS: Required<SecurityOptions> = {
  */
 export function assertPayloadSize(input: string, maxBytes?: number): void {
     const limit = maxBytes ?? DEFAULT_SECURITY_OPTIONS.maxPayloadBytes;
-    const size = _utf8Encoder.encode(input).length;
+    const size = Buffer.byteLength(input, 'utf-8');
     if (size > limit) {
         throw new SecurityError(`Payload size ${size} bytes exceeds maximum of ${limit} bytes.`);
     }
@@ -44,11 +42,16 @@ export function assertPayloadSize(input: string, maxBytes?: number): void {
  *
  * @param data - The top-level object to count keys in.
  * @param maxKeys - Override for the default limit.
+ * @param maxCountDepth - Override for the key-counting recursion depth cap.
  * @throws {@link SecurityError} When the key count exceeds the limit.
  */
-export function assertMaxKeys(data: Record<string, unknown>, maxKeys?: number): void {
+export function assertMaxKeys(
+    data: Record<string, unknown>,
+    maxKeys?: number,
+    maxCountDepth?: number,
+): void {
     const limit = maxKeys ?? DEFAULT_SECURITY_OPTIONS.maxKeys;
-    const count = countKeys(data);
+    const count = countKeys(data, 0, maxCountDepth ?? DEFAULT_SECURITY_OPTIONS.maxCountDepth);
     if (count > limit) {
         throw new SecurityError(`Data contains ${count} keys, exceeding maximum of ${limit}.`);
     }
@@ -57,23 +60,27 @@ export function assertMaxKeys(data: Record<string, unknown>, maxKeys?: number): 
 /**
  * Recursively counts all keys in `obj`, including nested objects and arrays.
  *
- * Hard-stops at {@link DEFAULT_SECURITY_OPTIONS.maxCountDepth} to prevent runaway
- * recursion on deeply nested data. This limit is intentionally lower than
- * {@link DEFAULT_SECURITY_OPTIONS.maxDepth} — structural depth is enforced
- * separately via {@link assertMaxDepth}.
+ * Hard-stops at `countDepthLimit` to prevent runaway recursion on deeply nested data.
+ * This limit is intentionally lower than {@link DEFAULT_SECURITY_OPTIONS.maxDepth} —
+ * structural depth is enforced separately via {@link assertMaxDepth}.
  *
  * @param obj - Value to count keys within.
  * @param depth - Current recursion depth (used internally).
+ * @param countDepthLimit - Maximum recursion depth for this traversal.
  * @returns Total number of keys / elements found.
  */
-function countKeys(obj: unknown, depth = 0): number {
-    if (depth > DEFAULT_SECURITY_OPTIONS.maxCountDepth) return 0; // prevent runaway recursion
+function countKeys(
+    obj: unknown,
+    depth = 0,
+    countDepthLimit = DEFAULT_SECURITY_OPTIONS.maxCountDepth,
+): number {
+    if (depth > countDepthLimit) return 0; // prevent runaway recursion
     if (typeof obj !== 'object' || obj === null) return 0;
     let count = 0;
     const entries = Array.isArray(obj) ? obj : Object.values(obj);
     count += Array.isArray(obj) ? obj.length : Object.keys(obj).length;
     for (const value of entries) {
-        count += countKeys(value, depth + 1);
+        count += countKeys(value, depth + 1, countDepthLimit);
     }
     return count;
 }

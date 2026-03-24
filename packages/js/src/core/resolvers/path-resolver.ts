@@ -19,6 +19,8 @@ export class PathResolver {
      * @param segments     - Parsed segment array.
      * @param index        - Current position in the segment array.
      * @param defaultValue - Value returned when the path does not exist.
+     * @param maxDepth     - Optional per-call depth override. When omitted the global
+     *   `DEFAULT_PARSER_CONFIG.maxResolveDepth` is used (same as the PHP equivalent).
      * @returns The resolved value, or `defaultValue`.
      */
     static resolve(
@@ -26,8 +28,9 @@ export class PathResolver {
         segments: Segment[],
         index: number,
         defaultValue: unknown,
+        maxDepth?: number,
     ): unknown {
-        assertMaxDepth(index);
+        assertMaxDepth(index, maxDepth);
         if (index >= segments.length) return current;
 
         const segment = segments[index];
@@ -39,6 +42,7 @@ export class PathResolver {
                 segments,
                 index + 1,
                 defaultValue,
+                maxDepth,
             );
         }
 
@@ -52,6 +56,7 @@ export class PathResolver {
                     index + 1,
                     defaultValue,
                     results,
+                    maxDepth,
                 );
             }
             return results.length > 0 ? results : defaultValue;
@@ -65,7 +70,7 @@ export class PathResolver {
             if (nextIndex >= segments.length) return [...items];
 
             return items.map((item) =>
-                PathResolver.resolve(item, segments, nextIndex, defaultValue),
+                PathResolver.resolve(item, segments, nextIndex, defaultValue, maxDepth),
             );
         }
 
@@ -84,7 +89,7 @@ export class PathResolver {
             if (nextIndex >= segments.length) return filtered;
 
             return filtered.map((item) =>
-                PathResolver.resolve(item, segments, nextIndex, defaultValue),
+                PathResolver.resolve(item, segments, nextIndex, defaultValue, maxDepth),
             );
         }
 
@@ -96,7 +101,7 @@ export class PathResolver {
             const results = segment.keys.map((k) => {
                 const val = k in obj ? obj[k] : defaultValue;
                 if (nextIndex >= segments.length) return val;
-                return PathResolver.resolve(val, segments, nextIndex, defaultValue);
+                return PathResolver.resolve(val, segments, nextIndex, defaultValue, maxDepth);
             });
             return results;
         }
@@ -110,7 +115,7 @@ export class PathResolver {
                 const resolved = idx < 0 ? items[items.length + idx] : items[idx];
                 if (resolved === undefined) return defaultValue;
                 if (nextIndex >= segments.length) return resolved;
-                return PathResolver.resolve(resolved, segments, nextIndex, defaultValue);
+                return PathResolver.resolve(resolved, segments, nextIndex, defaultValue, maxDepth);
             });
             return results;
         }
@@ -135,7 +140,7 @@ export class PathResolver {
             const nextIndex = index + 1;
             if (nextIndex >= segments.length) return sliced;
             return sliced.map((item) =>
-                PathResolver.resolve(item, segments, nextIndex, defaultValue),
+                PathResolver.resolve(item, segments, nextIndex, defaultValue, maxDepth),
             );
         }
 
@@ -161,14 +166,14 @@ export class PathResolver {
                 const projected = (current as unknown[]).map(projectItem);
                 if (nextIndex >= segments.length) return projected;
                 return projected.map((item) =>
-                    PathResolver.resolve(item, segments, nextIndex, defaultValue),
+                    PathResolver.resolve(item, segments, nextIndex, defaultValue, maxDepth),
                 );
             }
 
             if (typeof current === 'object' && current !== null) {
                 const result = projectItem(current);
                 if (nextIndex >= segments.length) return result;
-                return PathResolver.resolve(result, segments, nextIndex, defaultValue);
+                return PathResolver.resolve(result, segments, nextIndex, defaultValue, maxDepth);
             }
 
             return defaultValue;
@@ -183,6 +188,7 @@ export class PathResolver {
                     segments,
                     index + 1,
                     defaultValue,
+                    maxDepth,
                 );
             }
         }
@@ -219,9 +225,18 @@ export class PathResolver {
         segments: Segment[],
         nextIndex: number,
         defaultValue: unknown,
+        maxDepth?: number,
     ): unknown[] {
         const results: unknown[] = [];
-        PathResolver.collectDescent(current, key, segments, nextIndex, defaultValue, results);
+        PathResolver.collectDescent(
+            current,
+            key,
+            segments,
+            nextIndex,
+            defaultValue,
+            results,
+            maxDepth,
+        );
         return results;
     }
 
@@ -245,6 +260,7 @@ export class PathResolver {
         nextIndex: number,
         defaultValue: unknown,
         results: unknown[],
+        maxDepth?: number,
     ): void {
         if (current === null || typeof current !== 'object') return;
 
@@ -254,7 +270,13 @@ export class PathResolver {
             if (nextIndex >= segments.length) {
                 results.push(obj[key]);
             } else {
-                const resolved = PathResolver.resolve(obj[key], segments, nextIndex, defaultValue);
+                const resolved = PathResolver.resolve(
+                    obj[key],
+                    segments,
+                    nextIndex,
+                    defaultValue,
+                    maxDepth,
+                );
                 if (Array.isArray(resolved)) {
                     results.push(...resolved);
                 } else {
@@ -266,7 +288,15 @@ export class PathResolver {
         const values = Array.isArray(current) ? current : Object.values(obj);
         for (const child of values) {
             if (typeof child === 'object' && child !== null) {
-                PathResolver.collectDescent(child, key, segments, nextIndex, defaultValue, results);
+                PathResolver.collectDescent(
+                    child,
+                    key,
+                    segments,
+                    nextIndex,
+                    defaultValue,
+                    results,
+                    maxDepth,
+                );
             }
         }
     }

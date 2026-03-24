@@ -10,7 +10,7 @@ import { AccessorError } from './accessor.error';
  */
 export class PathNotFoundError extends AccessorError {
     /**
-     * @param message - Human-readable error description.
+     * @param message - Error description.
      */
     constructor(message: string) {
         super(message);

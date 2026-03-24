@@ -48,21 +48,6 @@ describe(NdjsonAccessor.name, () => {
         const acc = NdjsonAccessor.from(ndjson);
         expect(acc.get('*.name')).toEqual(['Ana', 'Bob', 'Carlos']);
     });
-
-    it('clone produces NdjsonAccessor', () => {
-        const acc = NdjsonAccessor.from(ndjson);
-        const cloned = acc.clone({ '0': { key: 'val' } });
-        expect(cloned).toBeInstanceOf(NdjsonAccessor);
-        expect(cloned.get('0.key')).toBe('val');
-    });
-
-    it('toNdjson serializes back to NDJSON', () => {
-        const acc = NdjsonAccessor.from(ndjson);
-        const output = acc.toNdjson();
-        const lines = output.split('\n');
-        expect(lines).toHaveLength(3);
-        expect(JSON.parse(lines[0])).toEqual({ name: 'Ana', age: 30 });
-    });
 });
 
 describe('SafeAccess.fromNdjson()', () => {

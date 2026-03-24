@@ -1,9 +1,7 @@
 import { SecurityGuard } from '../../security/guards/security-guard';
 import { PathCache } from '../resolvers/path-cache';
-import { deepMerge } from '../operations/deep-merger';
 import { SegmentParser, type Segment } from './segment-parser';
 import { PathResolver } from '../resolvers/path-resolver';
-import { renderTemplate } from '../rendering/template-renderer';
 
 /**
  * Core engine for resolving paths with dot notation.
@@ -12,6 +10,8 @@ import { renderTemplate } from '../rendering/template-renderer';
  * Parsing is delegated to {@link SegmentParser}; recursive traversal
  * is handled by {@link PathResolver}. This class provides the public
  * CRUD API over dot-notation paths.
+ *
+ * @internal Implementation detail. Do not rely on this in application code.
  */
 import { type ParserConfig, DEFAULT_PARSER_CONFIG } from '../config/parser-config';
 export class DotNotationParser {
@@ -52,7 +52,6 @@ export class DotNotationParser {
     /**
      * Returns the parsed and cached segments for `path`.
      *
-     * Used by {@link SafeAccess.compilePath} to build a {@link CompiledPath}.
      *
      * @param path - Dot-notation path to compile.
      * @returns Array of parsed path segments (retrieved from or stored in cache).
@@ -155,12 +154,30 @@ export class DotNotationParser {
         value: Record<string, unknown>,
     ): Record<string, unknown> {
         const existing = path ? DotNotationParser.get(data, path, {}) : data;
-        const merged = deepMerge(
+        const base =
             typeof existing === 'object' && existing !== null && !Array.isArray(existing)
                 ? (existing as Record<string, unknown>)
-                : {},
-            value,
-        );
+                : {};
+        const merged = { ...base };
+        for (const [k, v] of Object.entries(value)) {
+            SecurityGuard.assertSafeKey(k);
+            const bv = base[k];
+            if (
+                v !== null &&
+                typeof v === 'object' &&
+                !Array.isArray(v) &&
+                bv !== null &&
+                typeof bv === 'object' &&
+                !Array.isArray(bv)
+            ) {
+                merged[k] = {
+                    ...(bv as Record<string, unknown>),
+                    ...(v as Record<string, unknown>),
+                };
+            } else {
+                merged[k] = v;
+            }
+        }
         return path ? DotNotationParser.set(data, path, merged) : structuredClone(merged);
     }
 
@@ -180,12 +197,14 @@ export class DotNotationParser {
 
         for (let i = 0; i < keys.length - 1; i++) {
             const key = keys[i];
+            SecurityGuard.assertSafeKey(key);
             if (!(key in current) || typeof current[key] !== 'object' || current[key] === null) {
                 return result;
             }
             current = current[key] as Record<string, unknown>;
         }
 
+        SecurityGuard.assertSafeKey(keys[keys.length - 1]);
         delete current[keys[keys.length - 1]];
         return result;
     }
@@ -208,6 +227,7 @@ export class DotNotationParser {
     ): unknown {
         let current: unknown = data;
         for (const segment of segments) {
+            SecurityGuard.assertSafeKey(segment);
             if (current === null || current === undefined || typeof current !== 'object') {
                 return defaultValue;
             }
@@ -267,21 +287,14 @@ export class DotNotationParser {
         let current: Record<string, unknown> = result;
         for (let i = 0; i < segments.length - 1; i++) {
             const seg = segments[i];
+            SecurityGuard.assertSafeKey(seg);
             if (!(seg in current) || typeof current[seg] !== 'object' || current[seg] === null) {
                 return result;
             }
             current = current[seg] as Record<string, unknown>;
         }
+        SecurityGuard.assertSafeKey(segments[segments.length - 1]);
         delete current[segments[segments.length - 1]];
         return result;
-    }
-
-    /**
-     * Renders a template path replacing {key} with bindings values.
-     *
-     * @see {@link renderTemplate} for the underlying implementation.
-     */
-    static renderTemplate(template: string, bindings: Record<string, string | number>): string {
-        return renderTemplate(template, bindings);
     }
 }

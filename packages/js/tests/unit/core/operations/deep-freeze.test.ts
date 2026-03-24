@@ -111,15 +111,4 @@ describe('Readonly accessor', () => {
         })();
         expect(() => acc.merge({ b: 2 })).toThrow(ReadonlyViolationError);
     });
-
-    it('throws ReadonlyViolationError on applyPatch()', () => {
-        const acc = new (class extends JsonAccessor {
-            constructor() {
-                super('{"a":1}', { readonly: true });
-            }
-        })();
-        expect(() => acc.applyPatch([{ op: 'add', path: '/b', value: 2 }])).toThrow(
-            ReadonlyViolationError,
-        );
-    });
 });

@@ -3,7 +3,7 @@ import { AccessorError } from './accessor.error';
 /** Thrown when a security policy is violated (SSRF, payload size, key traversal, etc.). */
 export class SecurityError extends AccessorError {
     /**
-     * @param message - Human-readable error description.
+     * @param message - Error description.
      */
     constructor(message: string) {
         super(message);

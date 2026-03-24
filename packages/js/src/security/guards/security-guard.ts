@@ -1,5 +1,4 @@
 import { SecurityError } from '../../exceptions/security.error';
-import { AuditEventType, emitAudit } from '../audit/audit-emitter';
 
 const FORBIDDEN_KEYS = new Set([
     '__proto__',
@@ -41,7 +40,6 @@ export class SecurityGuard {
      */
     static assertSafeKey(key: string): void {
         if (FORBIDDEN_KEYS.has(key)) {
-            emitAudit(AuditEventType.SECURITY_VIOLATION, { reason: 'forbidden_key', key });
             throw new SecurityError(
                 `Forbidden key '${key}' detected. This key is blocked to prevent prototype pollution.`,
             );

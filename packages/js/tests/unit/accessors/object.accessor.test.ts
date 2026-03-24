@@ -63,11 +63,6 @@ describe(ObjectAccessor.name, () => {
         expect(JSON.parse(accessor.toJson())).toEqual({ name: 'Ana' });
     });
 
-    it('toObject', () => {
-        const accessor = ObjectAccessor.from({ name: 'Ana' });
-        expect(accessor.toObject()).toEqual({ name: 'Ana' });
-    });
-
     it('type', () => {
         const accessor = ObjectAccessor.from({ name: 'Ana', age: 30 });
         expect(accessor.type('name')).toBe('string');
@@ -89,7 +84,7 @@ describe(ObjectAccessor.name, () => {
     it('parse — preserves Date instances (no JSON.parse/stringify coercion)', () => {
         const now = new Date('2024-01-15T12:00:00Z');
         const accessor = ObjectAccessor.from({ ts: now, name: 'test' });
-        const raw = accessor.toObject();
+        const raw = accessor.all();
         expect(raw.ts).toBeInstanceOf(Date);
         expect((raw.ts as Date).toISOString()).toBe(now.toISOString());
     });

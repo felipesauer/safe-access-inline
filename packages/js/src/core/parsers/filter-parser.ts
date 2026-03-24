@@ -1,8 +1,4 @@
 import { SecurityGuard } from '../../security/guards/security-guard';
-import {
-    type FilterParserConfig,
-    DEFAULT_FILTER_PARSER_CONFIG,
-} from '../config/filter-parser-config';
 import type {
     FilterCondition,
     FilterExpression,
@@ -27,27 +23,11 @@ export type {
  *
  * Operators: `==`, `!=`, `>`, `<`, `>=`, `<=`.
  * Logical: `&&`, `||`.
- * Functions: `length`, `match`, `keys`, `starts_with`, `contains`, `values`.
+ * Functions: `starts_with`, `contains`, `values`.
+ *
+ * @internal Implementation detail. Do not rely on this in application code.
  */
 export class FilterParser {
-    private static config: FilterParserConfig = DEFAULT_FILTER_PARSER_CONFIG;
-
-    /**
-     * Overrides the default filter parser configuration.
-     *
-     * @param config - Partial config; unspecified keys retain their defaults.
-     */
-    static configure(config: Partial<FilterParserConfig>): void {
-        FilterParser.config = { ...DEFAULT_FILTER_PARSER_CONFIG, ...config };
-    }
-
-    /**
-     * Resets the configuration to defaults.
-     */
-    static resetConfig(): void {
-        FilterParser.config = DEFAULT_FILTER_PARSER_CONFIG;
-    }
-
     /**
      * Parses "[?expr]" content (without the `[?` and `]` delimiters) into a {@link FilterExpression}.
      *
@@ -285,10 +265,10 @@ export class FilterParser {
     }
 
     /**
-     * Evaluates a built-in filter function (`length`, `match`, `keys`) against an item.
+     * Evaluates a built-in filter function against an item.
      *
      * @param item - The data object providing context.
-     * @param func - Function name (`length`, `match`, or `keys`).
+     * @param func - Function name (`starts_with`, `contains`, or `values`).
      * @param funcArgs - Raw argument strings from the parsed condition.
      * @returns The function result used for subsequent comparison.
      * @throws {@link Error} When `func` is an unrecognised function name.
@@ -299,49 +279,6 @@ export class FilterParser {
         funcArgs: string[],
     ): unknown {
         switch (func) {
-            case 'length': {
-                const val = FilterParser.resolveFilterArg(item, funcArgs[0]);
-                if (typeof val === 'string') return val.length;
-                if (Array.isArray(val)) return val.length;
-                if (typeof val === 'object' && val !== null) return Object.keys(val).length;
-                return 0;
-            }
-            case 'match': {
-                const val = FilterParser.resolveFilterArg(item, funcArgs[0]);
-                if (typeof val !== 'string') return false;
-                let pattern = funcArgs[1]?.trim() ?? '';
-                // Strip quotes from pattern
-                if (
-                    (pattern.startsWith("'") && pattern.endsWith("'")) ||
-                    (pattern.startsWith('"') && pattern.endsWith('"'))
-                ) {
-                    pattern = pattern.slice(1, -1);
-                }
-                // ReDoS guard: reject patterns with nested quantifiers, alternation quantifiers,
-                // or excessive length. Covers: (x+)+ / (x+)* / (a|b)+ / (?...*) shapes.
-                if (
-                    pattern.length > FilterParser.config.maxPatternLength ||
-                    /(\+|\*|\{[\d,]+\})\)(\+|\*|\{[\d,]+\})/.test(pattern) || // (group)+ or (group)*
-                    /\([^)]*\|[^)]*\)(\+|\*|\{[\d,]+\})/.test(pattern) || // (a|b)+  alternation
-                    /\(\?[^)]*[+*]/.test(pattern) || // (?...*)  non-capturing quantifier
-                    /\([^)]*[+*{][^)]*\)\s*\([^)]*[+*{]/.test(pattern) || // Sibling groups with quantifiers inside
-                    /(\([^()]*\)){2,}[+*{]/.test(pattern) // Repeated non-nested groups followed by a quantifier
-                ) {
-                    return false;
-                }
-                try {
-                    return new RegExp(pattern, 'u').test(val);
-                } catch {
-                    return false;
-                }
-            }
-            case 'keys': {
-                const val = FilterParser.resolveFilterArg(item, funcArgs[0]);
-                if (typeof val === 'object' && val !== null && !Array.isArray(val)) {
-                    return Object.keys(val).length;
-                }
-                return 0;
-            }
             case 'starts_with': {
                 const val = FilterParser.resolveFilterArg(item, funcArgs[0]);
                 if (typeof val !== 'string') return false;

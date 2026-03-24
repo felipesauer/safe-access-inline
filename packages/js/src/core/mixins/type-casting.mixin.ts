@@ -1,4 +1,4 @@
-import { ArrayOperationsMixin } from './array-operations.mixin';
+import { SegmentPathMixin } from './segment-path.mixin';
 
 /**
  * @internal
@@ -7,7 +7,7 @@ import { ArrayOperationsMixin } from './array-operations.mixin';
  * Extracted from `abstract-accessor.ts` to separate concerns.
  * Do not extend this class directly — use {@link AbstractAccessor}.
  */
-export abstract class TypeCastingMixin extends ArrayOperationsMixin {
+export abstract class TypeCastingMixin extends SegmentPathMixin {
     /**
      * Retrieves a value at the given dot-notation path.
      *

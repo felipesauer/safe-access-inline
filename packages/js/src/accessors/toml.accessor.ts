@@ -1,11 +1,13 @@
 import type { parse as tomlParse } from 'smol-toml';
-import { optionalRequire } from '../core/io/optional-require';
+import { optionalRequire } from '../core/utils/optional-require';
 import { AbstractAccessor } from '../core/abstract-accessor';
 import { PluginRegistry } from '../core/registries/plugin-registry';
 import { InvalidFormatError } from '../exceptions/invalid-format.error';
-import { FormatSerializer } from '../core/rendering/format-serializer';
 
-const getSmolToml = optionalRequire<{ parse: typeof tomlParse }>('smol-toml', 'TOML');
+const getSmolToml = optionalRequire<{
+    parse: typeof tomlParse;
+    stringify: (data: Record<string, unknown>) => string;
+}>('smol-toml', 'TOML');
 
 /**
  * Accessor for TOML strings.
@@ -55,7 +57,12 @@ export class TomlAccessor<
      * @param data - The record to wrap.
      * @returns A new {@link TomlAccessor} instance.
      */
-    clone(data: Record<string, unknown>): TomlAccessor<T> {
-        return new TomlAccessor(FormatSerializer.toToml(data)) as TomlAccessor<T>;
+    protected override clone(data: Record<string, unknown> = {}): TomlAccessor<T> {
+        if (PluginRegistry.hasSerializer('toml')) {
+            return new TomlAccessor(
+                PluginRegistry.getSerializer('toml').serialize(data),
+            ) as TomlAccessor<T>;
+        }
+        return new TomlAccessor(getSmolToml().stringify(data)) as TomlAccessor<T>;
     }
 }

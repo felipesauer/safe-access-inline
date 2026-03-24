@@ -13,21 +13,6 @@ exports[`Snapshot — complex query outputs > array wildcard returning nested st
 ]
 `;
 
-exports[`Snapshot — complex query outputs > deep merge of two objects with conflicting keys 1`] = `
-{
-  "a": 1,
-  "b": {
-    "x": 10,
-    "y": 99,
-    "z": 30,
-  },
-  "c": [
-    3,
-  ],
-  "d": "new",
-}
-`;
-
 exports[`Snapshot — complex query outputs > filter combined with wildcard: items[?sub.score>15].sub.name 1`] = `
 [
   "sub2",

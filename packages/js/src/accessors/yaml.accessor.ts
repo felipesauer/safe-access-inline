@@ -1,9 +1,8 @@
 import type yaml from 'js-yaml';
-import { optionalRequire } from '../core/io/optional-require';
+import { optionalRequire } from '../core/utils/optional-require';
 import { AbstractAccessor } from '../core/abstract-accessor';
 import { PluginRegistry } from '../core/registries/plugin-registry';
 import { InvalidFormatError } from '../exceptions/invalid-format.error';
-import { FormatSerializer } from '../core/rendering/format-serializer';
 
 const getYaml = optionalRequire<typeof yaml>('js-yaml', 'YAML');
 
@@ -60,7 +59,12 @@ export class YamlAccessor<
      * @param data - The record to wrap.
      * @returns A new {@link YamlAccessor} instance.
      */
-    clone(data: Record<string, unknown>): YamlAccessor<T> {
-        return new YamlAccessor(FormatSerializer.toYaml(data)) as YamlAccessor<T>;
+    protected override clone(data: Record<string, unknown> = {}): YamlAccessor<T> {
+        if (PluginRegistry.hasSerializer('yaml')) {
+            return new YamlAccessor(
+                PluginRegistry.getSerializer('yaml').serialize(data),
+            ) as YamlAccessor<T>;
+        }
+        return new YamlAccessor(getYaml().dump(data)) as YamlAccessor<T>;
     }
 }

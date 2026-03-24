@@ -48,7 +48,7 @@ export class JsonAccessor<
      * @param data - The record to wrap.
      * @returns A new {@link JsonAccessor} instance.
      */
-    clone(data: Record<string, unknown>): JsonAccessor<T> {
+    protected override clone(data: Record<string, unknown> = {}): JsonAccessor<T> {
         return new JsonAccessor(JSON.stringify(data)) as JsonAccessor<T>;
     }
 }
