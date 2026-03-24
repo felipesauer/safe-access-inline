@@ -2,8 +2,6 @@ import { parseArgs } from "node:util";
 import {
     loadFromStdinOrFile,
     parseJsonValue,
-    formatOutput,
-    strOpt,
     boolOpt,
     type CliIO,
 } from "../command-handlers.js";
@@ -19,7 +17,6 @@ export function handleSet(rest: string[], io: CliIO): number {
     const { values, positionals } = parseArgs({
         args: rest,
         options: {
-            to: { type: "string" },
             pretty: { type: "boolean", default: false },
         },
         allowPositionals: true,
@@ -27,7 +24,7 @@ export function handleSet(rest: string[], io: CliIO): number {
     });
     if (positionals.length < 3) {
         io.stderr.write(
-            "Usage: safe-access set <file> <path> <value> [--to <format>]\n",
+            "Usage: safe-access set <file> <path> <value> [--pretty]\n",
         );
         return 1;
     }
@@ -38,8 +35,6 @@ export function handleSet(rest: string[], io: CliIO): number {
     );
     const newVal = parseJsonValue(positionals[2]);
     const updated = accessor.set(positionals[1], newVal);
-    io.stdout.write(
-        formatOutput(updated, strOpt(values.to), boolOpt(values.pretty)) + "\n",
-    );
+    io.stdout.write(updated.toJson(boolOpt(values.pretty)) + "\n");
     return 0;
 }

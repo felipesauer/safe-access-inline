@@ -5,7 +5,7 @@
 <h1 align="center">@safe-access-inline/cli</h1>
 
 <p align="center">
-  Query, transform, and manipulate data files from the terminal — 13 commands, 8 formats, piping support.
+  Query, transform, and manipulate data files from the terminal — 9 commands, 8 formats, piping support.
 </p>
 
 <p align="center">
@@ -51,17 +51,6 @@ safe-access count config.json "items"             # number of elements
 safe-access transform config.yaml --to json --pretty
 safe-access convert --file config.yaml --to toml
 safe-access convert --from yaml --to json < input.yaml
-
-# Compare and merge
-safe-access diff config.json config-updated.json
-safe-access layer defaults.yaml overrides.json --to json --pretty
-
-# Redact secrets
-safe-access mask config.json --patterns "password,secret,api_*" --pretty
-
-# Validate against JSON Schema
-safe-access validate config.json --schema schema.json
-safe-access validate config.json --schema schema.json --format json   # machine-readable
 
 # Stdin piping
 echo '{"a":1}' | safe-access get - "a"

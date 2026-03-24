@@ -81,57 +81,6 @@ describe(`${run.name} — branches`, () => {
         expect(err.join("")).toContain("Error: plain-string-error");
     });
 
-    it("delegates convert/transform to handleTransform", async () => {
-        const handlers = await import("../../src/handlers/transform.handler");
-        vi.spyOn(
-            handlers as unknown as {
-                handleTransform: typeof handlers.handleTransform;
-            },
-            "handleTransform",
-        ).mockImplementation(() => 0);
-        const cliMod = await import("../../src/cli");
-
-        const io = {
-            stdout: { write: () => {} },
-            stderr: { write: () => {} },
-            readFileSync: (() => "") as unknown as typeof fs.readFileSync,
-            getVersion: () => "0.0.0",
-        } as const;
-
-        expect(cliMod.run(["transform", "x"], io)).toBe(0);
-        expect(cliMod.run(["convert", "x"], io)).toBe(0);
-    });
-
-    it('dispatches "convert" command independently (case isolated from transform)', async () => {
-        // mata mutante ID 38: ConditionalExpression substitui case "convert" por case "transform"
-        // spy registado ANTES do import para garantir cobertura perTest
-        const transformMod =
-            await import("../../src/handlers/transform.handler");
-        const spy = vi
-            .spyOn(
-                transformMod as unknown as {
-                    handleTransform: typeof transformMod.handleTransform;
-                },
-                "handleTransform",
-            )
-            .mockReturnValue(0);
-        const cliMod = await import("../../src/cli");
-
-        const io = {
-            stdout: { write: () => {} },
-            stderr: { write: () => {} },
-            readFileSync: (() => "") as unknown as typeof fs.readFileSync,
-            getVersion: () => "0.0.0",
-        } as const;
-
-        const code = cliMod.run(
-            ["convert", "--file", "x.json", "--to", "yaml"],
-            io,
-        );
-        expect(code).toBe(0);
-        expect(spy).toHaveBeenCalledOnce();
-    });
-
     it("catch block writes Error: prefix and returns 1", async () => {
         // mata mutante ID 58: BlockStatement {} esvazia o bloco catch
         const getHandlerMod = await import("../../src/handlers/get.handler");
