@@ -8,6 +8,10 @@ outline: deep
 
 - [SafeAccess Facade](#safeaccess-facade)
 - [Accessor Instance Methods](#accessor-instance-methods)
+- [Performance: Compiled Paths](#performance-compiled-paths)
+- [Readonly](#readonly)
+- [I/O Types](#io-types)
+- [Security Utility Functions](#security-utility-functions)
 
 See also: [API — Operations & I/O](/js/api-features) · [API — Types & Internals](/js/api-types)
 
@@ -77,14 +81,6 @@ Creates an accessor from an INI string.
 const accessor = SafeAccess.fromIni("[section]\nkey = value");
 ```
 
-#### `SafeAccess.fromCsv(data: string, options?: { readonly?: boolean }): CsvAccessor`
-
-Creates an accessor from a CSV string (first line = headers).
-
-```typescript
-const accessor = SafeAccess.fromCsv("name,age\nAna,30");
-```
-
 #### `SafeAccess.fromEnv(data: string, options?: { readonly?: boolean }): EnvAccessor`
 
 Creates an accessor from a `.env` format string.
@@ -105,7 +101,7 @@ const accessor = SafeAccess.fromNdjson('{"id":1}\n{"id":2}');
 
 Unified factory — creates an accessor from any data. With a format string or `Format` enum value, delegates to the corresponding typed factory. Without a format, auto-detects (same as `detect()`).
 
-Supported formats: `'array'`, `'object'`, `'json'`, `'xml'`, `'yaml'`, `'toml'`, `'ini'`, `'csv'`, `'env'`, or any custom name registered via `extend()`. All built-in formats are also available as `Format` enum members.
+Supported formats: `'array'`, `'object'`, `'json'`, `'xml'`, `'yaml'`, `'toml'`, `'ini'`, `'env'`, `'ndjson'`. All built-in formats are also available as `Format` enum members.
 
 TypeScript overloads preserve the specific return type for each known format — both string literals and `Format` enum values are fully typed.
 
@@ -124,13 +120,9 @@ const json2 = SafeAccess.from('{"name": "Ana"}', Format.Json); // JsonAccessor
 const yaml2 = SafeAccess.from("name: Ana", Format.Yaml); // YamlAccessor
 const xml = SafeAccess.from("<root><n>1</n></root>", Format.Xml); // XmlAccessor
 const arr = SafeAccess.from([1, 2, 3], Format.Array); // ArrayAccessor
-
-// Custom format (string only)
-SafeAccess.extend("custom", MyAccessor);
-const custom = SafeAccess.from(data, "custom");
 ```
 
-Throws `InvalidFormatError` if the format is unknown and not registered.
+Throws `InvalidFormatError` if the format is unknown.
 
 #### `SafeAccess.detect(data: unknown): AbstractAccessor`
 
@@ -143,22 +135,6 @@ const accessor = SafeAccess.detect({ key: "value" }); // ObjectAccessor
 const fromJson = SafeAccess.detect('{"name": "Ana"}'); // JsonAccessor
 const fromXml = SafeAccess.detect("<root><name>Ana</name></root>"); // XmlAccessor
 const fromYaml = SafeAccess.detect("name: Ana\nage: 30"); // YamlAccessor
-```
-
-#### `SafeAccess.extend(name: string, cls: Constructor): void`
-
-Registers a custom accessor class.
-
-```typescript
-SafeAccess.extend("custom", MyAccessor);
-```
-
-#### `SafeAccess.custom(name: string, data: unknown): AbstractAccessor`
-
-Instantiates a previously registered custom accessor.
-
-```typescript
-const accessor = SafeAccess.custom("custom", data);
 ```
 
 ---
@@ -191,6 +167,16 @@ accessor.getMany({
     "user.email": "N/A",
 });
 // { 'user.name': 'Ana', 'user.email': 'N/A' }
+```
+
+#### `getWildcard<T = unknown>(path: string, defaultValue?: T[]): T[]`
+
+Convenience wrapper for wildcard paths — always returns a typed array. Equivalent to calling `get()` with a path containing a `*` or `.**` expression, but with explicit typed-array return guarantees.
+
+```typescript
+accessor.getWildcard("users.*.name"); // ['Alice', 'Bob', 'Charlie']
+accessor.getWildcard("items.*.price", []); // [] if path not found
+accessor.getWildcard<number>("prices.*", [0]); // [1.99, 2.49, 3.00]
 ```
 
 #### `has(path: string): boolean`
@@ -231,7 +217,7 @@ Check if a path exists using an array of segments.
 
 Returns the normalized type of the value at the given path, or `null` if path doesn't exist.
 
-Possible values: `"string"`, `"number"`, `"bool"`, `"object"`, `"array"`, `"null"`, `"undefined"`. Returns `null` (not a string) when the path does not exist.
+Possible values: `"string"`, `"number"`, `"bool"`, `"object"`, `"array"`, `"null"`. Returns `null` (not a string) when the path does not exist.
 
 ```typescript
 accessor.type("name"); // "string"
@@ -317,18 +303,24 @@ Removes a path using an array of segments. Returns a **new instance**.
 
 Returns a shallow copy of the data. Semantic intent: "convert to array/object format". Currently identical to `all()`, but semantically distinct for future extensibility.
 
-#### `toJson(pretty?: boolean): string`
+#### `toJson(pretty?: boolean, options?: ToJsonOptions): string`
 
 Convert to JSON string.
 
 ```typescript
 accessor.toJson(); // compact
 accessor.toJson(true); // pretty-printed with 2-space indent
+
+// PHP-compatible output: unescaped unicode + slashes, 4-space indent
+import type { ToJsonOptions } from "@safe-access-inline/safe-access-inline";
+
+const opts: ToJsonOptions = {
+    unescapeUnicode: true, // \u00e9 → é
+    unescapeSlashes: true, // \/ → /
+    space: 4,
+};
+accessor.toJson(true, opts);
 ```
-
-#### `toObject(): Record<string, unknown>`
-
-Returns a deep clone of the data (via `structuredClone`).
 
 #### `toYaml(): string`
 
@@ -372,45 +364,37 @@ Serializes the data to newline-delimited JSON. Each top-level array item becomes
 accessor.toNdjson(); // '{"id":1}\n{"id":2}'
 ```
 
-#### `toCsv(csvMode?: 'none' | 'prefix' | 'strip' | 'error'): string`
+### Readonly
 
-Serializes the data to CSV format. The optional `csvMode` parameter controls CSV injection sanitization.
+All factory methods (`fromJson`, `fromArray`, etc.) accept `{ readonly: true }` to create an accessor that throws `ReadonlyViolationError` on any mutation. You can also freeze an existing instance at runtime.
 
-```typescript
-accessor.toCsv(); // default: no sanitization
-accessor.toCsv("strip"); // strip dangerous leading characters
-```
+#### `freeze(): AbstractAccessor`
 
-#### `transform(format: string): string`
-
-Serializes the data to any format that has a registered serializer plugin. Throws `UnsupportedTypeError` if no serializer is found for the given format.
+Returns a frozen copy of this accessor. All subsequent write operations will throw a `ReadonlyViolationError`.
 
 ```typescript
-accessor.transform("yaml"); // uses registered 'yaml' serializer
-accessor.transform("csv"); // uses registered 'csv' serializer
+const frozen = accessor.freeze();
+frozen.set("key", "value"); // throws ReadonlyViolationError
+
+// Via factory options
+const ro = SafeAccess.fromJson('{"key":"value"}', { readonly: true });
+ro.set("key", "new"); // throws ReadonlyViolationError
 ```
 
-### Security & Validation
+---
 
-#### `masked(patterns?: MaskPattern[]): AbstractAccessor`
+## Global State Reset
 
-Returns a **new instance** with sensitive values redacted. Without patterns, auto-detects common sensitive keys (password, secret, token, api_key, etc.). With patterns, additionally masks keys matching the wildcard patterns.
+#### `SafeAccess.resetAll(): void`
+
+Resets **all** global static state at once: the default plugin registry, the path cache, and any globally configured security policy.
 
 ```typescript
-const safe = accessor.masked(); // auto-mask common keys
-const custom = accessor.masked(["api_*", "credentials"]); // custom patterns
+import { SafeAccess } from "@safe-access-inline/safe-access-inline";
+
+afterEach(() => {
+    SafeAccess.resetAll();
+});
 ```
 
-#### `validate<TSchema>(schema: TSchema, adapter?: SchemaAdapterInterface): this`
-
-Validates the data against a schema using the given adapter (or the default adapter set via `SchemaRegistry`). Returns `this` if valid; throws `SchemaValidationError` if invalid.
-
-```typescript
-import { SchemaRegistry } from "@safe-access-inline/safe-access-inline";
-
-// Register a default schema adapter (e.g., Zod)
-SchemaRegistry.setDefaultAdapter(myZodAdapter);
-
-// Validate inline
-accessor.validate(mySchema);
-```
+**When to use:** In test suite teardown, when multiple subsystems were configured globally and a completely clean slate is needed between test cases.

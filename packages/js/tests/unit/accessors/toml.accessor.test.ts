@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { TomlAccessor } from '../../../src/accessors/toml.accessor';
 import { PluginRegistry } from '../../../src/core/registries/plugin-registry';
 import { InvalidFormatError } from '../../../src/exceptions/invalid-format.error';
@@ -155,6 +155,10 @@ port = 443
 
     describe('with registered parser plugin', () => {
         beforeEach(() => {
+            PluginRegistry.reset();
+        });
+
+        afterEach(() => {
             PluginRegistry.reset();
         });
 

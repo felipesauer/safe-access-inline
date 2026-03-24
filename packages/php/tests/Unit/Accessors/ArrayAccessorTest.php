@@ -1,10 +1,9 @@
 <?php
 
+declare(strict_types=1);
+
 use SafeAccessInline\Accessors\ArrayAccessor;
-use SafeAccessInline\Contracts\SerializerPluginInterface;
-use SafeAccessInline\Core\Registries\PluginRegistry;
 use SafeAccessInline\Exceptions\InvalidFormatException;
-use SafeAccessInline\Exceptions\UnsupportedTypeException;
 
 describe(ArrayAccessor::class, function () {
 
@@ -99,7 +98,7 @@ describe(ArrayAccessor::class, function () {
         ]);
         expect($accessor->type('name'))->toBe('string');
         expect($accessor->type('age'))->toBe('number');
-        expect($accessor->type('active'))->toBe('bool');
+        expect($accessor->type('active'))->toBe('boolean');
         expect($accessor->type('items'))->toBe('array');
         expect($accessor->type('missing'))->toBeNull();
     });
@@ -134,104 +133,11 @@ describe(ArrayAccessor::class, function () {
         expect(json_decode($json, true))->toBe(['name' => 'Ana']);
     });
 
-    it('toObject — returns stdClass', function () {
-        $accessor = ArrayAccessor::from(['name' => 'Ana']);
-        $obj = $accessor->toObject();
-        expect($obj)->toBeObject();
-        expect($obj->name)->toBe('Ana');
-    });
-
     it('all — returns all data', function () {
         $data = ['x' => 1, 'y' => 2];
         $accessor = ArrayAccessor::from($data);
         expect($accessor->all())->toBe($data);
     });
-
-    it('toXml — returns valid XML', function () {
-        $accessor = ArrayAccessor::from(['name' => 'Ana', 'age' => 30]);
-        $xml = $accessor->toXml();
-        $parsed = simplexml_load_string($xml);
-        expect($parsed)->not->toBeFalse();
-        expect((string) $parsed->name)->toBe('Ana');
-        expect((string) $parsed->age)->toBe('30');
-    });
-
-    it('toXml — nested data', function () {
-        $accessor = ArrayAccessor::from(['user' => ['name' => 'Ana', 'active' => true]]);
-        $xml = $accessor->toXml('data');
-        $parsed = simplexml_load_string($xml);
-        expect($parsed)->not->toBeFalse();
-        expect($parsed->getName())->toBe('data');
-        expect((string) $parsed->user->name)->toBe('Ana');
-    });
-
-    it('toXml — invalid root element throws', function () {
-        $accessor = ArrayAccessor::from(['a' => 1]);
-        $accessor->toXml('root><evil/><root');
-    })->throws(InvalidFormatException::class, 'Invalid XML root element name');
-
-    it('toXml — empty root element throws', function () {
-        $accessor = ArrayAccessor::from(['a' => 1]);
-        $accessor->toXml('');
-    })->throws(InvalidFormatException::class, 'Invalid XML root element name');
-
-    it('toYaml — returns valid YAML via serializer plugin', function () {
-        PluginRegistry::registerSerializer('yaml', new class () implements SerializerPluginInterface {
-            public function serialize(array $data): string
-            {
-                $lines = [];
-                foreach ($data as $key => $value) {
-                    $lines[] = "{$key}: {$value}";
-                }
-                return implode("\n", $lines) . "\n";
-            }
-        });
-
-        $accessor = ArrayAccessor::from(['name' => 'Ana', 'age' => 30]);
-        $yaml = $accessor->toYaml();
-        expect($yaml)->toContain('name:');
-        expect($yaml)->toContain('Ana');
-        expect($yaml)->toContain('age:');
-
-        PluginRegistry::reset();
-    });
-
-    it('toYaml — throws when no serializer registered and no native ext-yaml', function () {
-        PluginRegistry::reset();
-
-        if (function_exists('yaml_emit')) {
-            // If ext-yaml is available, toYaml() will use it as fallback — skip this test
-            $accessor = ArrayAccessor::from(['name' => 'Ana']);
-            $yaml = $accessor->toYaml();
-            expect($yaml)->toContain('name');
-            return;
-        }
-
-        $accessor = ArrayAccessor::from(['name' => 'Ana']);
-        expect(fn () => $accessor->toYaml())
-            ->toThrow(UnsupportedTypeException::class, 'requires a YAML serializer plugin');
-    });
-
-    it('transform — uses registered serializer plugin', function () {
-        PluginRegistry::registerSerializer('custom', new class () implements SerializerPluginInterface {
-            public function serialize(array $data): string
-            {
-                return 'custom:' . json_encode($data);
-            }
-        });
-
-        $accessor = ArrayAccessor::from(['key' => 'value']);
-        $result = $accessor->transform('custom');
-        expect($result)->toBe('custom:{"key":"value"}');
-
-        PluginRegistry::reset();
-    });
-
-    it('transform — throws for unregistered format', function () {
-        PluginRegistry::reset();
-        $accessor = ArrayAccessor::from(['key' => 'value']);
-        $accessor->transform('nonexistent');
-    })->throws(UnsupportedTypeException::class, "No serializer registered for format 'nonexistent'");
 
     it('getMany — multiple paths', function () {
         $accessor = ArrayAccessor::from(['a' => 1, 'b' => 2, 'c' => 3]);

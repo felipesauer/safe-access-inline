@@ -9,6 +9,8 @@ export enum SegmentType {
     DESCENT = 'descent',
     DESCENT_MULTI = 'descent-multi',
     MULTI_INDEX = 'multi-index',
+    MULTI_KEY = 'multi-key',
     FILTER = 'filter',
     SLICE = 'slice',
+    PROJECTION = 'projection',
 }

@@ -9,7 +9,18 @@ use SafeAccessInline\Exceptions\InvalidFormatException;
 
 /**
  * Accessor for PHP objects (stdClass, anonymous classes, DTOs, etc.).
- * Converts internally: object → JSON → associative array.
+ *
+ * Converts internally via `json_encode` → `json_decode` to produce an associative array,
+ * which normalises nested objects and provides a consistent traversal surface.
+ *
+ * @note **Limitation:** the JSON roundtrip cannot represent PHP types that lack a JSON
+ * equivalent — including `DateTime`, `SplStack`, resources, and class instances whose
+ * `jsonSerialize()` is not implemented. Such values are silently dropped by `json_encode`.
+ * When precision matters, pass an already-serialised array via {@link ArrayAccessor} instead.
+ *
+ * @example
+ * SafeAccess::fromObject($dto)->get('address.city');
+ * @extends AbstractAccessor<array<mixed>>
  */
 class ObjectAccessor extends AbstractAccessor
 {
@@ -32,6 +43,10 @@ class ObjectAccessor extends AbstractAccessor
         return new static($data, $readonly); // @phpstan-ignore new.static
     }
 
+    /**
+     * @param mixed $raw
+     * @return array<mixed>
+     */
     protected function parse(mixed $raw): array
     {
         $json = json_encode($raw);

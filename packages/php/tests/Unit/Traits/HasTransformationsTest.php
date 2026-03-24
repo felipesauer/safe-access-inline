@@ -1,15 +1,9 @@
 <?php
 
-use SafeAccessInline\Accessors\ArrayAccessor;
-use SafeAccessInline\Contracts\SerializerPluginInterface;
-use SafeAccessInline\Core\Registries\PluginRegistry;
-use SafeAccessInline\Exceptions\InvalidFormatException;
-use SafeAccessInline\Exceptions\UnsupportedTypeException;
-use SafeAccessInline\Traits\HasTransformations;
+declare(strict_types=1);
 
-beforeEach(function () {
-    PluginRegistry::reset();
-});
+use SafeAccessInline\Accessors\ArrayAccessor;
+use SafeAccessInline\Traits\HasTransformations;
 
 describe(HasTransformations::class, function () {
 
@@ -20,139 +14,59 @@ describe(HasTransformations::class, function () {
         expect(json_decode($json, true))->toBe(['name' => 'Ana']);
     });
 
-    it('toObject returns stdClass', function () {
-        $accessor = ArrayAccessor::from(['name' => 'Ana', 'age' => 30]);
-        $obj = $accessor->toObject();
-        expect($obj)->toBeObject();
-        expect($obj->name)->toBe('Ana');
-        expect($obj->age)->toBe(30);
-    });
-
-    it('toXml throws InvalidFormatException for invalid root element', function () {
+    it('toJson with bool true produces pretty output', function () {
         $accessor = ArrayAccessor::from(['a' => 1]);
-        expect(fn () => $accessor->toXml('123invalid'))->toThrow(InvalidFormatException::class);
+        $json = $accessor->toJson(true);
+        expect($json)->toContain("\n");
+        expect(json_decode($json, true))->toBe(['a' => 1]);
     });
 
-    it('toXml uses registered serializer plugin', function () {
-        $serializer = new class () implements SerializerPluginInterface {
-            public function serialize(array $data): string
-            {
-                return '<custom>' . json_encode($data) . '</custom>';
-            }
-        };
-        PluginRegistry::registerSerializer('xml', $serializer);
-
+    it('toJson with bool false produces compact output', function () {
         $accessor = ArrayAccessor::from(['a' => 1]);
-        expect($accessor->toXml())->toBe('<custom>{"a":1}</custom>');
+        $json = $accessor->toJson(false);
+        expect($json)->toBe('{"a":1}');
     });
 
-    it('toXml falls back to native SimpleXMLElement', function () {
-        $accessor = ArrayAccessor::from(['name' => 'Ana', 'age' => '30']);
-        $xml = $accessor->toXml();
-        expect($xml)->toContain('<name>Ana</name>');
-        expect($xml)->toContain('<age>30</age>');
-    });
-
-    it('toXml handles nested arrays', function () {
-        $accessor = ArrayAccessor::from(['items' => [['title' => 'A'], ['title' => 'B']]]);
-        $xml = $accessor->toXml();
-        expect($xml)->toContain('<items>');
-    });
-
-    it('toXml handles numeric keys', function () {
-        $accessor = ArrayAccessor::from([['a' => 1], ['a' => 2]]);
-        $xml = $accessor->toXml();
-        expect($xml)->toContain('item_0');
-    });
-
-    it('toYaml uses registered serializer plugin', function () {
-        $serializer = new class () implements SerializerPluginInterface {
-            public function serialize(array $data): string
-            {
-                return 'yaml:' . json_encode($data);
-            }
-        };
-        PluginRegistry::registerSerializer('yaml', $serializer);
-
+    it('toJson with [pretty => true] produces pretty output', function () {
         $accessor = ArrayAccessor::from(['a' => 1]);
-        expect($accessor->toYaml())->toBe('yaml:{"a":1}');
+        $json = $accessor->toJson(['pretty' => true]);
+        expect($json)->toContain("\n");
+        expect(json_decode($json, true))->toBe(['a' => 1]);
     });
 
-    it('toYaml uses symfony/yaml when no serializer and no native yaml', function () {
-        $accessor = new class (['a' => 1]) extends ArrayAccessor {
-            protected function hasNativeYamlEmit(): bool
-            {
-                return false;
-            }
-        };
-        $yaml = $accessor->toYaml();
-        expect($yaml)->toContain('a: 1');
-    })->skip(!class_exists(\Symfony\Component\Yaml\Yaml::class), 'symfony/yaml not installed (run with deps=full to enable)');
-
-    it('toYaml falls back to native yaml_emit when ext-yaml is available', function () {
-        if (!function_exists('yaml_emit')) {
-            $this->markTestSkipped('ext-yaml is not installed');
-        }
-        $accessor = ArrayAccessor::from(['name' => 'Ana', 'age' => 30]);
-        $yaml = $accessor->toYaml();
-        expect($yaml)->toContain('name: Ana');
-        expect($yaml)->toContain('age: 30');
-    });
-
-    it('transform delegates to registered serializer', function () {
-        $serializer = new class () implements SerializerPluginInterface {
-            public function serialize(array $data): string
-            {
-                return 'custom:' . json_encode($data);
-            }
-        };
-        PluginRegistry::registerSerializer('custom', $serializer);
-
+    it('toJson with [pretty => false] produces compact output', function () {
         $accessor = ArrayAccessor::from(['a' => 1]);
-        expect($accessor->transform('custom'))->toBe('custom:{"a":1}');
+        $json = $accessor->toJson(['pretty' => false]);
+        expect($json)->toBe('{"a":1}');
     });
 
-    it('transform throws UnsupportedTypeException for unregistered format', function () {
-        $accessor = ArrayAccessor::from(['a' => 1]);
-        expect(fn () => $accessor->transform('nonexistent'))->toThrow(UnsupportedTypeException::class);
+    it('toJson with [unescapeUnicode => true] does not escape unicode', function () {
+        $accessor = ArrayAccessor::from(['greeting' => 'Olá']);
+        $json = $accessor->toJson(['unescapeUnicode' => true]);
+        expect($json)->toContain('Olá');
     });
 
-    it('toXml handles null values', function () {
-        $accessor = ArrayAccessor::from(['key' => null]);
-        $xml = $accessor->toXml();
-        expect($xml)->toContain('key');
+    it('toJson with [unescapeSlashes => true] does not escape slashes', function () {
+        $accessor = ArrayAccessor::from(['url' => 'https://example.com/path']);
+        $json = $accessor->toJson(['unescapeSlashes' => true]);
+        expect($json)->toContain('https://example.com/path');
+        expect($json)->not()->toContain('\\/');
     });
 
-    it('toToml uses registered serializer plugin', function () {
-        $serializer = new class () implements SerializerPluginInterface {
-            public function serialize(array $data): string
-            {
-                return 'toml:' . json_encode($data);
-            }
-        };
-        PluginRegistry::registerSerializer('toml', $serializer);
-
+    it('toJson with [space => 2] produces indented output', function () {
         $accessor = ArrayAccessor::from(['a' => 1]);
-        expect($accessor->toToml())->toBe('toml:{"a":1}');
+        $json = $accessor->toJson(['space' => 2]);
+        expect($json)->toContain("\n");
+        expect(json_decode($json, true))->toBe(['a' => 1]);
     });
 
-    it('toToml uses default devium/toml when no serializer registered', function () {
-        $accessor = ArrayAccessor::from(['name' => 'Ana', 'count' => 5]);
-        $toml = $accessor->toToml();
-        expect($toml)->toContain('name');
-        expect($toml)->toContain('Ana');
-    })->skip(!class_exists(\Devium\Toml\Toml::class), 'devium/toml not installed (run with deps=full to enable)');
-
-    it('transform falls back to toYaml for yaml format', function () {
-        $accessor = ArrayAccessor::from(['a' => 1]);
-        $result = $accessor->transform('yaml');
-        expect($result)->toContain('a: 1');
-    })->skip(!class_exists(\Symfony\Component\Yaml\Yaml::class), 'symfony/yaml not installed (run with deps=full to enable)');
-
-    it('transform falls back to toToml for toml format', function () {
-        $accessor = ArrayAccessor::from(['a' => 1]);
-        $result = $accessor->transform('toml');
-        expect($result)->toContain('a');
-    })->skip(!class_exists(\Devium\Toml\Toml::class), 'devium/toml not installed (run with deps=full to enable)');
+    it('toJson with combined options applies all flags', function () {
+        $accessor = ArrayAccessor::from(['greeting' => 'Olá', 'url' => 'a/b']);
+        $json = $accessor->toJson(['pretty' => true, 'unescapeUnicode' => true, 'unescapeSlashes' => true]);
+        expect($json)->toContain("\n");
+        expect($json)->toContain('Olá');
+        expect($json)->toContain('a/b');
+        expect($json)->not()->toContain('\\/');
+    });
 
 });

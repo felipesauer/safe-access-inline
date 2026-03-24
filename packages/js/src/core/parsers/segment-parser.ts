@@ -12,7 +12,9 @@ export type Segment =
     | { type: SegmentType.DESCENT; key: string }
     | { type: SegmentType.DESCENT_MULTI; keys: string[] }
     | { type: SegmentType.MULTI_INDEX; indices: number[] }
-    | { type: SegmentType.SLICE; start: number | null; end: number | null; step: number | null };
+    | { type: SegmentType.MULTI_KEY; keys: string[] }
+    | { type: SegmentType.SLICE; start: number | null; end: number | null; step: number | null }
+    | { type: SegmentType.PROJECTION; fields: Array<{ alias: string; source: string }> };
 
 /**
  * Parses dot-notation path strings into structured segment arrays.
@@ -88,6 +90,28 @@ export class SegmentParser {
                     continue;
                 }
                 i++;
+                // Projection after dot: .{field1, field2} or .{alias: field}
+                if (i < path.length && path[i] === '{') {
+                    let j = i + 1;
+                    while (j < path.length && path[j] !== '}') j++;
+                    const inner = path.substring(i + 1, j);
+                    i = j + 1;
+                    const fields = inner
+                        .split(',')
+                        .map((s) => s.trim())
+                        .filter(Boolean)
+                        .map((entry) => {
+                            const colonIdx = entry.indexOf(':');
+                            if (colonIdx !== -1) {
+                                return {
+                                    alias: entry.substring(0, colonIdx).trim(),
+                                    source: entry.substring(colonIdx + 1).trim(),
+                                };
+                            }
+                            return { alias: entry, source: entry };
+                        });
+                    segments.push({ type: SegmentType.PROJECTION, fields });
+                }
                 continue;
             }
 
@@ -101,10 +125,15 @@ export class SegmentParser {
                     if (path[j] === ']') depth--;
                 }
                 const filterExpr = path.substring(i + 2, j);
-                segments.push({
-                    type: SegmentType.FILTER,
-                    expression: FilterParser.parse(filterExpr),
-                });
+                try {
+                    segments.push({
+                        type: SegmentType.FILTER,
+                        expression: FilterParser.parse(filterExpr),
+                    });
+                } catch {
+                    // Malformed filter expression — skip this segment entirely so the
+                    // path resolves to defaultValue rather than throwing unexpectedly.
+                }
                 i = j + 1;
                 continue;
             }
@@ -128,11 +157,9 @@ export class SegmentParser {
                     if (allQuoted) {
                         const keys = parts.map((p) => p.slice(1, -1));
                         segments.push({
-                            type: SegmentType.MULTI_INDEX,
-                            indices: keys as unknown as number[],
+                            type: SegmentType.MULTI_KEY,
+                            keys,
                         });
-                        (segments[segments.length - 1] as unknown as { keys: string[] }).keys =
-                            keys;
                         continue;
                     }
                     const indices = parts.map((p) => parseInt(p, 10));
@@ -157,11 +184,20 @@ export class SegmentParser {
                         sliceParts.length > 1 && sliceParts[1] !== ''
                             ? parseInt(sliceParts[1], 10)
                             : null;
-                    const step =
+                    const rawStep =
                         sliceParts.length > 2 && sliceParts[2] !== ''
                             ? parseInt(sliceParts[2], 10)
                             : null;
-                    segments.push({ type: SegmentType.SLICE, start, end, step });
+                    if (rawStep === 0) {
+                        throw new SyntaxError('Slice step cannot be zero.');
+                    }
+                    segments.push({ type: SegmentType.SLICE, start, end, step: rawStep });
+                    continue;
+                }
+
+                // Wildcard inside brackets: [*]
+                if (inner === '*') {
+                    segments.push({ type: SegmentType.WILDCARD });
                     continue;
                 }
 

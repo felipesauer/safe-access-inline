@@ -2,6 +2,6 @@
 
 Documentação do pacote JavaScript / TypeScript (`@safe-access-inline/safe-access-inline`).
 
-- [Primeiros Passos](getting-started) — instalação, exemplos de uso, plugins, segurança, I/O, integrações com frameworks
-- [Referência da API](api-reference) — referência completa (10 formatos, operações de array, JSON Patch, segurança, validação, auditoria)
+- [Primeiros Passos](getting-started) — instalação, exemplos de uso, plugins, segurança, I/O
+- [Referência da API](api-reference) — referência completa (JSON Patch, segurança, auditoria)
 - [Plugins](plugins) — plugins incluídos, plugins customizados, exemplo com Zod

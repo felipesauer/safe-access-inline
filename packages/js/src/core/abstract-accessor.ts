@@ -1,36 +1,33 @@
 import { DotNotationParser } from './parsers/dot-notation-parser';
-import { ArrayOperations } from './operations/array-operations';
-import { FormatSerializer } from './rendering/format-serializer';
 import { deepFreeze } from './operations/deep-freeze';
-import { diff as jsonDiff, applyPatch as jsonApplyPatch } from './operations/json-patch';
-import type { JsonPatchOp } from './operations/json-patch';
 import type { AccessorInterface } from '../contracts/accessor.interface';
 import { ReadonlyViolationError } from '../exceptions/readonly-violation.error';
-import { mask } from '../security/sanitizers/data-masker';
-import type { MaskPattern } from '../security/sanitizers/data-masker';
-import type { SchemaAdapterInterface } from '../contracts/schema-adapter.interface';
-import { SchemaValidationError } from '../exceptions/schema-validation.error';
-import { SchemaRegistry } from './registries/schema-registry';
-import type { DeepPaths, ValueAtPath } from '../types/deep-paths';
+import { TypeCastingMixin } from './mixins/type-casting.mixin';
+import type { ToJsonOptions } from '../contracts/accessor.interface';
 
 /**
  * Base class for all format-specific accessors.
  *
  * @remarks
- * In the PHP counterpart, array manipulation and transformation logic is
- * separated into traits (`HasArrayOperations`, `HasTransformations`, etc.
- * under `src/Traits/`). TypeScript does not have native traits, so thin
- * wrappers delegate to {@link ArrayOperations} and {@link FormatSerializer}
- * — effectively serving the same role as PHP's trait composition.
+ * Functionality is decomposed into a mixin chain:
+ * {@link SegmentPathMixin} → {@link TypeCastingMixin} → `AbstractAccessor`.
  */
-export abstract class AbstractAccessor<
-    T extends Record<string, unknown> = Record<string, unknown>,
-> implements AccessorInterface<T> {
+export abstract class AbstractAccessor<T extends Record<string, unknown> = Record<string, unknown>>
+    extends TypeCastingMixin
+    implements AccessorInterface<T>
+{
     protected data: Record<string, unknown> = {};
     protected raw: unknown;
     protected isReadonly: boolean;
 
+    /**
+     * Constructs a new accessor from raw input data.
+     *
+     * @param raw - Raw input (string content, plain object, or array).
+     * @param options - Optional configuration; set `readonly: true` to freeze the data.
+     */
     constructor(raw: unknown, options?: { readonly?: boolean }) {
+        super();
         this.raw = raw;
         this.isReadonly = options?.readonly ?? false;
         this.data = this.parse(raw);
@@ -39,12 +36,40 @@ export abstract class AbstractAccessor<
         }
     }
 
+    /**
+     * Parses `raw` input into an internal plain data record.
+     *
+     * Implemented by each format-specific subclass (e.g. JSON, YAML, TOML).
+     *
+     * @param raw - Raw input value as received by the constructor.
+     * @returns A plain `Record<string, unknown>` representing the parsed data.
+     */
     protected abstract parse(raw: unknown): Record<string, unknown>;
-    abstract clone(data: Record<string, unknown>): AbstractAccessor<T>;
 
-    protected cloneWithState(data: Record<string, unknown>): AbstractAccessor<T> {
-        const inst = this.clone(data);
-        inst.isReadonly = this.isReadonly;
+    /**
+     * Creates a new instance of this accessor carrying `data` as its internal state.
+     * Used internally by all immutable mutation methods to return a new accessor.
+     *
+     * @param data - The new internal data record for the cloned accessor. Defaults to `{}`.
+     * @returns A new accessor of the same concrete type.
+     */
+    protected abstract clone(data?: Record<string, unknown>): AbstractAccessor<T>;
+
+    /**
+     * Clones this accessor with `data` while preserving readonly state.
+     *
+     * When the accessor is readonly, the cloned data is deep-frozen before use.
+     *
+     * @param data - New internal data record.
+     * @param forceReadonly - When `true`, the resulting clone is made readonly.
+     * @returns A new accessor with the same readonly flag as the current instance.
+     */
+    protected cloneWithState(data: Record<string, unknown>, forceReadonly = false): this {
+        // When forcing readonly on a previously mutable accessor, clone the data
+        // to prevent deepFreeze from also freezing the caller's mutable copy.
+        const cloneData = forceReadonly && !this.isReadonly ? structuredClone(data) : data;
+        const inst = this.clone(cloneData) as this;
+        inst.isReadonly = forceReadonly || this.isReadonly;
         if (inst.isReadonly) {
             deepFreeze(inst.data);
         }
@@ -61,78 +86,16 @@ export abstract class AbstractAccessor<
      * @param defaultValue - Value returned when the path does not exist.
      * @returns The value at `path`, or `defaultValue`.
      */
-    get<P extends DeepPaths<T> & string>(path: P): ValueAtPath<T, P>;
-    get<P extends DeepPaths<T> & string>(
-        path: P,
-        defaultValue: ValueAtPath<T, P>,
-    ): ValueAtPath<T, P>;
-    get(path: string, defaultValue?: unknown): unknown;
-    get(path: string, bindings: Record<string, string | number>, defaultValue: unknown): unknown;
-    get(path: string, defaultOrBindings: unknown = null, defaultValue?: unknown): unknown {
-        if (
-            defaultOrBindings !== null &&
-            typeof defaultOrBindings === 'object' &&
-            !Array.isArray(defaultOrBindings) &&
-            path.includes('{')
-        ) {
-            const resolved = DotNotationParser.renderTemplate(
-                path,
-                defaultOrBindings as Record<string, string | number>,
-            );
-            return DotNotationParser.get(this.data, resolved, defaultValue ?? null);
-        }
+    get(path: string, defaultOrBindings: unknown = null): unknown {
         return DotNotationParser.get(this.data, path, defaultOrBindings);
     }
 
     /**
-     * Resolves a template path by substituting `{key}` placeholders, then retrieves the value.
+     * Returns `true` if a value exists at the given dot-notation path.
      *
-     * @param template - Path template with `{key}` placeholders.
-     * @param bindings - Key-value pairs to substitute.
-     * @param defaultValue - Fallback when the resolved path does not exist.
-     * @returns The value at the resolved path, or `defaultValue`.
+     * @param path - Dot-notation path to check.
+     * @returns `true` if the path resolves to a defined value.
      */
-    getTemplate(
-        template: string,
-        bindings: Record<string, string | number>,
-        defaultValue: unknown = null,
-    ): unknown {
-        const resolved = DotNotationParser.renderTemplate(template, bindings);
-        return DotNotationParser.get(this.data, resolved, defaultValue);
-    }
-
-    // ── Array-based Paths ───────────────────────────
-
-    /** Retrieves a value by navigating an array of literal path segments (no wildcards). */
-    getAt(segments: string[], defaultValue: unknown = null): unknown {
-        return DotNotationParser.getBySegments(this.data, segments, defaultValue);
-    }
-
-    /** Checks whether a value exists at the given literal path segments. */
-    hasAt(segments: string[]): boolean {
-        const sentinel = Symbol('sentinel');
-        return DotNotationParser.getBySegments(this.data, segments, sentinel) !== sentinel;
-    }
-
-    /** Sets a value at the given literal path segments. Returns a new accessor. */
-    setAt(segments: string[], value: unknown): AbstractAccessor<T> {
-        return this.mutate(DotNotationParser.setBySegments(this.data, segments, value));
-    }
-    /** Removes the value at the given literal path segments. Returns a new accessor. */
-    removeAt(segments: string[]): AbstractAccessor<T> {
-        return this.mutate(DotNotationParser.removeBySegments(this.data, segments));
-    }
-
-    /** Retrieves multiple values at once. Keys are dot-notation paths; values are defaults. */
-    getMany(paths: Record<string, unknown>): Record<string, unknown> {
-        const results: Record<string, unknown> = {};
-        for (const [path, defaultValue] of Object.entries(paths)) {
-            results[path] = this.get(path, defaultValue);
-        }
-        return results;
-    }
-
-    /** Returns `true` if a value exists at the given dot-notation path. */
     has(path: string): boolean {
         return DotNotationParser.has(this.data, path);
     }
@@ -145,14 +108,18 @@ export abstract class AbstractAccessor<
      * @returns A new accessor reflecting the change.
      * @throws {@link ReadonlyViolationError} If this accessor is frozen.
      */
-    set<P extends DeepPaths<T> & string>(path: P, value: ValueAtPath<T, P>): AbstractAccessor<T>;
-    set(path: string, value: unknown): AbstractAccessor<T>;
-    set(path: string, value: unknown): AbstractAccessor<T> {
+    set(path: string, value: unknown): this {
         return this.mutate(DotNotationParser.set(this.data, path, value));
     }
 
-    /** Removes the value at `path`. Returns a new (immutable) accessor. */
-    remove(path: string): AbstractAccessor<T> {
+    /**
+     * Removes the value at `path`. Returns a new (immutable) accessor.
+     *
+     * @param path - Dot-notation path to remove.
+     * @returns A new accessor without the value at `path`.
+     * @throws {@link ReadonlyViolationError} When the accessor is frozen.
+     */
+    remove(path: string): this {
         return this.mutate(DotNotationParser.remove(this.data, path));
     }
 
@@ -162,18 +129,23 @@ export abstract class AbstractAccessor<
      * Objects are merged recursively; arrays and primitives are replaced.
      * Returns a new (immutable) accessor.
      */
-    merge(value: Record<string, unknown>): AbstractAccessor<T>;
-    merge(path: string, value: Record<string, unknown>): AbstractAccessor<T>;
-    merge(
-        pathOrValue: string | Record<string, unknown>,
-        value?: Record<string, unknown>,
-    ): AbstractAccessor<T> {
+    merge(value: Record<string, unknown>): this;
+    merge(path: string, value: Record<string, unknown>): this;
+    merge(pathOrValue: string | Record<string, unknown>, value?: Record<string, unknown>): this {
         if (typeof pathOrValue === 'string')
             return this.mutate(DotNotationParser.merge(this.data, pathOrValue, value!));
         return this.mutate(DotNotationParser.merge(this.data, '', pathOrValue));
     }
 
-    /** Returns the JS type name of the value at `path` (`'string'`, `'number'`, `'array'`, `'bool'`, `'null'`, etc.), or `null` if the path does not exist. */
+    /**
+     * Returns the JS type name of the value at `path`, or `null` if the path does not exist.
+     *
+     * Possible return values: `'string'`, `'number'`, `'boolean'` (`'bool'`), `'array'`,
+     * `'object'`, `'null'`.
+     *
+     * @param path - Dot-notation path to inspect.
+     * @returns Type name string, or `null` when the path does not exist.
+     */
     type(path: string): string | null {
         if (!this.has(path)) return null;
         const val = this.get(path);
@@ -184,7 +156,14 @@ export abstract class AbstractAccessor<
         return t;
     }
 
-    /** Returns the number of elements in the array or keys in the object at `path`. */
+    /**
+     * Returns the number of elements in the array or keys in the object at `path`.
+     *
+     * When `path` is omitted, counts keys at the root level.
+     *
+     * @param path - Optional dot-notation path.
+     * @returns Count of elements or keys.
+     */
     count(path?: string): number {
         const target = path ? this.get(path, []) : this.data;
         if (Array.isArray(target)) return target.length;
@@ -192,158 +171,89 @@ export abstract class AbstractAccessor<
         return 0;
     }
 
-    /** Returns the property names of the object at `path`, or at the root when `path` is omitted. */
+    /**
+     * Returns the property names of the object at `path`.
+     *
+     * When `path` is omitted, returns keys at the root level.
+     *
+     * @param path - Optional dot-notation path.
+     * @returns Array of key name strings.
+     */
     keys(path?: string): string[] {
         const target = path ? this.get(path, {}) : this.data;
         if (typeof target === 'object' && target !== null) return Object.keys(target);
         return [];
     }
 
-    /** Returns a shallow copy of the internal data record. */
+    /**
+     * Returns a shallow copy of the internal data record.
+     *
+     * @returns A new plain object with the top-level keys of the internal data.
+     */
     all(): Record<string, unknown> {
         return { ...this.data };
     }
 
-    /** Alias of {@link all}. Returns a shallow copy of the internal data record. */
+    /**
+     * Alias of {@link all}. Returns a shallow copy of the internal data record.
+     *
+     * @returns A new plain object with the top-level keys of the internal data.
+     */
     toArray(): Record<string, unknown> {
         return { ...this.data };
     }
 
-    /** Serialises the data to a JSON string. Pass `true` for pretty-printed output. */
-    toJson(pretty = false): string {
-        return JSON.stringify(this.data, null, pretty ? 2 : undefined);
-    }
+    // ── JSON I/O ─────────────────────────────────────────────────────────────────
 
-    /** Returns a deep clone of the internal data record (safe to mutate). */
-    toObject(): Record<string, unknown> {
-        return structuredClone(this.data);
-    }
-
-    // ── Serialization (delegates to FormatSerializer) ──
-
-    /** Serialises the data to TOML. Requires `smol-toml` or a registered plugin. */
-    toToml(): string {
-        return FormatSerializer.toToml(this.data);
-    }
-    /** Serialises the data to YAML. Requires `js-yaml` or a registered plugin. */
-    toYaml(): string {
-        return FormatSerializer.toYaml(this.data);
-    }
-    /** Serialises the data to XML with the given root element name. */
-    toXml(rootElement = 'root'): string {
-        return FormatSerializer.toXml(this.data, rootElement);
-    }
-    /** Serialises the data to CSV with optional cell-level sanitisation. */
-    toCsv(csvMode?: 'none' | 'prefix' | 'strip' | 'error'): string {
-        return FormatSerializer.toCsv(this.data, csvMode);
-    }
-    /** Serialises the data to newline-delimited JSON (NDJSON). */
-    toNdjson(): string {
-        return FormatSerializer.toNdjson(this.data);
-    }
-    /** Dispatches to the serializer registered for `format`. */
-    transform(format: string): string {
-        return FormatSerializer.transform(this.data, format);
-    }
-
-    // ── Schema, diff, masking ───────────────────────
-
-    /** Returns a new accessor with sensitive keys replaced by `[REDACTED]`. */
-    masked(patterns?: MaskPattern[]): AbstractAccessor<T> {
-        return this.cloneWithState(mask(this.data, patterns));
+    /**
+     * Serialises the data to a JSON string.
+     *
+     * @param pretty - When `true`, output is indented with 2 spaces (or `options.space`).
+     * @param options - Optional output controls: unescape unicode/slashes, custom indent.
+     *
+     * **PHP alignment:** PHP's `json_encode()` escapes `/` and `\uXXXX` depending on flags.
+     * Pass `{ unescapeUnicode: true, unescapeSlashes: true }` to match PHP defaults
+     * (`JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES`).
+     *
+     * @returns JSON-encoded string.
+     */
+    toJson(pretty = false, options?: ToJsonOptions): string {
+        const space = options?.space ?? (pretty ? 2 : undefined);
+        let json = JSON.stringify(this.data, null, space);
+        if (options?.unescapeUnicode === true) {
+            json = json.replace(/\\u([0-9a-fA-F]{4})/g, (_, code: string) =>
+                String.fromCodePoint(parseInt(code, 16)),
+            );
+        }
+        if (options?.unescapeSlashes === true) {
+            json = json.replace(/\\\//g, '/');
+        }
+        return json;
     }
 
     /**
-     * Validates the data against `schema` using the provided or default adapter.
+     * Returns a frozen copy of this accessor.
+     * All subsequent write operations will throw a {@link ReadonlyViolationError}.
      *
-     * @throws {@link SchemaValidationError} When validation fails.
+     * @returns A new readonly accessor with the same data.
      */
-    validate<TSchema = unknown>(schema: TSchema, adapter?: SchemaAdapterInterface<TSchema>): this {
-        const resolvedAdapter =
-            adapter ??
-            (SchemaRegistry.getDefaultAdapter() as SchemaAdapterInterface<TSchema> | null);
-        if (!resolvedAdapter) {
-            throw new Error(
-                'No schema adapter provided. Pass an adapter or set a default via SchemaRegistry.setDefaultAdapter().',
-            );
-        }
-        const result = resolvedAdapter.validate(this.data, schema);
-        if (!result.valid) {
-            throw new SchemaValidationError(result.errors);
-        }
-        return this;
+    freeze(): this {
+        return this.cloneWithState(this.data, true);
     }
 
-    /** Computes an RFC 6902 JSON Patch diff between this accessor and `other`. */
-    diff(other: AbstractAccessor): JsonPatchOp[] {
-        return jsonDiff(this.data, other.all());
-    }
+    // ── Internal ──────────────────────────────────────────────────────────────
 
-    /** Applies an RFC 6902 JSON Patch to the data. Returns a new accessor. */
-    applyPatch(ops: JsonPatchOp[]): AbstractAccessor<T> {
-        return this.mutate(jsonApplyPatch(this.data, ops));
-    }
-
-    // ── Array Operations (delegates to ArrayOperations) ──
-
-    /** Appends items to the array at `path`. */
-    push(path: string, ...items: unknown[]): AbstractAccessor<T> {
-        return this.mutate(ArrayOperations.push(this.data, path, ...items));
-    }
-    /** Removes the last element of the array at `path`. */
-    pop(path: string): AbstractAccessor<T> {
-        return this.mutate(ArrayOperations.pop(this.data, path));
-    }
-    /** Removes the first element of the array at `path`. */
-    shift(path: string): AbstractAccessor<T> {
-        return this.mutate(ArrayOperations.shift(this.data, path));
-    }
-    /** Prepends items to the array at `path`. */
-    unshift(path: string, ...items: unknown[]): AbstractAccessor<T> {
-        return this.mutate(ArrayOperations.unshift(this.data, path, ...items));
-    }
-    /** Inserts items at `index` within the array at `path`. */
-    insert(path: string, index: number, ...items: unknown[]): AbstractAccessor<T> {
-        return this.mutate(ArrayOperations.insert(this.data, path, index, ...items));
-    }
-    /** Filters the array at `path` using `predicate`. */
-    filterAt(
-        path: string,
-        predicate: (item: unknown, index: number) => boolean,
-    ): AbstractAccessor<T> {
-        return this.mutate(ArrayOperations.filterAt(this.data, path, predicate));
-    }
-    /** Maps each element of the array at `path` through `transform`. */
-    mapAt(path: string, transform: (item: unknown, index: number) => unknown): AbstractAccessor<T> {
-        return this.mutate(ArrayOperations.mapAt(this.data, path, transform));
-    }
-    /** Sorts the array at `path` by an optional `key` in `direction` order. */
-    sortAt(path: string, key?: string, direction: 'asc' | 'desc' = 'asc'): AbstractAccessor<T> {
-        return this.mutate(ArrayOperations.sortAt(this.data, path, key, direction));
-    }
-    /** Removes duplicate elements from the array at `path`. */
-    unique(path: string, key?: string): AbstractAccessor<T> {
-        return this.mutate(ArrayOperations.unique(this.data, path, key));
-    }
-    /** Flattens the array at `path` to the given `depth`. */
-    flatten(path: string, depth = 1): AbstractAccessor<T> {
-        return this.mutate(ArrayOperations.flatten(this.data, path, depth));
-    }
-    /** Returns the first element of the array at `path`. */
-    first(path: string, defaultValue: unknown = null): unknown {
-        return ArrayOperations.first(this.data, path, defaultValue);
-    }
-    /** Returns the last element of the array at `path`. */
-    last(path: string, defaultValue: unknown = null): unknown {
-        return ArrayOperations.last(this.data, path, defaultValue);
-    }
-    /** Returns the element at position `index` within the array at `path`. */
-    nth(path: string, index: number, defaultValue: unknown = null): unknown {
-        return ArrayOperations.nth(this.data, path, index, defaultValue);
-    }
-
-    /** @throws {@link ReadonlyViolationError} When the accessor is frozen. */
-    private mutate(newData: Record<string, unknown>): AbstractAccessor<T> {
+    /**
+     * Creates a new mutated accessor, guarding against readonly violations.
+     *
+     * Changed from `private` to `protected` to allow mixin chain access via
+     * {@link SegmentPathMixin}.
+     *
+     * @param newData - The updated data record.
+     * @returns A new accessor carrying `newData`.
+     * @throws {@link ReadonlyViolationError} When the accessor is frozen.
+     */
+    protected mutate(newData: Record<string, unknown>): this {
         if (this.isReadonly) throw new ReadonlyViolationError();
         return this.cloneWithState(newData);
     }

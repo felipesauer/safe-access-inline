@@ -17,4 +17,4 @@ runs:
           with:
               node-version: ${{ inputs.node-version }}
               cache: "npm"
-              cache-dependency-path: ${{ inputs.working-directory }}/package.json
+              cache-dependency-path: package-lock.json

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use SafeAccessInline\Core\Parsers\DotNotationParser;
 use SafeAccessInline\SafeAccess;
 
@@ -38,16 +40,6 @@ describe('Array-based paths', function () {
 
 describe('Template paths (DotNotationParser)', function () {
 
-    it('renderTemplate replaces placeholders', function () {
-        $result = DotNotationParser::renderTemplate('users.{id}.name', ['id' => '42']);
-        expect($result)->toBe('users.42.name');
-    });
-
-    it('renderTemplate throws for missing binding', function () {
-        expect(fn () => DotNotationParser::renderTemplate('users.{id}.name', []))
-            ->toThrow(\RuntimeException::class, "Missing binding for key 'id'");
-    });
-
     it('getBySegments retrieves literal path', function () {
         $data = ['a' => ['b' => ['c' => 'val']]];
         expect(DotNotationParser::getBySegments($data, ['a', 'b', 'c']))->toBe('val');
@@ -64,5 +56,17 @@ describe('Template paths (DotNotationParser)', function () {
         $result = DotNotationParser::removeBySegments($data, ['a', 'b']);
         expect(array_key_exists('b', $result['a']))->toBeFalse();
         expect($result['a']['c'])->toBe(2);
+    });
+
+    it('setBySegments creates intermediate arrays when segment is missing', function () {
+        $data = ['a' => 1];
+        $result = DotNotationParser::setBySegments($data, ['x', 'y', 'z'], 'val');
+        expect($result['x']['y']['z'])->toBe('val');
+    });
+
+    it('removeBySegments returns unchanged data when intermediate segment does not exist', function () {
+        $data = ['a' => 1];
+        $result = DotNotationParser::removeBySegments($data, ['missing', 'child']);
+        expect($result)->toBe($data);
     });
 });

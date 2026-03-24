@@ -439,4 +439,64 @@ describe(DotNotationParser.name, () => {
         (obj['a'] as Record<string, unknown>)['loop'] = obj['a'];
         expect(DotNotationParser.has(obj, 'a.loop.loop.nonexistent')).toBe(false);
     });
+
+    // ── remove — intermediate key is a primitive (L103 mutant) ────────────────
+
+    it('remove — returns data unchanged when intermediate key holds a primitive', () => {
+        // Kills ConditionalExpression / LogicalOperator mutant at L103:
+        // if (!(key in current) || typeof current[key] !== 'object' || current[key] === null)
+        // With mutant (&& instead of ||): would try to traverse into number 1 → crash or wrong result
+        const data = { a: 1 } as Record<string, unknown>;
+        const result = DotNotationParser.remove(data, 'a.b');
+        // 'a' is a number (typeof !== 'object') → guard fires → return without deleting anything
+        expect(result).toEqual({ a: 1 });
+    });
+
+    it('remove — returns data unchanged when intermediate key is null', () => {
+        const data = { a: null } as Record<string, unknown>;
+        const result = DotNotationParser.remove(data, 'a.b');
+        // current[key] === null → guard fires
+        expect(result).toEqual({ a: null });
+    });
+
+    it('remove — returns data unchanged when intermediate key does not exist', () => {
+        const data = { x: 1 } as Record<string, unknown>;
+        const result = DotNotationParser.remove(data, 'missing.b');
+        // !(key in current) → guard fires
+        expect(result).toEqual({ x: 1 });
+    });
+
+    // ── set — through null intermediate (L144 mutant) ────────────────────────────
+
+    it('set — replaces null intermediate with a new object and sets the value', () => {
+        // Kills ConditionalExpression mutant at L144:
+        // if (!(seg in current) || typeof current[seg] !== 'object' || current[seg] === null)
+        // With original: null triggers this branch → current[seg] = {}, then traverses
+        // With mutant (&& instead of ||): null would NOT trigger branch → tries to traverse null
+        const data = { a: null } as Record<string, unknown>;
+        const result = DotNotationParser.set(data, 'a.b', 42);
+        expect((result.a as Record<string, unknown>).b).toBe(42);
+    });
+
+    it('set — creates missing intermediate objects and sets the value', () => {
+        // Kills the !(seg in current) branch of the L144 condition
+        const result = DotNotationParser.set({}, 'a.b.c', 'deep');
+        expect(DotNotationParser.get(result, 'a.b.c')).toBe('deep');
+    });
+
+    it('set — replaces primitive intermediate with an object', () => {
+        // typeof current[seg] !== 'object' branch of L144 condition
+        const data = { a: 999 } as Record<string, unknown>;
+        const result = DotNotationParser.set(data, 'a.b', 'val');
+        expect((result.a as Record<string, unknown>).b).toBe('val');
+    });
+
+    it('configure() merges partial config and affects parsing behaviour', () => {
+        // Line 26: DotNotationParser.configure({ ... }) merges with defaults
+        DotNotationParser.configure({ strictMode: false });
+        // After configure, basic access still works
+        expect(DotNotationParser.get({ a: 1 }, 'a')).toBe(1);
+        // Reset to defaults
+        DotNotationParser.configure({});
+    });
 });

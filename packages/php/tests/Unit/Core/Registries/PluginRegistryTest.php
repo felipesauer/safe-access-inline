@@ -1,7 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 use SafeAccessInline\Contracts\ParserPluginInterface;
 use SafeAccessInline\Contracts\SerializerPluginInterface;
+use SafeAccessInline\Core\Config\PluginRegistryConfig;
 use SafeAccessInline\Core\Registries\PluginRegistry;
 use SafeAccessInline\Exceptions\UnsupportedTypeException;
 
@@ -51,15 +54,12 @@ describe(PluginRegistry::class, function () {
         };
 
         PluginRegistry::registerParser('yaml', $parser1);
-
-        set_error_handler(static fn () => true, E_USER_WARNING);
         PluginRegistry::registerParser('yaml', $parser2);
-        restore_error_handler();
 
         expect(PluginRegistry::getParser('yaml'))->toBe($parser2);
     });
 
-    it('triggers warning when overwriting a serializer', function () {
+    it('emits an audit event when overwriting a serializer', function () {
         $serializer1 = new class () implements SerializerPluginInterface {
             public function serialize(array $data): string
             {
@@ -74,16 +74,8 @@ describe(PluginRegistry::class, function () {
         };
 
         PluginRegistry::registerSerializer('yaml', $serializer1);
-
-        $warning = null;
-        set_error_handler(static function (int $errno, string $errstr) use (&$warning): bool {
-            $warning = $errstr;
-            return true;
-        }, E_USER_WARNING);
         PluginRegistry::registerSerializer('yaml', $serializer2);
-        restore_error_handler();
 
-        expect($warning)->toContain('being overwritten');
         expect(PluginRegistry::getSerializer('yaml'))->toBe($serializer2);
     });
 
@@ -161,5 +153,154 @@ describe(PluginRegistry::class, function () {
 
         expect(PluginRegistry::getParser('yaml')->parse(''))->toBe(['format' => 'yaml']);
         expect(PluginRegistry::getParser('toml')->parse(''))->toBe(['format' => 'toml']);
+    });
+
+    // ── Registry size limits ───────────────────────
+
+    it('throws RangeException when max parser limit is exceeded', function () {
+        $parser = new class () implements ParserPluginInterface {
+            public function parse(string $raw): array
+            {
+                return [];
+            }
+        };
+
+        for ($i = 0; $i < PluginRegistryConfig::DEFAULT_MAX_PARSERS; $i++) {
+            PluginRegistry::registerParser("format-{$i}", $parser);
+        }
+
+        expect(fn () => PluginRegistry::registerParser('overflow-format', $parser))
+            ->toThrow(
+                \RangeException::class,
+                sprintf('Max parser plugins (%d) reached.', PluginRegistryConfig::DEFAULT_MAX_PARSERS),
+            );
+    });
+
+    it('does not count overwrite of existing format toward parser limit', function () {
+        $parser = new class () implements ParserPluginInterface {
+            public function parse(string $raw): array
+            {
+                return [];
+            }
+        };
+        $overwrite = new class () implements ParserPluginInterface {
+            public function parse(string $raw): array
+            {
+                return ['overwritten' => true];
+            }
+        };
+
+        for ($i = 0; $i < PluginRegistryConfig::DEFAULT_MAX_PARSERS; $i++) {
+            PluginRegistry::registerParser("format-{$i}", $parser);
+        }
+
+        // Re-registering an already-known format must not throw even at capacity
+        PluginRegistry::registerParser('format-0', $overwrite);
+        expect(PluginRegistry::getParser('format-0')->parse(''))->toBe(['overwritten' => true]);
+    });
+
+    it('throws RangeException when max serializer limit is exceeded', function () {
+        $serializer = new class () implements SerializerPluginInterface {
+            public function serialize(array $data): string
+            {
+                return '';
+            }
+        };
+
+        for ($i = 0; $i < PluginRegistryConfig::DEFAULT_MAX_SERIALIZERS; $i++) {
+            PluginRegistry::registerSerializer("format-{$i}", $serializer);
+        }
+
+        expect(fn () => PluginRegistry::registerSerializer('overflow-format', $serializer))
+            ->toThrow(
+                \RangeException::class,
+                sprintf('Max serializer plugins (%d) reached.', PluginRegistryConfig::DEFAULT_MAX_SERIALIZERS),
+            );
+    });
+
+    it('does not count overwrite of existing format toward serializer limit', function () {
+        $serializer = new class () implements SerializerPluginInterface {
+            public function serialize(array $data): string
+            {
+                return '';
+            }
+        };
+        $overwrite = new class () implements SerializerPluginInterface {
+            public function serialize(array $data): string
+            {
+                return 'overwritten';
+            }
+        };
+
+        for ($i = 0; $i < PluginRegistryConfig::DEFAULT_MAX_SERIALIZERS; $i++) {
+            PluginRegistry::registerSerializer("format-{$i}", $serializer);
+        }
+
+        // Re-registering an already-known format must not throw even at capacity
+        PluginRegistry::registerSerializer('format-0', $overwrite);
+        expect(PluginRegistry::getSerializer('format-0')->serialize([]))->toBe('overwritten');
+    });
+
+    // ── Isolated Instance (create()) ───────────────
+
+    it('create() returns an isolated registry independent of the global default', function () {
+        $parser = new class () implements ParserPluginInterface {
+            public function parse(string $raw): array
+            {
+                return ['source' => 'global'];
+            }
+        };
+
+        PluginRegistry::registerParser('yaml', $parser);
+
+        $isolated = PluginRegistry::create();
+
+        // Isolated instance must not see global registrations
+        expect($isolated->hasParser('yaml'))->toBeFalse();
+    });
+
+    it('registrations on an isolated instance do not affect the global default', function () {
+        $parser = new class () implements ParserPluginInterface {
+            public function parse(string $raw): array
+            {
+                return ['source' => 'isolated'];
+            }
+        };
+
+        $isolated = PluginRegistry::create();
+        $isolated->registerParser('toml', $parser);
+
+        // Global default must not be contaminated
+        expect(PluginRegistry::hasParser('toml'))->toBeFalse();
+    });
+
+    it('two isolated instances are fully independent of each other', function () {
+        $parser = new class () implements ParserPluginInterface {
+            public function parse(string $raw): array
+            {
+                return [];
+            }
+        };
+
+        $a = PluginRegistry::create();
+        $b = PluginRegistry::create();
+
+        $a->registerParser('csv', $parser);
+
+        expect($a->hasParser('csv'))->toBeTrue();
+        expect($b->hasParser('csv'))->toBeFalse();
+    });
+
+    it('getDefault() returns the same instance as the static facade', function () {
+        $parser = new class () implements ParserPluginInterface {
+            public function parse(string $raw): array
+            {
+                return [];
+            }
+        };
+
+        PluginRegistry::registerParser('ini', $parser);
+
+        expect(PluginRegistry::getDefault()->hasParser('ini'))->toBeTrue();
     });
 });

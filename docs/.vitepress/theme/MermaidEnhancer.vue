@@ -5,7 +5,6 @@ import { useRoute } from "vitepress";
 const route = useRoute();
 let retryTimer: ReturnType<typeof setTimeout> | null = null;
 
-// ── Icons (Octicons 16 px grid) ──────────────────────────────────────────────
 const I_ZOOM_IN  = `<svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor"><path d="M10.68 11.74a6 6 0 0 1-7.922-8.982 6 6 0 0 1 8.982 7.922l3.04 3.04a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215ZM11.5 7a4.499 4.499 0 1 0-8.997 0A4.499 4.499 0 0 0 11.5 7Zm-4.25-.75V4.75a.75.75 0 0 1 1.5 0V6.25h1.5a.75.75 0 0 1 0 1.5H8.75V9.25a.75.75 0 0 1-1.5 0V7.75h-1.5a.75.75 0 0 1 0-1.5Z"/></svg>`;
 const I_ZOOM_OUT = `<svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor"><path d="M10.68 11.74a6 6 0 0 1-7.922-8.982 6 6 0 0 1 8.982 7.922l3.04 3.04a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215ZM11.5 7a4.499 4.499 0 1 0-8.997 0A4.499 4.499 0 0 0 11.5 7ZM6 6.25h3a.75.75 0 0 1 0 1.5H6a.75.75 0 0 1 0-1.5Z"/></svg>`;
 const I_ZOOM_RST = `<svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor"><path d="M10.68 11.74a6 6 0 0 1-7.922-8.982 6 6 0 0 1 8.982 7.922l3.04 3.04a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215ZM11.5 7a4.499 4.499 0 1 0-8.997 0A4.499 4.499 0 0 0 11.5 7Z"/></svg>`;
@@ -22,7 +21,6 @@ const MAX  = 3.0;   // maximum 300%
 interface ZoomState { scale: number; w: number; h: number }
 const zoomMap = new WeakMap<HTMLElement, ZoomState>();
 
-// ── element helpers ────────────────────────────────────────────────────
 function btn(title: string, icon: string, extra = ""): HTMLButtonElement {
     const b = document.createElement("button");
     b.type = "button";
@@ -56,7 +54,6 @@ function group(...els: HTMLElement[]): HTMLDivElement {
     return g;
 }
 
-// ── zoom / copy / download actions ─────────────────────────────────────
 function centerViewport(vp: HTMLElement) {
     // Re-center scroll so the diagram is always symmetrically visible.
     // margin: auto alone clips the left side when overflowing in a scroll container.
@@ -110,7 +107,6 @@ function applyDownload(svgEl: SVGSVGElement) {
     URL.revokeObjectURL(url);
 }
 
-// ── enhance loop ─────────────────────────────────────────────────────────
 function enhance(attempt = 0) {
     if (retryTimer) clearTimeout(retryTimer);
     const pending: HTMLElement[] = [];
@@ -126,7 +122,6 @@ function enhance(attempt = 0) {
         retryTimer = setTimeout(() => enhance(attempt + 1), 250);
 }
 
-// ── addControls ──────────────────────────────────────────────────────────
 function addControls(host: HTMLElement) {
     host.dataset.mermaidEnhanced = "1";
 
@@ -143,12 +138,10 @@ function addControls(host: HTMLElement) {
     svg.style.height   = `${state.h}px`;
     svg.style.maxWidth = "none";
 
-    // ── container ───────────────────────────────────────────────
     const container = document.createElement("div");
     container.className = "mermaid-container";
     host.parentNode!.insertBefore(container, host);
 
-    // ── toolbar ───────────────────────────────────────────────
     const toolbar = document.createElement("div");
     toolbar.className = "mermaid-toolbar";
     toolbar.setAttribute("role", "toolbar");
@@ -177,7 +170,6 @@ function addControls(host: HTMLElement) {
     toolbar.append(group(zOut, lbl, zIn, zRst), sep(), group(copy, dl), sep(), expd);
     container.appendChild(toolbar);
 
-    // ── scrollable viewport ────────────────────────────────────────────
     // const is declared here; closures above capture the binding correctly
     // because they only execute on click (after this function has returned).
     const viewport = document.createElement("div");
@@ -186,7 +178,6 @@ function addControls(host: HTMLElement) {
     container.appendChild(viewport);
 }
 
-// ── openModal ──────────────────────────────────────────────────────────
 function openModal(host: HTMLElement) {
     const origSvg = host.querySelector<SVGSVGElement>("svg");
     if (!origSvg) return;
@@ -202,7 +193,6 @@ function openModal(host: HTMLElement) {
     const dialog = document.createElement("dialog");
     dialog.className = "mermaid-dialog";
 
-    // ── modal toolbar ─────────────────────────────────────────────
     const mToolbar = document.createElement("div");
     mToolbar.className = "mermaid-toolbar mermaid-dialog-toolbar";
     mToolbar.setAttribute("role", "toolbar");
@@ -245,7 +235,6 @@ function openModal(host: HTMLElement) {
     // layout mirrors inline: [−][100%][+][⟳] | [📋][⬇] | [✕]
     mToolbar.append(group(mZOut, mLbl, mZIn, mZRst), sep(), group(mCopy, mDl), sep(), mClose);
 
-    // ── modal body ───────────────────────────────────────────────
     const body = document.createElement("div");
     body.className = "mermaid-dialog-body";
     body.appendChild(svgClone);
@@ -260,7 +249,6 @@ function openModal(host: HTMLElement) {
     dialog.showModal();
 }
 
-// ── lifecycle ─────────────────────────────────────────────────────────
 onMounted(()   => { retryTimer = setTimeout(() => enhance(), 150); });
 watch(() => route.path, () => {
     if (retryTimer) clearTimeout(retryTimer);

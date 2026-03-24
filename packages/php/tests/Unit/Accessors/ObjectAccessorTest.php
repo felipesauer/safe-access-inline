@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use SafeAccessInline\Accessors\ObjectAccessor;
 use SafeAccessInline\Exceptions\InvalidFormatException;
 
@@ -65,12 +67,6 @@ describe(ObjectAccessor::class, function () {
     it('toJson', function () {
         $accessor = ObjectAccessor::from((object) ['name' => 'Ana']);
         expect(json_decode($accessor->toJson(), true))->toBe(['name' => 'Ana']);
-    });
-
-    it('toObject', function () {
-        $accessor = ObjectAccessor::from((object) ['name' => 'Ana']);
-        $obj = $accessor->toObject();
-        expect($obj->name)->toBe('Ana');
     });
 
     it('type', function () {

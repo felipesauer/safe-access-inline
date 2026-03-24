@@ -5,25 +5,20 @@ import {
     run,
     HELP,
     defaultGetVersion,
-    formatOutput,
     printValue,
-    parseMaskPatterns,
     parseJsonValue,
     loadFromStdinOrFile,
+    strOpt,
+    boolOpt,
     type CliIO,
 } from "../src/cli.js";
-import {
-    SafeAccess,
-    PluginRegistry,
-} from "@safe-access-inline/safe-access-inline";
+import { SafeAccess } from "@safe-access-inline/safe-access-inline";
 
-const FIXTURES = resolve(__dirname, "../../js/tests/fixtures");
+const FIXTURES = resolve(__dirname, "./fixtures");
 const configJson = join(FIXTURES, "config.json");
 const configYaml = join(FIXTURES, "config.yaml");
 const configToml = join(FIXTURES, "config.toml");
-const overrideJson = join(FIXTURES, "override.json");
-const configSchema = join(FIXTURES, "config.schema.json");
-const configFailSchema = join(FIXTURES, "config-fail.schema.json");
+const asymmetricJson = join(FIXTURES, "config-asymmetric.json");
 
 function createIO(): CliIO & { stdoutData: string; stderrData: string } {
     const io = {
@@ -59,9 +54,7 @@ function runCli(args: string[]): {
     };
 }
 
-// ── Helper functions ──
-
-describe("defaultGetVersion", () => {
+describe(defaultGetVersion.name, () => {
     afterEach(() => {
         vi.restoreAllMocks();
     });
@@ -94,21 +87,7 @@ describe("defaultGetVersion", () => {
     });
 });
 
-describe("parseMaskPatterns", () => {
-    it("splits comma-separated patterns", () => {
-        expect(parseMaskPatterns("password,secret,api_*")).toEqual([
-            "password",
-            "secret",
-            "api_*",
-        ]);
-    });
-
-    it("trims whitespace", () => {
-        expect(parseMaskPatterns("  a , b , c  ")).toEqual(["a", "b", "c"]);
-    });
-});
-
-describe("parseJsonValue", () => {
+describe(parseJsonValue.name, () => {
     it("parses valid JSON", () => {
         expect(parseJsonValue("42")).toBe(42);
         expect(parseJsonValue('"hello"')).toBe("hello");
@@ -121,7 +100,7 @@ describe("parseJsonValue", () => {
     });
 });
 
-describe("printValue", () => {
+describe(printValue.name, () => {
     it("prints null for null", () => {
         const io = createIO();
         printValue(null, io.stdout);
@@ -153,62 +132,7 @@ describe("printValue", () => {
     });
 });
 
-describe("formatOutput", () => {
-    it("formats as JSON", () => {
-        const accessor = SafeAccess.from({ a: 1 }, "object");
-        const out = formatOutput(accessor, "json", false);
-        expect(JSON.parse(out)).toEqual({ a: 1 });
-    });
-
-    it("formats as pretty JSON", () => {
-        const accessor = SafeAccess.from({ a: 1 }, "object");
-        const out = formatOutput(accessor, "json", true);
-        expect(out).toContain("\n");
-        expect(JSON.parse(out)).toEqual({ a: 1 });
-    });
-
-    it("formats as YAML", () => {
-        const accessor = SafeAccess.from({ a: 1 }, "object");
-        const out = formatOutput(accessor, "yaml");
-        expect(out).toContain("a: 1");
-    });
-
-    it("formats as TOML", () => {
-        const accessor = SafeAccess.from(
-            { section: { key: "value" } },
-            "object",
-        );
-        const out = formatOutput(accessor, "toml");
-        expect(out).toContain("[section]");
-    });
-
-    it("formats as XML", () => {
-        PluginRegistry.registerSerializer("xml", {
-            serialize: (data) => `<root>${JSON.stringify(data)}</root>`,
-        });
-        const accessor = SafeAccess.from({ item: { key: "value" } }, "object");
-        const out = formatOutput(accessor, "xml");
-        expect(out).toContain("<root>");
-    });
-
-    it("uses transform for unknown formats", () => {
-        PluginRegistry.registerSerializer("custom", {
-            serialize: (data) => `CUSTOM:${JSON.stringify(data)}`,
-        });
-        const accessor = SafeAccess.from({ a: 1 }, "object");
-        const out = formatOutput(accessor, "custom");
-        expect(out).toBe('CUSTOM:{"a":1}');
-    });
-
-    it("defaults to pretty JSON when no format given", () => {
-        const accessor = SafeAccess.from({ a: 1 }, "object");
-        const out = formatOutput(accessor);
-        expect(out).toContain("\n");
-        expect(JSON.parse(out)).toEqual({ a: 1 });
-    });
-});
-
-describe("loadFromStdinOrFile", () => {
+describe(loadFromStdinOrFile.name, () => {
     it("loads JSON file", () => {
         const accessor = loadFromStdinOrFile(configJson);
         expect(accessor.get("app.name")).toBe("test-app");
@@ -232,9 +156,7 @@ describe("loadFromStdinOrFile", () => {
     });
 });
 
-// ── run() — help & version ──
-
-describe("run — help & version", () => {
+describe(`${run.name} — help & version`, () => {
     it("shows help with no args", () => {
         const { stdout } = runCli([]);
         expect(stdout).toContain("Usage:");
@@ -260,11 +182,23 @@ describe("run — help & version", () => {
         const { stdout } = runCli(["-v"]);
         expect(stdout).toBe("1.2.3");
     });
+
+    // ID 21 — trailing \n on help output
+    it("help output ends with newline", () => {
+        const io = createIO();
+        run([], io);
+        expect(io.stdoutData).toMatch(/\n$/);
+    });
+
+    // ID 28 — trailing \n on version output
+    it("version output ends with newline", () => {
+        const io = createIO();
+        run(["--version"], io);
+        expect(io.stdoutData).toBe("1.2.3\n");
+    });
 });
 
-// ── run() — get ──
-
-describe("run — get", () => {
+describe(`${run.name} — get`, () => {
     it("gets a nested value from JSON", () => {
         const { stdout } = runCli(["get", configJson, "database.host"]);
         expect(stdout).toBe("localhost");
@@ -294,6 +228,8 @@ describe("run — get", () => {
     it("returns null for missing path without default", () => {
         const { stdout } = runCli(["get", configJson, "missing.path"]);
         expect(stdout).toBe("null");
+        // garante que é null JS, não a string "undefined" (mata mutante ID 162)
+        expect(stdout).not.toBe("undefined");
     });
 
     it("supports wildcard", () => {
@@ -308,19 +244,26 @@ describe("run — get", () => {
         expect(exitCode).toBe(1);
         expect(stderr).toContain("Usage:");
     });
+
+    // ID 155 — strict: false allows unrecognized flags
+    it("ignores unrecognized flags gracefully", () => {
+        const io = createIO();
+        const code = run(
+            ["get", configJson, "database.host", "--unknown", "val"],
+            io,
+        );
+        expect(code).toBe(0);
+        expect(io.stdoutData.trim()).toBe("localhost");
+    });
 });
 
-// ── run() — set ──
-
-describe("run — set", () => {
+describe(`${run.name} — set`, () => {
     it("sets a value and outputs JSON", () => {
         const { stdout } = runCli([
             "set",
             configJson,
             "database.port",
             "3306",
-            "--to",
-            "json",
             "--pretty",
         ]);
         const parsed = JSON.parse(stdout);
@@ -333,8 +276,6 @@ describe("run — set", () => {
             configJson,
             "database.host",
             '"newhost"',
-            "--to",
-            "json",
         ]);
         const parsed = JSON.parse(stdout);
         expect(parsed.database.host).toBe("newhost");
@@ -345,18 +286,40 @@ describe("run — set", () => {
         expect(exitCode).toBe(1);
         expect(stderr).toContain("Usage:");
     });
+
+    // ID 253 — pretty default is false (output is compact JSON without --pretty)
+    it("outputs compact JSON by default without --pretty", () => {
+        const io = createIO();
+        run(["set", configJson, "database.port", "9999"], io);
+        const output = io.stdoutData.trim();
+        expect(() => JSON.parse(output)).not.toThrow();
+        expect(output.split("\n")).toHaveLength(1);
+    });
+
+    // ID 255 — strict: false allows unrecognized flags
+    it("ignores unrecognized flags gracefully", () => {
+        const io = createIO();
+        const code = run(
+            ["set", configJson, "database.port", "9999", "--unknown", "val"],
+            io,
+        );
+        expect(code).toBe(0);
+    });
+
+    // ID 262 — trailing \n on set output
+    it("output ends with newline character", () => {
+        const io = createIO();
+        run(["set", configJson, "database.port", "9999"], io);
+        expect(io.stdoutData).toMatch(/\n$/);
+    });
 });
 
-// ── run() — remove ──
-
-describe("run — remove", () => {
+describe(`${run.name} — remove`, () => {
     it("removes a path and outputs JSON", () => {
         const { stdout } = runCli([
             "remove",
             configJson,
             "database.port",
-            "--to",
-            "json",
             "--pretty",
         ]);
         const parsed = JSON.parse(stdout);
@@ -369,181 +332,35 @@ describe("run — remove", () => {
         expect(exitCode).toBe(1);
         expect(stderr).toContain("Usage:");
     });
-});
 
-// ── run() — transform / convert ──
-
-describe("run — transform", () => {
-    it("transforms YAML to JSON", () => {
-        const { stdout } = runCli([
-            "transform",
-            configYaml,
-            "--to",
-            "json",
-            "--pretty",
-        ]);
-        const parsed = JSON.parse(stdout);
-        expect(parsed.app.name).toBe("test-app");
-    });
-
-    it("transforms JSON to YAML", () => {
-        const { stdout } = runCli(["transform", configJson, "--to", "yaml"]);
-        expect(stdout).toContain("app:");
-        expect(stdout).toContain("name: test-app");
-    });
-
-    it("transforms JSON to TOML", () => {
-        const { stdout } = runCli(["transform", configJson, "--to", "toml"]);
-        expect(stdout).toContain("[app]");
-        expect(stdout).toContain("[database]");
-    });
-
-    it("shows usage error without --to", () => {
-        const { stderr, exitCode } = runCli(["transform", configJson]);
-        expect(exitCode).toBe(1);
-        expect(stderr).toContain("Usage:");
-    });
-
-    it("converts with --file flag", () => {
-        const { stdout } = runCli([
-            "convert",
-            "--file",
-            configYaml,
-            "--to",
-            "json",
-            "--pretty",
-        ]);
-        const parsed = JSON.parse(stdout);
-        expect(parsed.app.name).toBe("test-app");
-    });
-
-    it("converts with --from for stdin", () => {
+    // ID 236 — pretty default is false (output is compact JSON without --pretty)
+    it("outputs compact JSON by default without --pretty", () => {
         const io = createIO();
-        io.readFileSync = (() => '{"x": 1}') as unknown as typeof readFileSync;
-        run(["convert", "-", "--from", "json", "--to", "yaml"], io);
-        expect(io.stdoutData).toContain("x: 1");
+        run(["remove", configJson, "database.port"], io);
+        const output = io.stdoutData.trim();
+        expect(() => JSON.parse(output)).not.toThrow();
+        expect(output.split("\n")).toHaveLength(1);
     });
 
-    it("shows usage when no file and no --to", () => {
-        const { stderr, exitCode } = runCli(["convert"]);
-        expect(exitCode).toBe(1);
-        expect(stderr).toContain("Usage:");
-    });
-});
-
-// ── run() — diff ──
-
-describe("run — diff", () => {
-    it("diffs two JSON files", () => {
-        const { stdout } = runCli(["diff", configJson, overrideJson]);
-        const patches = JSON.parse(stdout);
-        expect(Array.isArray(patches)).toBe(true);
-        expect(patches.length).toBeGreaterThan(0);
-        const ops = patches.map((p: { op: string }) => p.op);
-        expect(ops).toContain("replace");
+    // ID 238 — strict: false allows unrecognized flags
+    it("ignores unrecognized flags gracefully", () => {
+        const io = createIO();
+        const code = run(
+            ["remove", configJson, "database.port", "--unknown", "val"],
+            io,
+        );
+        expect(code).toBe(0);
     });
 
-    it("shows usage error without two files", () => {
-        const { stderr, exitCode } = runCli(["diff", configJson]);
-        expect(exitCode).toBe(1);
-        expect(stderr).toContain("Usage:");
+    // ID 245 — trailing \n on remove output
+    it("output ends with newline character", () => {
+        const io = createIO();
+        run(["remove", configJson, "database.port"], io);
+        expect(io.stdoutData).toMatch(/\n$/);
     });
 });
 
-// ── run() — mask ──
-
-describe("run — mask", () => {
-    it("masks sensitive keys", () => {
-        const { stdout } = runCli([
-            "mask",
-            configJson,
-            "--patterns",
-            "host",
-            "--pretty",
-        ]);
-        const parsed = JSON.parse(stdout);
-        expect(parsed.database.host).toBe("[REDACTED]");
-        expect(parsed.database.port).toBe(5432);
-    });
-
-    it("masks with wildcard pattern", () => {
-        const { stdout } = runCli([
-            "mask",
-            configJson,
-            "--patterns",
-            "ho*",
-            "--pretty",
-        ]);
-        const parsed = JSON.parse(stdout);
-        expect(parsed.database.host).toBe("[REDACTED]");
-    });
-
-    it("outputs in specified format", () => {
-        const { stdout } = runCli([
-            "mask",
-            configJson,
-            "--patterns",
-            "host",
-            "--to",
-            "yaml",
-        ]);
-        expect(stdout).toContain("[REDACTED]");
-    });
-
-    it("shows usage error without --patterns", () => {
-        const { stderr, exitCode } = runCli(["mask", configJson]);
-        expect(exitCode).toBe(1);
-        expect(stderr).toContain("Usage:");
-    });
-});
-
-// ── run() — layer ──
-
-describe("run — layer", () => {
-    it("layers two config files", () => {
-        const { stdout } = runCli([
-            "layer",
-            configJson,
-            overrideJson,
-            "--pretty",
-        ]);
-        const parsed = JSON.parse(stdout);
-        expect(parsed.app.name).toBe("override-app");
-        expect(parsed.database.host).toBe("localhost");
-    });
-
-    it("layers YAML and JSON", () => {
-        const { stdout } = runCli([
-            "layer",
-            configYaml,
-            overrideJson,
-            "--pretty",
-        ]);
-        const parsed = JSON.parse(stdout);
-        expect(parsed.app.name).toBe("override-app");
-    });
-
-    it("outputs in specified format", () => {
-        const { stdout } = runCli([
-            "layer",
-            configJson,
-            overrideJson,
-            "--to",
-            "yaml",
-        ]);
-        expect(stdout).toContain("app:");
-    });
-
-    it("shows usage error without files", () => {
-        const { stderr, exitCode } = runCli(["layer"]);
-        expect(exitCode).toBe(1);
-        expect(stderr).toContain("Usage:");
-    });
-});
-
-// ── run() — keys ──
-
-describe("run — keys", () => {
+describe(`${run.name} — keys`, () => {
     it("lists root keys", () => {
         const { stdout } = runCli(["keys", configJson]);
         expect(stdout).toContain("app");
@@ -556,6 +373,26 @@ describe("run — keys", () => {
         expect(stdout).toContain("port");
     });
 
+    it("lists keys at path with result distinct from root keys", () => {
+        // raiz = ['a','b','c'] (3 keys) vs path='c' → ['x'] (1 key)
+        // qualquer mutação na condição ternária produz resultado errado (mata ID 181)
+        const io = createIO();
+        run(["keys", asymmetricJson, "c"], io);
+        expect(io.stdoutData.split("\n").filter(Boolean)).toEqual(["x"]);
+    });
+
+    it("keys output ends with newline when no path is given", () => {
+        // verifica sem .trim() para matar IDs 185 e 186
+        const io = createIO();
+        run(["keys", asymmetricJson], io);
+        expect(io.stdoutData).toMatch(/\n$/);
+        expect(io.stdoutData.split("\n").filter(Boolean)).toEqual([
+            "a",
+            "b",
+            "c",
+        ]);
+    });
+
     it("shows usage error without file", () => {
         const { stderr, exitCode } = runCli(["keys"]);
         expect(exitCode).toBe(1);
@@ -563,9 +400,7 @@ describe("run — keys", () => {
     });
 });
 
-// ── run() — type ──
-
-describe("run — type", () => {
+describe(`${run.name} — type`, () => {
     it("returns type of object", () => {
         const { stdout } = runCli(["type", configJson, "database"]);
         expect(stdout).toBe("object");
@@ -591,11 +426,16 @@ describe("run — type", () => {
         expect(exitCode).toBe(1);
         expect(stderr).toContain("Usage:");
     });
+
+    // ID 304 — trailing \n on type output
+    it("output ends with newline character", () => {
+        const io = createIO();
+        run(["type", configJson, "database"], io);
+        expect(io.stdoutData).toBe("object\n");
+    });
 });
 
-// ── run() — has ──
-
-describe("run — has", () => {
+describe(`${run.name} — has`, () => {
     it("exits 0 when path exists", () => {
         const { stdout, exitCode } = runCli([
             "has",
@@ -624,9 +464,7 @@ describe("run — has", () => {
     });
 });
 
-// ── run() — count ──
-
-describe("run — count", () => {
+describe(`${run.name} — count`, () => {
     it("counts root keys", () => {
         const { stdout } = runCli(["count", configJson]);
         expect(stdout).toBe("2");
@@ -637,6 +475,28 @@ describe("run — count", () => {
         expect(stdout).toBe("2");
     });
 
+    it("counts keys at path with result distinct from root count", () => {
+        // fixture assimétrica: raiz=3 chaves, 'c'=1 chave
+        // se a condição ternária for mutada para true/false, o resultado muda (mata IDs 135–138)
+        const io = createIO();
+        run(["count", asymmetricJson, "c"], io);
+        expect(io.stdoutData.trim()).toBe("1");
+    });
+
+    it("counts root keys on asymmetric fixture", () => {
+        // raiz=3, diferente do path='c'=1, tornando as condições distinguíveis
+        const io = createIO();
+        run(["count", asymmetricJson], io);
+        expect(io.stdoutData.trim()).toBe("3");
+    });
+
+    it("count output ends with newline character", () => {
+        // verifica sem .trim() para matar ID 139
+        const io = createIO();
+        run(["count", configJson], io);
+        expect(io.stdoutData).toMatch(/\d+\n$/);
+    });
+
     it("shows usage error without file", () => {
         const { stderr, exitCode } = runCli(["count"]);
         expect(exitCode).toBe(1);
@@ -644,72 +504,7 @@ describe("run — count", () => {
     });
 });
 
-// ── run() — validate ──
-
-describe("run — validate", () => {
-    it("validates valid data with text output", () => {
-        const { stdout, exitCode } = runCli([
-            "validate",
-            configJson,
-            "--schema",
-            configSchema,
-        ]);
-        expect(stdout).toBe("valid");
-        // validate always calls exit — 0 for valid, 1 for invalid
-        expect(exitCode).toBe(0);
-    });
-
-    it("validates valid data with json output", () => {
-        const { stdout, exitCode } = runCli([
-            "validate",
-            configJson,
-            "--schema",
-            configSchema,
-            "--format",
-            "json",
-        ]);
-        expect(exitCode).toBe(0);
-        const result = JSON.parse(stdout);
-        expect(result.valid).toBe(true);
-        expect(result.errors).toEqual([]);
-    });
-
-    it("reports errors with text output", () => {
-        const { stderr, exitCode } = runCli([
-            "validate",
-            configJson,
-            "--schema",
-            configFailSchema,
-        ]);
-        expect(exitCode).toBe(1);
-        expect(stderr).toContain("missing_field");
-    });
-
-    it("reports errors with json output", () => {
-        const { stdout, exitCode } = runCli([
-            "validate",
-            configJson,
-            "--schema",
-            configFailSchema,
-            "--format",
-            "json",
-        ]);
-        expect(exitCode).toBe(1);
-        const result = JSON.parse(stdout);
-        expect(result.valid).toBe(false);
-        expect(result.errors.length).toBeGreaterThan(0);
-    });
-
-    it("shows usage when no schema provided", () => {
-        const { stderr, exitCode } = runCli(["validate", configJson]);
-        expect(exitCode).toBe(1);
-        expect(stderr).toContain("Usage:");
-    });
-});
-
-// ── run() — error handling ──
-
-describe("run — error handling", () => {
+describe(`${run.name} — error handling`, () => {
     it("reports unknown command", () => {
         const { stderr, exitCode } = runCli(["foobar"]);
         expect(exitCode).toBe(1);
@@ -760,5 +555,67 @@ describe("run — error handling", () => {
                 process.env.DEBUG = orig;
             }
         }
+    });
+});
+
+describe(strOpt.name, () => {
+    it("returns the string when value is a string", () => {
+        expect(strOpt("hello")).toBe("hello");
+    });
+
+    it("returns undefined when value is boolean true", () => {
+        expect(strOpt(true)).toBeUndefined();
+    });
+
+    it("returns undefined when value is boolean false", () => {
+        expect(strOpt(false)).toBeUndefined();
+    });
+
+    it("returns undefined when value is undefined", () => {
+        expect(strOpt(undefined)).toBeUndefined();
+    });
+
+    it("returns empty string when value is empty string", () => {
+        expect(strOpt("")).toBe("");
+    });
+});
+
+describe(boolOpt.name, () => {
+    it("returns true when value is boolean true", () => {
+        expect(boolOpt(true)).toBe(true);
+    });
+
+    it("returns false when value is boolean false", () => {
+        expect(boolOpt(false)).toBe(false);
+    });
+
+    it("returns false when value is undefined", () => {
+        expect(boolOpt(undefined)).toBe(false);
+    });
+
+    it("returns false when value is a string", () => {
+        expect(boolOpt("true")).toBe(false);
+    });
+});
+
+describe(`${run.name} — stdin chains`, () => {
+    it("set reads from stdin (-) and outputs modified JSON", () => {
+        const io = createIO();
+        io.readFileSync = ((fd: unknown, enc: unknown) => {
+            if (fd === 0) return '{"user":{"name":"Alice"}}';
+            return readFileSync(fd as string, enc as BufferEncoding);
+        }) as unknown as typeof readFileSync;
+        const code = run(["set", "-", "user.name", '"Bob"'], io);
+        expect(code).toBe(0);
+        const parsed = JSON.parse(io.stdoutData.trim());
+        expect(parsed.user.name).toBe("Bob");
+    });
+
+    it("get reads from stdin (-) with auto-detect", () => {
+        const io = createIO();
+        io.readFileSync = (() => '{"x":42}') as unknown as typeof readFileSync;
+        const code = run(["get", "-", "x"], io);
+        expect(code).toBe(0);
+        expect(io.stdoutData.trim()).toBe("42");
     });
 });

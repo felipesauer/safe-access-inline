@@ -1,0 +1,2 @@
+# Test fixtures with intentionally invalid content
+packages/cli/tests/fixtures/config-bad.schema.json

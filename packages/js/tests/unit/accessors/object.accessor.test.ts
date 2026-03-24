@@ -63,11 +63,6 @@ describe(ObjectAccessor.name, () => {
         expect(JSON.parse(accessor.toJson())).toEqual({ name: 'Ana' });
     });
 
-    it('toObject', () => {
-        const accessor = ObjectAccessor.from({ name: 'Ana' });
-        expect(accessor.toObject()).toEqual({ name: 'Ana' });
-    });
-
     it('type', () => {
         const accessor = ObjectAccessor.from({ name: 'Ana', age: 30 });
         expect(accessor.type('name')).toBe('string');
@@ -83,5 +78,21 @@ describe(ObjectAccessor.name, () => {
     it('keys', () => {
         const accessor = ObjectAccessor.from({ a: 1, b: 2 });
         expect(accessor.keys()).toEqual(['a', 'b']);
+    });
+
+    // ── Regression: structuredClone must preserve Date instances ─────────
+    it('parse — preserves Date instances (no JSON.parse/stringify coercion)', () => {
+        const now = new Date('2024-01-15T12:00:00Z');
+        const accessor = ObjectAccessor.from({ ts: now, name: 'test' });
+        const raw = accessor.all();
+        expect(raw.ts).toBeInstanceOf(Date);
+        expect((raw.ts as Date).toISOString()).toBe(now.toISOString());
+    });
+
+    it('parse — deep-clones so external mutation does not affect accessor', () => {
+        const original = { user: { name: 'Ana' } };
+        const accessor = ObjectAccessor.from(original);
+        original.user.name = 'mutated';
+        expect(accessor.get('user.name')).toBe('Ana');
     });
 });

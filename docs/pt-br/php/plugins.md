@@ -75,14 +75,15 @@ $accessor->transform('yaml');     // "name: Ana\n"
 
 ## Plugins Incluídos
 
-| Plugin                  | Formato | Tipo       | Requer                    |
-| ----------------------- | ------- | ---------- | ------------------------- |
-| `SymfonyYamlParser`     | yaml    | Parser     | `symfony/yaml`            |
-| `SymfonyYamlSerializer` | yaml    | Serializer | `symfony/yaml`            |
-| `NativeYamlParser`      | yaml    | Parser     | `ext-yaml` (extensão PHP) |
-| `NativeYamlSerializer`  | yaml    | Serializer | `ext-yaml` (extensão PHP) |
-| `DeviumTomlParser`      | toml    | Parser     | `devium/toml`             |
-| `DeviumTomlSerializer`  | toml    | Serializer | `devium/toml`             |
+| Plugin                  | Formato | Tipo       | Requer                     |
+| ----------------------- | ------- | ---------- | -------------------------- |
+| `SymfonyYamlParser`     | yaml    | Parser     | `symfony/yaml`             |
+| `SymfonyYamlSerializer` | yaml    | Serializer | `symfony/yaml`             |
+| `NativeYamlParser`      | yaml    | Parser     | `ext-yaml` (extensão PHP)  |
+| `NativeYamlSerializer`  | yaml    | Serializer | `ext-yaml` (extensão PHP)  |
+| `DeviumTomlParser`      | toml    | Parser     | `devium/toml`              |
+| `DeviumTomlSerializer`  | toml    | Serializer | `devium/toml`              |
+| `SimpleXmlSerializer`   | xml     | Serializer | `ext-simplexml` (embutido) |
 
 ---
 
@@ -133,9 +134,6 @@ class LaravelConfigParser implements ParserPluginInterface
 }
 
 PluginRegistry::registerParser('laravel-config', new LaravelConfigParser());
-
-// Registrar um accessor customizado
-SafeAccess::extend('laravel-config', fn ($data) => /* ... */);
 ```
 
 ---

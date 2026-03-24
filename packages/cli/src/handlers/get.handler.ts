@@ -3,6 +3,7 @@ import {
     loadFromStdinOrFile,
     parseJsonValue,
     printValue,
+    strOpt,
     type CliIO,
 } from "../command-handlers.js";
 
@@ -33,9 +34,10 @@ export function handleGet(rest: string[], io: CliIO): number {
         undefined,
         io.readFileSync,
     );
+    // Stryker disable next-line ConditionalExpression -- equivalent: parseJsonValue(undefined) falls through to catch, returns undefined, printValue(undefined) writes "null\n"
     const defaultVal =
         values.default !== undefined
-            ? parseJsonValue(values.default as string)
+            ? parseJsonValue(strOpt(values.default)!)
             : null;
     const result = accessor.get(positionals[1], defaultVal);
     printValue(result, io.stdout);

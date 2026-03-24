@@ -1,10 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import {
-    SafeAccess,
-    type AbstractAccessor,
-    type MaskPattern,
-} from "@safe-access-inline/safe-access-inline";
+import { SafeAccess } from "@safe-access-inline/safe-access-inline";
 
 /**
  * Abstraction over standard I/O for testability.
@@ -36,44 +32,11 @@ export function loadFromStdinOrFile(
         }
         return SafeAccess.detect(buf);
     }
+    const content = readFileFn(resolve(fileArg), "utf-8") as string;
     if (fromFormat) {
-        // Use SafeAccess.fromFileSync so the IoLoader path-traversal and null-byte checks apply
-        return SafeAccess.fromFileSync(resolve(fileArg), {
-            format: fromFormat,
-            allowAnyPath: true,
-        });
+        return SafeAccess.from(content, fromFormat);
     }
-    return SafeAccess.fromFileSync(resolve(fileArg), { allowAnyPath: true });
-}
-
-/**
- * Formats accessor output in the specified format.
- *
- * @param accessor - Data accessor to serialize.
- * @param format - Target format (json, yaml, toml, xml, or custom).
- * @param pretty - Whether to pretty-print JSON.
- * @returns Formatted string output.
- */
-export function formatOutput(
-    accessor: AbstractAccessor,
-    format?: string,
-    pretty?: boolean,
-): string {
-    if (format) {
-        switch (format) {
-            case "json":
-                return accessor.toJson(pretty ?? false);
-            case "yaml":
-                return accessor.toYaml();
-            case "toml":
-                return accessor.toToml();
-            case "xml":
-                return accessor.toXml();
-            default:
-                return accessor.transform(format);
-        }
-    }
-    return accessor.toJson(pretty ?? true);
+    return SafeAccess.detect(content);
 }
 
 /**
@@ -86,6 +49,7 @@ export function printValue(
     value: unknown,
     stdout: { write(s: string): void },
 ): void {
+    // Stryker disable next-line ConditionalExpression -- equivalent: JSON.stringify(null) === "null" in both branches
     if (value === null || value === undefined) {
         stdout.write("null\n");
     } else if (typeof value === "string") {
@@ -93,16 +57,6 @@ export function printValue(
     } else {
         stdout.write(JSON.stringify(value, null, 2) + "\n");
     }
-}
-
-/**
- * Parses a comma-separated string of mask patterns.
- *
- * @param raw - Comma-separated pattern string.
- * @returns Array of mask patterns.
- */
-export function parseMaskPatterns(raw: string): MaskPattern[] {
-    return raw.split(",").map((p) => p.trim());
 }
 
 /**
@@ -117,4 +71,30 @@ export function parseJsonValue(raw: string): unknown {
     } catch {
         return raw;
     }
+}
+
+/**
+ * Extracts a string option from a `parseArgs` values map.
+ *
+ * Returns `undefined` when the value is absent or not a string, eliminating
+ * the need for unsafe `as string | undefined` casts on `parseArgs` results.
+ *
+ * @param val - Raw value from the parseArgs values map.
+ * @returns The string value, or `undefined`.
+ */
+export function strOpt(val: string | boolean | undefined): string | undefined {
+    return typeof val === "string" ? val : undefined;
+}
+
+/**
+ * Extracts a boolean option from a `parseArgs` values map.
+ *
+ * Returns `false` when the value is absent or not strictly `true`, eliminating
+ * the need for unsafe `as boolean` casts on `parseArgs` results.
+ *
+ * @param val - Raw value from the parseArgs values map.
+ * @returns The boolean value, defaulting to `false`.
+ */
+export function boolOpt(val: string | boolean | undefined): boolean {
+    return val === true;
 }

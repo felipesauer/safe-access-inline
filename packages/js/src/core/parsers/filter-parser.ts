@@ -1,8 +1,4 @@
 import { SecurityGuard } from '../../security/guards/security-guard';
-import {
-    type FilterParserConfig,
-    DEFAULT_FILTER_PARSER_CONFIG,
-} from '../config/filter-parser-config';
 import type {
     FilterCondition,
     FilterExpression,
@@ -19,33 +15,25 @@ export type {
  * Supported syntax:
  *   `[?field>value]` — comparison,
  *   `[?age>=18 && active==true]` — logical AND,
- *   `[?length(@.name)>3]` — function call.
+ *   `[?length(@.name)>3]` — function call,
+ *   `[?starts_with(@.name,'Ana')]` — string prefix match,
+ *   `[?contains(@.tags,'admin')]` — substring or array membership,
+ *   `[?values(@)>3]` — value count,
+ *   `[?price * qty > 100]` — arithmetic expression.
  *
  * Operators: `==`, `!=`, `>`, `<`, `>=`, `<=`.
  * Logical: `&&`, `||`.
- * Functions: `length`, `match`, `keys`.
+ * Functions: `starts_with`, `contains`, `values`.
+ *
+ * @internal Implementation detail. Do not rely on this in application code.
  */
 export class FilterParser {
-    private static config: FilterParserConfig = DEFAULT_FILTER_PARSER_CONFIG;
-
     /**
-     * Overrides the default filter parser configuration.
+     * Parses "[?expr]" content (without the `[?` and `]` delimiters) into a {@link FilterExpression}.
      *
-     * @param config - Partial config; unspecified keys retain their defaults.
-     */
-    static configure(config: Partial<FilterParserConfig>): void {
-        FilterParser.config = { ...DEFAULT_FILTER_PARSER_CONFIG, ...config };
-    }
-
-    /**
-     * Resets the configuration to defaults.
-     */
-    static resetConfig(): void {
-        FilterParser.config = DEFAULT_FILTER_PARSER_CONFIG;
-    }
-
-    /**
-     * Parses "[?expr]" content (without the [? and ] delimiters).
+     * @param expression - Raw filter expression string, e.g. `"age>=18 && active==true"`.
+     * @returns A parsed {@link FilterExpression} with conditions and logical operators.
+     * @throws {@link Error} When a condition token cannot be parsed.
      */
     static parse(expression: string): FilterExpression {
         const conditions: FilterCondition[] = [];
@@ -63,7 +51,13 @@ export class FilterParser {
     }
 
     /**
-     * Evaluates a filter expression against a single item.
+     * Evaluates a parsed filter expression against a single data item.
+     *
+     * Short-circuits logical evaluation where possible.
+     *
+     * @param item - The data object to test.
+     * @param expr - A previously parsed {@link FilterExpression}.
+     * @returns `true` if the item satisfies the expression.
      */
     static evaluate(item: Record<string, unknown>, expr: FilterExpression): boolean {
         if (expr.conditions.length === 0) return false;
@@ -82,6 +76,14 @@ export class FilterParser {
         return result;
     }
 
+    /**
+     * Splits a filter expression string into condition tokens and logical operators.
+     *
+     * Respects quoted strings so that `&&` or `||` inside quotes are not treated as operators.
+     *
+     * @param expression - Raw filter body (no surrounding `[?` / `]`).
+     * @returns An object with `tokens` (condition strings) and `operators` (`&&` / `||`).
+     */
     private static splitLogical(expression: string): {
         tokens: string[];
         operators: ('&&' | '||')[];
@@ -131,6 +133,16 @@ export class FilterParser {
         return { tokens, operators };
     }
 
+    /**
+     * Parses a single condition token into a {@link FilterCondition}.
+     *
+     * Handles both plain comparisons (`age>=18`) and function-call forms
+     * (`length(@.name)>3`).
+     *
+     * @param token - A single trimmed condition string.
+     * @returns Parsed {@link FilterCondition}.
+     * @throws {@link Error} When the token does not match any known condition pattern.
+     */
     private static parseCondition(token: string): FilterCondition {
         const operators = ['>=', '<=', '!=', '==', '>', '<'] as const;
 
@@ -172,6 +184,15 @@ export class FilterParser {
         throw new Error(`Invalid filter condition: "${token}"`);
     }
 
+    /**
+     * Parses a raw string value token into its corresponding JavaScript primitive.
+     *
+     * Recognises `true`, `false`, `null`, quoted strings, and numeric literals.
+     * Falls back to the raw string when no other type matches.
+     *
+     * @param raw - Raw value string from the filter expression.
+     * @returns The parsed JavaScript value.
+     */
     static parseValue(raw: string): unknown {
         if (raw === 'true') return true;
         if (raw === 'false') return false;
@@ -190,6 +211,20 @@ export class FilterParser {
         return raw;
     }
 
+    /**
+     * Evaluates a single {@link FilterCondition} against a data item.
+     *
+     * Resolves the field value (or function result) from `item` and applies
+     * the comparison operator.
+     *
+     * **Null / undefined equivalence:** PHP returns `null` for absent paths while JS
+     * returns `undefined`. For `==` and `!=` comparisons both sentinels are treated as
+     * identical so that `[?field == null]` matches absent fields in both languages.
+     *
+     * @param item - The data object to test.
+     * @param condition - The condition to evaluate.
+     * @returns `true` if the item satisfies the condition.
+     */
     private static evaluateCondition(
         item: Record<string, unknown>,
         condition: FilterCondition,
@@ -198,6 +233,9 @@ export class FilterParser {
 
         if (condition.func) {
             fieldValue = FilterParser.evaluateFunction(item, condition.func, condition.funcArgs!);
+        } else if (/[@\w.]+\s*[+\-*/]\s*[@\w.]+/.test(condition.field)) {
+            // Arithmetic expression in field, e.g. `price * qty`
+            fieldValue = FilterParser.resolveArithmetic(item, condition.field);
         } else {
             fieldValue = FilterParser.resolveField(item, condition.field);
         }
@@ -206,65 +244,72 @@ export class FilterParser {
 
         switch (condition.operator) {
             case '==':
-                return fieldValue === expected;
+                // Null-equivalence: normalize undefined → null so absent JS paths
+                // match PHP's null sentinel (OWASP-safe: no type coercion beyond this).
+                return (fieldValue ?? null) === (expected ?? null);
             case '!=':
-                return fieldValue !== expected;
+                return (fieldValue ?? null) !== (expected ?? null);
             case '>':
-                return (fieldValue as number) > (expected as number);
+                if (typeof fieldValue !== 'number' || typeof expected !== 'number') return false;
+                return fieldValue > expected;
             case '<':
-                return (fieldValue as number) < (expected as number);
+                if (typeof fieldValue !== 'number' || typeof expected !== 'number') return false;
+                return fieldValue < expected;
             case '>=':
-                return (fieldValue as number) >= (expected as number);
+                if (typeof fieldValue !== 'number' || typeof expected !== 'number') return false;
+                return fieldValue >= expected;
             case '<=':
-                return (fieldValue as number) <= (expected as number);
+                if (typeof fieldValue !== 'number' || typeof expected !== 'number') return false;
+                return fieldValue <= expected;
         }
     }
 
+    /**
+     * Evaluates a built-in filter function against an item.
+     *
+     * @param item - The data object providing context.
+     * @param func - Function name (`starts_with`, `contains`, or `values`).
+     * @param funcArgs - Raw argument strings from the parsed condition.
+     * @returns The function result used for subsequent comparison.
+     * @throws {@link Error} When `func` is an unrecognised function name.
+     */
     private static evaluateFunction(
         item: Record<string, unknown>,
         func: string,
         funcArgs: string[],
     ): unknown {
         switch (func) {
-            case 'length': {
-                const val = FilterParser.resolveFilterArg(item, funcArgs[0]);
-                if (typeof val === 'string') return val.length;
-                if (Array.isArray(val)) return val.length;
-                if (typeof val === 'object' && val !== null) return Object.keys(val).length;
-                return 0;
-            }
-            case 'match': {
+            case 'starts_with': {
                 const val = FilterParser.resolveFilterArg(item, funcArgs[0]);
                 if (typeof val !== 'string') return false;
-                let pattern = funcArgs[1]?.trim() ?? '';
-                // Strip quotes from pattern
+                let prefix = funcArgs[1]?.trim() ?? '';
                 if (
-                    (pattern.startsWith("'") && pattern.endsWith("'")) ||
-                    (pattern.startsWith('"') && pattern.endsWith('"'))
+                    (prefix.startsWith("'") && prefix.endsWith("'")) ||
+                    (prefix.startsWith('"') && prefix.endsWith('"'))
                 ) {
-                    pattern = pattern.slice(1, -1);
+                    prefix = prefix.slice(1, -1);
                 }
-                // ReDoS guard: reject patterns with nested quantifiers, alternation quantifiers,
-                // or excessive length. Covers: (x+)+ / (x+)* / (a|b)+ / (?...*) shapes.
-                if (
-                    pattern.length > FilterParser.config.maxPatternLength ||
-                    /(\+|\*|\{[\d,]+\})\)(\+|\*|\{[\d,]+\})/.test(pattern) || // (group)+ or (group)*
-                    /\([^)]*\|[^)]*\)(\+|\*|\{[\d,]+\})/.test(pattern) || // (a|b)+  alternation
-                    /\(\?[^)]*[+*]/.test(pattern) // (?...*)  non-capturing quantifier
-                ) {
-                    return false;
-                }
-                try {
-                    return new RegExp(pattern, 'u').test(val);
-                } catch {
-                    return false;
-                }
+                return val.startsWith(prefix);
             }
-            case 'keys': {
+            case 'contains': {
+                const val = FilterParser.resolveFilterArg(item, funcArgs[0]);
+                let needle = funcArgs[1]?.trim() ?? '';
+                if (
+                    (needle.startsWith("'") && needle.endsWith("'")) ||
+                    (needle.startsWith('"') && needle.endsWith('"'))
+                ) {
+                    needle = needle.slice(1, -1);
+                }
+                if (typeof val === 'string') return val.includes(needle);
+                if (Array.isArray(val)) return val.includes(needle);
+                return false;
+            }
+            case 'values': {
                 const val = FilterParser.resolveFilterArg(item, funcArgs[0]);
                 if (typeof val === 'object' && val !== null && !Array.isArray(val)) {
-                    return Object.keys(val).length;
+                    return Object.values(val).length;
                 }
+                if (Array.isArray(val)) return val.length;
                 return 0;
             }
             default:
@@ -272,6 +317,64 @@ export class FilterParser {
         }
     }
 
+    /**
+     * Evaluates a simple binary arithmetic expression within a field string.
+     *
+     * Handles expressions of the form `fieldA OP fieldB` or `fieldA OP literal`,
+     * where OP is one of `+`, `-`, `*`, `/`.
+     *
+     * Operands prefixed with `@.` or bare names are resolved from `item`.
+     * Numeric literals are parsed directly.
+     *
+     * @param item - The data object providing field values.
+     * @param expr - The arithmetic expression string, e.g. `'price * qty'`.
+     * @returns The numeric result, or `undefined` when operands are non-numeric.
+     */
+    private static resolveArithmetic(
+        item: Record<string, unknown>,
+        expr: string,
+    ): number | undefined {
+        const match = expr.match(/^([@\w.]+)\s*([+\-*/])\s*([@\w.]+|\d+(?:\.\d+)?)$/);
+        if (!match) return undefined;
+
+        const toNumber = (token: string): number | undefined => {
+            if (/^\d+(?:\.\d+)?$/.test(token)) return Number(token);
+            const val = FilterParser.resolveFilterArg(item, token);
+            if (typeof val === 'number') return val;
+            if (typeof val === 'string' && val !== '' && !isNaN(Number(val))) return Number(val);
+            return undefined;
+        };
+
+        const left = toNumber(match[1]);
+        const right = toNumber(match[3]);
+        if (left === undefined || right === undefined) return undefined;
+
+        switch (match[2]) {
+            case '+':
+                return left + right;
+            case '-':
+                return left - right;
+            case '*':
+                return left * right;
+            case '/':
+                return right !== 0 ? left / right : undefined;
+            /* v8 ignore start — default unreachable: TypeScript type narrowing ensures the switch is always one of '+' | '-' | '*' | '/' */
+            default:
+                return undefined;
+            /* v8 ignore stop */
+        }
+    }
+
+    /**
+     * Resolves a function argument from a data item.
+     *
+     * Handles `@` (the item itself) and `@.field` (a field on the item);
+     * bare field names are resolved as regular field paths.
+     *
+     * @param item - The data object providing context.
+     * @param arg - The raw argument string from the function call.
+     * @returns The resolved value.
+     */
     private static resolveFilterArg(item: Record<string, unknown>, arg: string): unknown {
         if (!arg || arg === '@') return item;
         // @.field.sub → resolve from item
@@ -281,6 +384,16 @@ export class FilterParser {
         return FilterParser.resolveField(item, arg);
     }
 
+    /**
+     * Resolves a (possibly nested) field path from a data item.
+     *
+     * Dot-separated paths are traversed iteratively; each segment is checked
+     * for prototype-pollution via {@link SecurityGuard.assertSafeKey}.
+     *
+     * @param item - The data object to traverse.
+     * @param field - A plain field name or a dot-notation path.
+     * @returns The resolved value, or `undefined` if the path does not exist.
+     */
     private static resolveField(item: Record<string, unknown>, field: string): unknown {
         if (field.includes('.')) {
             let current: unknown = item;

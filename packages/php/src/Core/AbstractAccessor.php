@@ -5,41 +5,93 @@ declare(strict_types=1);
 namespace SafeAccessInline\Core;
 
 use SafeAccessInline\Contracts\AccessorInterface;
-use SafeAccessInline\Contracts\SchemaAdapterInterface;
-use SafeAccessInline\Contracts\WritableInterface;
-use SafeAccessInline\Core\Operations\JsonPatch;
 use SafeAccessInline\Core\Parsers\DotNotationParser;
-use SafeAccessInline\Core\Registries\SchemaRegistry;
 use SafeAccessInline\Exceptions\ReadonlyViolationException;
-use SafeAccessInline\Exceptions\SchemaValidationException;
-use SafeAccessInline\Security\Sanitizers\DataMasker;
-use SafeAccessInline\Traits\HasArrayOperations;
-use SafeAccessInline\Traits\HasFactory;
 use SafeAccessInline\Traits\HasTransformations;
+use SafeAccessInline\Traits\HasTypeAccess;
 use SafeAccessInline\Traits\HasWildcardSupport;
 
-abstract class AbstractAccessor implements AccessorInterface, WritableInterface
+/**
+ * Base class for all SafeAccess accessors.
+ *
+ * This class declares a `@template TShape` type parameter so that PHPStan can
+ * infer the return type of `get()` for annotated accessor variables:
+ *
+ * ```php
+ * // @var JsonAccessor<array{name: string, age: int, active: bool}> $acc
+ * $acc = SafeAccess::fromJson($json);
+ * $name = $acc->get('name'); // PHPStan: string|null
+ * $age  = $acc->get('age', 0); // PHPStan: int|int (collapsed to int)
+ * ```
+ *
+ * When the shape is not annotated, `get()` falls back to `mixed`.
+ * The static analysis extension is registered via `phpstan-extension.neon`.
+ *
+ * @template-covariant TShape of array<mixed>
+ */
+abstract class AbstractAccessor implements AccessorInterface
 {
-    use HasArrayOperations;
-    use HasFactory;
     use HasTransformations;
+    use HasTypeAccess;
     use HasWildcardSupport;
 
-    /** @var array<mixed> Normalized data as an associative array */
-    protected array $data = [];
+    /** @var array<mixed> Normalized data as an associative array. */
+    private array $data = [];
 
-    /** @var mixed Raw original data (preserved for faithful serialization) */
+    /** @var mixed Raw original data (preserved for faithful serialization). */
     protected mixed $raw;
 
+    /**
+     * When `true`, all write operations throw {@see ReadonlyViolationException}.
+     *
+     * JavaScript uses `Object.freeze()` / `deepFreeze()` to make objects immutable at the
+     * runtime level. PHP has no equivalent mechanism for arrays or stdClass objects.
+     *
+     * This class achieves the same guarantee through two complementary layers:
+     *
+     * 1. **Structural immutability** — `$data` is `private`. No subclass or external
+     *    caller can reach it directly. Every read operation returns values by value
+     *    (PHP's copy-on-write ensures callers receive independent copies for scalars
+     *    and arrays); all write operations route through {@see mutate()} which returns
+     *    a *new* cloned instance rather than modifying `$this`.
+     *
+     * 2. **Runtime freeze flag** — `$readonly = true` is set at construction time
+     *    (or via the second constructor parameter). {@see assertNotReadonly()} is called
+     *    at the start of every mutating operation, throwing {@see ReadonlyViolationException}
+     *    before any data change occurs. This mirrors `Object.isFrozen()` semantics:
+     *    the object is effectively sealed against further writes.
+     *
+     * The combination means that PHP accessors provide the same consumer-facing
+     * guarantee as JS `deepFreeze`: immutable instances cannot be accidentally
+     * mutated, and all write APIs return new instances (copy-on-write semantics).
+     */
     protected bool $readonly = false;
 
     /**
-     * @param mixed $raw Input data in its original format
+     * @param mixed          $raw                Input data in its original format.
+     * @param bool|array     $readonlyOrOptions  Freeze flag (legacy positional form) **or** an
+     *                                           options array (preferred form, mirrors the JS
+     *                                           constructor signature `{ readonly?: boolean }`).
+     *
+     * Accepted forms:
+     * ```php
+     * // Preferred — options-bag, aligns with JS `new JsonAccessor(raw, { readonly: true })`:
+     * new JsonAccessor($raw, ['readonly' => true]);
+     *
+     * // Legacy — backward-compatible positional bool (deprecated, prefer the options-bag form):
+     * new JsonAccessor($raw, true);
+     * ```
+     *
+     * @deprecated Passing a `bool` as the second argument is deprecated. Use the options-bag
+     *             form `['readonly' => true]` instead to maintain alignment with the JS
+     *             constructor signature `{ readonly?: boolean }`.
      */
-    public function __construct(mixed $raw, bool $readonly = false)
+    public function __construct(mixed $raw, bool|array $readonlyOrOptions = false)
     {
         $this->raw = $raw;
-        $this->readonly = $readonly;
+        $this->readonly = is_array($readonlyOrOptions)
+            ? (bool) ($readonlyOrOptions['readonly'] ?? false)
+            : $readonlyOrOptions;
         $this->data = $this->parse($raw);
     }
 
@@ -52,22 +104,23 @@ abstract class AbstractAccessor implements AccessorInterface, WritableInterface
      */
     abstract protected function parse(mixed $raw): array;
 
-    /** {@inheritDoc} */
+    /**
+     * Returns the value at the given dot-notation path, or `$default` when the path
+     * is absent.
+     *
+     * When the accessor variable is annotated with a concrete shape type
+     * (`@var JsonAccessor<array{name: string}> $acc`), the PHPStan extension in
+     * `phpstan-extension.neon` narrows the return type to the type at that path.
+     *
+     * @param  string $path    Dot-notation path, e.g. `'user.address.city'`.
+     * @param  mixed  $default Value to return when the path does not exist.
+     * @return mixed           Value at path, or `$default` if absent.
+     *
+     * @see \SafeAccessInline\PHPStan\GetReturnTypeExtension D1 PHPStan extension
+     */
     public function get(string $path, mixed $default = null): mixed
     {
         return DotNotationParser::get($this->data, $path, $default);
-    }
-
-    /**
-     * Get value using a template path with variable bindings.
-     *
-     * @param string $template Path template e.g. 'users.{id}.name'
-     * @param array<string, string|int> $bindings Variables to substitute
-     */
-    public function getTemplate(string $template, array $bindings, mixed $default = null): mixed
-    {
-        $resolved = DotNotationParser::renderTemplate($template, $bindings);
-        return DotNotationParser::get($this->data, $resolved, $default);
     }
 
     // ── Array-based Paths ───────────────────────────
@@ -107,10 +160,7 @@ abstract class AbstractAccessor implements AccessorInterface, WritableInterface
     public function removeAt(array $segments): static
     {
         $this->assertNotReadonly();
-        $newData = DotNotationParser::removeBySegments($this->data, $segments);
-        $clone = clone $this;
-        $clone->data = $newData;
-        return $clone;
+        return $this->mutate(DotNotationParser::removeBySegments($this->data, $segments));
     }
 
     /** {@inheritDoc} */
@@ -133,34 +183,24 @@ abstract class AbstractAccessor implements AccessorInterface, WritableInterface
     public function set(string $path, mixed $value): static
     {
         $this->assertNotReadonly();
-        $newData = DotNotationParser::set($this->data, $path, $value);
-        $clone = clone $this;
-        $clone->data = $newData;
-        return $clone;
+        return $this->mutate(DotNotationParser::set($this->data, $path, $value));
     }
 
     /** {@inheritDoc} */
     public function remove(string $path): static
     {
         $this->assertNotReadonly();
-        $newData = DotNotationParser::remove($this->data, $path);
-        $clone = clone $this;
-        $clone->data = $newData;
-        return $clone;
+        return $this->mutate(DotNotationParser::remove($this->data, $path));
     }
 
     /** {@inheritDoc} */
     public function merge(array|string $pathOrValue, ?array $value = null): static
     {
         $this->assertNotReadonly();
-        if (is_string($pathOrValue)) {
-            $newData = DotNotationParser::merge($this->data, $pathOrValue, $value ?? []);
-        } else {
-            $newData = DotNotationParser::merge($this->data, '', $pathOrValue);
-        }
-        $clone = clone $this;
-        $clone->data = $newData;
-        return $clone;
+        $newData = is_string($pathOrValue)
+            ? DotNotationParser::merge($this->data, $pathOrValue, $value ?? [])
+            : DotNotationParser::merge($this->data, '', $pathOrValue);
+        return $this->mutate($newData);
     }
 
     /** {@inheritDoc} */
@@ -172,7 +212,7 @@ abstract class AbstractAccessor implements AccessorInterface, WritableInterface
 
         return match (gettype($this->get($path))) {
             'integer', 'double' => 'number',
-            'boolean' => 'bool',
+            'boolean' => 'boolean',
             'NULL' => 'null',
             'array' => 'array',
             'string' => 'string',
@@ -207,54 +247,48 @@ abstract class AbstractAccessor implements AccessorInterface, WritableInterface
         return $this->data;
     }
 
-    /**
-     * @param array<string> $patterns
-     */
-    public function masked(array $patterns = []): static
-    {
-        $maskedData = DataMasker::mask($this->data, $patterns);
-        $instance = clone $this;
-        $instance->data = $maskedData;
-        return $instance;
-    }
-
-    public function validate(mixed $schema, ?SchemaAdapterInterface $adapter = null): static
-    {
-        $resolved = $adapter ?? SchemaRegistry::getDefaultAdapter();
-        if ($resolved === null) {
-            throw new \RuntimeException(
-                'No schema adapter provided. Pass an adapter or set a default via SchemaRegistry::setDefaultAdapter().'
-            );
-        }
-        $result = $resolved->validate($this->data, $schema);
-        if (!$result->valid) {
-            throw new SchemaValidationException($result->errors);
-        }
-        return $this;
-    }
+    // ── Internal ────
 
     /**
-     * @return array<array{op: string, path: string, value?: mixed, from?: string}>
+     * Creates a new instance of this accessor carrying `$newData` as its data.
+     *
+     * This is the **single mutation point** for all write operations. Every method
+     * that returns a modified accessor (set, remove, merge, push, pop, …) MUST
+     * route through this method instead of manually cloning and assigning
+     * `$clone->data`. Centralising here ensures:
+     *
+     *  - `$data` remains `private` — subclasses cannot bypass the immutability contract.
+     *  - The clone carries the same `$raw`, `$readonly`, and any other fields set at
+     *    construction time, so the returned instance is a faithful derivative.
+     *
+     * @param  array<mixed> $newData The replacement data array for the cloned instance.
+     * @return static               New instance with `$data` replaced by `$newData`.
      */
-    public function diff(AbstractAccessor $other): array
+    protected function mutate(array $newData): static
     {
-        return JsonPatch::diff($this->data, $other->all());
-    }
-
-    /**
-     * @param array<array{op: string, path: string, value?: mixed, from?: string}> $ops
-     */
-    public function applyPatch(array $ops): static
-    {
-        $this->assertNotReadonly();
-        $newData = JsonPatch::applyPatch($this->data, $ops);
         $clone = clone $this;
         $clone->data = $newData;
         return $clone;
     }
 
-    // ── Array Operations (delegated to HasArrayOperations trait) ────
+    /**
+     * Returns a new instance of this accessor with the readonly flag set to true.
+     * All subsequent write operations will throw a ReadonlyViolationException.
+     *
+     * @return static Frozen clone of this accessor.
+     */
+    public function freeze(): static
+    {
+        $clone = clone $this;
+        $clone->readonly = true;
+        return $clone;
+    }
 
+    /**
+     * Asserts that the accessor is not in readonly mode.
+     *
+     * @throws ReadonlyViolationException When the accessor is frozen.
+     */
     protected function assertNotReadonly(): void
     {
         if ($this->readonly) {

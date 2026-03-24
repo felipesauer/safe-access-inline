@@ -1,47 +1,68 @@
-import { UnsupportedTypeError } from '../../exceptions/unsupported-type.error';
-import { emitAudit } from '../../security/audit/audit-emitter';
+import { PluginRegistryImpl } from './plugin-registry-impl';
+import type {
+    IPluginRegistry,
+    ParserPlugin,
+    SerializerPlugin,
+} from '../../contracts/plugin-registry.contract';
 
-/**
- * Contract for parser plugins.
- * A parser converts raw input (string) into a Record.
- */
-export interface ParserPlugin {
-    parse(raw: string): Record<string, unknown>;
-}
+export type { ParserPlugin, SerializerPlugin };
 
-/**
- * Contract for serializer plugins.
- * A serializer converts a Record into a formatted string.
- */
-export interface SerializerPlugin {
-    serialize(data: Record<string, unknown>): string;
-}
+/** Module-level default instance backing the static facade. */
+const _defaultPluginRegistry: PluginRegistryImpl = new PluginRegistryImpl();
 
 /**
  * Central registry for parser and serializer plugins.
+ *
+ * All static methods delegate to a shared module-level default instance, preserving
+ * the existing API. For test isolation or DI, use {@link PluginRegistry.create} to
+ * obtain a fresh {@link IPluginRegistry} instance that is fully independent of the global state.
+ *
  * Same architecture as the PHP PluginRegistry.
+ *
+ * @remarks
+ * **Static module-level state:** The default registry instance (`_defaultPluginRegistry`)
+ * is module-level and therefore shared across the entire process. In long-running
+ * runtimes (Bun, Node.js cluster workers, Nitro, Fastify) plugins registered in one
+ * request handler persist into subsequent requests. Use {@link PluginRegistry.create}
+ * for isolated scopes, or call `PluginRegistry.reset()` in your worker boot/reset
+ * hook to prevent stale plugin registrations from leaking between requests.
+ * PHP alignment: mirrors `PluginRegistry.php` static-state warning.
  */
 export class PluginRegistry {
-    private static parsers = new Map<string, ParserPlugin>();
-    private static serializers = new Map<string, SerializerPlugin>();
+    /**
+     * Creates a new, isolated plugin registry instance.
+     *
+     * Use this in tests or DI contexts where you need a scope that is completely
+     * independent of the global default registry.
+     *
+     * @returns A fresh {@link IPluginRegistry} instance.
+     */
+    static create(): IPluginRegistry {
+        return new PluginRegistryImpl();
+    }
 
-    // ── Parsers ──
+    /**
+     * Returns the global default registry instance backing all static methods.
+     *
+     * Prefer the static convenience methods for most use-cases; use `getDefault()`
+     * only when you need to pass the registry as an {@link IPluginRegistry} reference.
+     *
+     * @returns The shared module-level {@link IPluginRegistry}.
+     */
+    static getDefault(): IPluginRegistry {
+        return _defaultPluginRegistry;
+    }
+
+    // ── Static facade (backward-compatible API) ──
 
     /** Registers (or overwrites) a parser plugin for the given `format`. */
     static registerParser(format: string, parser: ParserPlugin): void {
-        if (PluginRegistry.parsers.has(format)) {
-            emitAudit('plugin.overwrite', {
-                kind: 'parser',
-                format,
-                message: `Parser for format '${format}' is being overwritten.`,
-            });
-        }
-        PluginRegistry.parsers.set(format, parser);
+        _defaultPluginRegistry.registerParser(format, parser);
     }
 
     /** Returns `true` if a parser is registered for `format`. */
     static hasParser(format: string): boolean {
-        return PluginRegistry.parsers.has(format);
+        return _defaultPluginRegistry.hasParser(format);
     }
 
     /**
@@ -49,33 +70,17 @@ export class PluginRegistry {
      * @throws {@link UnsupportedTypeError} When no parser is registered.
      */
     static getParser(format: string): ParserPlugin {
-        const parser = PluginRegistry.parsers.get(format);
-        if (!parser) {
-            throw new UnsupportedTypeError(
-                `No parser registered for format '${format}'. ` +
-                    `Register one with: PluginRegistry.registerParser('${format}', { parse: (raw) => ... })`,
-            );
-        }
-        return parser;
+        return _defaultPluginRegistry.getParser(format);
     }
-
-    // ── Serializers ──
 
     /** Registers (or overwrites) a serializer plugin for the given `format`. */
     static registerSerializer(format: string, serializer: SerializerPlugin): void {
-        if (PluginRegistry.serializers.has(format)) {
-            emitAudit('plugin.overwrite', {
-                kind: 'serializer',
-                format,
-                message: `Serializer for format '${format}' is being overwritten.`,
-            });
-        }
-        PluginRegistry.serializers.set(format, serializer);
+        _defaultPluginRegistry.registerSerializer(format, serializer);
     }
 
     /** Returns `true` if a serializer is registered for `format`. */
     static hasSerializer(format: string): boolean {
-        return PluginRegistry.serializers.has(format);
+        return _defaultPluginRegistry.hasSerializer(format);
     }
 
     /**
@@ -83,21 +88,11 @@ export class PluginRegistry {
      * @throws {@link UnsupportedTypeError} When no serializer is registered.
      */
     static getSerializer(format: string): SerializerPlugin {
-        const serializer = PluginRegistry.serializers.get(format);
-        if (!serializer) {
-            throw new UnsupportedTypeError(
-                `No serializer registered for format '${format}'. ` +
-                    `Register one with: PluginRegistry.registerSerializer('${format}', { serialize: (data) => ... })`,
-            );
-        }
-        return serializer;
+        return _defaultPluginRegistry.getSerializer(format);
     }
-
-    // ── Reset (testing) ──
 
     /** Removes all registered parsers and serializers. Intended for test teardown. */
     static reset(): void {
-        PluginRegistry.parsers.clear();
-        PluginRegistry.serializers.clear();
+        _defaultPluginRegistry.reset();
     }
 }

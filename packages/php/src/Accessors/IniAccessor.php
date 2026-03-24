@@ -10,6 +10,7 @@ use SafeAccessInline\Exceptions\InvalidFormatException;
 /**
  * Accessor for INI strings.
  * Uses PHP's native parse_ini_string with section and type support.
+ * @extends AbstractAccessor<array<mixed>>
  */
 class IniAccessor extends AbstractAccessor
 {
@@ -32,15 +33,44 @@ class IniAccessor extends AbstractAccessor
         return new static($data, $readonly); // @phpstan-ignore new.static
     }
 
+    /**
+     * @param mixed $raw
+     * @return array<mixed>
+     */
     protected function parse(mixed $raw): array
     {
         assert(is_string($raw));
         set_error_handler(fn () => true);
+
         $parsed = parse_ini_string($raw, true, INI_SCANNER_TYPED);
+
         restore_error_handler();
         if ($parsed === false) {
             throw new InvalidFormatException('IniAccessor failed to parse INI string.');
         }
-        return $parsed;
+
+        return self::coerceBooleans($parsed);
+    }
+
+    /**
+     * Recursively coerces INI boolean tokens not handled by `INI_SCANNER_TYPED`.
+     *
+     * PHP's `INI_SCANNER_TYPED` already converts `true`/`yes`/`on` to `true` and
+     * `false`/`no`/`off` to `false`. This method additionally maps the token `none`
+     * (case-insensitive) to `false` for full parity with the JS IniAccessor.
+     *
+     * @param  array<mixed> $data Parsed INI array.
+     * @return array<mixed>       Array with `none` tokens converted to `false`.
+     */
+    private static function coerceBooleans(array $data): array
+    {
+        foreach ($data as $key => $value) {
+            if (is_string($value) && strtolower($value) === 'none') {
+                $data[$key] = false;
+            } elseif (is_array($value)) {
+                $data[$key] = self::coerceBooleans($value);
+            }
+        }
+        return $data;
     }
 }

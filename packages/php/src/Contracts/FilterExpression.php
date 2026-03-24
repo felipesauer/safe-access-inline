@@ -14,8 +14,8 @@ namespace SafeAccessInline\Contracts;
 final readonly class FilterExpression
 {
     /**
-     * @param list<FilterCondition> $conditions Ordered list of comparison conditions.
-     * @param list<string>          $logicals   Logical operators connecting adjacent conditions ('&&' | '||').
+     * @param list<FilterCondition>  $conditions Ordered list of comparison conditions.
+     * @param list<'&&'|'||'>        $logicals   Logical operators connecting adjacent conditions.
      */
     public function __construct(
         public array $conditions,

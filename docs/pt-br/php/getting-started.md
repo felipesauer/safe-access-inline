@@ -16,7 +16,7 @@ outline: deep
 - [Consultas e Filtros](/pt-br/php/querying)
 - [Formatos & Utilitários](/pt-br/php/formats)
 - [Recursos Avançados](/pt-br/php/advanced)
-- [Segurança & Integrações](/pt-br/php/security)
+- [Segurança](/pt-br/php/security)
 
 ## Requisitos
 
@@ -107,11 +107,76 @@ $obj   = SafeAccess::detect((object)['a' => 1]);    // ObjectAccessor
 $accessor = SafeAccess::fromJson('{"name": "Ana", "age": 30}');
 
 $accessor->toArray();    // ['name' => 'Ana', 'age' => 30]
-$accessor->toObject();   // stdClass { name: "Ana", age: 30 }
 $accessor->toXml();      // "<root><name>Ana</name><age>30</age></root>"
 $accessor->toJson();     // '{"name":"Ana","age":30}'
 $accessor->toYaml();     // "name: Ana\nage: 30\n"
 $accessor->toToml();     // 'name = "Ana"\nage = 30\n'
+```
+
+---
+
+## Cenários Reais
+
+### 1. Carregar, ler e atualizar um arquivo de configuração JSON
+
+```php
+<?php
+declare(strict_types=1);
+
+use SafeAccessInline\SafeAccess;
+
+// Carregar e ler
+$raw = file_get_contents('./config/app.json');
+$cfg = SafeAccess::fromJson($raw);
+
+$host = $cfg->get('database.host', 'localhost');
+$port = $cfg->get('database.port', 5432);
+echo "Conectando em {$host}:{$port}";
+
+// Aplicar patch e salvar de volta
+$updated = $cfg
+    ->set('database.port', 5433)
+    ->set('app.version', '2.1.0');
+
+file_put_contents('./config/app.json', $updated->toJson(true));
+```
+
+### 2. Parse de arquivo .env e construção de array de configuração tipado
+
+```php
+<?php
+declare(strict_types=1);
+
+use SafeAccessInline\SafeAccess;
+
+$env = file_get_contents('.env');
+$accessor = SafeAccess::fromEnv($env);
+
+$config = [
+    'apiUrl' => (string) $accessor->get('API_URL', 'http://localhost'),
+    'port'   => (int)    $accessor->get('PORT',    '3000'),
+    'debug'  => $accessor->get('DEBUG', 'false') === 'true',
+];
+```
+
+### 3. Mesclar override de ambiente sobre configuração base YAML
+
+```php
+<?php
+declare(strict_types=1);
+
+use SafeAccessInline\SafeAccess;
+
+$base     = SafeAccess::fromYaml(file_get_contents('./config/base.yaml'));
+$override = SafeAccess::fromYaml(
+    file_get_contents('./config/' . ($_ENV['APP_ENV'] ?? 'production') . '.yaml'),
+);
+
+// Deep-merge: chaves do override sobrescrevem, o restante é preservado
+$config = $base->merge($override->all());
+
+$config->get('database.host'); // valor final mesclado
+$config->get('app.name');      // preservado da config base
 ```
 
 ---

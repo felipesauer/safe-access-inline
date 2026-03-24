@@ -123,3 +123,114 @@ const withMeta = accessor.merge({ version: "2.0", debug: false });
 withMeta.get("version"); // "2.0"
 withMeta.get("user.name"); // "Ana" (preserved)
 ```
+
+---
+
+## Combining Path Expressions
+
+Segments can be freely combined in a single path. The query is evaluated left-to-right:
+
+```typescript
+const data = {
+    catalog: [
+        {
+            id: 1,
+            name: "Laptop",
+            tags: ["electronics", "portable"],
+            price: 1200,
+        },
+        { id: 2, name: "Phone", tags: ["electronics", "mobile"], price: 800 },
+        { id: 3, name: "Desk", tags: ["furniture"], price: 300 },
+        {
+            id: 4,
+            name: "Tablet",
+            tags: ["electronics", "portable"],
+            price: 600,
+        },
+    ],
+};
+
+const accessor = SafeAccess.fromObject(data);
+
+// Filter, then pick a field
+accessor.get("catalog[?price>500].name");
+// ["Laptop", "Phone", "Tablet"]
+
+// Slice, then wildcard
+accessor.get("catalog[0:2].*.name");
+// ["Laptop", "Phone"] (first 2 items, all names)
+
+// Wildcard + filter on nested array (descent equivalent)
+accessor.get("catalog[?price<700].tags.0");
+// ["furniture", "electronics"] (first tag of cheap items)
+
+// Combined AND filter + field pick
+accessor.get("catalog[?price>500 && price<1000].name");
+// ["Phone", "Tablet"]
+```
+
+---
+
+## Dynamic Paths with `getTemplate()`
+
+`getTemplate()` substitutes `{key}` placeholders in a path template before resolving it — useful when the path contains a value only known at runtime:
+
+```typescript
+const users = SafeAccess.fromObject({
+    users: [
+        { name: "Ana", role: "admin" },
+        { name: "Bob", role: "user" },
+    ],
+});
+
+// Resolve path with a dynamic index
+users.getTemplate("users.{index}.name", { index: 0 }); // "Ana"
+users.getTemplate("users.{index}.name", { index: 1 }); // "Bob"
+
+// Multiple substitutions
+const config = SafeAccess.fromObject({
+    services: {
+        auth: { host: "auth.example.com", port: 443 },
+        api: { host: "api.example.com", port: 8080 },
+    },
+});
+
+function getServiceHost(service: string, field: string): string {
+    return config.getTemplate(
+        "services.{service}.{field}",
+        { service, field },
+        "unknown",
+    ) as string;
+}
+
+getServiceHost("auth", "host"); // "auth.example.com"
+getServiceHost("api", "port"); // 8080
+getServiceHost("db", "host"); // "unknown" (default)
+```
+
+---
+
+## Batch Reads with `getMany()`
+
+`getMany()` reads multiple paths in a single call, returning a map of path → value. Missing paths fall back to the provided default:
+
+```typescript
+const accessor = SafeAccess.fromObject({
+    user: { name: "Ana", email: "ana@example.com", role: "admin" },
+    settings: { theme: "dark" },
+});
+
+const values = accessor.getMany({
+    "user.name": "Unknown",
+    "user.email": "N/A",
+    "user.phone": "N/A", // path does not exist — uses default
+    "settings.theme": "light",
+});
+
+// {
+//   "user.name": "Ana",
+//   "user.email": "ana@example.com",
+//   "user.phone": "N/A",
+//   "settings.theme": "dark",
+// }
+```

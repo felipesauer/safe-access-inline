@@ -1,18 +1,25 @@
 import { SecurityError } from '../../exceptions/security.error';
 
-const _utf8Encoder = new TextEncoder();
-
 /** Runtime security limits applied to parsing and traversal operations. */
 export interface SecurityOptions {
     maxDepth?: number;
     maxPayloadBytes?: number;
     maxKeys?: number;
+    /**
+     * Maximum recursion depth used when counting keys via {@link assertMaxKeys}.
+     *
+     * Prevents runaway recursion on deeply nested payloads. Deliberately lower
+     * than {@link maxDepth} because key-counting is a secondary guard — structural
+     * depth is enforced separately via {@link assertMaxDepth}.
+     */
+    maxCountDepth?: number;
 }
 
 export const DEFAULT_SECURITY_OPTIONS: Required<SecurityOptions> = {
     maxDepth: 512,
     maxPayloadBytes: 10 * 1024 * 1024, // 10MB
     maxKeys: 10_000,
+    maxCountDepth: 100,
 };
 
 /**
@@ -24,7 +31,7 @@ export const DEFAULT_SECURITY_OPTIONS: Required<SecurityOptions> = {
  */
 export function assertPayloadSize(input: string, maxBytes?: number): void {
     const limit = maxBytes ?? DEFAULT_SECURITY_OPTIONS.maxPayloadBytes;
-    const size = _utf8Encoder.encode(input).length;
+    const size = Buffer.byteLength(input, 'utf-8');
     if (size > limit) {
         throw new SecurityError(`Payload size ${size} bytes exceeds maximum of ${limit} bytes.`);
     }
@@ -35,24 +42,45 @@ export function assertPayloadSize(input: string, maxBytes?: number): void {
  *
  * @param data - The top-level object to count keys in.
  * @param maxKeys - Override for the default limit.
+ * @param maxCountDepth - Override for the key-counting recursion depth cap.
  * @throws {@link SecurityError} When the key count exceeds the limit.
  */
-export function assertMaxKeys(data: Record<string, unknown>, maxKeys?: number): void {
+export function assertMaxKeys(
+    data: Record<string, unknown>,
+    maxKeys?: number,
+    maxCountDepth?: number,
+): void {
     const limit = maxKeys ?? DEFAULT_SECURITY_OPTIONS.maxKeys;
-    const count = countKeys(data);
+    const count = countKeys(data, 0, maxCountDepth ?? DEFAULT_SECURITY_OPTIONS.maxCountDepth);
     if (count > limit) {
         throw new SecurityError(`Data contains ${count} keys, exceeding maximum of ${limit}.`);
     }
 }
 
-function countKeys(obj: unknown, depth = 0): number {
-    if (depth > 100) return 0; // prevent infinite recursion in counting
+/**
+ * Recursively counts all keys in `obj`, including nested objects and arrays.
+ *
+ * Hard-stops at `countDepthLimit` to prevent runaway recursion on deeply nested data.
+ * This limit is intentionally lower than {@link DEFAULT_SECURITY_OPTIONS.maxDepth} —
+ * structural depth is enforced separately via {@link assertMaxDepth}.
+ *
+ * @param obj - Value to count keys within.
+ * @param depth - Current recursion depth (used internally).
+ * @param countDepthLimit - Maximum recursion depth for this traversal.
+ * @returns Total number of keys / elements found.
+ */
+function countKeys(
+    obj: unknown,
+    depth = 0,
+    countDepthLimit = DEFAULT_SECURITY_OPTIONS.maxCountDepth,
+): number {
+    if (depth > countDepthLimit) return 0; // prevent runaway recursion
     if (typeof obj !== 'object' || obj === null) return 0;
     let count = 0;
     const entries = Array.isArray(obj) ? obj : Object.values(obj);
     count += Array.isArray(obj) ? obj.length : Object.keys(obj).length;
     for (const value of entries) {
-        count += countKeys(value, depth + 1);
+        count += countKeys(value, depth + 1, countDepthLimit);
     }
     return count;
 }
@@ -89,6 +117,16 @@ export function assertMaxStructuralDepth(data: unknown, maxDepth: number): void 
     }
 }
 
+/**
+ * Recursively measures the maximum structural depth of `value`.
+ *
+ * Cycle-safe — `seen` tracks visited objects to avoid infinite loops.
+ *
+ * @param value - Value to measure.
+ * @param seen - WeakSet of already-visited objects.
+ * @param current - Current depth level.
+ * @returns Maximum nesting depth reachable from `value`.
+ */
 function measureDepth(value: unknown, seen: WeakSet<object>, current: number): number {
     if (typeof value !== 'object' || value === null) return current;
     if (seen.has(value)) return current;

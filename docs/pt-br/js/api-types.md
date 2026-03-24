@@ -8,7 +8,6 @@ outline: deep
 
 - [PluginRegistry](#pluginregistry)
 - [PathCache](#pathcache)
-- [DotNotationParser](#dotnotationparser)
 - [Erros](#erros)
 - [Tipos TypeScript](#tipos-typescript)
 - [Enums](#enums)
@@ -97,89 +96,98 @@ Armazena um resultado de análise no cache.
 
 Remove todas as entradas do cache.
 
----
+#### `PathCache.has(path: string): boolean`
 
-## DotNotationParser
+Retorna `true` se o cache contiver uma entrada para o caminho fornecido.
 
-**Import:** `import { DotNotationParser } from '@safe-access-inline/safe-access-inline'`
+#### `PathCache.size: number` _(getter)_
 
-Classe utilitária estática. Normalmente usada internamente, mas disponível para uso direto.
+Número atual de entradas em cache.
 
-#### `DotNotationParser.get(data, path, defaultValue?): unknown`
+#### `PathCache.configure(config: Partial<CacheConfig>): void`
 
-Suporta expressões de caminho avançadas:
-
-| Sintaxe           | Descrição                                                                     | Exemplo                 |
-| ----------------- | ----------------------------------------------------------------------------- | ----------------------- |
-| `a.b.c`           | Acesso a chave aninhada                                                       | `"user.profile.name"`   |
-| `a[0]`            | Índice com colchetes                                                          | `"items[0].title"`      |
-| `a.*`             | Wildcard — retorna array de valores                                           | `"users.*.name"`        |
-| `a[?field>value]` | Filtro — retorna itens correspondentes                                        | `"products[?price>20]"` |
-| `..key`           | Descida recursiva — coleta todos os valores de `key` em qualquer profundidade | `"..name"`              |
-
-**Expressões de filtro** suportam:
-
-- Comparação: `==`, `!=`, `>`, `<`, `>=`, `<=`
-- Lógicos: `&&` (AND), `\|\|` (OR)
-- Valores: números, `'strings'`, `true`, `false`, `null`
+Sobrescreve a configuração do cache (ex. `maxSize`). Mescla com a configuração padrão.
 
 ```typescript
-// Filtro: todos os usuários admin
-DotNotationParser.get(data, "users[?role=='admin']");
-
-// Filtro com comparação numérica + continuação de caminho
-DotNotationParser.get(data, "products[?price>20].name");
-
-// AND combinado
-DotNotationParser.get(data, "items[?type=='fruit' && color=='red'].name");
-
-// Descida recursiva: todos os valores "name" em qualquer profundidade
-DotNotationParser.get(data, "..name");
-
-// Descida + wildcard
-DotNotationParser.get(data, "..items.*.id");
-
-// Descida + filtro
-DotNotationParser.get(data, "..employees[?active==true].name");
+PathCache.configure({ maxSize: 500 });
 ```
 
-#### `DotNotationParser.has(data, path): boolean`
+#### `PathCache.disable(): void`
 
-#### `DotNotationParser.set(data, path, value): Record<string, unknown>`
+Desativa o cache — chamadas subsequentes a `get()` sempre retornam `undefined`.
 
-Retorna um novo objeto (usa `structuredClone`, não muta o input).
+#### `PathCache.enable(): void`
 
-#### `DotNotationParser.merge(data, path, value): Record<string, unknown>`
+Reativa o cache após uma chamada anterior a `disable()`.
 
-Faz deep merge de `value` no `path` dado. Quando `path` é uma string vazia, mescla na raiz. Objetos são mesclados recursivamente; todos os outros valores são substituídos.
+#### `PathCache.isEnabled: boolean` _(getter)_
 
-```typescript
-const result = DotNotationParser.merge(data, "user.settings", {
-    theme: "dark",
-});
-// Mescla { theme: "dark" } em data.user.settings
-```
-
-#### `DotNotationParser.remove(data, path): Record<string, unknown>`
-
-Retorna um novo objeto (não muta o input).
+Indica se o cache está atualmente ativo.
 
 ---
 
 ## Erros
 
-| Erro                       | Quando                                                                                                                     |
-| -------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `AccessorError`            | Classe base de erro                                                                                                        |
-| `InvalidFormatError`       | Formato de input inválido (ex: JSON malformado, plugin parser ausente)                                                     |
-| `PathNotFoundError`        | Reservado (não lançado por `get()`)                                                                                        |
-| `UnsupportedTypeError`     | Nenhum plugin serializer/parser registrado para o formato solicitado                                                       |
-| `SecurityError`            | Violação de restrição de segurança (tamanho do payload, contagem de chaves, profundidade, segurança de URL, entidades XML) |
-| `ReadonlyViolationError`   | Tentativa de mutação em um accessor readonly                                                                               |
-| `SchemaValidationError`    | Dados falham na validação de schema via `validate()`                                                                       |
-| `JsonPatchTestFailedError` | Operação `test` do JSON Patch falhou — valor no caminho não corresponde ao valor esperado                                  |
+| Erro                     | Quando                                                                                                                     |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| `AccessorError`          | Classe base de erro                                                                                                        |
+| `InvalidFormatError`     | Formato de input inválido (ex: JSON malformado, plugin parser ausente)                                                     |
+| `PathNotFoundError`      | Reservado (não lançado por `get()`)                                                                                        |
+| `UnsupportedTypeError`   | Nenhum plugin serializer/parser registrado para o formato solicitado                                                       |
+| `SecurityError`          | Violação de restrição de segurança (tamanho do payload, contagem de chaves, profundidade, segurança de URL, entidades XML) |
+| `ReadonlyViolationError` | Tentativa de mutação em um accessor readonly                                                                               |
 
 Todos os erros estendem a classe base `Error` e `AccessorError`.
+
+### Capturando erros
+
+```typescript
+import {
+    SafeAccess,
+    InvalidFormatError,
+    SecurityError,
+    ReadonlyViolationError,
+    UnsupportedTypeError,
+} from "@safe-access-inline/safe-access-inline";
+
+// Formato inválido
+try {
+    SafeAccess.fromJson("{invalid json}");
+} catch (e) {
+    if (e instanceof InvalidFormatError) {
+        console.error("Falha no parse:", e.message);
+    }
+}
+
+// Violação de política de segurança
+try {
+    const policy = { maxDepth: 2 };
+    SafeAccess.withPolicy(deeplyNested, policy);
+} catch (e) {
+    if (e instanceof SecurityError) {
+        console.error("Limite de segurança excedido:", e.message);
+    }
+}
+
+// Tentativa de mutação em accessor readonly
+try {
+    const ro = SafeAccess.fromObject(config, { readonly: true });
+    ro.set("key", "value"); // lança
+} catch (e) {
+    if (e instanceof ReadonlyViolationError) {
+        console.error("O accessor é somente-leitura:", e.message);
+    }
+}
+
+// Plugin de serializer ausente
+try {
+    accessor.toYaml();
+} catch (e) {
+    if (e instanceof UnsupportedTypeError) {
+        console.error("Nenhum serializer registrado para yaml:", e.message);
+    }
+}
+```
 
 ---
 
@@ -198,17 +206,19 @@ interface AccessorInterface {
     all(): Record<string, unknown>;
     toArray(): Record<string, unknown>;
     toJson(pretty?: boolean): string;
-    toObject(): Record<string, unknown>;
     toYaml(): string;
     toToml(): string;
     toXml(rootElement?: string): string;
-    transform(format: string): string;
 }
 
 interface ParserPlugin {
     parse(raw: string): Record<string, unknown>;
 }
+
+type ReadonlyAccessor = AbstractAccessor;
 ```
+
+`ReadonlyAccessor` é um alias de conveniência para `AbstractAccessor` quando você quer anotar fluxos readonly ou imutáveis sem repetir o nome da classe concreta.
 
 ### Plugins Incluídos
 
@@ -238,6 +248,92 @@ interface SerializerPlugin {
 
 ---
 
+## Tipos Adicionais
+
+### `ToJsonOptions`
+
+Controles de saída opcionais para `toJson()`. Espelha o comportamento do `toJson()` do PHP (unicode/slashes não escapados por padrão).
+
+```typescript
+import type { ToJsonOptions } from "@safe-access-inline/safe-access-inline";
+
+interface ToJsonOptions {
+    /**
+     * Quando `true`, substitui sequências de escape `\uXXXX` pelos caracteres Unicode reais
+     * — equivalente ao `JSON_UNESCAPED_UNICODE` do PHP.
+     * @defaultValue false
+     */
+    readonly unescapeUnicode?: boolean;
+
+    /**
+     * Quando `true`, substitui `\/` por `/` na saída
+     * — equivalente ao `JSON_UNESCAPED_SLASHES` do PHP.
+     * @defaultValue false
+     */
+    readonly unescapeSlashes?: boolean;
+
+    /**
+     * Indentação a usar quando `pretty` for `true`. Aceita um número (espaços) ou uma string (ex: `'\t'`).
+     * @defaultValue 2
+     */
+    readonly space?: number | string;
+}
+```
+
+```typescript
+accessor.toJson(true, { unescapeUnicode: true, space: 4 });
+// Gera saída compatível com PHP: sem sequências \uXXXX, indentação de 4 espaços
+```
+
+### `FilterCondition`
+
+Uma única condição dentro de uma expressão de filtro analisada (ex: `[?age >= 18]`).
+
+```typescript
+import type { FilterCondition } from "@safe-access-inline/safe-access-inline";
+
+interface FilterCondition {
+    /** Caminho do campo a avaliar (ex: `"age"`, `"profile.name"`). */
+    field: string;
+    /** O operador de comparação. */
+    operator: "==" | "!=" | ">" | "<" | ">=" | "<=";
+    /** O valor para comparar. */
+    value: unknown;
+    /** Nome de função opcional (ex: `"length"`, `"match"`, `"keys"`). */
+    func?: string;
+    /** Argumentos de função opcionais. */
+    funcArgs?: string[];
+}
+```
+
+### `FilterExpression`
+
+Uma expressão de filtro analisada composta por uma ou mais `FilterCondition`s unidas por operadores lógicos.
+
+```typescript
+import type { FilterExpression } from "@safe-access-inline/safe-access-inline";
+
+interface FilterExpression {
+    /** Lista ordenada de condições de comparação. */
+    conditions: FilterCondition[];
+    /** Operadores lógicos conectando condições adjacentes (`length === conditions.length - 1`). */
+    logicals: ("&&" | "||")[];
+}
+```
+
+```typescript
+// A expressão `[?age>=18 && active==true]` é analisada como:
+// {
+//   conditions: [
+//     { field: 'age', operator: '>=', value: 18 },
+//     { field: 'active', operator: '==', value: true },
+//   ],
+//   logicals: ['&&'],
+// }
+```
+
+---
+
 ## Enums
 
 ### `Format`
@@ -255,48 +351,42 @@ Enum de string cobrindo todos os formatos built-in. Use como alternativa tipada 
 | `Format.Yaml`   | `'yaml'`   |
 | `Format.Toml`   | `'toml'`   |
 | `Format.Ini`    | `'ini'`    |
-| `Format.Csv`    | `'csv'`    |
 | `Format.Env`    | `'env'`    |
 | `Format.Ndjson` | `'ndjson'` |
 
-### Utilitários de Inferência de Caminho
+### `SegmentType` <Badge type="warning" text="@internal" />
 
-Inferência de caminho type-safe para validação de caminhos em tempo de compilação e resolução de valores:
+::: warning @internal
+Este enum é um detalhe de implementação do parser de dot-notation. Não use em código de aplicação — a estrutura pode mudar em versões futuras.
+:::
 
-```typescript
-import type {
-    DeepPaths,
-    ValueAtPath,
-} from "@safe-access-inline/safe-access-inline";
+Discriminador para os tipos de segmento produzidos pelo parser de dot-notation.
 
-type Config = {
-    db: { host: string; port: number };
-    cache: { ttl: number; enabled: boolean };
-};
+| Membro                      | Valor             |
+| --------------------------- | ----------------- |
+| `SegmentType.KEY`           | `'key'`           |
+| `SegmentType.INDEX`         | `'index'`         |
+| `SegmentType.WILDCARD`      | `'wildcard'`      |
+| `SegmentType.DESCENT`       | `'descent'`       |
+| `SegmentType.DESCENT_MULTI` | `'descent-multi'` |
+| `SegmentType.MULTI_INDEX`   | `'multi-index'`   |
+| `SegmentType.MULTI_KEY`     | `'multi-key'`     |
+| `SegmentType.FILTER`        | `'filter'`        |
+| `SegmentType.SLICE`         | `'slice'`         |
 
-// Todos os caminhos válidos em notação de ponto como tipo união
-type ConfigPaths = DeepPaths<Config>;
-// "db" | "db.host" | "db.port" | "cache" | "cache.ttl" | "cache.enabled"
+### `PatchOperationType` <Badge type="warning" text="@internal" />
 
-// Resolver tipo do valor em um caminho específico
-type Host = ValueAtPath<Config, "db.host">; // string
-type Port = ValueAtPath<Config, "db.port">; // number
+::: warning @internal
+Este enum espelha os nomes das operações RFC 6902 JSON Patch usados internamente. Não use em código de aplicação.
+:::
 
-// Usar em assinaturas de função para type safety
-function getConfig<P extends DeepPaths<Config>>(
-    accessor: AbstractAccessor,
-    path: P,
-): ValueAtPath<Config, P> {
-    return accessor.get(path) as ValueAtPath<Config, P>;
-}
+Enum string que espelha os nomes das operações RFC 6902 JSON Patch.
 
-const host = getConfig(accessor, "db.host"); // tipado como string
-```
-
-#### `DeepPaths<T, Depth?>`
-
-Gera uma união de todos os caminhos válidos em notação de ponto para o tipo `T`. Profundidade de recursão padrão: 7 níveis.
-
-#### `ValueAtPath<T, P>`
-
-Resolve o tipo do valor no caminho de notação de ponto `P` no tipo `T`. Retorna `unknown` para caminhos inválidos.
+| Membro                       | Valor       |
+| ---------------------------- | ----------- |
+| `PatchOperationType.ADD`     | `'add'`     |
+| `PatchOperationType.REMOVE`  | `'remove'`  |
+| `PatchOperationType.REPLACE` | `'replace'` |
+| `PatchOperationType.MOVE`    | `'move'`    |
+| `PatchOperationType.COPY`    | `'copy'`    |
+| `PatchOperationType.TEST`    | `'test'`    |

@@ -45,4 +45,26 @@ describe(JsYamlParser.name, () => {
         const result = parser.parse('');
         expect(result).toEqual({});
     });
+
+    // ── Security regression: JSON_SCHEMA must be applied ──────────────────
+    it('rejects !!js/function tags — does not execute arbitrary code', () => {
+        // js-yaml default schema recognises !!js/function and !!js/regexp.
+        // JsYamlParser must use JSON_SCHEMA to prevent this downgrade.
+        // With JSON_SCHEMA, this tag is unrecognised and js-yaml throws a YAMLException.
+        const parser = new JsYamlParser();
+        expect(() => parser.parse('fn: !!js/function "function(){ return 42; }"')).toThrow();
+    });
+
+    it('rejects !!js/regexp tags — does not construct arbitrary RegExp objects', () => {
+        const parser = new JsYamlParser();
+        expect(() => parser.parse('pattern: !!js/regexp /.*/')).toThrow();
+    });
+
+    it('accepts valid JSON-schema-safe YAML tags (null, bool, int, float, str)', () => {
+        const parser = new JsYamlParser();
+        const result = parser.parse(
+            'active: true\ncount: 42\nratio: 1.5\nlabel: text\nempty: null',
+        );
+        expect(result).toEqual({ active: true, count: 42, ratio: 1.5, label: 'text', empty: null });
+    });
 });

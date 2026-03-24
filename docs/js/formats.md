@@ -6,15 +6,16 @@ outline: deep
 
 ## Table of Contents
 
-- [Working with XML](#working-with-xml)
-- [Working with YAML](#working-with-yaml)
-- [Working with TOML](#working-with-toml)
-- [Working with INI](#working-with-ini)
-- [Working with ENV](#working-with-env)
-- [Working with CSV](#working-with-csv)
-- [Custom Accessors](#custom-accessors)
-- [ESM and CommonJS](#esm-and-commonjs)
-- [TypeScript Support](#typescript-support)
+- [Formats \& TypeScript — JavaScript / TypeScript](#formats--typescript--javascript--typescript)
+    - [Table of Contents](#table-of-contents)
+    - [Working with Formats](#working-with-formats)
+        - [Working with XML](#working-with-xml)
+        - [Working with YAML](#working-with-yaml)
+        - [Working with TOML](#working-with-toml)
+        - [Working with INI](#working-with-ini)
+        - [Working with ENV](#working-with-env)
+    - [Format Conversion](#format-conversion)
+    - [TypeScript Support](#typescript-support)
 
 ---
 
@@ -95,53 +96,9 @@ accessor.get("APP_NAME"); // "MyApp"
 accessor.get("APP_KEY"); // "secret-key"
 ```
 
-### Working with CSV
+````
 
-```typescript
-const csv = `name,age,city
-Ana,30,Porto Alegre
-Bob,25,São Paulo`;
-
-const accessor = SafeAccess.fromCsv(csv);
-accessor.get("0.name"); // "Ana"
-accessor.get("1.city"); // "São Paulo"
-accessor.get("*.name"); // ["Ana", "Bob"]
-```
-
-### Custom accessors
-
-```typescript
-import { AbstractAccessor } from "@safe-access-inline/safe-access-inline";
-
-class MyFormatAccessor extends AbstractAccessor {
-    static from(data: unknown): MyFormatAccessor {
-        return new MyFormatAccessor(data);
-    }
-
-    protected parse(raw: unknown): Record<string, unknown> {
-        // Your custom parsing logic
-        return { parsed: raw };
-    }
-
-    clone(data: Record<string, unknown>): MyFormatAccessor {
-        const inst = Object.create(MyFormatAccessor.prototype);
-        inst.raw = this.raw;
-        inst.data = data;
-        return inst;
-    }
-}
-
-// Register
-SafeAccess.extend("myformat", MyFormatAccessor);
-
-// Use
-const accessor = SafeAccess.custom("myformat", data);
-accessor.get("parsed");
-```
-
----
-
-## ESM and CommonJS
+---\n\n## ESM and CommonJS
 
 The package ships dual ESM/CJS builds:
 
@@ -151,7 +108,58 @@ import { SafeAccess } from "@safe-access-inline/safe-access-inline";
 
 // CommonJS
 const { SafeAccess } = require("@safe-access-inline/safe-access-inline");
+````
+
+---
+
+## Format Conversion
+
+Every accessor can be serialized to any supported format — no re-parsing needed. This makes cross-format conversion a one-liner:
+
+```typescript
+import { SafeAccess } from "@safe-access-inline/safe-access-inline";
+
+// YAML → JSON
+const accessor = SafeAccess.fromYaml(`
+app:
+  name: MyApp
+  version: "2.0"
+database:
+  host: localhost
+  port: 5432
+`);
+
+accessor.toJson(true);
+// {
+//   "app": { "name": "MyApp", "version": "2.0" },
+//   "database": { "host": "localhost", "port": 5432 }
+// }
+
+// JSON → TOML
+const json = SafeAccess.fromJson('{"title":"My App","port":8080}');
+json.toToml();
+// title = "My App"
+// port = 8080
+
+// TOML → YAML
+const toml = SafeAccess.fromToml(`
+title = "Config"
+[db]
+host = "localhost"
+`);
+toml.toYaml();
+// title: Config
+// db:
+//   host: localhost
+
+// JSON → XML
+const data = SafeAccess.fromJson('{"user":{"name":"Ana","role":"admin"}}');
+data.toXml("root");
+// <?xml version="1.0"?>
+// <root><user><name>Ana</name><role>admin</role></user></root>
 ```
+
+> **Tip:** Convert between formats as part of a build pipeline or data migration — load from one format, mutate immutably, serialize to another.
 
 ---
 
@@ -163,7 +171,6 @@ Full TypeScript definitions are included. All public types are exported:
 import {
     SafeAccess,
     AbstractAccessor,
-    DotNotationParser,
     TypeDetector,
     PluginRegistry,
     ArrayAccessor,
@@ -173,7 +180,6 @@ import {
     YamlAccessor,
     TomlAccessor,
     IniAccessor,
-    CsvAccessor,
     EnvAccessor,
     AccessorError,
     InvalidFormatError,
@@ -189,40 +195,5 @@ import type {
     ParserPlugin,
     SerializerPlugin,
     AccessorInterface,
-    ReadableInterface,
-    WritableInterface,
-    TransformableInterface,
-    DeepPaths,
-    ValueAtPath,
 } from "@safe-access-inline/safe-access-inline";
-```
-
-### Type-Safe Path Inference
-
-```typescript
-import type {
-    DeepPaths,
-    ValueAtPath,
-} from "@safe-access-inline/safe-access-inline";
-
-type AppConfig = {
-    db: { host: string; port: number };
-    cache: { enabled: boolean; ttl: number };
-};
-
-// Autocomplete all valid paths
-type Paths = DeepPaths<AppConfig>;
-// "db" | "db.host" | "db.port" | "cache" | "cache.enabled" | "cache.ttl"
-
-// Resolve value types
-type Host = ValueAtPath<AppConfig, "db.host">; // string
-type TTL = ValueAtPath<AppConfig, "cache.ttl">; // number
-
-// Build your own typed getter
-function getTyped<P extends DeepPaths<AppConfig>>(
-    accessor: AbstractAccessor,
-    path: P,
-): ValueAtPath<AppConfig, P> {
-    return accessor.get(path) as ValueAtPath<AppConfig, P>;
-}
 ```

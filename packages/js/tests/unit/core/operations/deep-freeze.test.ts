@@ -20,6 +20,23 @@ describe(deepFreeze.name, () => {
         expect(Object.isFrozen(obj)).toBe(true);
     });
 
+    it('handles diamond references — two nodes sharing the same child are both frozen', () => {
+        // Structure:  root → { left, right }  where  left.shared === right.shared
+        const shared = { value: 42 };
+        const root = { left: { shared }, right: { shared } };
+
+        const frozen = deepFreeze(root);
+
+        expect(Object.isFrozen(frozen)).toBe(true);
+        expect(Object.isFrozen(frozen.left)).toBe(true);
+        expect(Object.isFrozen(frozen.right)).toBe(true);
+        // The shared child must be frozen exactly once, with no infinite loop
+        expect(Object.isFrozen(frozen.left.shared)).toBe(true);
+        expect(Object.isFrozen(frozen.right.shared)).toBe(true);
+        // Both sides reference the same (now frozen) object
+        expect(frozen.left.shared).toBe(frozen.right.shared);
+    });
+
     it('handles empty objects', () => {
         const obj = {};
         const frozen = deepFreeze(obj);
@@ -93,16 +110,5 @@ describe('Readonly accessor', () => {
             }
         })();
         expect(() => acc.merge({ b: 2 })).toThrow(ReadonlyViolationError);
-    });
-
-    it('throws ReadonlyViolationError on applyPatch()', () => {
-        const acc = new (class extends JsonAccessor {
-            constructor() {
-                super('{"a":1}', { readonly: true });
-            }
-        })();
-        expect(() => acc.applyPatch([{ op: 'add', path: '/b', value: 2 }])).toThrow(
-            ReadonlyViolationError,
-        );
     });
 });

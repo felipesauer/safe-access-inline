@@ -1,5 +1,4 @@
 import { SecurityError } from '../../exceptions/security.error';
-import { emitAudit } from '../audit/audit-emitter';
 
 const FORBIDDEN_KEYS = new Set([
     '__proto__',
@@ -23,6 +22,17 @@ const FORBIDDEN_KEYS = new Set([
  */
 export class SecurityGuard {
     /**
+     * Returns `true` when `key` is a forbidden prototype-pollution vector,
+     * without throwing. Useful for read-path guards where the safe behaviour
+     * is to silently skip / return a default rather than to error.
+     *
+     * @param key - The property name to test.
+     */
+    static isForbiddenKey(key: string): boolean {
+        return FORBIDDEN_KEYS.has(key);
+    }
+
+    /**
      * Throws if `key` is a prototype-pollution vector.
      *
      * @param key - The property name to validate.
@@ -30,7 +40,6 @@ export class SecurityGuard {
      */
     static assertSafeKey(key: string): void {
         if (FORBIDDEN_KEYS.has(key)) {
-            emitAudit('security.violation', { reason: 'forbidden_key', key });
             throw new SecurityError(
                 `Forbidden key '${key}' detected. This key is blocked to prevent prototype pollution.`,
             );

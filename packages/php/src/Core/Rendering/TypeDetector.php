@@ -32,6 +32,17 @@ use SafeAccessInline\Exceptions\UnsupportedTypeException;
  */
 final class TypeDetector
 {
+    /**
+     * Detects the format of `$data` and returns the appropriate Accessor instance.
+     *
+     * Detection order: array → SimpleXMLElement → object → JSON → XML → YAML →
+     * TOML → INI → ENV. Throws when no format can be inferred.
+     *
+     * @param  mixed $data Raw input to detect and wrap.
+     * @return AbstractAccessor<array<mixed>> Accessor instance wrapping the detected data.
+     *
+     * @throws \SafeAccessInline\Exceptions\UnsupportedTypeException When the format cannot be auto-detected.
+     */
     public static function resolve(mixed $data): AbstractAccessor
     {
         if (is_array($data)) {

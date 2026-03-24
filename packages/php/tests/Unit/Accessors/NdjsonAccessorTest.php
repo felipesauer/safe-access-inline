@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use SafeAccessInline\Accessors\NdjsonAccessor;
 use SafeAccessInline\Exceptions\InvalidFormatException;
 use SafeAccessInline\SafeAccess;
@@ -49,14 +51,6 @@ describe(NdjsonAccessor::class, function () {
     it('supports wildcard paths', function () use ($ndjson) {
         $acc = NdjsonAccessor::from($ndjson);
         expect($acc->get('*.name'))->toBe(['Ana', 'Bob', 'Carlos']);
-    });
-
-    it('toNdjson serializes back', function () use ($ndjson) {
-        $acc = NdjsonAccessor::from($ndjson);
-        $output = $acc->toNdjson();
-        $lines = explode("\n", $output);
-        expect(count($lines))->toBe(3);
-        expect(json_decode($lines[0], true))->toBe(['name' => 'Ana', 'age' => 30]);
     });
 });
 

@@ -3,7 +3,7 @@ import { execSync } from "node:child_process";
 import { resolve, join } from "node:path";
 
 const CLI = resolve(__dirname, "../dist/cli.mjs");
-const FIXTURES = resolve(__dirname, "../../js/tests/fixtures");
+const FIXTURES = resolve(__dirname, "./fixtures");
 
 function run(args: string, input?: string): string {
     const cmd = `node ${CLI} ${args}`;
@@ -42,15 +42,22 @@ function runWithExit(args: string): {
 const configJson = join(FIXTURES, "config.json");
 const configYaml = join(FIXTURES, "config.yaml");
 const configToml = join(FIXTURES, "config.toml");
-const overrideJson = join(FIXTURES, "override.json");
 
 beforeAll(() => {
     // Ensure CLI is built
-    execSync("npm run build", {
-        cwd: resolve(__dirname, ".."),
-        stdio: "ignore",
-        timeout: 30_000,
-    });
+    try {
+        execSync("npm run build", {
+            cwd: resolve(__dirname, ".."),
+            stdio: ["pipe", "pipe", "pipe"],
+            timeout: 30_000,
+        });
+    } catch (err: unknown) {
+        const e = err as { stderr?: Buffer | string; stdout?: Buffer | string };
+        const detail = String(e.stderr ?? e.stdout ?? "").trim();
+        throw new Error(`CLI build failed${detail ? `:\n${detail}` : ""}`, {
+            cause: err,
+        });
+    }
 });
 
 describe("CLI — help & version", () => {
@@ -120,17 +127,13 @@ describe("CLI — get", () => {
 
 describe("CLI — set", () => {
     it("sets a value and outputs JSON", () => {
-        const out = run(
-            `set ${configJson} "database.port" 3306 --to json --pretty`,
-        );
+        const out = run(`set ${configJson} "database.port" 3306 --pretty`);
         const parsed = JSON.parse(out);
         expect(parsed.database.port).toBe(3306);
     });
 
     it("sets a string value", () => {
-        const out = run(
-            `set ${configJson} "database.host" '"newhost"' --to json`,
-        );
+        const out = run(`set ${configJson} "database.host" '"newhost"'`);
         const parsed = JSON.parse(out);
         expect(parsed.database.host).toBe("newhost");
     });
@@ -138,93 +141,10 @@ describe("CLI — set", () => {
 
 describe("CLI — remove", () => {
     it("removes a path and outputs JSON", () => {
-        const out = run(
-            `remove ${configJson} "database.port" --to json --pretty`,
-        );
+        const out = run(`remove ${configJson} "database.port" --pretty`);
         const parsed = JSON.parse(out);
         expect(parsed.database.port).toBeUndefined();
         expect(parsed.database.host).toBe("localhost");
-    });
-});
-
-describe("CLI — transform", () => {
-    it("transforms YAML to JSON", () => {
-        const out = run(`transform ${configYaml} --to json --pretty`);
-        const parsed = JSON.parse(out);
-        expect(parsed.app.name).toBe("test-app");
-    });
-
-    it("transforms JSON to YAML", () => {
-        const out = run(`transform ${configJson} --to yaml`);
-        expect(out).toContain("app:");
-        expect(out).toContain("name: test-app");
-    });
-
-    it("transforms JSON to TOML", () => {
-        const out = run(`transform ${configJson} --to toml`);
-        expect(out).toContain("[app]");
-        expect(out).toContain("[database]");
-    });
-
-    it("shows usage error without --to", () => {
-        const { stderr, code } = runWithExit(`transform ${configJson}`);
-        expect(code).toBe(1);
-        expect(stderr).toContain("Usage:");
-    });
-});
-
-describe("CLI — diff", () => {
-    it("diffs two JSON files", () => {
-        const out = run(`diff ${configJson} ${overrideJson}`);
-        const patches = JSON.parse(out);
-        expect(Array.isArray(patches)).toBe(true);
-        expect(patches.length).toBeGreaterThan(0);
-        const ops = patches.map((p: { op: string }) => p.op);
-        expect(ops).toContain("replace");
-    });
-
-    it("shows usage error without two files", () => {
-        const { stderr, code } = runWithExit(`diff ${configJson}`);
-        expect(code).toBe(1);
-        expect(stderr).toContain("Usage:");
-    });
-});
-
-describe("CLI — mask", () => {
-    it("masks sensitive keys", () => {
-        const out = run(`mask ${configJson} --patterns "host" --pretty`);
-        const parsed = JSON.parse(out);
-        expect(parsed.database.host).toBe("[REDACTED]");
-        expect(parsed.database.port).toBe(5432);
-    });
-
-    it("masks with wildcard pattern", () => {
-        const out = run(`mask ${configJson} --patterns "ho*" --pretty`);
-        const parsed = JSON.parse(out);
-        expect(parsed.database.host).toBe("[REDACTED]");
-    });
-
-    it("shows usage error without --patterns", () => {
-        const { stderr, code } = runWithExit(`mask ${configJson}`);
-        expect(code).toBe(1);
-        expect(stderr).toContain("Usage:");
-    });
-});
-
-describe("CLI — layer", () => {
-    it("layers two config files", () => {
-        const out = run(`layer ${configJson} ${overrideJson} --pretty`);
-        const parsed = JSON.parse(out);
-        expect(parsed.app.name).toBe("override-app");
-        expect(parsed.app.debug).toBe(true);
-        expect(parsed.database.host).toBe("localhost");
-        expect(parsed.cache.driver).toBe("redis");
-    });
-
-    it("layers YAML and JSON", () => {
-        const out = run(`layer ${configYaml} ${overrideJson} --pretty`);
-        const parsed = JSON.parse(out);
-        expect(parsed.app.name).toBe("override-app");
     });
 });
 
@@ -293,56 +213,6 @@ describe("CLI — stdin", () => {
         const input = '{"name": "test", "age": 30}';
         const out = run('get - "name"', input);
         expect(out).toBe("test");
-    });
-
-    it("transforms stdin data", () => {
-        const input = '{"app": {"name": "cli-test"}}';
-        const out = run("transform - --to yaml", input);
-        expect(out).toContain("app:");
-        expect(out).toContain("name: cli-test");
-    });
-});
-
-const configSchema = join(FIXTURES, "config.schema.json");
-const configFailSchema = join(FIXTURES, "config-fail.schema.json");
-
-describe("CLI — validate", () => {
-    it("validates valid data with text output", () => {
-        const out = run(`validate ${configJson} --schema ${configSchema}`);
-        expect(out).toBe("valid");
-    });
-
-    it("validates valid data with json output", () => {
-        const out = run(
-            `validate ${configJson} --schema ${configSchema} --format json`,
-        );
-        const result = JSON.parse(out);
-        expect(result.valid).toBe(true);
-        expect(result.errors).toEqual([]);
-    });
-
-    it("reports validation errors with text output", () => {
-        const { stderr, code } = runWithExit(
-            `validate ${configJson} --schema ${configFailSchema}`,
-        );
-        expect(code).toBe(1);
-        expect(stderr).toContain("missing_field");
-    });
-
-    it("reports validation errors with json output", () => {
-        const { stdout, code } = runWithExit(
-            `validate ${configJson} --schema ${configFailSchema} --format json`,
-        );
-        expect(code).toBe(1);
-        const result = JSON.parse(stdout);
-        expect(result.valid).toBe(false);
-        expect(result.errors.length).toBeGreaterThan(0);
-    });
-
-    it("shows usage when no schema provided", () => {
-        const { stderr, code } = runWithExit(`validate ${configJson}`);
-        expect(code).toBe(1);
-        expect(stderr).toContain("Usage:");
     });
 });
 

@@ -6,135 +6,8 @@ outline: deep
 
 ## Table of Contents
 
-- [Array Operations](#array-operations)
-- [JSON Patch & Diff](#json-patch--diff)
-- [I/O & File Loading](#io--file-loading)
-- [Layered Configuration](#layered-configuration)
-
-## Array Operations
-
-All array operations return **new instances** — the original is never mutated.
-
-```php
-$accessor = SafeAccess::fromArray([
-    'tags' => ['php', 'laravel', 'php'],
-    'users' => [
-        ['name' => 'Ana', 'age' => 30],
-        ['name' => 'Bob', 'age' => 25],
-        ['name' => 'Carol', 'age' => 30],
-    ],
-]);
-
-// Append items
-$new = $accessor->push('tags', 'safe-access');
-// ['php', 'laravel', 'php', 'safe-access']
-
-// Remove last / first
-$new = $accessor->pop('tags');     // removes last element
-$new = $accessor->shift('tags');   // removes first element
-
-// Prepend
-$new = $accessor->unshift('tags', 'first');
-
-// Insert at index (supports negative indices)
-$new = $accessor->insert('tags', 1, 'inserted');
-
-// Filter
-$adults = $accessor->filterAt('users', fn($u) => $u['age'] >= 30);
-
-// Map / transform
-$names = $accessor->mapAt('users', fn($u) => $u['name']);
-
-// Sort
-$sorted = $accessor->sortAt('users', 'name');        // ascending by 'name'
-$desc   = $accessor->sortAt('users', 'age', 'desc'); // descending by 'age'
-
-// Unique
-$unique = $accessor->unique('tags');                  // removes duplicate 'php'
-$byAge  = $accessor->unique('users', 'age');          // unique by sub-key
-
-// Flatten
-$flat = SafeAccess::fromArray(['matrix' => [[1, 2], [3, 4]]])
-    ->flatten('matrix');  // [1, 2, 3, 4]
-
-// Access helpers
-$accessor->first('users');    // ['name' => 'Ana', 'age' => 30]
-$accessor->last('users');     // ['name' => 'Carol', 'age' => 30]
-$accessor->nth('users', 1);   // ['name' => 'Bob', 'age' => 25]
-$accessor->nth('users', -1);  // ['name' => 'Carol', 'age' => 30]
-```
-
----
-
-## JSON Patch & Diff
-
-Generate and apply RFC 6902 JSON Patch operations:
-
-```php
-$a = SafeAccess::fromArray(['name' => 'Ana', 'age' => 30]);
-$b = SafeAccess::fromArray(['name' => 'Ana', 'age' => 31, 'city' => 'SP']);
-
-// Generate diff
-$ops = $a->diff($b);
-// [
-//   ['op' => 'replace', 'path' => '/age', 'value' => 31],
-//   ['op' => 'add', 'path' => '/city', 'value' => 'SP'],
-// ]
-
-// Apply patch (returns new instance)
-$patched = $a->applyPatch([
-    ['op' => 'replace', 'path' => '/age', 'value' => 31],
-    ['op' => 'add',     'path' => '/city', 'value' => 'SP'],
-    ['op' => 'remove',  'path' => '/age'],
-]);
-```
-
-All RFC 6902 operations are supported:
-
-```php
-$patched = $a->applyPatch([
-    // move — move a value from one path to another
-    ['op' => 'move', 'from' => '/age', 'path' => '/years'],
-    // copy — copy a value to a new path
-    ['op' => 'copy', 'from' => '/name', 'path' => '/alias'],
-    // test — assert a value equals the expected value (throws on mismatch)
-    ['op' => 'test', 'path' => '/name', 'value' => 'Ana'],
-]);
-```
-
-Supported operations: `add`, `replace`, `remove`, `move`, `copy`, `test`.
-
----
-
-## I/O & File Loading
-
-### Load from file
-
-```php
-// Auto-detect format from extension
-$config = SafeAccess::fromFile('/app/config.json');
-$config = SafeAccess::fromFile('/app/config.yaml');
-
-// Explicit format
-$config = SafeAccess::fromFile('/app/data.txt', 'json');
-
-// Restrict allowed directories (path-traversal protection)
-$config = SafeAccess::fromFile('/app/config.json', null, ['/app']);
-```
-
-### Load from URL
-
-```php
-// HTTPS-only, SSRF-safe
-$data = SafeAccess::fromUrl('https://api.example.com/config.json');
-
-// With restrictions
-$data = SafeAccess::fromUrl('https://api.example.com/data', 'json', [
-    'allowedHosts' => ['api.example.com'],
-    'allowedPorts' => [443],
-    'allowPrivateIps' => false,
-]);
-```
+- [Configuration reference](#configuration-reference)
+- [PHPStan Integration](#phpstan-integration)
 
 ### NDJSON support
 
@@ -148,32 +21,102 @@ $accessor->toNdjson();      // back to NDJSON string
 
 ---
 
-## Layered Configuration
+## Configuration reference
 
-Merge multiple config sources (last-wins):
+The package exposes configuration classes for advanced consumers who want to tune limits explicitly.
 
-```php
-// Layer accessor instances
-$defaults = SafeAccess::fromFile('/app/config/defaults.yaml');
-$env      = SafeAccess::fromFile('/app/config/production.yaml');
-$config   = SafeAccess::layer([$defaults, $env]);
+### `CacheConfig` — tune path cache size
 
-$config->get('database.host'); // value from production.yaml (if present)
+`PathCache` stores parsed dot-notation paths so repeated `->get('a.b.c')` calls skip re-parsing. The default limit is `1000` entries (LRU eviction).
 
-// Convenience: layer from files
-$config = SafeAccess::layerFiles([
-    '/app/config/defaults.yaml',
-    '/app/config/production.yaml',
-], ['/app/config']); // allowed directories
-```
-
-### File watching
+**When to change:** high-frequency access patterns with hundreds of unique paths benefit from a larger cache. Reduce it in memory-constrained environments.
 
 ```php
-$stop = SafeAccess::watchFile('/app/config.json', function ($accessor) {
-    echo "Config updated: " . $accessor->get('version') . "\n";
-});
+use SafeAccessInline\Core\PathCache;
+use SafeAccessInline\Core\Config\CacheConfig;
 
-// Later: stop watching
-$stop();
+// Increase cache for a path-heavy workload
+PathCache::configure(new CacheConfig(maxSize: 5_000));
+
+// Check current size
+PathCache::size(); // int — number of cached entries
+
+// Pre-warm the cache with paths used in hot loops
+$paths = ['user.name', 'user.email', 'user.role', 'settings.theme'];
+foreach ($paths as $path) {
+    $accessor->get($path); // populates the cache
+}
+
+// Disable the cache entirely (useful in tests)
+PathCache::disable();
+// ... run tests ...
+PathCache::enable();
+
+// Or clear between test cases
+PathCache::clear();
 ```
+
+### `ParserConfig` — tune recursion limits
+
+`ParserConfig` controls two depth limits:
+
+- `maxResolveDepth` — maximum recursion depth when resolving nested paths (default: `512`)
+- `maxXmlDepth` — maximum tag nesting depth when parsing XML (default: `100`)
+
+**When to change:** lower `maxXmlDepth` to harden against deeply nested XML payloads from untrusted sources.
+
+```php
+use SafeAccessInline\Core\Config\ParserConfig;
+
+$config = new ParserConfig(
+    maxResolveDepth: 512,
+    maxXmlDepth: 50, // stricter limit for untrusted XML
+);
+```
+
+---
+
+## PHPStan Integration
+
+The package ships a custom PHPStan extension that narrows the return type of `get()` at static-analysis time when the accessor is annotated with a concrete shape. Without the extension, `get()` returns `mixed`.
+
+### Enabling the Extension
+
+Add the extension to your project's PHPStan configuration:
+
+```neon
+# phpstan.neon
+includes:
+    - vendor/safe-access-inline/safe-access-inline/phpstan-extension.neon
+```
+
+### How it Works
+
+Annotate any accessor variable with `@var AccessorClass<array{...}>` using an inline shape. The extension resolves the return type of `get()` based on the shape at the called path:
+
+```php
+use SafeAccessInline\SafeAccess;
+use SafeAccessInline\Accessors\JsonAccessor;
+
+/** @var JsonAccessor<array{user: array{name: string, age: int}, active: bool}> $acc */
+$acc = SafeAccess::fromJson($json);
+
+$name   = $acc->get('user.name');   // PHPStan: string|null
+$age    = $acc->get('user.age', 0); // PHPStan: int
+$active = $acc->get('active');      // PHPStan: bool|null
+$city   = $acc->get('user.city');   // PHPStan: mixed  (not in shape → fallback)
+```
+
+Without the annotation, `get()` returns `mixed` — full backward compatibility is preserved.
+
+### Supported Accessor Classes
+
+The extension applies to all concrete accessor classes:
+
+- `ArrayAccessor`, `ObjectAccessor`, `JsonAccessor`
+- `XmlAccessor`, `YamlAccessor`, `TomlAccessor`
+- `IniAccessor`, `EnvAccessor`, `NdjsonAccessor`
+
+::: tip Generic shape requirement
+The shape type must be provided as the first template parameter: `AccessorClass<array{...}>`. Using `AbstractAccessor` directly as the annotated type is not supported by the extension — use the concrete subclass.
+:::

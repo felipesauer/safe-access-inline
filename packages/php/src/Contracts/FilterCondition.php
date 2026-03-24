@@ -9,14 +9,16 @@ namespace SafeAccessInline\Contracts;
  *
  * Represents a comparison like `field > value` or a function call
  * like `length(@.name) > 3`.
+ *
+ * @phpstan-type OperatorType '=='|'!='|'>'|'<'|'>='|'<='
  */
 final readonly class FilterCondition
 {
     /**
-     * @param string $field    The field path to evaluate (e.g. "age", "profile.name").
-     * @param string $operator The comparison operator (==, !=, >, <, >=, <=).
-     * @param mixed  $value    The value to compare against.
-     * @param string|null $func     Optional function name (e.g. "length", "match", "keys").
+     * @param string             $field    The field path to evaluate (e.g. "age", "profile.name").
+     * @param OperatorType       $operator The comparison operator (==, !=, >, <, >=, <=).
+     * @param mixed              $value    The value to compare against.
+     * @param string|null        $func     Optional function name (e.g. "length", "match", "keys").
      * @param array<string>|null $funcArgs Optional function arguments.
      */
     public function __construct(

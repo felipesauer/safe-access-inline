@@ -21,7 +21,7 @@ final class PathResolver
      * Recursively resolves a value by walking the segment array.
      *
      * @param mixed $current      Current node in the data tree.
-     * @param array<array{type: SegmentType|string, value?: string, key?: string, expression?: array<mixed>, indices?: array<int>, keys?: array<string>, start?: int|null, end?: int|null, step?: int|null}> $segments Parsed segment array.
+     * @param array<array{type: SegmentType|string, value?: string, key?: string, expression?: array<mixed>, indices?: array<int>, keys?: array<string>, fields?: list<array{alias: string, source: string}>, start?: int|null, end?: int|null, step?: int|null}> $segments Parsed segment array.
      * @param int   $index        Current position in the segment array.
      * @param mixed $default      Value returned when the path does not exist.
      * @param int   $maxDepth     Maximum recursion depth.
@@ -91,24 +91,29 @@ final class PathResolver
             );
         }
 
+        if ($segment['type'] === SegmentType::MULTI_KEY) {
+            if (!is_array($current)) {
+                return $default;
+            }
+            $nextIndex = $index + 1;
+            $segmentCount = count($segments);
+            /** @var array<string> $multiKeys */
+            $multiKeys = $segment['keys'] ?? [];
+            return array_map(function ($k) use ($current, $segments, $nextIndex, $segmentCount, $default, $maxDepth) {
+                $val = array_key_exists($k, $current) ? $current[$k] : $default;
+                if ($nextIndex >= $segmentCount) {
+                    return $val;
+                }
+                return self::resolve($val, $segments, $nextIndex, $default, $maxDepth);
+            }, $multiKeys);
+        }
+
         if ($segment['type'] === SegmentType::MULTI_INDEX) {
             if (!is_array($current)) {
                 return $default;
             }
             $nextIndex = $index + 1;
             $segmentCount = count($segments);
-            // Multi-key mode (string keys)
-            if (isset($segment['keys'])) {
-                /** @var array<string> $multiKeys */
-                $multiKeys = $segment['keys'];
-                return array_map(function ($k) use ($current, $segments, $nextIndex, $segmentCount, $default, $maxDepth) {
-                    $val = array_key_exists($k, $current) ? $current[$k] : $default;
-                    if ($nextIndex >= $segmentCount) {
-                        return $val;
-                    }
-                    return self::resolve($val, $segments, $nextIndex, $default, $maxDepth);
-                }, $multiKeys);
-            }
             // Numeric indices
             /** @var array<int> $indices */
             $indices = $segment['indices'] ?? [];
@@ -167,6 +172,49 @@ final class PathResolver
             );
         }
 
+        if ($segment['type'] === SegmentType::PROJECTION) {
+            /** @var array<array{alias: string, source: string}> $fields */
+            $fields = $segment['fields'] ?? [];
+            $projectItem = static function (mixed $item) use ($fields): array {
+                if (!is_array($item)) {
+                    $result = [];
+                    foreach ($fields as $field) {
+                        $result[$field['alias']] = null;
+                    }
+                    return $result;
+                }
+                $result = [];
+                foreach ($fields as $field) {
+                    $result[$field['alias']] = array_key_exists($field['source'], $item) ? $item[$field['source']] : null;
+                }
+                return $result;
+            };
+
+            $nextProjectionIndex = $index + 1;
+            $segmentCount = count($segments);
+
+            if (is_array($current) && array_is_list($current)) {
+                $projected = array_map($projectItem, $current);
+                if ($nextProjectionIndex >= $segmentCount) {
+                    return $projected;
+                }
+                return array_map(
+                    fn ($item) => self::resolve($item, $segments, $nextProjectionIndex, $default, $maxDepth),
+                    $projected
+                );
+            }
+
+            if (is_array($current)) {
+                $result = $projectItem($current);
+                if ($nextProjectionIndex >= $segmentCount) {
+                    return $result;
+                }
+                return self::resolve($result, $segments, $nextProjectionIndex, $default, $maxDepth);
+            }
+
+            return $default;
+        }
+
         // type === SegmentType::KEY
         /** @var string $keyValue */
         $keyValue = $segment['value'] ?? '';
@@ -177,13 +225,17 @@ final class PathResolver
     }
 
     /**
-     * @param mixed $current
-     * @param string $key
-     * @param array<array{type: SegmentType|string, value?: string, key?: string, expression?: array<mixed>, indices?: array<int>, keys?: array<string>, start?: int|null, end?: int|null, step?: int|null}> $segments
-     * @param int $nextIndex
-     * @param mixed $default
-     * @param int $maxDepth
-     * @return array<mixed>
+     * Collects all values matching the recursive-descent key and returns them as an array.
+     *
+     * Wraps {@see collectDescent()} and returns the accumulated result array.
+     *
+     * @param  mixed  $current   Current data node to start descent from.
+     * @param  string $key       Key to search for recursively.
+     * @param  array<array{type: SegmentType|string, value?: string, key?: string, expression?: array<mixed>, indices?: array<int>, keys?: array<string>, start?: int|null, end?: int|null, step?: int|null}> $segments Full segment array.
+     * @param  int    $nextIndex Segment index to continue resolution from after the key is found.
+     * @param  mixed  $default   Default value for unresolved continuations.
+     * @param  int    $maxDepth  Maximum recursion depth.
+     * @return array<mixed> All matched and post-processed values.
      */
     private static function resolveDescent(mixed $current, string $key, array $segments, int $nextIndex, mixed $default, int $maxDepth): array
     {
@@ -193,13 +245,20 @@ final class PathResolver
     }
 
     /**
-     * @param mixed $current
-     * @param string $key
-     * @param array<array{type: SegmentType|string, value?: string, key?: string, expression?: array<mixed>, indices?: array<int>, keys?: array<string>, start?: int|null, end?: int|null, step?: int|null}> $segments
-     * @param int $nextIndex
-     * @param mixed $default
-     * @param array<mixed> &$results
-     * @param int $maxDepth
+     * Recursively walks `$current` to accumulate values matching `$key`.
+     *
+     * For each node in the subtree: if the key exists, the associated value
+     * (or the result of continuing the segment chain) is appended to `$results`.
+     * The walk then descends into all child arrays regardless of whether the
+     * key was found at the current level.
+     *
+     * @param  mixed  $current   Current data node to inspect.
+     * @param  string $key       Key to search for at every level.
+     * @param  array<array{type: SegmentType|string, value?: string, key?: string, expression?: array<mixed>, indices?: array<int>, keys?: array<string>, start?: int|null, end?: int|null, step?: int|null}> $segments Full segment array.
+     * @param  int    $nextIndex Segment index to continue from after the key is found.
+     * @param  mixed  $default   Default value for unresolved continuations.
+     * @param  array<mixed> &$results Accumulator — matched values are appended here.
+     * @param  int    $maxDepth  Maximum recursion depth.
      */
     private static function collectDescent(mixed $current, string $key, array $segments, int $nextIndex, mixed $default, array &$results, int $maxDepth): void
     {

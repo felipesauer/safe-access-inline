@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace SafeAccessInline\Core\Registries;
 
 use SafeAccessInline\Contracts\ParserPluginInterface;
+use SafeAccessInline\Contracts\PluginRegistryInterface;
 use SafeAccessInline\Contracts\SerializerPluginInterface;
 use SafeAccessInline\Exceptions\UnsupportedTypeException;
 
@@ -14,18 +15,51 @@ use SafeAccessInline\Exceptions\UnsupportedTypeException;
  * Parsers are used by Accessors to convert raw input → array.
  * Serializers are used by toXml(), toYaml(), transform() to convert array → string.
  *
- * Built-in parsers (json, xml, ini, csv, env) are always available.
+ * Built-in parsers (json, xml, ini, env) are always available.
  * Optional parsers (yaml, toml) require registration via registerParser().
+ *
+ * All static methods delegate to a shared module-level default instance.
+ * For test isolation or DI, use {@see PluginRegistry::create()} to obtain
+ * a fresh {@see PluginRegistryInterface} instance that is fully independent.
+ *
+ * **Long-running runtimes (Swoole, RoadRunner, FrankenPHP):** Static state persists
+ * across requests. Call {@see PluginRegistry::reset()} in your worker boot/reset hook
+ * to prevent stale plugin registrations leaking between requests.
  */
 final class PluginRegistry
 {
-    /** @var array<string, ParserPluginInterface> */
-    private static array $parsers = [];
+    /** Default instance backing all static facade methods. */
+    private static ?PluginRegistryInterface $default = null;
 
-    /** @var array<string, SerializerPluginInterface> */
-    private static array $serializers = [];
+    // ── Factory & DI ────────────────────────────────
 
-    // ── Parser Registration ────────────────────────
+    /**
+     * Creates a new, isolated plugin registry instance.
+     *
+     * Use this in tests or DI contexts where you need a scope that is completely
+     * independent of the global default registry.
+     *
+     * @return PluginRegistryInterface A fresh, empty registry instance.
+     */
+    public static function create(): PluginRegistryInterface
+    {
+        return new PluginRegistryImpl();
+    }
+
+    /**
+     * Returns the global default registry instance backing all static methods.
+     *
+     * Prefer the static convenience methods for most use-cases; use `getDefault()`
+     * only when you need to pass the registry as a {@see PluginRegistryInterface} reference.
+     *
+     * @return PluginRegistryInterface The shared module-level instance.
+     */
+    public static function getDefault(): PluginRegistryInterface
+    {
+        return self::$default ??= new PluginRegistryImpl();
+    }
+
+    // ── Static Facade (backward-compatible API) ──────
 
     /**
      * Register a parser plugin for a given format.
@@ -35,14 +69,7 @@ final class PluginRegistry
      */
     public static function registerParser(string $format, ParserPluginInterface $parser): void
     {
-        if (isset(self::$parsers[$format])) {
-            trigger_error(
-                "[PluginRegistry] Parser for format '{$format}' is being overwritten. "
-                . 'Use PluginRegistry::reset() to clear all plugins first.',
-                E_USER_WARNING
-            );
-        }
-        self::$parsers[$format] = $parser;
+        self::getDefault()->registerParser($format, $parser);
     }
 
     /**
@@ -50,7 +77,7 @@ final class PluginRegistry
      */
     public static function hasParser(string $format): bool
     {
-        return isset(self::$parsers[$format]);
+        return self::getDefault()->hasParser($format);
     }
 
     /**
@@ -60,17 +87,8 @@ final class PluginRegistry
      */
     public static function getParser(string $format): ParserPluginInterface
     {
-        if (!isset(self::$parsers[$format])) {
-            throw new UnsupportedTypeException(
-                "No parser registered for format '{$format}'. "
-                . "Register one with: PluginRegistry::registerParser('{$format}', new YourParser())"
-            );
-        }
-
-        return self::$parsers[$format];
+        return self::getDefault()->getParser($format);
     }
-
-    // ── Serializer Registration ────────────────────
 
     /**
      * Register a serializer plugin for a given format.
@@ -80,14 +98,7 @@ final class PluginRegistry
      */
     public static function registerSerializer(string $format, SerializerPluginInterface $serializer): void
     {
-        if (isset(self::$serializers[$format])) {
-            trigger_error(
-                "[PluginRegistry] Serializer for format '{$format}' is being overwritten. "
-                . 'Use PluginRegistry::reset() to clear all plugins first.',
-                E_USER_WARNING
-            );
-        }
-        self::$serializers[$format] = $serializer;
+        self::getDefault()->registerSerializer($format, $serializer);
     }
 
     /**
@@ -95,7 +106,7 @@ final class PluginRegistry
      */
     public static function hasSerializer(string $format): bool
     {
-        return isset(self::$serializers[$format]);
+        return self::getDefault()->hasSerializer($format);
     }
 
     /**
@@ -105,17 +116,8 @@ final class PluginRegistry
      */
     public static function getSerializer(string $format): SerializerPluginInterface
     {
-        if (!isset(self::$serializers[$format])) {
-            throw new UnsupportedTypeException(
-                "No serializer registered for format '{$format}'. "
-                . "Register one with: PluginRegistry::registerSerializer('{$format}', new YourSerializer())"
-            );
-        }
-
-        return self::$serializers[$format];
+        return self::getDefault()->getSerializer($format);
     }
-
-    // ── Reset (for testing) ─────────────────────────
 
     /**
      * Clear all registered plugins. Intended for use in tests only.
@@ -124,7 +126,6 @@ final class PluginRegistry
      */
     public static function reset(): void
     {
-        self::$parsers = [];
-        self::$serializers = [];
+        self::getDefault()->reset();
     }
 }

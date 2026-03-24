@@ -78,6 +78,14 @@ describe('SecurityOptions', () => {
             expect(DEFAULT_SECURITY_OPTIONS.maxDepth).toBe(512);
             expect(DEFAULT_SECURITY_OPTIONS.maxPayloadBytes).toBe(10 * 1024 * 1024);
             expect(DEFAULT_SECURITY_OPTIONS.maxKeys).toBe(10_000);
+            expect(DEFAULT_SECURITY_OPTIONS.maxCountDepth).toBe(100);
+        });
+
+        // ── Security regression: maxCountDepth must be in config, not hardcoded ──
+        it('maxCountDepth is defined and is a finite positive integer', () => {
+            expect(typeof DEFAULT_SECURITY_OPTIONS.maxCountDepth).toBe('number');
+            expect(Number.isFinite(DEFAULT_SECURITY_OPTIONS.maxCountDepth)).toBe(true);
+            expect(DEFAULT_SECURITY_OPTIONS.maxCountDepth).toBeGreaterThan(0);
         });
     });
 
@@ -125,6 +133,16 @@ describe('SecurityOptions — assertions', () => {
         let obj: Record<string, unknown> = { leaf: 1 };
         for (let i = 0; i < 110; i++) obj = { n: obj };
         expect(() => assertMaxKeys(obj, 10000)).not.toThrow();
+    });
+
+    it('assertMaxKeys accepts custom maxCountDepth to limit traversal depth', () => {
+        // Build deeply nested object: 5 levels, each with one key
+        let deep: Record<string, unknown> = { v: 1 };
+        for (let i = 0; i < 5; i++) deep = { n: deep };
+        // With maxCountDepth=2, only top 2 levels are counted (stops early)
+        expect(() => assertMaxKeys(deep, 3, 2)).not.toThrow(); // counted < 3
+        // With full depth, all 6 keys are counted — exceeds limit of 3
+        expect(() => assertMaxKeys(deep, 3)).toThrow(SecurityError);
     });
 });
 

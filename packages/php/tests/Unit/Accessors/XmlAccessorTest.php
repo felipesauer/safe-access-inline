@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use SafeAccessInline\Accessors\XmlAccessor;
 use SafeAccessInline\Exceptions\InvalidFormatException;
 use SafeAccessInline\Exceptions\SecurityException;
@@ -108,6 +110,34 @@ describe(XmlAccessor::class, function () {
         expect($accessor->keys())->toBe(['a', 'b']);
     });
 
+    it('handles repeated tags as arrays', function () {
+        $xmlItems = '<root><item>A</item><item>B</item><item>C</item></root>';
+        $accessor = XmlAccessor::from($xmlItems);
+        expect($accessor->get('item'))->toBe(['A', 'B', 'C']);
+    });
+
+    it('handles self-closing tags', function () {
+        $xmlSelfClose = '<root><item/><other>val</other></root>';
+        $accessor = XmlAccessor::from($xmlSelfClose);
+        expect($accessor->has('item'))->toBeTrue();
+        expect($accessor->get('other'))->toBe('val');
+    });
+
+    it('handles XML with attributes (empty element)', function () {
+        $xmlAttrs = '<root><item id="1" type="main"/></root>';
+        $accessor = XmlAccessor::from($xmlAttrs);
+        expect($accessor->get('item.@attributes.id'))->toBe('1');
+        expect($accessor->get('item.@attributes.type'))->toBe('main');
+    });
+
+    it('handles XML with text and attributes (SimpleXML json_encode quirk)', function () {
+        $xmlAttrsText = '<root><item id="1" type="main">text</item></root>';
+        $accessor = XmlAccessor::from($xmlAttrsText);
+        // Unlike JS which parses explicitly, PHP SimpleXML drops attributes when json serialized as a scalar string
+        expect($accessor->get('item'))->toBe('text');
+        expect($accessor->has('item.@attributes'))->toBeFalse();
+    });
+
     it('toXml returns asXML when created from SimpleXMLElement', function () {
         $xml = new SimpleXMLElement('<root><name>Ana</name></root>');
         $accessor = XmlAccessor::from($xml);
@@ -131,6 +161,37 @@ describe(XmlAccessor::class, function () {
     it('rejects XML with DOCTYPE even without entities', function () {
         $doctypeXml = '<!DOCTYPE root SYSTEM "test.dtd"><root><a>1</a></root>';
         expect(fn () => XmlAccessor::from($doctypeXml))->toThrow(SecurityException::class);
+    });
+
+    // ── P3: maxXmlDepth ──────────────────────────────
+
+    it('rejects XML exceeding default max depth (P3)', function () {
+        // Build a deeply nested XML structure exceeding ParserConfig::DEFAULT_MAX_XML_DEPTH (100)
+        $inner = '';
+        for ($i = 0; $i < 110; $i++) {
+            $inner = "<item{$i}>{$inner}</item{$i}>";
+        }
+        $deep = "<root>{$inner}</root>";
+        expect(fn () => XmlAccessor::from($deep))->toThrow(SecurityException::class);
+    });
+
+    it('accepts XML within default max depth (P3)', function () {
+        // 5-level nesting is well within the 100 default
+        $xml = '<root><a><b><c><d><e>leaf</e></d></c></b></a></root>';
+        $accessor = XmlAccessor::from($xml);
+        expect($accessor->get('a.b.c.d.e'))->toBe('leaf');
+    });
+
+    // ── P4: SecurityGuard on tag/attribute names ──────
+
+    it('rejects XML containing a __proto__ tag name (P4)', function () {
+        $xml = '<root><__proto__>evil</__proto__></root>';
+        expect(fn () => XmlAccessor::from($xml))->toThrow(SecurityException::class);
+    });
+
+    it('rejects XML containing a constructor tag name (P4)', function () {
+        $xml = '<root><constructor>evil</constructor></root>';
+        expect(fn () => XmlAccessor::from($xml))->toThrow(SecurityException::class);
     });
 
 });

@@ -6,137 +6,9 @@ outline: deep
 
 ## Índice
 
-- [Operações de Array](#operações-de-array)
-- [JSON Patch & Diff](#json-patch--diff)
-- [I/O & Carregamento de Arquivos](#io--carregamento-de-arquivos)
-- [Configuração em Camadas](#configuração-em-camadas)
+- [Referência de configuração](#referência-de-configuração)
 
-## Operações de Array
-
-Todas as operações de array retornam **novas instâncias** — o original nunca é modificado.
-
-```typescript
-const accessor = SafeAccess.fromObject({
-    tags: ["js", "ts", "js"],
-    users: [
-        { name: "Ana", age: 30 },
-        { name: "Bob", age: 25 },
-        { name: "Carol", age: 30 },
-    ],
-});
-
-// Adicionar itens
-const pushed = accessor.push("tags", "safe-access");
-// ['js', 'ts', 'js', 'safe-access']
-
-// Remover último / primeiro
-accessor.pop("tags"); // remove o último elemento
-accessor.shift("tags"); // remove o primeiro elemento
-
-// Inserir no início
-accessor.unshift("tags", "first");
-
-// Inserir no índice (suporta índices negativos)
-accessor.insert("tags", 1, "inserted");
-
-// Filtrar
-accessor.filterAt("users", (u) => u.age >= 30);
-
-// Map / transformar
-accessor.mapAt("users", (u) => u.name);
-
-// Ordenar
-accessor.sortAt("users", "name"); // ascendente por 'name'
-accessor.sortAt("users", "age", "desc"); // descendente por 'age'
-
-// Único
-accessor.unique("tags"); // remove 'js' duplicado
-accessor.unique("users", "age"); // único por sub-chave
-
-// Achatar
-SafeAccess.fromObject({
-    matrix: [
-        [1, 2],
-        [3, 4],
-    ],
-}).flatten("matrix");
-// [1, 2, 3, 4]
-
-// Helpers de acesso
-accessor.first("users"); // { name: 'Ana', age: 30 }
-accessor.last("users"); // { name: 'Carol', age: 30 }
-accessor.nth("users", 1); // { name: 'Bob', age: 25 }
-accessor.nth("users", -1); // { name: 'Carol', age: 30 }
-```
-
----
-
-## JSON Patch & Diff
-
-Gere e aplique operações de JSON Patch conforme RFC 6902:
-
-```typescript
-import {
-    SafeAccess,
-    diff,
-    applyPatch,
-} from "@safe-access-inline/safe-access-inline";
-
-const a = SafeAccess.fromObject({ name: "Ana", age: 30 });
-const b = SafeAccess.fromObject({ name: "Ana", age: 31, city: "SP" });
-
-// Método de instância
-const ops = a.diff(b);
-// [
-//   { op: 'replace', path: '/age', value: 31 },
-//   { op: 'add', path: '/city', value: 'SP' },
-// ]
-
-// Aplicar patch (retorna nova instância)
-const patched = a.applyPatch([
-    { op: "replace", path: "/age", value: 31 },
-    { op: "add", path: "/city", value: "SP" },
-]);
-
-// Funções standalone também disponíveis
-const ops2 = diff(a.all(), b.all());
-const result = applyPatch(a.all(), ops2);
-```
-
-Operações suportadas: `add`, `replace`, `remove`, `move`, `copy`, `test`.
-
----
-
-## I/O & Carregamento de Arquivos
-
-### Carregar de arquivo
-
-```typescript
-// Auto-detectar formato pela extensão
-const config = SafeAccess.fromFileSync("/app/config.json");
-
-// Assíncrono
-const config2 = await SafeAccess.fromFile("/app/config.yaml");
-
-// Restringir diretórios permitidos (proteção contra path-traversal)
-const safe = SafeAccess.fromFileSync("/app/config.json", undefined, ["/app"]);
-```
-
-### Carregar de URL
-
-```typescript
-// Apenas HTTPS, seguro contra SSRF
-const data = await SafeAccess.fromUrl("https://api.example.com/config.json");
-
-// Com restrições
-const data2 = await SafeAccess.fromUrl("https://api.example.com/data", "json", {
-    allowedHosts: ["api.example.com"],
-    allowedPorts: [443],
-    allowPrivateIps: false,
-});
-```
-
-### Suporte a NDJSON
+## Suporte a NDJSON
 
 ```typescript
 const ndjson = '{"id":1}\n{"id":2}';
@@ -148,25 +20,53 @@ accessor.toNdjson(); // volta para string NDJSON
 
 ---
 
-## Configuração em Camadas
+## Referência de configuração
 
-Mescle múltiplas fontes de configuração (último vence):
+O pacote exporta interfaces de configuração e objetos default para consumidores avançados que precisam ajustar limites explicitamente.
+
+### `CacheConfig` — ajustar tamanho do cache de paths
+
+`PathCache` armazena paths dot-notation já parseados para que chamadas repetidas de `get("a.b.c")` não precisem re-parsear. O limite padrão é de `1000` entradas (evicção LRU).
+
+**Quando alterar:** padrões de acesso de alta frequência com centenas de paths únicos se beneficiam de um cache maior. Reduza em ambientes com memória limitada.
 
 ```typescript
-// Camadas de instâncias accessor
-const defaults = SafeAccess.fromFileSync("/app/config/defaults.json");
-const overrides = SafeAccess.fromFileSync("/app/config/local.json");
-const config = SafeAccess.layer([defaults, overrides]);
+import { PathCache } from "@safe-access-inline/safe-access-inline";
 
-// Conveniência: camadas a partir de arquivos
-const config2 = SafeAccess.layerFiles(
-    ["/app/config/defaults.yaml", "/app/config/production.yaml"],
-    ["/app/config"], // diretórios permitidos
-);
+// Aumentar o cache para cargas de trabalho com muitos paths
+PathCache.configure({ maxSize: 5_000 });
 
-// Observação de arquivos
-const stop = SafeAccess.watchFile("/app/config.json", (accessor) => {
-    console.log("Config atualizada:", accessor.get("version"));
-});
-// Depois: stop()
+// Verificar tamanho atual
+PathCache.size; // número de entradas em cache
+
+// Pré-aquecer o cache com paths usados em loops críticos
+const paths = ["user.name", "user.email", "user.role", "settings.theme"];
+const accessor = SafeAccess.fromObject(data);
+paths.forEach((p) => accessor.get(p)); // popula o cache
+
+// Desabilitar o cache completamente (útil em testes)
+PathCache.disable();
+// ... executar testes ...
+PathCache.enable();
+
+// Ou limpar entre casos de teste
+PathCache.clear();
+```
+
+### `ParserConfig` — ajustar limites de recursão
+
+`ParserConfig` controla dois limites de profundidade:
+
+- `maxResolveDepth` — profundidade máxima de recursão ao resolver paths aninhados (padrão: `512`)
+- `maxXmlDepth` — profundidade máxima de aninhamento de tags XML (padrão: `100`)
+
+**Quando alterar:** reduza `maxXmlDepth` para endurecer a biblioteca contra payloads XML muito aninhados vindos de fontes não confiáveis.
+
+```typescript
+import { DEFAULT_PARSER_CONFIG } from "@safe-access-inline/safe-access-inline";
+import type { ParserConfig } from "@safe-access-inline/safe-access-inline";
+
+// Verificar os valores padrão
+console.log(DEFAULT_PARSER_CONFIG);
+// { maxResolveDepth: 512, maxXmlDepth: 100 }
 ```

@@ -16,13 +16,13 @@ outline: deep
 - [Consultas e Filtros](/pt-br/js/querying)
 - [Formatos & TypeScript](/pt-br/js/formats)
 - [Recursos Avançados](/pt-br/js/advanced)
-- [Segurança & Integrações](/pt-br/js/security)
+- [Segurança](/pt-br/js/security)
 
 ---
 
 ## Requisitos
 
-- Node.js 24 ou superior
+- Node.js 22 ou superior
 - TypeScript 5.5+ (para projetos TypeScript)
 
 ## Instalação
@@ -30,6 +30,8 @@ outline: deep
 ```bash
 npm install @safe-access-inline/safe-access-inline
 ```
+
+> **Tree-shaking:** O pacote é marcado com `"sideEffects": false` e distribui bundles ESM/CJS. Bundlers ESM modernos (Vite, Rollup, webpack 5+) fazem tree-shaking de código não utilizado automaticamente.
 
 ## Uso Básico
 
@@ -106,7 +108,6 @@ const json = SafeAccess.detect('{"key": "value"}'); // JsonAccessor
 const accessor = SafeAccess.fromJson('{"name": "Ana", "age": 30}');
 
 accessor.toArray(); // { name: "Ana", age: 30 }
-accessor.toObject(); // cópia profunda como objeto plano
 accessor.toJson(); // '{"name":"Ana","age":30}'
 accessor.toJson(true); // JSON formatado
 
@@ -114,10 +115,9 @@ accessor.toJson(true); // JSON formatado
 accessor.toYaml(); // "name: Ana\nage: 30\n"
 accessor.toToml(); // 'name = "Ana"\nage = 30\n'
 accessor.toXml("person"); // usa serializador interno (plugin pode substituir)
-accessor.transform("yaml"); // delega para toYaml()
 ```
 
-> **Nota:** `toYaml()`, `toToml()` e `toXml()` funcionam sem configuração. `transform()` também utiliza os serializadores internos para `yaml`, `toml` e `csv`.
+> **Nota:** `toYaml()`, `toToml()` e `toXml()` funcionam sem configuração.
 
 ---
 
@@ -126,3 +126,67 @@ accessor.transform("yaml"); // delega para toYaml()
 YAML e TOML funcionam sem configuração, usando `js-yaml` e `smol-toml`. O Sistema de Plugins permite sobrescrever os parsers e serializers padrão com implementações customizadas.
 
 Consulte a página do [Sistema de Plugins](/pt-br/js/plugins) para documentação completa, plugins embutidos, exemplos customizados e utilitários de teste.
+
+---
+
+## Cenários Reais
+
+### 1. Carregar, ler e atualizar um arquivo de configuração JSON
+
+```typescript
+import { SafeAccess } from "@safe-access-inline/safe-access-inline";
+import { readFileSync, writeFileSync } from "node:fs";
+
+// Carregar e ler
+const raw = readFileSync("./config/app.json", "utf8");
+const cfg = SafeAccess.fromJson(raw);
+
+const host = cfg.get("database.host", "localhost");
+const port = cfg.get("database.port", 5432);
+console.log(`Conectando em ${host}:${port}`);
+
+// Aplicar patch e salvar de volta
+const updated = cfg.set("database.port", 5433).set("app.version", "2.1.0");
+
+writeFileSync("./config/app.json", updated.toJson(true), "utf8");
+```
+
+### 2. Parse de arquivo .env e construção de objeto de configuração tipado
+
+```typescript
+import { SafeAccess } from "@safe-access-inline/safe-access-inline";
+import { readFileSync } from "node:fs";
+
+const env = readFileSync(".env", "utf8");
+const accessor = SafeAccess.fromEnv(env);
+
+interface AppConfig {
+    apiUrl: string;
+    port: number;
+    debug: boolean;
+}
+
+const config: AppConfig = {
+    apiUrl: accessor.get("API_URL", "http://localhost") as string,
+    port: Number(accessor.get("PORT", "3000")),
+    debug: accessor.get("DEBUG", "false") === "true",
+};
+```
+
+### 3. Mesclar override de ambiente sobre configuração base YAML
+
+```typescript
+import { SafeAccess } from "@safe-access-inline/safe-access-inline";
+import { readFileSync } from "node:fs";
+
+const base = SafeAccess.fromYaml(readFileSync("./config/base.yaml", "utf8"));
+const override = SafeAccess.fromYaml(
+    readFileSync(`./config/${process.env.NODE_ENV}.yaml`, "utf8"),
+);
+
+// Deep-merge: chaves do override sobrescrevem, o restante é preservado
+const config = base.merge(override.all());
+
+config.get("database.host"); // valor final mesclado
+config.get("app.name"); // preservado da config base
+```

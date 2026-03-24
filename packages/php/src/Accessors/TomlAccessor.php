@@ -15,6 +15,7 @@ use SafeAccessInline\Exceptions\InvalidFormatException;
  *
  * @example
  * SafeAccess::fromToml($tomlString)->get('database.host');
+ * @extends AbstractAccessor<array<mixed>>
  */
 class TomlAccessor extends AbstractAccessor
 {
@@ -38,6 +39,10 @@ class TomlAccessor extends AbstractAccessor
         return new static($data, $readonly); // @phpstan-ignore new.static
     }
 
+    /**
+     * @param mixed $raw
+     * @return array<mixed>
+     */
     protected function parse(mixed $raw): array
     {
         assert(is_string($raw));
@@ -47,20 +52,33 @@ class TomlAccessor extends AbstractAccessor
         }
 
         try {
-            if (!class_exists(Toml::class)) {
+            if (!$this->hasTomlLibrary()) {
                 throw new InvalidFormatException(
                     'TOML support requires devium/toml. Install it via: composer require devium/toml'
                 );
             }
             $decoded = Toml::decode($raw);
-            $json = json_encode($decoded);
 
-            return (array) json_decode($json !== false ? $json : '{}', true);
+            // devium/toml returns stdClass; convert the full structure to an
+            // associative array using a JSON pass-through to handle nesting.
+            $json = json_encode($decoded);
+            $result = json_decode($json !== false ? $json : '{}', true);
+
+            return is_array($result) ? $result : [];
         } catch (\Throwable $e) {
             throw new InvalidFormatException(
                 'TomlAccessor failed to parse TOML string: ' . $e->getMessage(),
                 previous: $e,
             );
         }
+    }
+
+    /**
+     * Returns true when the devium/toml library is available; extracted so tests can override.
+     * @return bool
+     */
+    protected function hasTomlLibrary(): bool
+    {
+        return class_exists(Toml::class);
     }
 }

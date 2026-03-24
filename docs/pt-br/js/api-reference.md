@@ -8,8 +8,10 @@ outline: deep
 
 - [Facade SafeAccess](#facade-safeaccess)
 - [Métodos de Instância do Accessor](#metodos-de-instancia-do-accessor)
-
-**Ver também:**
+- [Desempenho: Caminhos Compilados](#desempenho-caminhos-compilados)
+- [Tipos de I/O](#tipos-de-io)
+- [Funções Utilitárias de Segurança](#funcoes-utilitarias-de-seguranca)
+  **Ver também:**
 
 - [API — Operações & I/O](/pt-br/js/api-features)
 - [API — Tipos & Internos](/pt-br/js/api-types)
@@ -80,14 +82,6 @@ Cria um accessor a partir de uma string INI.
 const accessor = SafeAccess.fromIni("[section]\nkey = value");
 ```
 
-#### `SafeAccess.fromCsv(data: string, options?: { readonly?: boolean }): CsvAccessor`
-
-Cria um accessor a partir de uma string CSV (primeira linha = cabeçalhos).
-
-```typescript
-const accessor = SafeAccess.fromCsv("name,age\nAna,30");
-```
-
 #### `SafeAccess.fromEnv(data: string, options?: { readonly?: boolean }): EnvAccessor`
 
 Cria um accessor a partir de uma string no formato `.env`.
@@ -108,7 +102,7 @@ const accessor = SafeAccess.fromNdjson('{"id":1}\n{"id":2}');
 
 Fábrica unificada — cria um accessor a partir de qualquer dado. Com uma string de formato ou um valor do enum `Format`, delega para a fábrica tipada correspondente. Sem formato, detecta automaticamente (equivalente a `detect()`).
 
-Formatos suportados: `'array'`, `'object'`, `'json'`, `'xml'`, `'yaml'`, `'toml'`, `'ini'`, `'csv'`, `'env'`, ou qualquer nome customizado registrado via `extend()`. Todos os formatos built-in também estão disponíveis como membros do enum `Format`.
+Formatos suportados: `'array'`, `'object'`, `'json'`, `'xml'`, `'yaml'`, `'toml'`, `'ini'`, `'env'`, `'ndjson'`. Todos os formatos built-in também estão disponíveis como membros do enum `Format`.
 
 Os overloads TypeScript preservam o tipo de retorno específico para cada formato conhecido — tanto string literals quanto valores do enum `Format` são totalmente tipados.
 
@@ -127,13 +121,9 @@ const json2 = SafeAccess.from('{"name": "Ana"}', Format.Json);
 const yaml2 = SafeAccess.from("name: Ana", Format.Yaml);
 const xml = SafeAccess.from("<root><n>1</n></root>", Format.Xml);
 const arr = SafeAccess.from([1, 2, 3], Format.Array);
-
-// Formato customizado (apenas string)
-SafeAccess.extend("custom", MyAccessor);
-const custom = SafeAccess.from(data, "custom");
 ```
 
-Lança `InvalidFormatError` se o formato for desconhecido e não estiver registrado.
+Lança `InvalidFormatError` se o formato for desconhecido.
 
 #### `SafeAccess.detect(data: unknown): AbstractAccessor`
 
@@ -146,22 +136,6 @@ const accessor = SafeAccess.detect({ key: "value" }); // ObjectAccessor
 const fromJson = SafeAccess.detect('{"name": "Ana"}'); // JsonAccessor
 const fromXml = SafeAccess.detect("<root><name>Ana</name></root>"); // XmlAccessor
 const fromYaml = SafeAccess.detect("name: Ana\nage: 30"); // YamlAccessor
-```
-
-#### `SafeAccess.extend(name: string, cls: Constructor): void`
-
-Registra uma classe accessor customizada.
-
-```typescript
-SafeAccess.extend("custom", MyAccessor);
-```
-
-#### `SafeAccess.custom(name: string, data: unknown): AbstractAccessor`
-
-Instancia um accessor customizado previamente registrado.
-
-```typescript
-const accessor = SafeAccess.custom("custom", data);
 ```
 
 ---
@@ -194,6 +168,16 @@ accessor.getMany({
     "user.email": "N/A",
 });
 // { 'user.name': 'Ana', 'user.email': 'N/A' }
+```
+
+#### `getWildcard<T = unknown>(path: string, defaultValue?: T[]): T[]`
+
+Wrapper de conveniência para caminhos com wildcard — sempre retorna um array tipado. Equivalente a chamar `get()` com um caminho contendo `*` ou `.**`, mas com garantia explícita de retorno como array tipado.
+
+```typescript
+accessor.getWildcard("users.*.name"); // ['Alice', 'Bob', 'Charlie']
+accessor.getWildcard("items.*.price", []); // [] se caminho não encontrado
+accessor.getWildcard<number>("prices.*", [0]); // [1.99, 2.49, 3.00]
 ```
 
 #### `has(path: string): boolean`
@@ -234,7 +218,7 @@ Verifica se um caminho existe usando um array de segmentos.
 
 Retorna o tipo normalizado do valor no caminho dado, ou `null` se o caminho não existir.
 
-Valores possíveis: `"string"`, `"number"`, `"bool"`, `"object"`, `"array"`, `"null"`, `"undefined"`.
+Valores possíveis: `"string"`, `"number"`, `"bool"`, `"object"`, `"array"`, `"null"`.
 
 ```typescript
 accessor.type("name"); // "string"
@@ -320,18 +304,24 @@ Remove um caminho usando um array de segmentos. Retorna uma **nova instância**.
 
 Retorna uma cópia rasa dos dados. Intenção semântica: "converter para formato array/objeto". Atualmente idêntico a `all()`, mas semanticamente distinto para extensibilidade futura.
 
-#### `toJson(pretty?: boolean): string`
+#### `toJson(pretty?: boolean, options?: ToJsonOptions): string`
 
 Converte para string JSON.
 
 ```typescript
 accessor.toJson(); // compacto
 accessor.toJson(true); // formatado com indentação de 2 espaços
+
+// Com ToJsonOptions
+import type { ToJsonOptions } from "@safe-access-inline/safe-access-inline";
+
+const opts: ToJsonOptions = {
+    unescapeUnicode: true, // \u00e9 → é
+    unescapeSlashes: true, // \/ → /
+    space: 2, // indentar com 2 espaços
+};
+accessor.toJson(true, opts);
 ```
-
-#### `toObject(): Record<string, unknown>`
-
-Retorna um deep clone dos dados (via `structuredClone`).
 
 #### `toYaml(): string`
 
@@ -375,47 +365,58 @@ Serializa os dados para JSON delimitado por linhas. Cada item de array de nível
 accessor.toNdjson(); // '{"id":1}\n{"id":2}'
 ```
 
-#### `toCsv(csvMode?: 'none' | 'prefix' | 'strip' | 'error'): string`
+### Readonly
 
-Serializa os dados para formato CSV. O parâmetro opcional `csvMode` controla a sanitização de injeção CSV.
+Todos os métodos factory (`fromJson`, `fromArray`, etc.) aceitam `{ readonly: true }` para criar um accessor que lança `ReadonlyViolationError` em qualquer mutação. Você também pode congelar uma instância existente em tempo de execução.
 
-```typescript
-accessor.toCsv(); // padrão: sem sanitização
-accessor.toCsv("strip"); // remove caracteres iniciais perigosos
-```
+#### `freeze(): AbstractAccessor`
 
-#### `transform(format: string): string`
-
-Serializa os dados para qualquer formato que tenha um plugin serializer registrado. Lança `UnsupportedTypeError` se nenhum serializer for encontrado para o formato dado.
+Retorna uma cópia congelada deste accessor. Todas as operações de escrita subsequentes lançarão `ReadonlyViolationError`.
 
 ```typescript
-accessor.transform("yaml"); // usa serializer 'yaml' registrado
-accessor.transform("csv"); // usa serializer 'csv' registrado
-```
+const frozen = accessor.freeze();
+frozen.set("key", "value"); // lança ReadonlyViolationError
 
-### Segurança & Validação
-
-#### `masked(patterns?: MaskPattern[]): AbstractAccessor`
-
-Retorna uma **nova instância** com valores sensíveis mascarados. Sem patterns, auto-detecta chaves sensíveis comuns (password, secret, token, api_key, etc.). Com patterns, mascara adicionalmente chaves que correspondem aos padrões wildcard.
-
-```typescript
-const safe = accessor.masked(); // auto-mascara chaves comuns
-const custom = accessor.masked(["api_*", "credentials"]); // padrões customizados
-```
-
-#### `validate<TSchema>(schema: TSchema, adapter?: SchemaAdapterInterface): this`
-
-Valida os dados contra um schema usando o adapter fornecido (ou o adapter padrão definido via `SchemaRegistry`). Retorna `this` se válido; lança `SchemaValidationError` se inválido.
-
-```typescript
-import { SchemaRegistry } from "@safe-access-inline/safe-access-inline";
-
-// Registrar um adapter de schema padrão (ex: Zod)
-SchemaRegistry.setDefaultAdapter(myZodAdapter);
-
-// Validar inline
-accessor.validate(mySchema);
+// Via opções do factory
+const ro = SafeAccess.fromJson('{"key":"value"}', { readonly: true });
+ro.set("key", "new"); // lança ReadonlyViolationError
 ```
 
 ---
+
+## Reset de Estado Global
+
+#### `SafeAccess.resetAll(): void`
+
+Reseta **todo** o estado estático global de uma vez: o registry de plugins padrão, o cache de caminhos e qualquer política de segurança configurada globalmente.
+
+```typescript
+import { SafeAccess } from "@safe-access-inline/safe-access-inline";
+
+afterEach(() => {
+    SafeAccess.resetAll();
+});
+```
+
+**Quando usar:** No teardown da suíte de testes, quando múltiplos subsistemas foram configurados globalmente e é necessário um estado completamente limpo entre os casos de teste.
+
+---
+
+## Funções Utilitárias de Segurança
+
+### `sanitizeHeaders()`
+
+```typescript
+import { sanitizeHeaders } from "@safe-access-inline/safe-access-inline";
+
+function sanitizeHeaders(
+    headers: Record<string, string> | null | undefined,
+): Record<string, string>;
+```
+
+Sanitiza headers HTTP antes do uso em requisições de saída:
+
+- Nomes de header são convertidos para minúsculas e validados contra os caracteres de token RFC 7230; nomes inválidos são descartados.
+- Valores de header têm sequências CRLF e caracteres de controle removidos (prevenção de injeção de headers).
+- Retorna um novo registro — a entrada não é mutada.
+- `null` / `undefined` retorna `{}`.

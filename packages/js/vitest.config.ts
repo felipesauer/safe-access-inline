@@ -4,6 +4,7 @@ export default defineConfig({
     test: {
         globals: true,
         setupFiles: ['./tests/setup.ts'],
+        exclude: ['**/node_modules/**', '**/.stryker-tmp/**'],
         coverage: {
             provider: 'v8',
             reporter: ['text', 'lcov', 'clover'],
@@ -13,7 +14,7 @@ export default defineConfig({
                 'src/contracts/**',
                 'src/types/**',
                 'src/enums/**',
-                'src/core/parser-config.ts',
+                'src/core/config/parser-config.ts',
             ],
             thresholds: {
                 lines: 100,
@@ -22,5 +23,12 @@ export default defineConfig({
                 statements: 100,
             },
         },
+        typecheck: {
+            enabled: true,
+            include: ['tests/**/*.test-d.ts'],
+        },
+    },
+    benchmark: {
+        outputFile: './bench-results.json',
     },
 });

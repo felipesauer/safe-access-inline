@@ -13,6 +13,7 @@ use SafeAccessInline\Exceptions\InvalidFormatException;
  *
  * Example:
  *   "APP_KEY=secret\nDEBUG=true\n# comment" → ['APP_KEY' => 'secret', 'DEBUG' => 'true']
+ * @extends AbstractAccessor<array<mixed>>
  */
 class EnvAccessor extends AbstractAccessor
 {
@@ -37,6 +38,10 @@ class EnvAccessor extends AbstractAccessor
         return new static($data, $readonly); // @phpstan-ignore new.static
     }
 
+    /**
+     * @param mixed $raw
+     * @return array<mixed>
+     */
     protected function parse(mixed $raw): array
     {
         assert(is_string($raw));

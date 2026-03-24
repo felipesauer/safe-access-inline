@@ -13,6 +13,7 @@ export function handleKeys(rest: string[], io: CliIO): number {
         return 1;
     }
     const accessor = loadFromStdinOrFile(rest[0], undefined, io.readFileSync);
+    // Stryker disable next-line ConditionalExpression -- equivalent: accessor.keys(undefined) === accessor.keys()
     const keys = rest.length >= 2 ? accessor.keys(rest[1]) : accessor.keys();
     io.stdout.write(keys.join("\n") + "\n");
     return 0;

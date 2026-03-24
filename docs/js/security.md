@@ -2,204 +2,165 @@
 outline: deep
 ---
 
-# Security & Integrations — JavaScript / TypeScript
+# Security — JavaScript / TypeScript
 
 ## Table of Contents
 
-- [Security \& Integrations — JavaScript / TypeScript](#security--integrations--javascript--typescript)
-    - [Table of Contents](#table-of-contents)
-    - [Security](#security)
-        - [SecurityPolicy](#securitypolicy)
-        - [Data masking](#data-masking)
-        - [Readonly \& Deep Freeze](#readonly--deep-freeze)
-    - [Schema Validation](#schema-validation)
-    - [Audit Logging](#audit-logging)
-    - [Framework Integrations](#framework-integrations)
-        - [NestJS](#nestjs)
-        - [Vite](#vite)
+- [SecurityPolicy](#securitypolicy)
+- [Global Policy](#global-policy)
+- [Readonly Accessors](#readonly-accessors)
+- [Deep Freeze & Prototype Pollution](#deep-freeze--prototype-pollution)
 
 ---
 
-## Security
+## SecurityPolicy
 
-### SecurityPolicy
+A `SecurityPolicy` object applies a set of constraints to any parse or load operation. All fields are optional — omit any you don't need.
 
 ```typescript
-import {
-    SecurityPolicy,
-    defaultPolicy,
-    mergePolicy,
-    STRICT_POLICY,
-    PERMISSIVE_POLICY,
-    setGlobalPolicy,
-    clearGlobalPolicy,
-    getGlobalPolicy,
-} from "@safe-access-inline/safe-access-inline";
+import { SafeAccess } from "@safe-access-inline/safe-access-inline";
+import type { SecurityPolicy } from "@safe-access-inline/safe-access-inline";
 
-const policy: SecurityPolicy = mergePolicy(defaultPolicy, {
+const policy: SecurityPolicy = {
     maxDepth: 128,
-    maxPayloadBytes: 1_048_576,
+    maxPayloadBytes: 1_048_576, // 1 MB
+    maxKeys: 5_000,
     allowedDirs: ["/app/config"],
-    url: { allowedHosts: ["api.example.com"] },
-    csvMode: "strip",
-    maskPatterns: ["password", /.*_token/],
-});
+};
 
-// Load with policy
+// Apply to a string payload
 const accessor = SafeAccess.withPolicy(jsonString, policy);
-const fromFile = SafeAccess.fromFileWithPolicy("/app/config.json", policy);
-const fromUrl = await SafeAccess.fromUrlWithPolicy(
-    "https://api.example.com/config.json",
-    policy,
-);
 ```
 
-#### Policy Presets
+### Policy field reference
 
-Two built-in presets are available:
+| Field             | Type       | Default      | Protects against                                      |
+| ----------------- | ---------- | ------------ | ----------------------------------------------------- |
+| `maxDepth`        | `number`   | `128`        | Deeply nested objects that trigger stack overflows    |
+| `maxPayloadBytes` | `number`   | `10_485_760` | Memory exhaustion from oversized payloads             |
+| `maxKeys`         | `number`   | `10_000`     | Objects with millions of keys consuming excessive RAM |
+| `allowedDirs`     | `string[]` | `[]`         | Path-traversal attacks in file-loading operations     |
 
-- **`STRICT_POLICY`** — restrictive limits suitable for untrusted input
-- **`PERMISSIVE_POLICY`** — relaxed limits for trusted environments
+### When a policy violation is detected
 
-```typescript
-const accessor = SafeAccess.withPolicy(data, STRICT_POLICY);
-```
-
-#### Global Policy
-
-Set a global policy that applies as the default for all operations:
-
-```typescript
-setGlobalPolicy(STRICT_POLICY);
-const current = getGlobalPolicy(); // SecurityPolicy | undefined
-clearGlobalPolicy();
-
-// Or via SafeAccess facade
-SafeAccess.setGlobalPolicy(STRICT_POLICY);
-SafeAccess.clearGlobalPolicy();
-```
-
-### Data masking
-
-```typescript
-const accessor = SafeAccess.fromObject({
-    user: "Ana",
-    password: "s3cret",
-    api_key: "abc-123",
-});
-
-const safe = accessor.masked();
-safe.get("password"); // '[REDACTED]'
-safe.get("api_key"); // '[REDACTED]'
-safe.get("user"); // 'Ana'
-
-// Custom patterns
-const custom = accessor.masked(["custom_secret", /.*_token/]);
-```
-
-### Readonly & Deep Freeze
-
-```typescript
-// Readonly — throws ReadonlyViolationError on mutation
-const ro = SafeAccess.fromObject({ key: "value" }, { readonly: true });
-ro.get("key"); // 'value'
-ro.set("key", "new"); // throws ReadonlyViolationError
-
-// Deep freeze — prevents prototype pollution on the data object
-SafeAccess.deepFreeze(myObject);
-```
-
----
-
-## Schema Validation
-
-```typescript
-import { SchemaRegistry } from "@safe-access-inline/safe-access-inline";
-
-// Register a default adapter (implement SchemaAdapterInterface)
-SchemaRegistry.setDefaultAdapter(myAdapter);
-
-// Validate — throws SchemaValidationError on failure
-accessor.validate(schema);
-
-// Fluent chaining
-const name = accessor.validate(schema).get("name");
-```
-
----
-
-## Audit Logging
-
-```typescript
-const unsub = SafeAccess.onAudit((event) => {
-    // event = { type: 'file.read', timestamp: 1234567890.123, detail: {...} }
-    console.log(event.type, event.detail);
-});
-
-// Events: file.read, file.watch, url.fetch, security.violation,
-//         security.deprecation, data.mask, data.freeze, schema.validate
-
-// Clean up
-unsub();
-SafeAccess.clearAuditListeners();
-```
-
----
-
-## Framework Integrations
-
-### NestJS
+Violations throw a `SecurityError`:
 
 ```typescript
 import {
-    SafeAccessModule,
-    SAFE_ACCESS,
+    SafeAccess,
+    SecurityError,
 } from "@safe-access-inline/safe-access-inline";
+import type { SecurityPolicy } from "@safe-access-inline/safe-access-inline";
 
-// In your NestJS module
-@Module({
-    imports: [
-        SafeAccessModule.register({
-            filePath: "./config.yaml",
-            allowedDirs: ["./config"],
-        }),
-    ],
-})
-export class AppModule {}
+const policy: SecurityPolicy = { maxPayloadBytes: 128 }; // tiny limit for demo
 
-// Inject in a service
-@Injectable()
-export class ConfigService {
-    constructor(@Inject(SAFE_ACCESS) private config: AbstractAccessor) {}
+const bigJson = JSON.stringify({ data: "x".repeat(1000) });
 
-    getDbHost() {
-        return this.config.get("database.host");
+try {
+    SafeAccess.withPolicy(bigJson, policy);
+} catch (e) {
+    if (e instanceof SecurityError) {
+        console.error("Security constraint violated:", e.message);
+        // "Payload exceeds maximum allowed size"
     }
 }
 ```
 
-### Vite
+---
+
+## Global Policy
+
+Set a default policy that applies automatically to every operation without passing it explicitly each time:
+
+```typescript
+import { SafeAccess } from "@safe-access-inline/safe-access-inline";
+import type { SecurityPolicy } from "@safe-access-inline/safe-access-inline";
+
+const appPolicy: SecurityPolicy = {
+    maxDepth: 64,
+    maxPayloadBytes: 2_097_152, // 2 MB
+};
+
+// Install globally — applies to all subsequent operations
+SafeAccess.setGlobalPolicy(appPolicy);
+
+// These now respect the global policy automatically
+const a = SafeAccess.fromJson(largeJson);
+
+// Remove the global policy when no longer needed
+SafeAccess.clearGlobalPolicy();
+```
+
+---
+
+## Readonly Accessors
+
+Pass `{ readonly: true }` to any factory method to prevent all mutations. Any call to `set()`, `remove()`, `merge()`, or `freeze()` throws a `ReadonlyViolationError`:
 
 ```typescript
 import {
-    safeAccessPlugin,
-    loadConfig,
+    SafeAccess,
+    ReadonlyViolationError,
 } from "@safe-access-inline/safe-access-inline";
 
-// vite.config.ts
-export default defineConfig({
-    plugins: [
-        safeAccessPlugin({
-            files: ["./config/defaults.yaml", "./config/local.yaml"],
-            virtualId: "virtual:app-config", // optional, defaults to 'virtual:safe-access-config'
-        }),
-    ],
+const ro = SafeAccess.fromObject({ key: "value" }, { readonly: true });
+
+ro.get("key"); // "value" — reads always work
+
+try {
+    ro.set("key", "new");
+} catch (e) {
+    if (e instanceof ReadonlyViolationError) {
+        console.error("Cannot mutate a readonly accessor");
+    }
+}
+```
+
+You can also freeze an existing accessor at runtime:
+
+```typescript
+const accessor = SafeAccess.fromJson('{"config": {"debug": false}}');
+const frozen = accessor.freeze();
+
+frozen.get("config.debug"); // false
+frozen.set("config.debug", true); // throws ReadonlyViolationError
+accessor.set("config.debug", true); // still works — original is not frozen
+```
+
+---
+
+## Deep Freeze & Prototype Pollution
+
+`deepFreeze` recursively freezes an object using `Object.freeze`, preventing any code from adding or modifying properties including through prototype chains:
+
+```typescript
+import { deepFreeze } from "@safe-access-inline/safe-access-inline";
+
+const config = deepFreeze({
+    db: { host: "localhost", port: 5432 },
+    flags: { debug: true },
 });
 
-// In your app
-import config from "virtual:app-config";
-// config is a merged accessor from all files
-
-// Or load config manually
-const config2 = loadConfig(["./config/defaults.yaml", "./config/local.yaml"]);
+// Any mutation attempt is silently ignored in loose mode,
+// or throws a TypeError in strict mode
+config.db.host = "other"; // no-op (or TypeError in strict mode)
+(config as any).__proto__.polluted = true; // no-op
 ```
+
+### Why this matters
+
+Without freezing, a crafted JSON payload can pollute the prototype chain:
+
+```typescript
+// Without protection — dangerous:
+const payload = JSON.parse('{"__proto__": {"admin": true}}');
+const obj = Object.assign({}, payload);
+console.log(({} as any).admin); // true — prototype polluted!
+
+// With deepFreeze — safe:
+const safe = deepFreeze(JSON.parse('{"__proto__": {"admin": true}}'));
+const obj2 = Object.assign({}, safe);
+console.log(({} as any).admin); // undefined — prototype intact
+```
+
+> For XML XXE prevention (DOCTYPE/ENTITY blocking), the library applies it automatically on every `fromXml()` call — no configuration needed.

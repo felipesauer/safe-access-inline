@@ -1,6 +1,7 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { PluginRegistry } from '../../../../src/core/registries/plugin-registry';
 import { UnsupportedTypeError } from '../../../../src/exceptions/unsupported-type.error';
+import { DEFAULT_PLUGIN_REGISTRY_CONFIG } from '../../../../src/core/config/plugin-registry-config';
 import { SafeAccess } from '../../../../src/safe-access';
 import type {
     ParserPlugin,
@@ -8,6 +9,10 @@ import type {
 } from '../../../../src/core/registries/plugin-registry';
 
 beforeEach(() => {
+    PluginRegistry.reset();
+});
+
+afterEach(() => {
     PluginRegistry.reset();
 });
 
@@ -105,56 +110,6 @@ describe(PluginRegistry.name, () => {
         expect(PluginRegistry.getParser('toml').parse('')).toEqual({ format: 'toml' });
     });
 
-    // ── Serialization via AbstractAccessor ──
-
-    it('toYaml uses default js-yaml when no serializer registered', () => {
-        const accessor = SafeAccess.fromArray([1, 2]);
-        const result = accessor.toYaml();
-        expect(typeof result).toBe('string');
-    });
-
-    it('toXml uses built-in serializer when no plugin registered', () => {
-        const accessor = SafeAccess.fromArray([1, 2]);
-        const xml = accessor.toXml();
-        expect(xml).toContain('<?xml version="1.0"?>');
-        expect(xml).toContain('<root>');
-    });
-
-    it('toYaml uses registered serializer plugin', () => {
-        PluginRegistry.registerSerializer('yaml', {
-            serialize: (data) => `yaml:${JSON.stringify(data)}`,
-        });
-
-        const accessor = SafeAccess.fromObject({ key: 'value' });
-        expect(accessor.toYaml()).toBe('yaml:{"key":"value"}');
-    });
-
-    it('toXml uses registered serializer plugin', () => {
-        PluginRegistry.registerSerializer('xml', {
-            serialize: (data) => `<root>${JSON.stringify(data)}</root>`,
-        });
-
-        const accessor = SafeAccess.fromObject({ key: 'value' });
-        expect(accessor.toXml()).toBe('<root>{"key":"value"}</root>');
-    });
-
-    it('transform uses registered serializer plugin', () => {
-        PluginRegistry.registerSerializer('custom', {
-            serialize: (data) => `custom:${JSON.stringify(data)}`,
-        });
-
-        const accessor = SafeAccess.fromObject({ key: 'value' });
-        expect(accessor.transform('custom')).toBe('custom:{"key":"value"}');
-    });
-
-    it('transform throws for unregistered format', () => {
-        const accessor = SafeAccess.fromObject({ key: 'value' });
-        expect(() => accessor.transform('nonexistent')).toThrow(UnsupportedTypeError);
-        expect(() => accessor.transform('nonexistent')).toThrow(
-            "No serializer registered for format 'nonexistent'",
-        );
-    });
-
     // ── Parser plugin override for YAML/TOML ──
 
     it('YAML accessor uses registered parser plugin over built-in', () => {
@@ -189,5 +144,53 @@ describe(PluginRegistry.name, () => {
         const accessor = SafeAccess.fromToml('title = "Test"\nport = 8080');
         expect(accessor.get('title')).toBe('Test');
         expect(accessor.get('port')).toBe(8080);
+    });
+
+    // ── Registry size limits ──
+
+    it('throws RangeError when max parser limit is exceeded', () => {
+        for (let i = 0; i < DEFAULT_PLUGIN_REGISTRY_CONFIG.maxParsers; i++) {
+            PluginRegistry.registerParser(`format-${i}`, { parse: () => ({}) });
+        }
+        expect(() =>
+            PluginRegistry.registerParser('overflow-format', { parse: () => ({}) }),
+        ).toThrow(RangeError);
+        expect(() =>
+            PluginRegistry.registerParser('overflow-format', { parse: () => ({}) }),
+        ).toThrow(`Max parser plugins (${DEFAULT_PLUGIN_REGISTRY_CONFIG.maxParsers})`);
+    });
+
+    it('does not count overwrite of existing format toward parser limit', () => {
+        for (let i = 0; i < DEFAULT_PLUGIN_REGISTRY_CONFIG.maxParsers; i++) {
+            PluginRegistry.registerParser(`format-${i}`, { parse: () => ({}) });
+        }
+        // Re-registering an already-known format must not throw
+        expect(() =>
+            PluginRegistry.registerParser('format-0', { parse: () => ({ overwritten: true }) }),
+        ).not.toThrow();
+    });
+
+    it('throws RangeError when max serializer limit is exceeded', () => {
+        for (let i = 0; i < DEFAULT_PLUGIN_REGISTRY_CONFIG.maxSerializers; i++) {
+            PluginRegistry.registerSerializer(`format-${i}`, { serialize: () => '' });
+        }
+        expect(() =>
+            PluginRegistry.registerSerializer('overflow-format', { serialize: () => '' }),
+        ).toThrow(RangeError);
+        expect(() =>
+            PluginRegistry.registerSerializer('overflow-format', { serialize: () => '' }),
+        ).toThrow(`Max serializer plugins (${DEFAULT_PLUGIN_REGISTRY_CONFIG.maxSerializers})`);
+    });
+
+    it('does not count overwrite of existing format toward serializer limit', () => {
+        for (let i = 0; i < DEFAULT_PLUGIN_REGISTRY_CONFIG.maxSerializers; i++) {
+            PluginRegistry.registerSerializer(`format-${i}`, { serialize: () => '' });
+        }
+        // Re-registering an already-known format must not throw
+        expect(() =>
+            PluginRegistry.registerSerializer('format-0', {
+                serialize: () => 'overwritten',
+            }),
+        ).not.toThrow();
     });
 });

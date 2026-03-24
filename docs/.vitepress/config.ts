@@ -90,6 +90,35 @@ export default withMermaid(defineConfig({
             htmlLabels: true,
         },
     },
+
+    vite: {
+        build: {
+            // The Mermaid library (~2.5 MB minified) is the sole driver of the
+            // "chunk > 500 kB" warning. It has been isolated into its own chunk
+            // so it does not inflate the main app bundle. All large chunks are
+            // lazily loaded by VitePress on route navigation and do not affect
+            // the initial page-load performance.
+            chunkSizeWarningLimit: 2700,
+            rollupOptions: {
+                output: {
+                    manualChunks(id: string) {
+                        // Isolate Mermaid so it loads only on pages that use diagrams.
+                        if (id.includes("mermaid") || id.includes("@mermaid-js")) {
+                            return "vendor-mermaid";
+                        }
+                        // Isolate KaTeX to keep the main bundle leaner.
+                        if (id.includes("katex")) {
+                            return "vendor-katex";
+                        }
+                        // Separate PT-BR locale pages from the EN main bundle.
+                        if (id.includes("/pt-br/")) {
+                            return "docs-ptbr";
+                        }
+                    },
+                },
+            },
+        },
+    },
 }));
 
 /* ---------- English ---------- */
@@ -140,12 +169,12 @@ function sidebar() {
             text: "Introduction",
             items: [
                 { text: "What is Safe Access Inline?", link: "/guide/" },
-                { text: "Architecture", link: "/guide/architecture" },
             ],
         },
         {
             text: "JavaScript / TypeScript",
             items: [
+                { text: "Overview", link: "/js/" },
                 { text: "Getting Started", link: "/js/getting-started" },
                 { text: "Querying & Filtering", link: "/js/querying" },
                 { text: "Formats & TypeScript", link: "/js/formats" },
@@ -160,6 +189,7 @@ function sidebar() {
         {
             text: "PHP",
             items: [
+                { text: "Overview", link: "/php/" },
                 { text: "Getting Started", link: "/php/getting-started" },
                 { text: "Querying & Filtering", link: "/php/querying" },
                 { text: "Formats & Utilities", link: "/php/formats" },
@@ -212,6 +242,23 @@ function navPtBr() {
             ],
         },
         { text: "CLI", link: "/pt-br/cli/" },
+        {
+            text: "Links",
+            items: [
+                {
+                    text: "npm",
+                    link: "https://www.npmjs.com/package/@safe-access-inline/safe-access-inline",
+                },
+                {
+                    text: "Packagist",
+                    link: "https://packagist.org/packages/safe-access-inline/safe-access-inline",
+                },
+                {
+                    text: "Changelog",
+                    link: "https://github.com/felipesauer/safe-access-inline/blob/main/CHANGELOG.md",
+                },
+            ],
+        },
     ];
 }
 
@@ -230,6 +277,7 @@ function sidebarPtBr() {
         {
             text: "JavaScript / TypeScript",
             items: [
+                { text: "Visão Geral", link: "/pt-br/js/" },
                 { text: "Primeiros Passos", link: "/pt-br/js/getting-started" },
                 { text: "Consultas e Filtros", link: "/pt-br/js/querying" },
                 { text: "Formatos & TypeScript", link: "/pt-br/js/formats" },
@@ -244,6 +292,7 @@ function sidebarPtBr() {
         {
             text: "PHP",
             items: [
+                { text: "Visão Geral", link: "/pt-br/php/" },
                 { text: "Primeiros Passos", link: "/pt-br/php/getting-started" },
                 { text: "Consultas e Filtros", link: "/pt-br/php/querying" },
                 { text: "Formatos & Utilitários", link: "/pt-br/php/formats" },

@@ -7,6 +7,6 @@ export interface CacheConfig {
 }
 
 /** Sensible defaults for {@link CacheConfig}. */
-export const DEFAULT_CACHE_CONFIG: CacheConfig = {
+export const DEFAULT_CACHE_CONFIG: CacheConfig = Object.freeze({
     maxSize: 1000,
-};
+});

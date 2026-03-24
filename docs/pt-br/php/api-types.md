@@ -8,7 +8,6 @@ outline: deep
 
 - [PluginRegistry](#pluginregistry)
 - [PathCache](#pathcache)
-- [DotNotationParser](#dotnotationparser)
 - [Exceções](#exceções)
 - [Interfaces](#interfaces)
 - [Enums](#enums)
@@ -132,125 +131,107 @@ Verifica se o cache está atualmente habilitado.
 
 ---
 
-## DotNotationParser
-
-**Namespace:** `SafeAccessInline\Core\Parsers\DotNotationParser`
-
-Classe utilitária estática. Normalmente usada internamente, mas disponível para uso direto.
-
-#### `DotNotationParser::get(array $data, string $path, mixed $default = null): mixed`
-
-Suporta expressões de caminho avançadas:
-
-| Sintaxe           | Descrição                                                                     | Exemplo                 |
-| ----------------- | ----------------------------------------------------------------------------- | ----------------------- |
-| `a.b.c`           | Acesso a chave aninhada                                                       | `"user.profile.name"`   |
-| `a[0]`            | Índice com colchetes                                                          | `"items[0].title"`      |
-| `a.*`             | Wildcard — retorna array de valores                                           | `"users.*.name"`        |
-| `a[?field>value]` | Filtro — retorna itens correspondentes                                        | `"products[?price>20]"` |
-| `..key`           | Descida recursiva — coleta todos os valores de `key` em qualquer profundidade | `"..name"`              |
-
-**Expressões de filtro** suportam:
-
-- Comparação: `==`, `!=`, `>`, `<`, `>=`, `<=`
-- Lógicos: `&&` (AND), `\|\|` (OR)
-- Valores: números, `'strings'`, `true`, `false`, `null`
-
-```php
-// Filtro: todos os usuários admin
-DotNotationParser::get($data, "users[?role=='admin']");
-
-// Filtro com comparação numérica + continuação de caminho
-DotNotationParser::get($data, 'products[?price>20].name');
-
-// AND combinado
-DotNotationParser::get($data, "items[?type=='fruit' && color=='red'].name");
-
-// Descida recursiva: todos os valores "name" em qualquer profundidade
-DotNotationParser::get($data, '..name');
-
-// Descida + wildcard
-DotNotationParser::get($data, '..items.*.id');
-
-// Descida + filtro
-DotNotationParser::get($data, "..employees[?active==true].name");
-```
-
-#### `DotNotationParser::has(array $data, string $path): bool`
-
-#### `DotNotationParser::set(array $data, string $path, mixed $value): array`
-
-Retorna um novo array (não muta o input).
-
-#### `DotNotationParser::merge(array $data, string $path, array $value): array`
-
-Faz deep merge de `$value` em `$path`. Quando `$path` é vazio, mescla na raiz. Arrays associativos são mesclados recursivamente; outros valores são substituídos.
-
-```php
-$result = DotNotationParser::merge($data, 'user.settings', ['theme' => 'dark']);
-```
-
-#### `DotNotationParser::remove(array $data, string $path): array`
-
-Retorna um novo array (não muta o input).
-
-#### `DotNotationParser::renderTemplate(string $template, array $bindings): string`
-
-Renderiza placeholders `{key}` em um template de caminho.
-
-```php
-DotNotationParser::renderTemplate('users.{id}.name', ['id' => '42']);
-// 'users.42.name'
-```
-
----
-
 ## Exceções
 
-| Exceção                        | Quando                                                                                                                         |
-| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
-| `AccessorException`            | Classe base de exceção                                                                                                         |
-| `InvalidFormatException`       | Formato de input inválido (ex: JSON malformado, plugin parser ausente no nível do accessor)                                    |
-| `UnsupportedTypeException`     | `detect()` não consegue determinar formato; `PluginRegistry` não tem plugin registrado; `toXml()`/`transform()` sem serializer |
-| `PathNotFoundException`        | Reservado (não lançado por `get()`)                                                                                            |
-| `SecurityException`            | Tentativa de SSRF, path traversal, payload muito grande, chaves proibidas, CSV injection (modo `error`)                        |
-| `ReadonlyViolationException`   | Modificação de um accessor readonly (`set`, `remove`, `merge`, `push`, etc.)                                                   |
-| `SchemaValidationException`    | Validação de schema falhou — possui `getIssues(): SchemaValidationIssue[]` para informações detalhadas de erro                 |
-| `JsonPatchTestFailedException` | Operação `test` do JSON Patch falhou — valor no caminho não corresponde ao valor esperado                                      |
+| Exceção                      | Quando                                                                                                           |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `AccessorException`          | Classe base de exceção                                                                                           |
+| `InvalidFormatException`     | Formato de input inválido (ex: JSON malformado, plugin parser ausente no nível do accessor)                      |
+| `UnsupportedTypeException`   | `detect()` não consegue determinar formato; `PluginRegistry` não tem plugin registrado; `toXml()` sem serializer |
+| `PathNotFoundException`      | Reservado (não lançado por `get()`)                                                                              |
+| `SecurityException`          | Path traversal, payload muito grande, chaves proibidas                                                           |
+| `ReadonlyViolationException` | Modificação de um accessor readonly (`set`, `remove`, `merge`, `push`, etc.)                                     |
+
+### Capturando exceções
+
+```php
+use SafeAccessInline\SafeAccess;
+use SafeAccessInline\Exceptions\InvalidFormatException;
+use SafeAccessInline\Exceptions\SecurityException;
+use SafeAccessInline\Exceptions\ReadonlyViolationException;
+use SafeAccessInline\Exceptions\UnsupportedTypeException;
+
+// Formato inválido
+try {
+    SafeAccess::fromJson('{invalid json}');
+} catch (InvalidFormatException $e) {
+    echo 'Falha no parse: ' . $e->getMessage();
+}
+
+// Violação de política de segurança
+try {
+    $policy = new SecurityPolicy(maxDepth: 2);
+    SafeAccess::withPolicy($deeplyNested, $policy);
+} catch (SecurityException $e) {
+    echo 'Limite de segurança excedido: ' . $e->getMessage();
+}
+
+// Tentativa de mutação em accessor readonly
+try {
+    $ro = SafeAccess::fromObject(['key' => 'value'], readonly: true);
+    $ro->set('key', 'new'); // lança
+} catch (ReadonlyViolationException $e) {
+    echo 'O accessor é somente-leitura: ' . $e->getMessage();
+}
+
+// Plugin de serializer ausente
+try {
+    $accessor->toYaml();
+} catch (UnsupportedTypeException $e) {
+    echo 'Nenhum serializer registrado para yaml: ' . $e->getMessage();
+}
+```
 
 ---
 
 ## Interfaces
 
-| Interface                   | Métodos                                                                                                           |
-| --------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `ReadableInterface`         | `get()`, `getMany()`, `all()`                                                                                     |
-| `WritableInterface`         | `set()`, `merge()`, `remove()`                                                                                    |
-| `TransformableInterface`    | `toArray()`, `toJson()`, `toXml()`, `toYaml()`, `toToml()`, `toNdjson()`, `toObject()`, `transform()`             |
-| `AccessorInterface`         | Estende `ReadableInterface` + `TransformableInterface`, adiciona `from()`, `has()`, `type()`, `count()`, `keys()` |
-| `ParserPluginInterface`     | `parse()`                                                                                                         |
-| `SerializerPluginInterface` | `serialize()`                                                                                                     |
-| `SchemaAdapterInterface`    | `validate()`                                                                                                      |
+| Interface                   | Métodos                                                                                                                                                                     |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AccessorInterface`         | Contrato completo: `get()`, `getMany()`, `all()`, `set()`, `merge()`, `remove()`, `toArray()`, `toJson()`, serializadores, `from()`, `has()`, `type()`, `count()`, `keys()` |
+| `ParserPluginInterface`     | `parse()`                                                                                                                                                                   |
+| `SerializerPluginInterface` | `serialize()`                                                                                                                                                               |
 
 ---
 
 ## Enums
 
-### `AccessorFormat`
+### `Format`
 
-**Namespace:** `SafeAccessInline\Enums\AccessorFormat`
+**Namespace:** `SafeAccessInline\Enums\Format`
 
 Enum backed por string cobrindo todos os formatos built-in. Use como alternativa tipada a passar strings brutas para `SafeAccess::from()`.
 
-| Caso                     | Valor      |
-| ------------------------ | ---------- |
-| `AccessorFormat::Array`  | `'array'`  |
-| `AccessorFormat::Object` | `'object'` |
-| `AccessorFormat::Json`   | `'json'`   |
-| `AccessorFormat::Xml`    | `'xml'`    |
-| `AccessorFormat::Yaml`   | `'yaml'`   |
-| `AccessorFormat::Toml`   | `'toml'`   |
-| `AccessorFormat::Ini`    | `'ini'`    |
-| `AccessorFormat::Csv`    | `'csv'`    |
-| `AccessorFormat::Env`    | `'env'`    |
-| `AccessorFormat::Ndjson` | `'ndjson'` |
+| Caso             | Valor      |
+| ---------------- | ---------- |
+| `Format::Array`  | `'array'`  |
+| `Format::Object` | `'object'` |
+| `Format::Json`   | `'json'`   |
+| `Format::Xml`    | `'xml'`    |
+| `Format::Yaml`   | `'yaml'`   |
+| `Format::Toml`   | `'toml'`   |
+| `Format::Ini`    | `'ini'`    |
+| `Format::Env`    | `'env'`    |
+| `Format::Ndjson` | `'ndjson'` |
+
+### `SegmentType` <Badge type="warning" text="@internal" />
+
+::: warning @internal
+Este enum é um detalhe de implementação do parser de dot-notation. Não use em código de aplicação — a estrutura pode mudar em versões futuras.
+:::
+
+**Namespace:** `SafeAccessInline\Enums\SegmentType`
+
+Discriminador para os tipos de segmento produzidos pelo parser de dot-notation.
+
+| Caso                         | Valor             |
+| ---------------------------- | ----------------- |
+| `SegmentType::KEY`           | `'key'`           |
+| `SegmentType::INDEX`         | `'index'`         |
+| `SegmentType::WILDCARD`      | `'wildcard'`      |
+| `SegmentType::DESCENT`       | `'descent'`       |
+| `SegmentType::DESCENT_MULTI` | `'descent-multi'` |
+| `SegmentType::MULTI_INDEX`   | `'multi-index'`   |
+| `SegmentType::MULTI_KEY`     | `'multi-key'`     |
+| `SegmentType::FILTER`        | `'filter'`        |
+| `SegmentType::SLICE`         | `'slice'`         |

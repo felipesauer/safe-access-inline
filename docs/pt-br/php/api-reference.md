@@ -9,13 +9,12 @@ outline: deep
 - [Facade SafeAccess](#facade-safeaccess)
 - [Métodos de Instância do Accessor](#metodos-de-instancia-do-accessor)
     - [Leitura](#leitura)
+    - [Leitura Tipada](#leitura-tipada)
     - [Escrita (Imutável)](#escrita-imutavel)
-    - [Transformação](#transformacao)
-    - [Segurança & Validação](#seguranca-validacao)
     - [Readonly](#readonly)
-    - [Operações de Array (Imutável)](#operacoes-de-array-imutavel)
-    - [JSON Patch & Diff](#json-patch-diff)
     - [Acesso por Segmentos](#acesso-por-segmentos)
+    - [Depuração](#depuracao)
+    - [Wildcard Conveniente](#wildcard-conveniente)
 
 **Ver também:**
 
@@ -28,95 +27,101 @@ outline: deep
 
 ### Métodos Factory
 
-#### `SafeAccess::fromArray(array $data): ArrayAccessor`
+#### `SafeAccess::fromArray(array $data, bool $readonly = false): ArrayAccessor`
 
-Cria um accessor a partir de um array PHP.
+Cria um accessor a partir de um array PHP. Passe `true` como segundo argumento para criar um accessor somente leitura que lança `ReadonlyViolationException` em qualquer mutação.
 
 ```php
 $accessor = SafeAccess::fromArray(['name' => 'Ana', 'age' => 30]);
+$readonly = SafeAccess::fromArray(['key' => 'value'], true);
 ```
 
-#### `SafeAccess::fromObject(object $data): ObjectAccessor`
+#### `SafeAccess::fromObject(object $data, bool $readonly = false): ObjectAccessor`
 
 Cria um accessor a partir de um objeto PHP (stdClass ou qualquer objeto).
 
 ```php
 $accessor = SafeAccess::fromObject((object) ['name' => 'Ana']);
+$readonly = SafeAccess::fromObject($obj, true);
 ```
 
-#### `SafeAccess::fromJson(string $data): JsonAccessor`
+#### `SafeAccess::fromJson(string $data, bool $readonly = false): JsonAccessor`
 
 Cria um accessor a partir de uma string JSON.
 
 ```php
 $accessor = SafeAccess::fromJson('{"name": "Ana"}');
+$readonly = SafeAccess::fromJson('{"key": "value"}', true);
 ```
 
-#### `SafeAccess::fromXml(string|SimpleXMLElement $data): XmlAccessor`
+#### `SafeAccess::fromXml(string|SimpleXMLElement $data, bool $readonly = false): XmlAccessor`
 
 Cria um accessor a partir de uma string XML ou SimpleXMLElement.
 
 ```php
 $accessor = SafeAccess::fromXml('<root><name>Ana</name></root>');
+$readonly = SafeAccess::fromXml('<root/>', true);
 ```
 
-#### `SafeAccess::fromYaml(string $data): YamlAccessor`
+#### `SafeAccess::fromYaml(string $data, bool $readonly = false): YamlAccessor`
 
 Cria um accessor a partir de uma string YAML. Usa `ext-yaml` (se disponível) ou `symfony/yaml` por padrão. Se um plugin parser for registrado via `PluginRegistry`, o plugin tem prioridade.
 
 ```php
 $accessor = SafeAccess::fromYaml("name: Ana\nage: 30");
+$readonly = SafeAccess::fromYaml($yaml, true);
 ```
 
-#### `SafeAccess::fromToml(string $data): TomlAccessor`
+#### `SafeAccess::fromToml(string $data, bool $readonly = false): TomlAccessor`
 
 Cria um accessor a partir de uma string TOML. Usa `devium/toml` por padrão. Se um plugin parser for registrado via `PluginRegistry`, o plugin tem prioridade.
 
 ```php
 $accessor = SafeAccess::fromToml('name = "Ana"');
+$readonly = SafeAccess::fromToml($toml, true);
 ```
 
-#### `SafeAccess::fromIni(string $data): IniAccessor`
+#### `SafeAccess::fromIni(string $data, bool $readonly = false): IniAccessor`
 
 Cria um accessor a partir de uma string INI.
 
 ```php
 $accessor = SafeAccess::fromIni("[section]\nkey = value");
+$readonly = SafeAccess::fromIni($ini, true);
 ```
 
-#### `SafeAccess::fromCsv(string $data): CsvAccessor`
-
-Cria um accessor a partir de uma string CSV (primeira linha = cabeçalhos).
-
-```php
-$accessor = SafeAccess::fromCsv("name,age\nAna,30");
-```
-
-#### `SafeAccess::fromEnv(string $data): EnvAccessor`
+#### `SafeAccess::fromEnv(string $data, bool $readonly = false): EnvAccessor`
 
 Cria um accessor a partir de uma string no formato `.env`.
 
 ```php
 $accessor = SafeAccess::fromEnv("APP_NAME=MyApp\nDEBUG=true");
+$readonly = SafeAccess::fromEnv($env, true);
 ```
 
-#### `SafeAccess::fromNdjson(string $data): NdjsonAccessor`
+#### `SafeAccess::fromNdjson(string $data, bool $readonly = false): NdjsonAccessor`
 
 Cria um accessor a partir de uma string Newline Delimited JSON (NDJSON). Cada linha é parseada como um objeto JSON separado.
 
 ```php
 $accessor = SafeAccess::fromNdjson('{"id":1}' . "\n" . '{"id":2}');
 $accessor->get('0.id'); // 1
+$readonly = SafeAccess::fromNdjson($ndjson, true);
 ```
 
-#### `SafeAccess::from(mixed $data, string|AccessorFormat $format = ''): AbstractAccessor`
+```php
+$accessor = SafeAccess::fromNdjson('{"id":1}' . "\n" . '{"id":2}');
+$accessor->get('0.id'); // 1
+```
 
-Fábrica unificada — cria um accessor a partir de qualquer dado. Com uma string de formato ou um valor do enum `AccessorFormat`, delega para a fábrica tipada correspondente. Sem formato, detecta automaticamente (equivalente a `detect()`).
+#### `SafeAccess::from(mixed $data, string|Format $format = ''): AbstractAccessor`
 
-Formatos suportados: `'array'`, `'object'`, `'json'`, `'xml'`, `'yaml'`, `'toml'`, `'ini'`, `'csv'`, `'env'`, ou qualquer nome customizado registrado via `extend()`. Todos os formatos built-in também estão disponíveis como casos do enum `AccessorFormat`.
+Fábrica unificada — cria um accessor a partir de qualquer dado. Com uma string de formato ou um valor do enum `Format`, delega para a fábrica tipada correspondente. Sem formato, detecta automaticamente (equivalente a `detect()`).
+
+Formatos suportados: `'array'`, `'object'`, `'json'`, `'xml'`, `'yaml'`, `'toml'`, `'ini'`, `'env'`, `'ndjson'`. Todos os formatos built-in também estão disponíveis como casos do enum `Format`.
 
 ```php
-use SafeAccessInline\Enums\AccessorFormat;
+use SafeAccessInline\Enums\Format;
 
 // Auto-detecção (sem formato)
 $accessor = SafeAccess::from('{"name": "Ana"}'); // JsonAccessor
@@ -126,14 +131,12 @@ $json = SafeAccess::from('{"name": "Ana"}', 'json');   // JsonAccessor
 $yaml = SafeAccess::from("name: Ana", 'yaml');          // YamlAccessor
 
 // Formato explícito via enum
-$json = SafeAccess::from('{"name": "Ana"}', AccessorFormat::Json);    // JsonAccessor
-$yaml = SafeAccess::from("name: Ana", AccessorFormat::Yaml);           // YamlAccessor
-$xml  = SafeAccess::from('<root><n>1</n></root>', AccessorFormat::Xml); // XmlAccessor
-$arr  = SafeAccess::from(['a' => 1], AccessorFormat::Array);            // ArrayAccessor
+$json = SafeAccess::from('{"name": "Ana"}', Format::Json);    // JsonAccessor
+$yaml = SafeAccess::from("name: Ana", Format::Yaml);           // YamlAccessor
+$xml  = SafeAccess::from('<root><n>1</n></root>', Format::Xml); // XmlAccessor
+$arr  = SafeAccess::from(['a' => 1], Format::Array);            // ArrayAccessor
 
 // Formato customizado (apenas string)
-SafeAccess::extend('custom', MyAccessor::class);
-$custom = SafeAccess::from($data, 'custom');
 ```
 
 Lança `InvalidFormatException` se o formato for desconhecido e não estiver registrado.
@@ -148,80 +151,25 @@ Prioridade de detecção: array → SimpleXMLElement → object → string JSON 
 $accessor = SafeAccess::detect(['key' => 'value']); // ArrayAccessor
 ```
 
-#### `SafeAccess::extend(string $name, string $class): void`
+#### `SafeAccess::resetAll(): void`
 
-Registra uma classe accessor customizada.
-
-```php
-SafeAccess::extend('custom', MyAccessor::class);
-```
-
-#### `SafeAccess::custom(string $name, mixed $data): AbstractAccessor`
-
-Instancia um accessor customizado previamente registrado.
+Reseta **todo** o estado global de uma vez: política de segurança global e registry de plugins. Indicado para teardown de suite de testes quando múltiplos subsistemas foram configurados.
 
 ```php
-$accessor = SafeAccess::custom('custom', $data);
+afterEach(function (): void {
+    SafeAccess::resetAll();
+});
 ```
-
-#### `SafeAccess::fromFile(string $filePath, ?string $format = null, array $allowedDirs = [], bool $allowAnyPath = false): AbstractAccessor`
-
-Lê um arquivo do disco e cria o accessor apropriado. Auto-detecta o formato pela extensão do arquivo se `$format` for `null`. O parâmetro `$allowedDirs` restringe quais diretórios podem ser lidos (proteção contra path-traversal). Defina `$allowAnyPath = true` para ignorar restrições de diretório (use com cautela).
-
-```php
-$accessor = SafeAccess::fromFile('/etc/config.json');
-$accessor = SafeAccess::fromFile('/app/config.yaml', 'yaml');
-$accessor = SafeAccess::fromFile('/app/config.json', null, ['/app']);
-$accessor = SafeAccess::fromFile('/tmp/data.json', null, [], true); // caminho irrestrito
-```
-
-Lança `SecurityException` se o caminho estiver fora dos diretórios permitidos.
-
-#### `SafeAccess::fromUrl(string $url, ?string $format = null, array $options = []): AbstractAccessor`
-
-Busca uma URL (somente HTTPS, seguro contra SSRF) e retorna o accessor apropriado. Auto-detecta o formato pela extensão do caminho da URL.
-
-Opções: `allowPrivateIps` (bool), `allowedHosts` (string[]), `allowedPorts` (int[]).
-
-```php
-$accessor = SafeAccess::fromUrl('https://api.example.com/config.json');
-$accessor = SafeAccess::fromUrl('https://api.example.com/data', 'json', [
-    'allowedHosts' => ['api.example.com'],
-]);
-```
-
-Lança `SecurityException` em tentativas de SSRF, IPs privados, não-HTTPS ou hosts não permitidos.
 
 #### `SafeAccess::withPolicy(mixed $data, SecurityPolicy $policy): AbstractAccessor`
 
-Auto-detecta o formato e aplica limites de segurança da política (`maxPayloadBytes`, `maxKeys`, `maxDepth`). Também aplica padrões de máscara se presentes.
+Auto-detecta o formato e aplica limites de segurança da política (`maxPayloadBytes`, `maxKeys`, `maxDepth`, `allowedDirs`).
 
 ```php
 use SafeAccessInline\Security\Guards\SecurityPolicy;
 
-$policy = new SecurityPolicy(maskPatterns: ['password', 'secret']);
+$policy = new SecurityPolicy(maxDepth: 64, allowedDirs: ['/app/config']);
 $accessor = SafeAccess::withPolicy($jsonString, $policy);
-```
-
-#### `SafeAccess::fromFileWithPolicy(string $filePath, SecurityPolicy $policy): AbstractAccessor`
-
-Carrega um arquivo restrito aos `allowedDirs` da política.
-
-```php
-$policy = new SecurityPolicy(allowedDirs: ['/app/config']);
-$accessor = SafeAccess::fromFileWithPolicy('/app/config/app.json', $policy);
-```
-
-#### `SafeAccess::fromUrlWithPolicy(string $url, SecurityPolicy $policy): AbstractAccessor`
-
-Busca uma URL restrita pelas opções de URL da política.
-
-```php
-$policy = new SecurityPolicy(url: [
-    'allowedHosts' => ['api.example.com'],
-    'allowPrivateIps' => false,
-]);
-$accessor = SafeAccess::fromUrlWithPolicy('https://api.example.com/config.json', $policy);
 ```
 
 ---
@@ -254,16 +202,6 @@ $accessor->getMany([
     'user.email' => 'N/A',
 ]);
 // ['user.name' => 'Ana', 'user.email' => 'N/A']
-```
-
-#### `getTemplate(string $template, array $bindings, mixed $default = null): mixed`
-
-Resolve uma string de template substituindo as chaves de `$bindings` pelos seus valores, depois lê o caminho resultante no accessor.
-
-```php
-// O template usa placeholders {chave} resolvidos contra $bindings
-$accessor->getTemplate('users.{id}.name', ['id' => '0']); // 'Ana'
-$accessor->getTemplate('settings.{section}.{key}', ['section' => 'db', 'key' => 'host'], 'localhost');
 ```
 
 #### `has(string $path): bool`
@@ -314,6 +252,45 @@ Retorna todos os dados como array associativo. Intenção semântica: "me dê tu
 $accessor->all(); // ['name' => 'Ana', 'age' => 30, ...]
 ```
 
+### Leitura Tipada
+
+Métodos de conveniência que convertem o resultado para um tipo escalar PHP específico. Cada um retorna `$default` se o caminho não existir, e o valor convertido caso contrário.
+
+#### `getInt(string $path, int $default = 0): int`
+
+```php
+$accessor->getInt('user.age');        // (int) valor ou 0
+$accessor->getInt('score', -1);       // -1 se caminho ausente
+```
+
+#### `getBool(string $path, bool $default = false): bool`
+
+```php
+$accessor->getBool('feature.enabled');    // (bool) valor ou false
+$accessor->getBool('debug', true);        // true se caminho ausente
+```
+
+#### `getString(string $path, string $default = ''): string`
+
+```php
+$accessor->getString('user.name');         // (string) valor ou ''
+$accessor->getString('env', 'production'); // 'production' se caminho ausente
+```
+
+#### `getArray(string $path, array $default = []): array`
+
+```php
+$accessor->getArray('items');              // (array) valor ou []
+$accessor->getArray('tags', ['default']);  // ['default'] se caminho ausente
+```
+
+#### `getFloat(string $path, float $default = 0.0): float`
+
+```php
+$accessor->getFloat('price');      // (float) valor ou 0.0
+$accessor->getFloat('rate', 1.5);  // 1.5 se caminho ausente
+```
+
 ### Escrita (Imutável)
 
 #### `set(string $path, mixed $value): static`
@@ -354,18 +331,25 @@ $new = $accessor->remove('user.age');
 
 Converte dados para array PHP. Intenção semântica: "converter para formato array". Atualmente idêntico a `all()`, mas semanticamente distinto para extensibilidade futura.
 
-#### `toJson(int $flags = 0): string`
+#### `toJson(int|bool|array $flagsOrOptions = 0): string`
 
-Converte dados para string JSON.
+Converte dados para string JSON. Aceita três formas:
+
+| Tipo do argumento | Comportamento                                                            |
+| ----------------- | ------------------------------------------------------------------------ |
+| `int`             | Bitmask `JSON_*` bruto (ex: `JSON_PRETTY_PRINT`)                         |
+| `bool`            | `true` → `JSON_PRETTY_PRINT`; `false` → compacto                         |
+| `array`           | Opções nomeadas: `pretty`, `unescapeUnicode`, `unescapeSlashes`, `space` |
 
 ```php
-$accessor->toJson();                    // compacto
-$accessor->toJson(JSON_PRETTY_PRINT);   // formatado
+$accessor->toJson();                                     // compacto
+$accessor->toJson(JSON_PRETTY_PRINT);                    // bitmask (legado)
+$accessor->toJson(true);                                 // atalho para pretty
+$accessor->toJson(['pretty' => true]);                   // opção nomeada
+$accessor->toJson(['unescapeUnicode' => true]);           // mantém unicode
+$accessor->toJson(['unescapeSlashes' => true]);           // mantém barras
+$accessor->toJson(['pretty' => true, 'unescapeUnicode' => true]); // combinado
 ```
-
-#### `toObject(): stdClass`
-
-Converte dados para objeto stdClass.
 
 #### `toXml(string $rootElement = 'root'): string`
 
@@ -403,208 +387,14 @@ $accessor = SafeAccess::fromArray([['id' => 1], ['id' => 2]]);
 $accessor->toNdjson(); // '{"id":1}\n{"id":2}'
 ```
 
-#### `toCsv(?string $csvMode = null): string`
-
-Serializa os dados para formato CSV. O parâmetro opcional `$csvMode` controla a sanitização de injeção CSV: `'none'` (padrão), `'prefix'`, `'strip'`, ou `'error'`.
-
-```php
-$accessor->toCsv();          // padrão: sem sanitização
-$accessor->toCsv('strip');   // remove caracteres iniciais perigosos
-```
-
-#### `transform(string $format): string`
-
-Serializa dados para qualquer formato. Utiliza serializers embutidos para `yaml` e `toml` (sem necessidade de plugin). Outros formatos requerem um plugin serializer registrado; lança `UnsupportedTypeException` se nenhum for encontrado.
-
-```php
-// yaml e toml funcionam sem registro
-$accessor->transform('yaml');  // "name: Ana\nage: 30\n"
-$accessor->transform('toml');  // 'name = "Ana"\nage = 30\n'
-
-// Formatos customizados precisam de um plugin
-PluginRegistry::registerSerializer('csv', new MyCsvSerializer());
-$accessor->transform('csv');
-```
-
-### Segurança & Validação
-
-#### `masked(array $patterns = []): static`
-
-Retorna uma **nova instância** com dados sensíveis substituídos por `[REDACTED]`. Auto-detecta chaves comuns (password, token, secret, api_key, etc.). Padrões glob customizados podem ser fornecidos.
-
-```php
-$safe = $accessor->masked();
-$safe->get('database.password'); // '[REDACTED]'
-
-// Com padrões customizados
-$safe = $accessor->masked(['*_key', 'credentials.*']);
-```
-
-#### `validate(mixed $schema, ?SchemaAdapterInterface $adapter = null): static`
-
-Valida dados contra um schema. Usa o adapter padrão do `SchemaRegistry` se nenhum for fornecido. Lança `SchemaValidationException` em caso de falha. Retorna `$this` para encadeamento fluente.
-
-```php
-use SafeAccessInline\Core\Registries\SchemaRegistry;
-
-SchemaRegistry::setDefaultAdapter($myAdapter);
-$accessor->validate($schema)->get('name'); // encadeamento fluente
-
-// Com adapter explícito
-$accessor->validate($schema, new MySchemaAdapter());
-```
-
 ### Readonly
 
-O construtor de `AbstractAccessor` aceita `bool $readonly = false`. Quando `true`, todos os métodos de escrita (`set`, `remove`, `merge`, `push`, `pop`, etc.) lançam `ReadonlyViolationException`.
+O construtor de `AbstractAccessor` aceita `bool $readonly = false`. Quando `true`, todos os métodos de escrita (`set`, `remove`, `merge`, etc.) lançam `ReadonlyViolationException`.
 
 ```php
 $accessor = SafeAccess::fromArray(['key' => 'value']);
 $readonly = new \SafeAccessInline\Accessors\ArrayAccessor(['key' => 'value'], true);
 $readonly->set('key', 'new'); // lança ReadonlyViolationException
-```
-
-### Operações de Array (Imutável)
-
-Todas as operações de array retornam **novas instâncias** — o original nunca é mutado.
-
-#### `push(string $path, mixed ...$items): static`
-
-Adiciona itens ao final do array em `$path`.
-
-```php
-$new = $accessor->push('tags', 'php', 'safe');
-```
-
-#### `pop(string $path): static`
-
-Remove o último item do array em `$path`.
-
-```php
-$new = $accessor->pop('tags');
-```
-
-#### `shift(string $path): static`
-
-Remove o primeiro item do array em `$path`.
-
-```php
-$new = $accessor->shift('queue');
-```
-
-#### `unshift(string $path, mixed ...$items): static`
-
-Adiciona itens ao início do array em `$path`.
-
-```php
-$new = $accessor->unshift('queue', 'first');
-```
-
-#### `insert(string $path, int $index, mixed ...$items): static`
-
-Insere itens em um índice específico no array em `$path`. Suporta índices negativos.
-
-```php
-$new = $accessor->insert('items', 1, 'inserted');
-$new = $accessor->insert('items', -1, 'before-last');
-```
-
-#### `filterAt(string $path, callable $predicate): static`
-
-Filtra itens do array em `$path` usando um predicado `fn($value, $key): bool`.
-
-```php
-$new = $accessor->filterAt('users', fn($u) => $u['active'] === true);
-```
-
-#### `mapAt(string $path, callable $transform): static`
-
-Transforma cada item do array em `$path` usando `fn($value, $key): mixed`.
-
-```php
-$new = $accessor->mapAt('prices', fn($p) => $p * 1.1);
-```
-
-#### `sortAt(string $path, ?string $key = null, string $direction = 'asc'): static`
-
-Ordena o array em `$path`. Opcionalmente por uma sub-chave. Direção: `'asc'` ou `'desc'`.
-
-```php
-$sorted = $accessor->sortAt('users', 'name');
-$desc   = $accessor->sortAt('scores', null, 'desc');
-```
-
-#### `unique(string $path, ?string $key = null): static`
-
-Remove valores duplicados do array em `$path`. Opcionalmente desduplicar por uma sub-chave.
-
-```php
-$new = $accessor->unique('tags');
-$new = $accessor->unique('users', 'email');
-```
-
-#### `flatten(string $path, int $depth = 1): static`
-
-Achata arrays aninhados em `$path` por `$depth` níveis.
-
-```php
-$new = $accessor->flatten('matrix');        // 1 nível
-$new = $accessor->flatten('deep', PHP_INT_MAX); // totalmente achatado
-```
-
-#### `first(string $path, mixed $default = null): mixed`
-
-Retorna o primeiro elemento do array em `$path`.
-
-```php
-$accessor->first('items'); // primeiro item ou null
-```
-
-#### `last(string $path, mixed $default = null): mixed`
-
-Retorna o último elemento do array em `$path`.
-
-```php
-$accessor->last('items'); // último item ou null
-```
-
-#### `nth(string $path, int $index, mixed $default = null): mixed`
-
-Retorna o elemento no índice `$index`. Suporta índices negativos (`-1` = último).
-
-```php
-$accessor->nth('items', 0);    // primeiro
-$accessor->nth('items', -1);   // último
-$accessor->nth('items', 99, 'fallback'); // 'fallback'
-```
-
-### JSON Patch & Diff
-
-#### `diff(AbstractAccessor $other): array`
-
-Gera operações RFC 6902 JSON Patch representando as diferenças entre dois accessors.
-
-```php
-$a = SafeAccess::fromArray(['name' => 'Ana', 'age' => 30]);
-$b = SafeAccess::fromArray(['name' => 'Ana', 'age' => 31, 'city' => 'SP']);
-
-$ops = $a->diff($b);
-// [
-//   ['op' => 'replace', 'path' => '/age', 'value' => 31],
-//   ['op' => 'add', 'path' => '/city', 'value' => 'SP'],
-// ]
-```
-
-#### `applyPatch(array $ops): static`
-
-Aplica operações RFC 6902 JSON Patch. Suporta: `add`, `replace`, `remove`, `move`, `copy`, `test`. Retorna uma **nova instância**.
-
-```php
-$new = $accessor->applyPatch([
-    ['op' => 'replace', 'path' => '/name', 'value' => 'Updated'],
-    ['op' => 'add', 'path' => '/new_key', 'value' => 42],
-    ['op' => 'remove', 'path' => '/old_key'],
-]);
 ```
 
 ### Acesso por Segmentos
@@ -622,5 +412,18 @@ $accessor->getAt(['users', '0', 'name']); // travessia literal
 #### `setAt(array $segments, mixed $value): static`
 
 #### `removeAt(array $segments): static`
+
+---
+
+### Wildcard Conveniente
+
+#### `getWildcard(string $path, mixed $default = null): array`
+
+Wrapper de conveniência para caminhos wildcard — sempre retorna um `array`. Equivalente a chamar `get($path)` onde `$path` contém uma expressão `*` ou `.**`, mas explicitamente tipado para análise estática.
+
+```php
+$names = $accessor->getWildcard('users.*.name');   // ['Ana', 'Bob']
+$all   = $accessor->getWildcard('missing.*', []);   // [] (default)
+```
 
 ---

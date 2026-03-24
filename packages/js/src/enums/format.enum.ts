@@ -12,7 +12,6 @@ export enum Format {
     Yaml = 'yaml',
     Toml = 'toml',
     Ini = 'ini',
-    Csv = 'csv',
     Env = 'env',
     Ndjson = 'ndjson',
 }

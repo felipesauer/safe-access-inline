@@ -15,7 +15,7 @@ outline: deep
 
 ## Requirements
 
-- Node.js 24 or higher
+- Node.js 22 or higher
 - TypeScript 5.5+ (for TypeScript projects)
 
 ## Installation
@@ -23,6 +23,8 @@ outline: deep
 ```bash
 npm install @safe-access-inline/safe-access-inline
 ```
+
+> **Tree-shaking:** The package is marked with `"sideEffects": false` and ships dual ESM/CJS bundles. Modern ESM bundlers (Vite, Rollup, webpack 5+) will tree-shake unused code automatically.
 
 ## Basic Usage
 
@@ -99,7 +101,6 @@ const json = SafeAccess.detect('{"key": "value"}'); // JsonAccessor
 const accessor = SafeAccess.fromJson('{"name": "Ana", "age": 30}');
 
 accessor.toArray(); // { name: "Ana", age: 30 }
-accessor.toObject(); // deep clone as plain object
 accessor.toJson(); // '{"name":"Ana","age":30}'
 accessor.toJson(true); // pretty-printed JSON
 
@@ -107,10 +108,9 @@ accessor.toJson(true); // pretty-printed JSON
 accessor.toYaml(); // "name: Ana\nage: 30\n"
 accessor.toToml(); // 'name = "Ana"\nage = 30\n'
 accessor.toXml("person"); // uses built-in serializer (plugin can override)
-accessor.transform("yaml"); // delegates to toYaml() — no plugin needed
 ```
 
-> **Note:** `toYaml()`, `toToml()`, and `toXml()` work out of the box. `transform()` also falls back to built-in serializers for `yaml`, `toml`, and `csv`. For custom formats, register a serializer plugin via `PluginRegistry`.
+> **Note:** `toYaml()`, `toToml()`, and `toXml()` work out of the box. For custom formats, register a serializer plugin via `PluginRegistry`.
 
 ---
 
@@ -119,3 +119,31 @@ accessor.transform("yaml"); // delegates to toYaml() — no plugin needed
 YAML and TOML work out of the box using `js-yaml` and `smol-toml`. The Plugin System lets you override default parsers and serializers with custom implementations.
 
 See the [Plugin System](/js/plugins) page for full documentation, shipped plugins, custom examples, and testing utilities.
+
+---
+
+## Real-world Scenarios
+
+### Scenario 1 — Parse a `.env` file and build a typed config object
+
+```typescript
+import { SafeAccess } from "@safe-access-inline/safe-access-inline";
+import { readFileSync } from "node:fs";
+
+const raw = readFileSync(".env", "utf-8");
+const env = SafeAccess.fromEnv(raw);
+
+interface DbConfig {
+    host: string;
+    port: number;
+    name: string;
+}
+
+const db: DbConfig = {
+    host: env.get("DB_HOST", "localhost") as string,
+    port: parseInt(env.get("DB_PORT", "5432") as string, 10),
+    name: env.get("DB_NAME", "myapp") as string,
+};
+
+console.log(db); // { host: 'localhost', port: 5432, name: 'myapp' }
+```

@@ -1,7 +1,7 @@
 import { parseArgs } from "node:util";
 import {
     loadFromStdinOrFile,
-    formatOutput,
+    boolOpt,
     type CliIO,
 } from "../command-handlers.js";
 
@@ -16,16 +16,13 @@ export function handleRemove(rest: string[], io: CliIO): number {
     const { values, positionals } = parseArgs({
         args: rest,
         options: {
-            to: { type: "string" },
             pretty: { type: "boolean", default: false },
         },
         allowPositionals: true,
         strict: false,
     });
     if (positionals.length < 2) {
-        io.stderr.write(
-            "Usage: safe-access remove <file> <path> [--to <format>]\n",
-        );
+        io.stderr.write("Usage: safe-access remove <file> <path> [--pretty]\n");
         return 1;
     }
     const accessor = loadFromStdinOrFile(
@@ -34,12 +31,6 @@ export function handleRemove(rest: string[], io: CliIO): number {
         io.readFileSync,
     );
     const updated = accessor.remove(positionals[1]);
-    io.stdout.write(
-        formatOutput(
-            updated,
-            values.to as string | undefined,
-            values.pretty as boolean,
-        ) + "\n",
-    );
+    io.stdout.write(updated.toJson(boolOpt(values.pretty)) + "\n");
     return 0;
 }

@@ -104,3 +104,80 @@ $withMeta = $accessor->merge(['version' => '2.0', 'debug' => false]);
 $withMeta->get('version');   // '2.0'
 $withMeta->get('user.name'); // 'Ana' (preservado)
 ```
+
+---
+
+## Combinando Expressões de Path
+
+Encadeie slice, filtro e wildcard em um único path para consultas poderosas:
+
+```php
+$accessor = SafeAccess::fromArray([
+    'users' => [
+        ['name' => 'Ana',   'role' => 'admin', 'active' => true],
+        ['name' => 'Bob',   'role' => 'user',  'active' => false],
+        ['name' => 'Carol', 'role' => 'user',  'active' => true],
+        ['name' => 'Dave',  'role' => 'admin', 'active' => true],
+    ],
+]);
+
+// Slice + wildcard: usuários 1 a 3, extrair nomes
+$accessor->get('users.[1:3].*.name'); // ['Bob', 'Carol', 'Dave']
+
+// Filtro + wildcard: usuários ativos, extrair roles
+$accessor->get('users.[?(@.active==true)].*.role'); // ['admin', 'user']
+
+// Filtro + campo específico: nome dos admins
+$accessor->get('users.[?(@.role==\'admin\')].*.name'); // ['Ana', 'Dave']
+```
+
+## Paths Dinâmicos com `getTemplate()`
+
+Construa paths em tempo de execução com placeholders `{variavel}`:
+
+```php
+$template = 'users.{id}.profile.{field}';
+
+$name = $accessor->getTemplate($template, ['id' => '0', 'field' => 'name']);
+// equivalente a: $accessor->get('users.0.profile.name')
+
+// Múltiplas substituições em loop
+$fields = ['name', 'email', 'role'];
+$profile = [];
+
+foreach ($fields as $field) {
+    $profile[$field] = $accessor->getTemplate(
+        'users.{id}.{field}',
+        ['id' => '0', 'field' => $field],
+    );
+}
+// $profile = ['name' => 'Ana', 'email' => 'ana@example.com', 'role' => 'admin']
+```
+
+## Leituras em Lote com `getMany()`
+
+Leia vários paths de uma só vez, recebendo um array associativo de resultados:
+
+```php
+$config = SafeAccess::fromArray([
+    'database' => ['host' => 'localhost', 'port' => 5432, 'name' => 'mydb'],
+    'cache'    => ['host' => 'redis',     'port' => 6379],
+    'app'      => ['debug' => true,       'version' => '1.0'],
+]);
+
+$settings = $config->getMany([
+    'database.host' => 'localhost',
+    'database.port' => 5432,
+    'cache.host'    => 'redis',
+    'app.debug'     => false,
+    'app.version'   => '0.0',
+]);
+
+// $settings = [
+//   'database.host' => 'localhost',
+//   'database.port' => 5432,
+//   'cache.host'    => 'redis',
+//   'app.debug'     => true,
+//   'app.version'   => '1.0',
+// ]
+```

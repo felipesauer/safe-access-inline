@@ -9,7 +9,14 @@ use SafeAccessInline\Exceptions\InvalidFormatException;
 
 /**
  * Accessor for JSON strings.
- * Performs json_decode with strict validation.
+ *
+ * Decodes a JSON string into an associative array using `json_decode` with
+ * `JSON_THROW_ON_ERROR` semantics (wrapped in a humanised {@link InvalidFormatException}).
+ * An empty or non-object/array root (e.g. a bare JSON scalar) is safely normalised to `[]`.
+ *
+ * @example
+ * SafeAccess::fromJson($json)->get('user.name');
+ * @extends AbstractAccessor<array<mixed>>
  */
 class JsonAccessor extends AbstractAccessor
 {
@@ -32,6 +39,10 @@ class JsonAccessor extends AbstractAccessor
         return new static($data, $readonly); // @phpstan-ignore new.static
     }
 
+    /**
+     * @param mixed $raw
+     * @return array<mixed>
+     */
     protected function parse(mixed $raw): array
     {
         assert(is_string($raw));
