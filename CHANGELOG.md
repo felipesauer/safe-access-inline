@@ -16,19 +16,90 @@ Per-package changelogs are maintained automatically by [release-please](https://
 ### Documentation
 
 - **JS** — Fixed branch coverage to 100% (`XmlAccessor` — non-null assertion on always-captured regex group)
-- **PHP + JS** — Corrected `masked()` → `mask()` throughout all API reference and security docs
-- **PHP + JS** — Fixed `validate()` return type to `SchemaValidationResult`; removed incorrect "throws on failure" claim
-- **PHP + JS** — Fixed `streamCsv` / `streamNdjson` yield types to `ObjectAccessor` / `JsonAccessor`
-- **PHP** — Fixed `watchFile()` example to use returned `array{poll, stop}` instead of direct callable
-- **JS** — Fixed `defaultPolicy` references to call it as a function: `defaultPolicy()`
 - **PHP + JS** — Fixed CSV `'prefix'` mode description: prepends single quote `'`, not a tab
 - **JS** — Fixed `CsvMode.PREFIX` JSDoc to reflect single-quote prefix
 - **JS** — Fixed `deepFreeze` usage: exported standalone function, not a `SafeAccess` static method
 - **JS** — Removed `"undefined"` from `type()` possible return values
-- **PHP** — Added `maxPatternCacheSize` to `MaskerConfig` example
-- **JS** — Fixed `getGlobalPolicy()` return type comment: `SecurityPolicy | null`, not `| undefined`
 - **JS** — Added missing `getWildcard<T>` method to JS API reference
 - **JS** — Updated `toJson()` signature to include `options?: ToJsonOptions` parameter
+
+## [0.3.1] — 2026-03-19
+
+### Added
+
+- **JS** — `AuditEventType`, `Format`, `PatchOperationType`, and `SegmentType` enums
+- **JS** — Security subsystem under `src/security/` (SecurityPolicy, AuditEmitter, DataMasker, IpRangeChecker, CsvSanitizer, JsonSchemaAdapter)
+- **JS** — Core path-resolution and serialization classes extracted into dedicated modules
+- **JS** — `Config` interfaces replace hardcoded limits throughout
+- **JS** — Typed interfaces for audit events, filter expressions, and JSON Patch
+- **PHP** — `Config` classes replace hardcoded limits throughout
+- **PHP** — PHPStan extension stubs for `devium/toml` and `symfony/yaml`
+- **PHP** — Typed DTOs for structured data contracts
+- **PHP** — `AbstractPlugin` base class; `SimpleXmlSerializer` extracted
+- **PHP** — `PathResolver`, `SegmentParser`, and `TemplateRenderer` extracted
+- **PHP** — `FileLoadOptions` DTO adopted in `fromFile`, `watchFile`, and `layerFiles`
+- **PHP** — `AuditEventType`, `PatchOperationType`, and `SegmentType` enums
+- **CLI** — Dependency version range relaxed to allow any compatible version
+
+### Fixed
+
+- **PHP** — Added `strict_types=1` and PHPDoc to all accessor classes
+- **PHP** — Cleared all PHPStan baseline suppressions
+- **PHP** — Improved type safety in `JsonSchemaAdapter` and `SymfonyValidatorAdapter`
+
+## [0.3.0] — 2026-03-18
+
+### ⚠ BREAKING CHANGES
+
+- **JS** — `type()` now returns `"bool"` (was `"boolean"`) and `"null"` (was `"object"` for `null` values), aligning with the cross-language type vocabulary
+- **PHP** — `type()` now returns `"number"` (was `"integer"` / `"double"`), `"bool"` (was `"boolean"`), and `"null"` (was `"NULL"`), aligning with the cross-language type vocabulary
+
+### Added
+
+- **PHP** — `class_exists` guards in all optional-dependency plugins
+- **CLI** — TypeScript ESLint flat config; updated source and dependencies
+- **CLI** — `@types/node` added; TypeScript type errors resolved
+
+### Fixed
+
+- **JS** — Prototype pollution hardening in `DeepMerger`, `DotNotationParser`, `FilterParser`, and `JsonPatch`
+- **JS** — `match()` now guards against invalid regex and adds the Unicode flag
+- **JS** — SSRF block list extended (Oracle cloud metadata hostname)
+- **JS** — `emitAllowedDirs` audit event and post-fetch DNS rebinding guard added
+- **JS** — `security.violation` audit event emitted on CSV column count mismatch
+- **JS** — Audit listener errors are now isolated; watcher and Vite errors swallowed safely
+- **JS** — `RangeError` thrown on audit listener overflow instead of silent `console.warn`
+- **PHP** — Prototype pollution hardening in `DeepMerger`, `DotNotationParser`, `FilterParser`, and `JsonPatch`
+- **PHP** — `evalMatch` hardened against PCRE delimiter injection and ReDoS
+- **PHP** — Oracle cloud metadata hostname added to SSRF block list
+- **PHP** — `security.violation` audit event emitted when `allowedDirs` is unconfigured
+- **PHP** — PHPStan baseline regenerated (core profile, no optional deps)
+- **PHP + JS** — Custom accessor cap lowered to 50; `resetAll()` now clears them
+- **CLI** — `allowAnyPath` passed to `fromFileSync` for user-supplied paths
+
+### Performance Improvements
+
+- **JS** — Wildcard `RegExp` patterns cached in `DataMasker`; LRU eviction fixed in `PathCache`
+- **JS** — Eliminated `slice` allocations and `structuredClone` in `DotNotationParser`
+- **JS** — `TextEncoder` instance hoisted to module scope
+- **PHP** — Eliminated O(n²) `array_slice` allocations in `DotNotationParser`
+- **PHP** — Forbidden-key lookup replaced with hash map; LRU fixed in `PathCache`
+
+## [0.2.3] — 2026-03-17
+
+### Added
+
+- **JS** — Built-in JSON Schema validation adapter (`JsonSchemaAdapter`)
+- **JS** — `JsonPatchTestFailedError` exception class
+- **JS** — Optional-require utility for lazy peer-dependency loading
+- **JS** — Security policy, audit emitter, and feature wiring
+- **PHP** — `HttpClientInterface` and `CurlHttpClient`
+- **PHP** — `JsonPatchTestFailedException`
+- **PHP** — Security policy, audit logger, and JS feature parity
+
+### Fixed
+
+- **JS** — IPv4-mapped IPv6 hex pairs always parsed correctly in `assertSafeUrl`
 
 ## [0.2.2] — 2026-03-14
 
